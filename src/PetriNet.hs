@@ -13,7 +13,7 @@ type R             = Double
 -- | A description of a Petri Net
 data PetriNet = PetriNet
   { netIntialState :: Map StateId R
-    -- ^ Defines the states of the network, as well as theiry initial values.
+    -- ^ Defines the states of the network, as well as their initial values.
 
   , netTransitions  :: [Transition]
   }
@@ -29,7 +29,7 @@ data Transition = Transition
     -- ^ The key is the input state, and the value is the weight of this edge.
 
   , transitionOutputs :: Map StateId R
-    -- ^ The key is the input state, and the value is the weight of this edge.
+    -- ^ The key is the output state, and the value is the weight of this edge.
   }
 
 --------------------------------------------------------------------------------
