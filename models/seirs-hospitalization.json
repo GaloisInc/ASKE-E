@@ -1,0 +1,73 @@
+{
+  "states": {
+    "E": {
+      "state_variable": "E",
+      "initial_value": "0.0"
+    },
+    "I": {
+      "state_variable": "I",
+      "initial_value": "1.0"
+    },
+    "H": {
+      "state_variable": "H",
+      "initial_value": "0.0"
+    },
+    "R": {
+      "state_variable": "R",
+      "initial_value": "0.0"
+    },
+    "S": {
+      "state_variable": "S",
+      "initial_value": "500.0"
+    }
+  },
+  "events": {
+    "event_4": {
+      "rate": "\\beta * I * S / (S + I + E + R + H) - \\sigma * E",
+      "output_predicate": {
+        "transition_function": {
+          "E": "1.0"
+        }
+      }
+    },
+    "event_5": {
+      "rate": "\\gamma * I + \\gamma * H - \\nu * R",
+      "output_predicate": {
+        "transition_function": {
+          "R": "1.0"
+        }
+      }
+    },
+    "event_3": {
+      "rate": "-\\beta * I * S / (S + I + E + R + H) + \\nu * R",
+      "output_predicate": {
+        "transition_function": {
+          "S": "1.0"
+        }
+      }
+    },
+    "event_2": {
+      "rate": "\\sigma * E * (1.0 - pHosp) - \\gamma * I",
+      "output_predicate": {
+        "transition_function": {
+          "I": "1.0"
+        }
+      }
+    },
+    "event_1": {
+      "rate": "\\sigma * E * pHosp - \\gamma * H",
+      "output_predicate": {
+        "transition_function": {
+          "H": "1.0"
+        }
+      }
+    }
+  },
+  "constants": {
+    "\\nu": 0.4,
+    "\\beta": 0.8,
+    "\\sigma": 0.6,
+    "\\gamma": 0.333,
+    "pHosp": 0.2
+  }
+}

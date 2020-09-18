@@ -1,0 +1,46 @@
+{
+  "states": {
+    "S": {
+      "state_variable": "S",
+      "initial_value": "500.0"
+    },
+    "I": {
+      "state_variable": "I",
+      "initial_value": "1.0"
+    },
+    "R": {
+      "state_variable": "R",
+      "initial_value": "0.0"
+    }
+  },
+  "events": {
+    "event_1": {
+      "rate": "-\\beta * I * S / (S + I + R)",
+      "output_predicate": {
+        "transition_function": {
+          "S": "1.0"
+        }
+      }
+    },
+    "event_2": {
+      "rate": "\\beta * I * S / (S + I + R) - \\gamma * I",
+      "output_predicate": {
+        "transition_function": {
+          "I": "1.0"
+        }
+      }
+    },
+    "event_3": {
+      "rate": "\\gamma * I",
+      "output_predicate": {
+        "transition_function": {
+          "R": "1.0"
+        }
+      }
+    }
+  },
+  "constants": {
+    "\\beta": 0.8,
+    "\\gamma": 0.333
+  }
+}
