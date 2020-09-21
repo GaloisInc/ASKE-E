@@ -61,7 +61,7 @@
     "policy_days" : [37.0, 77.0, 137.0],
     "betas" : [0.0 , 0.1486983, 0.0717734],
     "contact_rate": 0.05
-  }
+  },
   "expressions": {
     "total_pop": "Susceptible + Infected + Recovered",
     "beta": "(AIR_time <= policy_days[0])*betas[0] + (AIR_time > policy_days[0] and AIR_time <= policy_days[1])*betas[1] + (AIR_time > policy_days[1])*betas[2] + gamma",
