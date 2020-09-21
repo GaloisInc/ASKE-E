@@ -1,0 +1,70 @@
+{
+  "states": {
+    "Susceptible": {
+      "state_variable": "Susceptible",
+      "initial_value": "s_Initial",
+      "metadata": {
+        "description": "Population of people who are susceptible to be infected"
+      }
+    },
+    "Infected": {
+      "state_variable": "Infected",
+      "initial_value": "i_Initial",
+      "metadata": {
+        "description": "Population of people who are infected"
+      }
+    },
+    "Recovered": {
+      "state_variable": "Recovered",
+      "initial_value": "r_Initial",
+      "metadata": {
+        "description": "Population of people who recovered (and have immunity now)"
+      }
+    }
+  },
+  "events": {
+    "Infect": {
+      "rate": "beta * (1 - contact_rate) * Susceptible * Infected / total_pop",
+      "input_predicate": {
+        "enabling_condition": "Susceptible > 0.0 and Infected > 0.0"
+      },
+      "output_predicate": {
+        "transition_function": {
+          "Susceptible": "-1.0",
+          "Infected": "1.0"
+        }
+      },
+      "metadata": {
+        "description": "Infection event which causes a healthy person to become infected"
+	}
+    },
+    "Cure": {
+      "rate": "gamma * Infected",
+      "input_predicate": {
+        "enabling_condition": "Infected > 0.0"
+      },
+      "output_predicate": {
+        "transition_function": {
+          "Infected": "-1.0",
+          "Recovered": "1.0"
+        }
+      },
+      "metadata": {
+        "description": "Cure event which causes an infected person to recover"
+	}
+    }
+  },
+  "constants": {
+    "s_Initial": 990.0,
+    "i_Initial": 10.0,
+    "r_Initial": 0.0,
+    "policy_days" : [37.0, 77.0, 137.0],
+    "betas" : [0.0 , 0.1486983, 0.0717734],
+    "contact_rate": 0.05
+  }
+  "expressions": {
+    "total_pop": "Susceptible + Infected + Recovered",
+    "beta": "(AIR_time <= policy_days[0])*betas[0] + (AIR_time > policy_days[0] and AIR_time <= policy_days[1])*betas[1] + (AIR_time > policy_days[1])*betas[2] + gamma",
+    "gamma": "1.0/14.0"
+  }
+}
