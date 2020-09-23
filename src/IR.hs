@@ -11,6 +11,7 @@ import           Data.Aeson ((.:))
 import qualified Data.Attoparsec.Text as Parse
 import qualified Data.Attoparsec.Combinator as Atto
 import           Control.Applicative(some)
+import           Control.Monad.Combinators.Expr as Expr
 import           Control.Monad.Fail(fail)
 
 -- NOTES
@@ -127,24 +128,73 @@ instance Aeson.FromJSON ModelExp where
             Parse.Partial cont -> fail "unexpected EOF"
             Parse.Done unconsumed exp -> pure exp
 
+
+-- parseExp :: Parse.Parser ModelExp
+-- parseExp =
+--   tok $ Atto.choice
+--     [ binop "+" Add
+--     , binop "-" Sub
+--     , binop "*" Mul
+--     , binop "/" Div
+--     , binop "<" LessThan
+--     , binop ">" GreaterThan
+--     , binop "<=" (\e1 e2 -> Not (GreaterThan e1 e2))
+--     , binop ">=" (\e1 e2 -> Not (LessThan e1 e2)) 
+--     , binop "and" And
+--     , binop "or" Or
+--     , unop "not" Not
+--     , unop "-" Neg
+--     , parseTerm
+--     , idx
+--     ]
+--   where
+--     parseTerm = do
+--       tok $ Atto.choice
+--         [ LitNum <$> tok Parse.double
+--         , Var . Text.pack <$> some identifierChar
+--         , litArray
+--         , parens
+--         ]
+      
+--     tok prs =
+--       do  Parse.skipSpace
+--           res <- prs
+--           Parse.skipSpace
+--           pure res
+
+--     binop op cns =
+--       do  e1 <- parseTerm
+--           _ <- tok $ Parse.string op
+--           e2 <- parseExp
+--           pure $ cns e1 e2
+
+--     unop op cns =
+--       do  _ <- tok $ Parse.string op
+--           e <- parseExp
+--           pure $ cns e
+
+--     litArray =
+--       do  _ <- tok $ Parse.char '['
+--           arr <- Parse.sepBy parseExp (tok $ Parse.char ',')
+--           _ <- tok $ Parse.char ']'
+--           pure $ LitList arr
+
+--     idx =
+--       do  arrExp <- parseTerm
+--           _ <- tok $ Parse.char '['
+--           idxExp <- parseExp
+--           _ <- tok $ Parse.char ']'
+--           pure $ Idx arrExp idxExp
+
+--     parens =
+--       do  _ <- tok $ Parse.char '('
+--           inner <- parseExp
+--           _ <- tok $ Parse.char ')'
+--           pure inner
+--     identifierChar = Parse.satisfy (Parse.inClass "A-Za-z0-9\\_")
+
 parseExp :: Parse.Parser ModelExp
-parseExp =
-  tok $ Atto.choice
-    [ binop "+" Add
-    , binop "-" Sub
-    , binop "*" Mul
-    , binop "/" Div
-    , binop "<" LessThan
-    , binop ">" GreaterThan
-    , binop "<=" (\e1 e2 -> Not (GreaterThan e1 e2))
-    , binop ">=" (\e1 e2 -> Not (LessThan e1 e2)) 
-    , binop "and" And
-    , binop "or" Or
-    , unop "not" Not
-    , unop "-" Neg
-    , parseTerm
-    , idx
-    ]
+parseExp = makeExprParser parseTerm opTable
   where
     parseTerm = do
       tok $ Atto.choice
@@ -153,23 +203,13 @@ parseExp =
         , litArray
         , parens
         ]
-      
+
     tok prs =
       do  Parse.skipSpace
           res <- prs
           Parse.skipSpace
           pure res
 
-    binop op cns =
-      do  e1 <- parseTerm
-          _ <- tok $ Parse.string op
-          e2 <- parseExp
-          pure $ cns e1 e2
-
-    unop op cns =
-      do  _ <- tok $ Parse.string op
-          e <- parseExp
-          pure $ cns e
 
     litArray =
       do  _ <- tok $ Parse.char '['
@@ -189,7 +229,13 @@ parseExp =
           inner <- parseExp
           _ <- tok $ Parse.char ')'
           pure inner
+
     identifierChar = Parse.satisfy (Parse.inClass "A-Za-z0-9\\_")
+    
+    opTable =
+      [ [ Expr.InfixL ((tok $ Parse.char '*') >> pure Mul) ] 
+      , [ Expr.InfixL ((tok $ Parse.char '+') >> pure Add) ] ]
+
 
 parseModelFile :: FilePath -> IO (Either String Model)
 parseModelFile f = do
