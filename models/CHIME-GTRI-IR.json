@@ -55,12 +55,12 @@
     }
   },
   "constants": {
-    "s_Initial": 990.0,
-    "i_Initial": 10.0,
-    "r_Initial": 0.0,
-    "policy_days" : [37.0, 77.0, 137.0],
-    "betas" : [0.0 , 0.1486983, 0.0717734],
-    "contact_rate": 0.05
+    "s_Initial": "990.0",
+    "i_Initial": "10.0",
+    "r_Initial": "0.0",
+    "policy_days" : "[37.0, 77.0, 137.0]",
+    "betas" : "[0.0 , 0.1486983, 0.0717734]",
+    "contact_rate": "0.05"
   },
   "expressions": {
     "total_pop": "Susceptible + Infected + Recovered",
