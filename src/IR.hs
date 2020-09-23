@@ -25,7 +25,7 @@ type Ident = Text
 data Model =
   Model { modelState       :: Map Ident ModelState 
         , modelEvents      :: Map Ident ModelEvent
-        , modelConstants   :: Map Ident Double
+        , modelConstants   :: Map Ident ModelExp
         , modelExpressions :: Map Ident ModelExp
         }
   deriving Show
@@ -62,7 +62,7 @@ data ModelInput =
 instance Aeson.FromJSON ModelInput where
   parseJSON = Aeson.withObject "input" $
     \v -> ModelInput <$>
-          v .: "enabling_predicate"  
+          v .: "enabling_condition"  
 
 
 data ModelOutput =
@@ -123,10 +123,9 @@ data ModelExp =
 
 instance Aeson.FromJSON ModelExp where
   parseJSON = Aeson.withText "exp" $
-    \t -> case Parse.parse parseExp t of
-            Parse.Fail unconsumed contexts err -> fail err
-            Parse.Partial cont -> fail "unexpected EOF"
-            Parse.Done unconsumed exp -> pure exp
+    \t -> case Parse.parseOnly parseExp t of
+            Left err -> fail err
+            Right exp -> pure exp
 
 
 data ModelValue =
@@ -281,18 +280,37 @@ mkInitSymbolTable :: Model -> Map Ident ModelExp
 mkInitSymbolTable mdl = Map.unions maps
   where
     maps =
-      [ LitNum <$> modelConstants mdl
+      [ modelConstants mdl
       , stateValue <$> modelState mdl
       , modelExpressions mdl
       ]
 
 runEvent :: ModelEvent -> Map Ident ModelExp -> Either String (Map Ident ModelExp)
 runEvent ev sym =
-  do  deltas <- evalToDouble sym `traverse` outputTransitionFunction (eventOuput ev)
+  do  deltaList <- computeDelta `traverse` (Map.toList $ outputTransitionFunction (eventOuput ev))
+      let deltas = Map.fromList deltaList
       pure (Map.union (LitNum <$> deltas) sym)
 
-enabledEvents :: Model -> Map Ident ModelExp -> Either String [ModelEvent]
-enabledEvents mdl syms = undefined
+  where
+    computeDelta (name, exp) = ((,) name) <$> evalToDouble sym (Add (Var name) exp)
+    
+
+enabledEvents :: Model -> Map Ident ModelExp -> Either String (Map Ident ModelEvent)
+enabledEvents mdl syms =
+  do  results <- traverse checkEnabled events
+      pure $ Map.mapMaybe id results
   where
     enablingPred = inputEnablingPredicate . eventInput
-    isEnabled evt = ((/=)0.0) <$> evalToDouble syms (enablingPred evt) 
+    checkEnabled evt =
+      do  ise <- ((/=)0.0) <$> evalToDouble syms (enablingPred evt)
+          pure $ if ise then Just evt else Nothing
+    events = modelEvents mdl
+
+test =
+  do  Right m <- parseModelFile "models/CHIME-GTRI-IR.json"
+      let table = mkInitSymbolTable m
+          Just evt = Map.lookup "Infect" (modelEvents m)
+          Right table' = runEvent evt table
+          stateVars t = (evalToDouble t) `traverse` Map.restrictKeys t (Map.keysSet $ modelState m)
+      print $ stateVars table
+      print $ stateVars table'
