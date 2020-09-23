@@ -216,7 +216,7 @@ parseModelFile f = do
 
  -- it would be nice if we could locate errors
 
-evalToDouble :: Map Ident ModelValue -> ModelExp -> Either String Double
+evalToDouble :: Map Ident ModelExp -> ModelExp -> Either String Double
 evalToDouble syms e =
   do  val <- evalExp syms e
       case val of
@@ -224,7 +224,7 @@ evalToDouble syms e =
         ValueList _ ->
           Left ("Expecting expression to produce a double, but got a list: " ++ show e)
 
-evalExp :: Map Ident ModelValue -> ModelExp -> Either String ModelValue
+evalExp :: Map Ident ModelExp -> ModelExp -> Either String ModelValue
 evalExp syms e0 =
   case e0 of
     LitNum d     -> pure $ ValueDouble d
@@ -247,7 +247,7 @@ evalExp syms e0 =
     Var nm ->
       case Map.lookup nm syms of
         Nothing -> Left ("Could not find symbol " ++ Text.unpack nm)
-        Just val -> pure val
+        Just e0 -> evalExp syms e0
 
   where
     logicalVal 0.0 = 0.0
@@ -276,4 +276,23 @@ evalExp syms e0 =
               Left ("Expecting expression to produce a list, but got a double: " ++ show le)
             ValueList l -> pure l 
    
-   
+
+mkInitSymbolTable :: Model -> Map Ident ModelExp
+mkInitSymbolTable mdl = Map.unions maps
+  where
+    maps =
+      [ LitNum <$> modelConstants mdl
+      , stateValue <$> modelState mdl
+      , modelExpressions mdl
+      ]
+
+runEvent :: ModelEvent -> Map Ident ModelExp -> Either String (Map Ident ModelExp)
+runEvent ev sym =
+  do  deltas <- evalToDouble sym `traverse` outputTransitionFunction (eventOuput ev)
+      pure (Map.union (LitNum <$> deltas) sym)
+
+enabledEvents :: Model -> Map Ident ModelExp -> Either String [ModelEvent]
+enabledEvents mdl syms = undefined
+  where
+    enablingPred = inputEnablingPredicate . eventInput
+    isEnabled evt = ((/=)0.0) <$> evalToDouble syms (enablingPred evt) 
