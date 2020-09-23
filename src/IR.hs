@@ -10,9 +10,9 @@ import qualified Data.Aeson as Aeson
 import           Data.Aeson ((.:))
 import qualified Data.Attoparsec.Text as Parse
 import qualified Data.Attoparsec.Combinator as Atto
-import           Control.Applicative(some)
 import           Control.Monad.Combinators.Expr as Expr
 import           Control.Monad.Fail(fail)
+import           Control.Monad(when)
 
 -- NOTES
 -- Is there a meaningful distinction between expressions and constants?
@@ -129,77 +129,26 @@ instance Aeson.FromJSON ModelExp where
             Parse.Done unconsumed exp -> pure exp
 
 
--- parseExp :: Parse.Parser ModelExp
--- parseExp =
---   tok $ Atto.choice
---     [ binop "+" Add
---     , binop "-" Sub
---     , binop "*" Mul
---     , binop "/" Div
---     , binop "<" LessThan
---     , binop ">" GreaterThan
---     , binop "<=" (\e1 e2 -> Not (GreaterThan e1 e2))
---     , binop ">=" (\e1 e2 -> Not (LessThan e1 e2)) 
---     , binop "and" And
---     , binop "or" Or
---     , unop "not" Not
---     , unop "-" Neg
---     , parseTerm
---     , idx
---     ]
---   where
---     parseTerm = do
---       tok $ Atto.choice
---         [ LitNum <$> tok Parse.double
---         , Var . Text.pack <$> some identifierChar
---         , litArray
---         , parens
---         ]
-      
---     tok prs =
---       do  Parse.skipSpace
---           res <- prs
---           Parse.skipSpace
---           pure res
+data ModelValue =
+    ValueDouble Double
+  | ValueList [Double]
+  deriving Show
 
---     binop op cns =
---       do  e1 <- parseTerm
---           _ <- tok $ Parse.string op
---           e2 <- parseExp
---           pure $ cns e1 e2
-
---     unop op cns =
---       do  _ <- tok $ Parse.string op
---           e <- parseExp
---           pure $ cns e
-
---     litArray =
---       do  _ <- tok $ Parse.char '['
---           arr <- Parse.sepBy parseExp (tok $ Parse.char ',')
---           _ <- tok $ Parse.char ']'
---           pure $ LitList arr
-
---     idx =
---       do  arrExp <- parseTerm
---           _ <- tok $ Parse.char '['
---           idxExp <- parseExp
---           _ <- tok $ Parse.char ']'
---           pure $ Idx arrExp idxExp
-
---     parens =
---       do  _ <- tok $ Parse.char '('
---           inner <- parseExp
---           _ <- tok $ Parse.char ')'
---           pure inner
---     identifierChar = Parse.satisfy (Parse.inClass "A-Za-z0-9\\_")
-
+-- kinda gross, maybe we should redo it in alex/happy
 parseExp :: Parse.Parser ModelExp
 parseExp = makeExprParser parseTerm opTable
   where
-    parseTerm = do
+    parseTerm =
+      tok $ Atto.choice
+       [ idx
+       , parseAtom
+       ]
+
+    parseAtom =
       tok $ Atto.choice
         [ LitNum <$> tok Parse.double
-        , Var . Text.pack <$> some identifierChar
+        , LitNum . fromIntegral <$> tok (Parse.signed Parse.decimal)
+        , Var . Text.pack <$> Parse.many1 identifierChar
         , litArray
         , parens
         ]
@@ -210,34 +159,121 @@ parseExp = makeExprParser parseTerm opTable
           Parse.skipSpace
           pure res
 
+    nest open prs close =
+      do _ <- tok $ Parse.char open
+         result <- prs
+         _ <- tok $ Parse.char close
+         pure result
 
     litArray =
-      do  _ <- tok $ Parse.char '['
-          arr <- Parse.sepBy parseExp (tok $ Parse.char ',')
-          _ <- tok $ Parse.char ']'
-          pure $ LitList arr
+      LitList <$> nest '[' (Parse.sepBy parseExp (tok $ Parse.char ',')) ']'
 
     idx =
-      do  arrExp <- parseTerm
-          _ <- tok $ Parse.char '['
-          idxExp <- parseExp
-          _ <- tok $ Parse.char ']'
-          pure $ Idx arrExp idxExp
+      do  arrExp <- parseAtom
+          idxs <- Parse.many1 $ nest '[' parseExp ']' 
+          pure $ foldl Idx arrExp idxs
 
-    parens =
-      do  _ <- tok $ Parse.char '('
-          inner <- parseExp
-          _ <- tok $ Parse.char ')'
-          pure inner
+    parens = nest '(' parseExp ')'
+
+    simpleBinop opStr constructor =
+      Expr.InfixL $ (tok $ Parse.string opStr) >> pure constructor
+
+    negateBinop opStr constructor =
+      Expr.InfixL $ (tok $ Parse.string opStr) >> pure (\e1 e2 -> Not (constructor e1 e2))
+
+    lt =
+      Expr.InfixL . tok $ 
+        do  _ <- Parse.char '<'
+            _ <- Atto.lookAhead (Parse.notChar '=')
+            pure LessThan
+
+    gt =
+      Expr.InfixL . tok $
+        do _ <- Parse.char '>'
+           _ <- Atto.lookAhead (Parse.notChar '=')
+           pure GreaterThan
+
+    simpleUnop opStr constructor =
+      Expr.Prefix $ (tok $ Parse.string opStr) >> pure constructor  
 
     identifierChar = Parse.satisfy (Parse.inClass "A-Za-z0-9\\_")
     
     opTable =
-      [ [ Expr.InfixL ((tok $ Parse.char '*') >> pure Mul) ] 
-      , [ Expr.InfixL ((tok $ Parse.char '+') >> pure Add) ] ]
+      [ [ simpleUnop "-" Neg, simpleUnop "not" Not] 
+      , [ simpleBinop "*" Mul, simpleBinop "/" Div] 
+      , [ simpleBinop "+" Add, simpleBinop "-" Sub ]
+      , [ lt, gt, negateBinop "<=" GreaterThan, negateBinop ">=" LessThan ]
+      , [ simpleBinop "and" And, simpleBinop "or" Or ]
+      ]
 
 
 parseModelFile :: FilePath -> IO (Either String Model)
 parseModelFile f = do
   js <- B.readFile f
   pure (Aeson.eitherDecode js)
+
+-------------------------------------------------------------------------------
+
+ -- it would be nice if we could locate errors
+
+evalToDouble :: Map Ident ModelValue -> ModelExp -> Either String Double
+evalToDouble syms e =
+  do  val <- evalExp syms e
+      case val of
+        ValueDouble d -> pure d
+        ValueList _ ->
+          Left ("Expecting expression to produce a double, but got a list: " ++ show e)
+
+evalExp :: Map Ident ModelValue -> ModelExp -> Either String ModelValue
+evalExp syms e0 =
+  case e0 of
+    LitNum d     -> pure $ ValueDouble d
+    LitList elts ->
+      do  lst <- evalToDouble syms `traverse` elts
+          pure (ValueList lst)
+
+    Add e1 e2 -> binop e1 e2 (+)
+    Sub e1 e2 -> binop e1 e2 (-)
+    Mul e1 e2 -> binop e1 e2 (*)
+    Div e1 e2 -> binop e1 e2 (/)  -- TODO: catch e2 == 0
+    Neg e1 -> unop e1 negate
+    Not e1 -> unop e1 (\i -> if i == 0.0 then 1.0 else 0.0)
+    And e1 e2 -> binop e1 e2 (logOp (*))
+    Or e1 e2  -> binop e1 e2 (logOp (+))
+    LessThan e1 e2 -> cmp e1 e2 (<)
+    GreaterThan e1 e2 -> cmp e1 e2 (>)
+    -- there are several questions i have about lists before implementing this
+    Idx lstExp idxExp -> undefined
+    Var nm ->
+      case Map.lookup nm syms of
+        Nothing -> Left ("Could not find symbol " ++ Text.unpack nm)
+        Just val -> pure val
+
+  where
+    logicalVal 0.0 = 0.0
+    logicalVal _ = 1.0
+
+    logOp op e1 e2 = logicalVal $ op (logicalVal e1) (logicalVal e2)
+
+    cmp e1 e2 op =
+      do  v1 <- evalToDouble syms e1
+          v2 <- evalToDouble syms e2
+          pure $ ValueDouble (if op v1 v2 then 1.0 else 0.0)
+
+    unop e1 op =
+      do  v1 <- evalToDouble syms e1
+          pure $ ValueDouble (op v1)
+
+    binop e1 e2 op =
+      do  v1 <- evalToDouble syms e1
+          v2 <- evalToDouble syms e2
+          pure $ ValueDouble (op v1 v2)
+
+    evalToList le =
+      do  val <- evalExp syms le
+          case val of
+            ValueDouble _ ->
+              Left ("Expecting expression to produce a list, but got a double: " ++ show le)
+            ValueList l -> pure l 
+   
+   
