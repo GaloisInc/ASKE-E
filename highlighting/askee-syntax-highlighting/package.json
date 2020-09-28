@@ -1,0 +1,29 @@
+{
+    "name": "askee-syntax-highlighting",
+    "displayName": "ASKEE Syntax Highlighting",
+    "description": "Syntax Highlighting for the ASKEE Language",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.30.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "askee",
+            "aliases": ["Askee", "askee"],
+            "extensions": [".askee" ],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "askee",
+            "scopeName": "source.askee",
+            "path": "./syntaxes/askee.tmLanguage.json"
+        }],
+        "snippets": [{
+                "language": "askee",
+                "path": "./snippets/askee"
+        }]
+    }
+}

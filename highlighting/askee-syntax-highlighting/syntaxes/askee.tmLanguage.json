@@ -1,0 +1,67 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "ASKEE",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#variables"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [{
+				"name": "comment.line.double-slash",
+				"match": "#.*\n"
+			}]
+		},
+		"constants": {
+			"patterns": [{
+				"name": "constant.numeric",
+				"match": "\\b[0-9]+\\.[0-9_]+\\b"
+			}]
+		},
+		"keywords": {
+			"patterns": [		
+				{
+					"name": "keyword.block.askee",
+					"match": "\\b(model|let|derived|state|event|when|rate|effect)\\b"
+				},
+				{
+					"name": "keyword.control",
+					"match": "\\b(and|or|not|if|then|otherwise|else|cond)\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.askee",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.askee",
+					"match": "\\\\."
+				}
+			]
+		},
+		"variables": {
+			"patterns": [
+				{
+					"name": "variable.other",
+					"match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+				}
+			]
+		}
+	},
+	"scopeName": "source.askee"
+}
