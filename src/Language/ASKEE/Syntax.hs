@@ -1,7 +1,10 @@
-module Langugae.ASKEE.Syntax where
+{-# Language FlexibleContexts #-}
+
+module Language.ASKEE.Syntax where
 import Data.Array.IO(IOUArray)
 import qualified Data.Array.MArray as MArray
 import qualified Data.Array.IArray as IArray
+import qualified Data.Ix as Ix
 import qualified System.Random as Random
 
 type Ident = Int
@@ -12,6 +15,8 @@ data Expr =
   | ExprSub    Expr Expr
   | ExprDiv    Expr Expr
   | ExprLT     Expr Expr
+  | ExprEQ     Expr Expr
+  | ExprGT     Expr Expr
   | ExprNot    Expr
   | ExprNeg    Expr
   | ExprIf     Expr Expr Expr
@@ -41,6 +46,8 @@ eval env e0 =
     ExprMul e1 e2 -> binop (*) e1 e2
     ExprDiv e1 e2 -> binop (/) e1 e2
     ExprLT e1 e2 -> cmpop (<) e1 e2
+    ExprEQ e1 e2 -> cmpop (==) e1 e2
+    ExprGT e1 e2 -> cmpop (>) e1 e2
     ExprAnd e1 e2 -> logop (*) e1 e2
     ExprOr e1 e2 -> logop (+) e1 e2
     ExprNot e ->
@@ -69,19 +76,33 @@ eval env e0 =
 runModel :: Int -> Model -> IO [(Ident, Double)]
 runModel steps m =
   do  env <- MArray.newArray (minIdent, maxIdent) 0.0
-      let evts = IArray.listArray (0, (length $ modelEvents m) - 1) (modelEvents m)
       gen <- Random.newStdGen
-      step `traverse_` [1 .. steps]
+      _ <- step env `traverse` [1 .. steps]
+      (statePair env) `traverse` stateVars
 
   where
-    minIdent = min . fst <$> modelInit m
-    maxIdent = max . fst <$> modelInit m
-    select gen evts =
-      do  i <- Random.uniformR (IArray.range evts) gen
-          pure $ evts (IArray.!) i
+    events :: IArray.Array Int Event
+    events = IArray.listArray (0, (length $ modelEvents m) - 1) (modelEvents m)
+    minIdent = minimum (fst <$> modelInitState m)
+    maxIdent = maximum (fst <$> modelInitState m)
+    stateVars = fst <$> modelInitState m
 
--- eval :: Int -> Model -> IO [State]
--- eval steps m =
---   do  
---   where
---     maxIdent = fst <$> modelInit m
+    selectEvent :: IO Event
+    selectEvent =
+      do  i <- Random.getStdRandom (Random.uniformR (IArray.bounds events))
+          pure $ events IArray.! i
+
+    statePair :: IOUArray Int Double -> Ident -> IO (Int, Double)
+    statePair env i = 
+      do val <- MArray.readArray env i 
+         pure (i, val)
+
+    exec env (name, e) =
+      do  val <- eval env e
+          pure (name, val)
+
+    step env _ =
+      do  event <- selectEvent
+          results <- exec env `traverse` eventEffect event
+          (uncurry (MArray.writeArray env)) `traverse` results
+

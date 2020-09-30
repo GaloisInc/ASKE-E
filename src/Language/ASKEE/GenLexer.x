@@ -2,7 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Lexer where
+module Language.ASKEE.GenLexer where
 
 import Control.Monad (when)
 
@@ -11,6 +11,8 @@ import Data.Char (isSpace)
 import Prelude hiding (LT,GT)
 
 import System.Environment (getArgs)
+import Language.ASKEE.Lexer
+
 }
 
 %wrapper "monad"
@@ -72,7 +74,6 @@ tokens :-
 <0> "rate:"    { atomic Rate }
 <0> "effect:"  { atomic Effect }
 
-<0> \n " "+    { indent }
 <0> \n         { atomic Newline   -- better to skip this? }
 <0> $ws+       ;
 <0> "#".*      ;
@@ -86,10 +87,10 @@ tokens :-
 type Action = AlexInput -> Int -> Alex Token
 
 real :: Action
-real (_,_,_,s) _ = (pure . Real . fst . head . reads) s
+real (pos,_,_,s) _ = (pure . Real . fst . head . reads) s
 
 ident :: Action
-ident (_,_,_,s) _ = (pure . Sym . takeWhile (not . isSpace)) s
+ident (pos,_,_,s) _ = (pure . Sym . takeWhile (not . isSpace)) s
 
 identColon :: Action
 identColon (_,_,_,s) _ = (pure . Sym . takeWhile (not . isSpace)) (init s)
@@ -97,70 +98,33 @@ identColon (_,_,_,s) _ = (pure . Sym . takeWhile (not . isSpace)) (init s)
 atomic :: Token -> Action
 atomic tok = \_ _ -> pure tok
 
-indent :: Action
-indent (_,_,_,('\n':s)) _ = let
-  spaces = (length . takeWhile isSpace) s
-  in pure $ Indent spaces
-indent _ _ = alexError "impossible?"
+getState :: Alex AlexState
+getState = Alex (\s -> Right (s,s))
 
-
-test :: String -> Either String [Token]
-test s = runAlex s go
+lexModel :: String -> Either String [Located Token]
+lexModel s = runAlex s go
   where
-    go :: Alex [Token]
+    go :: Alex [Located Token]
     go = do
       tok <- alexMonadScan
+      AlexPn _ line col <- alex_pos <$> getState
       case tok of
         EOF -> pure []
-        _ -> ((<$>) . (:)) tok go
-
-data Token = EOF
-  | And
-  | Assign
-  | CloseP
-  | Cond
-  | Divide
-  | DivideAssign
-  | Effect
-  | Elif
-  | Else
-  | Event
-  | GT
-  | GTE
-  | If
-  | Indent Int
-  | LT
-  | LTE
-  | Let
-  | LetDerived
-  | Minus
-  | MinusAssign
-  | Model
-  | Newline
-  | Not
-  | OpenP
-  | Or
-  | Plus
-  | PlusAssign
-  | Rate
-  | Real Double
-  | State
-  | Sym String
-  | Test AlexInput
-  | Then
-  | Times
-  | TimesAssign
-  | When
-  deriving (Eq, Show)
+        t ->
+          do  let located = Located { locLine = line
+                                    , locCol = col
+                                    , locVal = t
+                                    }
+              ((<$>) . (:)) located go
 
 alexEOF = pure EOF
 
-main = do
-  args <- getArgs
-  when (length args /= 1) $
-    error "usage: ./Lexer <file>"
-  f <- readFile (args !! 0)
-  case test f of
-    Left s -> putStrLn s
-    Right ts -> mapM print ts >> pure ()
+-- main = do
+--   args <- getArgs
+--   when (length args /= 1) $
+--     error "usage: ./Lexer <file>"
+--   f <- readFile (args !! 0)
+--   case test f of
+--     Left s -> putStrLn s
+--     Right ts -> mapM print ts >> pure ()
 }
