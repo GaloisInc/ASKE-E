@@ -32,7 +32,7 @@ data Exp = Add  Exp Exp
          | Sub  Exp Exp
          | Mul  Exp Exp
          | Div  Exp Exp
-         | Neg  Exp Exp
+         | Neg  Exp
          | GT   Exp Exp
          | GTE  Exp Exp
          | EQ   Exp Exp
@@ -40,15 +40,14 @@ data Exp = Add  Exp Exp
          | LT   Exp Exp
          | And  Exp Exp
          | Or   Exp Exp
-         | Not  Exp Exp
+         | Not  Exp
          | If   Exp Exp Exp
          | Cond Condition
          | Real Double
          | Var  Text
   deriving (Show, Eq)
 
-data Condition = Condition { condIf        :: Exp
-                           , condChoices   :: [(Exp, Exp)]
+data Condition = Condition { condChoices   :: [(Exp, Exp)]
                            , condOtherwise :: Maybe (Exp, Exp)
                            }
   deriving (Show, Eq)
