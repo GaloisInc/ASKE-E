@@ -3,7 +3,7 @@
 module Language.ASKEE.GenParser where
 import Language.ASKEE.GenLexer
 import Language.ASKEE.Lexer as Lexer
-import Language.ASKEE.SurfaceSyntax as Syntax
+import Language.ASKEE.Syntax as Syntax
 
 import Control.Monad.State
 
