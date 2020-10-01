@@ -1,6 +1,0 @@
-model Test:
-  state I = 5.0
-
-  event Incr:
-    effect:
-      I += 1

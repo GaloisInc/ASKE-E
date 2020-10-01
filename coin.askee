@@ -1,0 +1,19 @@
+model CoinFlip:
+  state Heads = 0
+  state Tails = 0
+
+  let delta = 0.5 + 0.5
+
+  event FlipHeads:
+    rate:
+      0.5
+
+    effect:
+      Heads = Heads + delta
+
+  event FlipTails:
+    rate:
+      0.5
+
+    effect:
+      Tails = Tails + delta
