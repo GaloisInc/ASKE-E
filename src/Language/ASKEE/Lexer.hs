@@ -64,7 +64,7 @@ err :: String -> Ind a
 err = lift . Left
 
 setLine :: Int -> Ind ()
-setLine i = State.modify (\s -> s { indLine = indLine s })
+setLine i = State.modify (\s -> s { indLine = i })
 
 pushIndent :: Int -> Ind ()
 pushIndent i = State.modify (\s -> s {indStk = i:(indStk s)})

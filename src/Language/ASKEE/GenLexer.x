@@ -74,7 +74,7 @@ tokens :-
 <0> "rate:"    { atomic Rate }
 <0> "effect:"  { atomic Effect }
 
-<0> \n         { atomic Newline   -- better to skip this? }
+<0> \n $ws*    { atomic Newline }
 <0> $ws+       ;
 <0> "#".*      ;
 
@@ -106,8 +106,8 @@ lexModel s = runAlex s go
   where
     go :: Alex [Located Token]
     go = do
-      tok <- alexMonadScan
       AlexPn _ line col <- alex_pos <$> getState
+      tok <- alexMonadScan
       case tok of
         EOF -> pure []
         t ->
