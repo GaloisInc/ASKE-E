@@ -11,15 +11,15 @@ model CHIME_GTRI_IR:
   let policy_days0 = 37.0
   let policy_days1 = 77.0
 
-  let derived total_pop = Susceptible + Infected + Recovered
-  let derived beta =
+  let total_pop = Susceptible + Infected + Recovered
+  let beta =
     cond:
       gamma              if time <= policy_days0
       gamma + 0.1486983  if time <= policy_days1
       gamma + 0.0717734  otherwise
 
   # or
-  let derived beta =
+  let beta =
     if time <= policy_days0
       then gamma
     else if time <= policy_days1
@@ -35,8 +35,12 @@ model CHIME_GTRI_IR:
       beta * (1 - contact_rate) * Susceptible * Infected / total_pop
 
     effect:
-      Susceptible -= 1.0
-      Infected    += 1.0
+      Susceptible = Susceptible - 1.0
+      Infected    = Infected + 1.0
+    
+    metadata:
+      lkdsnflkheorng
+      ldkthbglkn
 
   event Cure:
     when:
@@ -46,7 +50,7 @@ model CHIME_GTRI_IR:
       gamma * Infected
 
     effect:
-      Infected  -= 1.0
-      Recovered += 1.0
+      Infected  = Infected - 1.0
+      Recovered = Recovered + 1.0
 
           
