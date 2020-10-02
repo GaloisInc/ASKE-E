@@ -9,13 +9,15 @@ maintainer:          james.lamar@galois.com
 extra-source-files:  CHANGELOG.md, README.md
 
 library
-  exposed-modules:     Language.ASKEE.Syntax,
-                       IR,
+  exposed-modules:     IR,
                        PetriNet,
+                       Language.ASKEE.Syntax,
                        Language.ASKEE.GenLexer,
                        Language.ASKEE.Lexer,
                        Language.ASKEE.GenParser,
-                       Language.ASKEE.Core
+                       Language.ASKEE.Core,
+                       Language.ASKEE.Print,
+                       Language.ASKEE.Compile
                        
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,

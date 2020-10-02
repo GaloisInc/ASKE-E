@@ -24,17 +24,20 @@ data Expr =
   | ExprOr     Expr Expr
   | ExprNumLit Double
   | ExprVar    Ident
+  deriving (Show, Eq)
 
 data Event =
   Event { eventRate   :: Expr
         , eventWhen   :: Expr
         , eventEffect :: [(Ident, Expr)]
         }
+  deriving (Show, Eq)
 
 data Model =
   Model { modelInitState :: [(Ident, Double)]
         , modelEvents    :: [Event]
         }
+  deriving (Show, Eq)
 
 eval :: IOUArray Int Double -> Expr -> IO Double
 eval env e0 =
