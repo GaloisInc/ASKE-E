@@ -48,6 +48,6 @@ data Exp = Add  Exp Exp
   deriving (Show, Eq)
 
 data Condition = Condition { condChoices   :: [(Exp, Exp)]
-                           , condOtherwise :: Maybe (Exp, Exp)
+                           , condOtherwise :: Maybe Exp
                            }
   deriving (Show, Eq)

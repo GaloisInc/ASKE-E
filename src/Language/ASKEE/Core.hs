@@ -65,7 +65,7 @@ eval env e0 =
       in cmpop f'
 
     cmpop f =
-      let f' v1 v2 = if f v1 v2 then 1.0 else 1.0 
+      let f' v1 v2 = if f v1 v2 then 1.0 else 0.0
       in binop f'
 
     binop f e1 e2 =
