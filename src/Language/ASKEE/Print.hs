@@ -12,7 +12,6 @@ import Prelude hiding (GT, EQ, LT, (<>))
 import Text.PrettyPrint
 
 -- Notes:
--- Doesn't currently print `cond` correctly
 -- More line spacing could be nice?
 
 printExp :: Exp -> Doc
