@@ -10,7 +10,7 @@ import Data.Char (isSpace)
 
 import qualified Data.Text as Text
 
-import Prelude hiding (LT,GT)
+import Prelude hiding (LT,GT,EQ)
 
 import System.Environment (getArgs)
 import Language.ASKEE.Lexer
@@ -51,6 +51,7 @@ tokens :-
 <0> ">="        { atomic GTE }
 <0> "<"         { atomic LT }
 <0> ">"         { atomic GT }
+<0> "=="        { atomic EQ }
 <0> "("         { atomic OpenP }
 <0> ")"         { atomic CloseP }
 <0> ":"         { atomic Colon }

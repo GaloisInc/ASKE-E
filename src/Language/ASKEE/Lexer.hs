@@ -27,6 +27,7 @@ data Token = EOF
   | Effect
   | Elif
   | Else
+  | EQ
   | Event
   | GT
   | GTE
