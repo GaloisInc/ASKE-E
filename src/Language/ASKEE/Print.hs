@@ -40,25 +40,25 @@ printExp (If e1 e2 e3) =
                   , text "else"
                   , printExp e3
                   ]
-printExp (Cond (Condition choices Nothing)) =
-  vcat $ (map (uncurry condBranch) choices)
-printExp (Cond (Condition choices (Just e))) =
-  vcat $ (map (uncurry condBranch) choices) ++ [condOther e]
+printExp (Cond (Condition branches other)) =
+  let decl = text ("cond:")
+      branches' = vcat $ case other of
+        Just e  -> (map (uncurry condBranch) branches) ++ [condOther e]
+        Nothing -> (map (uncurry condBranch) branches)
+  in  nest 2 decl $$ nest 4 branches' 
 printExp (Real d) = double d
 printExp (Var i) = text (unpack i)
 
 condBranch :: Exp -> Exp -> Doc
 condBranch e1 e2 = 
-  nest 2 $ 
-    printExp e1 <+>
-    text "if" <+>
-    printExp e2
+  printExp e1 <+>
+  text "if" <+>
+  printExp e2
 
 condOther :: Exp -> Doc
 condOther e =
-  nest 2 $
-    printExp e <+>
-    text "otherwise"
+  printExp e <+>
+  text "otherwise"
 
 expBinop :: Exp -> String -> Exp -> Doc
 expBinop e1 op e2 = 
@@ -118,13 +118,13 @@ printModel (Model {..}) = decl $+$ nest 2 body
 
     printDecl :: Decl -> Doc
     printDecl (Let name val) = 
-      hsep [ text "let"
+      fsep [ text "let"
            , text (unpack name)
            , char '='
            , printExp val
            ]
     printDecl (State name val) = 
-      hsep [ text "state"
+      fsep [ text "state"
            , text (unpack name)
            , char '='
            , printExp val
