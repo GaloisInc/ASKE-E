@@ -138,8 +138,10 @@ colocate :: Token -> Located Token -> Located Token
 colocate closer tok = tok { locVal = closer }
 
 insertSeparators :: [Int] -> Maybe (Located Token) -> [Located Token] -> [Located Token]
-insertSeparators [] _ _ = error "oops!"
-insertSeparators stk last [] = [ colocate CloseBlock $ fromJust last | _ <- tail stk  ]
+insertSeparators []  _    _  = error "insertSeparators: empty stack (internal error)"
+insertSeparators stk last [] = 
+  colocate BlockSeparator (fromJust last) :
+    [ colocate CloseBlock $ fromJust last | _ <- tail stk  ]
 insertSeparators stk last ((Located _ _ Whitespace):ts) = insertSeparators stk last ts
 insertSeparators (col:stk) last (t:ts)
   | locCol t <  col = 

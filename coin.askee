@@ -4,9 +4,15 @@ model CoinFlip:
 
   let delta = 0.5 + 0.5
 
+  let delta = 
+    0.5 + 0.5
+
+  let delta = 
+    0.5 +
+    0.5
+
   event FlipHeads:
-    rate:
-      0.5
+    rate: 0.5
 
     effect:
       Heads = Heads + delta

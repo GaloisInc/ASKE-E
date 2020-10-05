@@ -26,9 +26,9 @@ event       { Located _ _ Lexer.Event }
 '+'         { Located _ _ Lexer.Plus }
 '-'         { Located _ _ Lexer.Minus }
 real        { Located _ _ (Lexer.Real $$) }
-tab         { Located _ _ Lexer.Indent }
-untab       { Located _ _ Lexer.Dedent }
-nl          { Located _ _ Lexer.Newline }
+bopen       { Located _ _ Lexer.OpenBlock }
+bclose      { Located _ _ Lexer.CloseBlock }
+';'         { Located _ _ Lexer.BlockSeparator }
 when        { Located _ _ Lexer.When }
 rate        { Located _ _ Lexer.Rate }
 effect      { Located _ _ Lexer.Effect }
@@ -42,41 +42,35 @@ Model : model NamedBlockInit Decls Events BlockEnd { Syntax.Model $2 $3 $4 }
 Decls :            { [] }
       | Decls Decl { $2 : $1 }
 
-Decl : let   sym '=' Exp Break { Syntax.Let $2 $4 }
-     | state sym '=' Exp Break { Syntax.State $2 $4 }
+Decl : let   sym '=' Exp ';' { Syntax.Let $2 $4 }
+     | state sym '=' Exp ';' { Syntax.State $2 $4 }
 
 Events :              { [] }
        | Events Event { $2 : $1 }
 
 Event : event NamedBlockInit WhenBlock RateBlock EffectBlock MDBlock BlockEnd { Syntax.Event $2 $3 $4 $5 Nothing }
 
-WhenBlock   :                                            { Nothing }
-            | when   BlockInit Exp        Break BlockEnd { Just $3 }
-RateBlock   : rate   BlockInit Exp        Break BlockEnd { $3 }
-EffectBlock : effect BlockInit Statements       BlockEnd { $3 }
+WhenBlock   :                                       { Nothing }
+            | when   BlockInit Exp ';'     BlockEnd { Just $3 }
+RateBlock   : rate   BlockInit Exp ';'     BlockEnd { $3 }
+EffectBlock : effect BlockInit Statements  BlockEnd { $3 }
 
 MDBlock : {}
 
-Statements : { [] }
+Statements :                      { [] }
            | Statements Statement { $2 : $1 }
 
-Statement : sym '=' Exp Break { ($1, $3) }
+Statement : sym '=' Exp ';' { ($1, $3) }
 
-NamedBlockInit : sym ':' Break tab { $1 }
-BlockInit      :     ':' Break tab {}
-BlockEnd       : untab {}
-
-Break0 :       {}
-       | Break {}
-
-Break : nl       {}
-      | nl Break {}
+NamedBlockInit : sym ':' bopen  { $1 }
+BlockInit      :     ':' bopen  {}
+BlockEnd       :         bclose {}
       
 
-Exp : Exp '+' Exp { Syntax.Add $1 $3 }
-    | Exp '-' Exp { Syntax.Sub $1 $3 }
+Exp : Exp '+' Exp { Syntax.Add  $1 $3 }
+    | Exp '-' Exp { Syntax.Sub  $1 $3 }
     | real        { Syntax.Real $1 }
-    | sym         { Syntax.Var $1 }
+    | sym         { Syntax.Var  $1 }
 
 {
 
