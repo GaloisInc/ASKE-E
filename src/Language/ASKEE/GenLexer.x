@@ -71,8 +71,8 @@ tokens :-
 <0> @upperID    { ident }
 <0> @lowerID    { ident }
 
-<0> \n $ws*    { atomic Newline }
-<0> $ws+       ;
+-- <0> \n $ws*    { atomic Newline }
+<0> $white+    { atomic Whitespace }
 <0> "#".*      ;
 
 
@@ -98,7 +98,7 @@ getState :: Alex AlexState
 getState = Alex (\s -> Right (s,s))
 
 lexModel :: String -> Either String [Located Token]
-lexModel s = runAlex s go >>= insertLayoutTokens
+lexModel s = doLayout <$> runAlex s go
   where
     go :: Alex [Located Token]
     go = do

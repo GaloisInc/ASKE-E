@@ -6,6 +6,7 @@ import qualified Control.Monad.State as State
 import           Control.Monad.State(lift)
 
 import Data.Text ( Text )
+import Data.Maybe (fromJust)
 
 data Located a =
   Located { locLine :: Int
@@ -17,6 +18,7 @@ data Located a =
 data Token = EOF
   | And
   | Assign
+  | CloseBlock
   | CloseP
   | Colon
   | Cond
@@ -41,6 +43,7 @@ data Token = EOF
   | Model
   | Newline
   | Not
+  | OpenBlock
   | OpenP
   | Or
   | Otherwise
@@ -48,12 +51,14 @@ data Token = EOF
   | PlusAssign
   | Rate
   | Real Double
+  | BlockSeparator
   | State
   | Sym Text
   | Then
   | Times
   | TimesAssign
   | When
+  | Whitespace
   | Wrap Token
   deriving (Eq, Show)
 
@@ -61,6 +66,7 @@ data Token = EOF
 data IndentState =
   IndentState { indLine :: Int
               , indStk  :: [Int]
+              -- , indMode
               }
               
 type Ind a = State.StateT IndentState (Either String) a
@@ -126,3 +132,29 @@ insertLayoutTokens toks = do
     -- concat <$> State.evalStateT stCmp (IndentState 1 [1])
   where
     stCmp = handleLayout `traverse` toks
+
+
+colocate :: Token -> Located Token -> Located Token
+colocate closer tok = tok { locVal = closer }
+
+insertSeparators :: [Int] -> Maybe (Located Token) -> [Located Token] -> [Located Token]
+insertSeparators [] _ _ = error "oops!"
+insertSeparators stk last [] = [ colocate CloseBlock $ fromJust last | _ <- tail stk  ]
+insertSeparators stk last ((Located _ _ Whitespace):ts) = insertSeparators stk last ts
+insertSeparators (col:stk) last (t:ts)
+  | locCol t <  col = 
+    case last of
+      Just (Located _ _ CloseBlock) -> colocate CloseBlock t : insertSeparators stk (Just $ colocate CloseBlock t) (t:ts)
+      _ -> colocate BlockSeparator t : colocate CloseBlock t : insertSeparators stk (Just $ colocate CloseBlock t) (t:ts)
+  | locCol t == col = 
+    case last of
+      Just (Located _ _ CloseBlock) -> t : insertSeparators (col:stk) (Just t) ts
+      _ -> colocate BlockSeparator t : t : insertSeparators (col:stk) (Just t) ts
+  | locCol t >  col = 
+    case last of 
+      Just (Located _ _ Colon) -> 
+        colocate OpenBlock t : t : insertSeparators (locCol t:col:stk) (Just t) ts
+      _ -> t : insertSeparators (col:stk) (Just t) ts 
+
+doLayout :: [Located Token] -> [Located Token]
+doLayout = insertSeparators [0] Nothing
