@@ -1,6 +1,8 @@
 {-# Language FlexibleContexts #-}
 
 module Language.ASKEE.Core where
+
+import Control.Monad(filterM)
 import Data.Array.IO(IOUArray)
 import qualified Data.Array.MArray as MArray
 import qualified Data.Array.IArray as IArray
@@ -39,6 +41,13 @@ data Model =
         }
   deriving (Show, Eq)
 
+asBool :: Double -> Bool
+asBool v = if v == 0.0 then True else False
+
+asDouble :: Bool -> Double
+asDouble True = 1.0
+asDouble False = 0.0
+
 eval :: IOUArray Int Double -> Expr -> IO Double
 eval env e0 =
   case e0 of
@@ -53,9 +62,7 @@ eval env e0 =
     ExprGT e1 e2 -> cmpop (>) e1 e2
     ExprAnd e1 e2 -> logop (*) e1 e2
     ExprOr e1 e2 -> logop (+) e1 e2
-    ExprNot e ->
-      do  v <- eval env e
-          pure $ if v == 0.0 then 1.0 else 0.0
+    ExprNot e -> asDouble . asBool <$> eval env e
     ExprNeg e -> negate <$> eval env e
     ExprIf expTest expThen expElse ->
       do  tst <- eval env expTest
@@ -84,16 +91,24 @@ runModel steps m =
       (statePair env) `traverse` stateVars
 
   where
-    events :: IArray.Array Int Event
-    events = IArray.listArray (0, (length $ modelEvents m) - 1) (modelEvents m)
     minIdent = minimum (fst <$> modelInitState m)
     maxIdent = maximum (fst <$> modelInitState m)
     stateVars = fst <$> modelInitState m
 
-    selectEvent :: IO Event
-    selectEvent =
-      do  i <- Random.getStdRandom (Random.uniformR (IArray.bounds events))
-          pure $ events IArray.! i
+    isEnabled :: IOUArray Int Double -> Event -> IO Bool
+    isEnabled env e = asBool <$> eval env (eventWhen e)
+
+    enabledEvents :: IOUArray Int Double -> IO (IArray.Array Int Event)
+    enabledEvents env =
+      do  enabledEvents <- filterM (isEnabled env) (modelEvents m)
+          pure $ IArray.listArray (0, length enabledEvents) (modelEvents m)
+
+    -- TODO: select event with rate and compute time increment
+    selectEvent :: IOUArray Int Double -> IO Event
+    selectEvent env =
+      do  evts <- enabledEvents env
+          i <- Random.getStdRandom (Random.uniformR (IArray.bounds evts))
+          pure $ evts IArray.! i
 
     statePair :: IOUArray Int Double -> Ident -> IO (Int, Double)
     statePair env i = 
@@ -105,7 +120,9 @@ runModel steps m =
           pure (name, val)
 
     step env _ =
-      do  event <- selectEvent
+      do  event <- selectEvent env
           results <- exec env `traverse` eventEffect event
           (uncurry (MArray.writeArray env)) `traverse` results
+
+
 

@@ -35,7 +35,7 @@
 			"patterns": [		
 				{
 					"name": "keyword.block.askee",
-					"match": "\\b(model|let|derived|state|event|when|rate|effect)\\b"
+					"match": "\\b(model|let|derived|state|event|when|rate|effect|measure|var|update|aggregate|result|reduce|on)\\b"
 				},
 				{
 					"name": "keyword.control",

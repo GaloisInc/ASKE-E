@@ -1,6 +1,6 @@
 module Main where
 
-import Language.ASKEE.Syntax
+import Language.ASKEE.Core
 
 testModel :: Model
 testModel =
