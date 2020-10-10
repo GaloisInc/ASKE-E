@@ -7,7 +7,7 @@ import Language.ASKEE.Syntax as Syntax
 
 import Control.Monad.State
 
-import Data.Map as M
+import qualified Data.Map as M
 }
 
 %name parse
