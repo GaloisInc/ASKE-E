@@ -1,13 +1,19 @@
 -- TODO: support enabling predicates
 {-# Language FlexibleInstances #-}
+{-# Language OverloadedStrings #-}
 module Language.ASKEE.DiffEq where
 
 import Data.Text(Text)
 import Control.Monad.Fail(MonadFail)
 import Data.List(partition)
 import Data.Maybe(catMaybes)
+import qualified Text.PrettyPrint as Pretty
+import qualified Data.Map as Map
+import Data.Map(Map)
+import qualified Data.Text as Text
 
 import qualified Language.ASKEE.Syntax as Syntax
+
 
 type EqGen a = Either String a
 instance MonadFail (Either String) where
@@ -125,4 +131,64 @@ asEqExp e =
   where
     binop op e1 e2 = op <$> asEqExp e1 <*> asEqExp e2
     expNotImplemented nexp = fail ("Expression form not implemented: " ++ show nexp)
+
+-- PP -------------------------------------------------------------------------
+
+ppDiffEq :: DiffEq -> Pretty.Doc
+ppDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
+  where
+    expr = 
+      ppEqExp $ case deq of
+                  StateEq var e -> e
+                  VarEq var e -> e
+    intro = 
+      case deq of
+        StateEq var e -> Pretty.text ("d" <> Text.unpack var <> "/dt")
+        VarEq var e   -> Pretty.text (Text.unpack var)
+
+ppEqExp :: EqExp -> Pretty.Doc
+ppEqExp e =
+  case e of
+    Var t -> Pretty.text (Text.unpack t)
+    Lit d -> Pretty.double d
+    Add p1 p2 -> binop "+" p1 p2 
+    Sub p1 p2 -> binop "-" p1 p2
+    Mul p1 p2 -> binop "*" p1 p2
+    Div p1 p2 -> binop "/" p1 p2
+    Neg p1 -> undefined
+      
+  where
+    (litP, negP, mulP, addP) = (0,1,2,3)
+    plvl pe =
+     case pe of
+       Var _ -> litP
+       Lit _ -> litP
+       Add _ _ -> addP
+       Sub _ _ -> addP
+       Mul _ _ -> mulP
+       Div _ _ -> mulP
+       Neg _ -> negP
+
+    ppPrec p =
+      if plvl p > plvl e
+        then Pretty.parens (ppEqExp p)
+        else ppEqExp p
+
+    binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text "+", ppEqExp p2]
+
+-- evaluator ------------------------------------------------------------------
+
+eval :: Map Text Double -> EqExp -> Double
+eval env e =
+  case e of
+    Var v ->
+      case Map.lookup v env of
+        Just a -> a
+        Nothing -> error ("Unbound variable " ++ (show v))
+    Lit l -> l
+    Add e1 e2 -> eval env e1 + eval env e2
+    Sub e1 e2 -> eval env e1 - eval env e2
+    Mul e1 e2 -> eval env e1 * eval env e2
+    Div e1 e2 -> eval env e1 / eval env e2
+    Neg e1 -> negate $ eval env e1
 

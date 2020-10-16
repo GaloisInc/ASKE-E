@@ -18,7 +18,8 @@ library
                      , Language.ASKEE.Compile
                      , Language.ASKEE.Experiments
                      , Language.ASKEE.DiffEq
-                     , IR
+                     , Language.ASKEE.VisualSummaryGraph
+                     , Language.ASKEE.AMIDOLIR
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,

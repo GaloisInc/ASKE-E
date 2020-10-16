@@ -4,6 +4,7 @@ import Language.ASKEE.GenLexer
 import Language.ASKEE.Lexer
 import Language.ASKEE.GenParser
 import Language.ASKEE.Syntax
+import qualified Language.ASKEE.DiffEq as DiffEq
 
 
 testLex :: FilePath -> IO [Located Token]
@@ -16,3 +17,5 @@ testParse :: FilePath -> IO Model
 testParse fp =
   do  toks <- testLex fp
       pure $ parse toks
+
+     

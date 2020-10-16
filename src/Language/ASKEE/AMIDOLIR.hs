@@ -1,5 +1,5 @@
 {-# Language OverloadedStrings #-}
-module IR where
+module Language.ASKEE.AMIDOLIR where
 
 import qualified Data.ByteString.Lazy as B
 import           Data.Map(Map)
@@ -132,6 +132,12 @@ data ModelValue =
     ValueDouble Double
   | ValueList [Double]
   deriving Show
+
+tryParseExp :: Text -> Maybe ModelExp
+tryParseExp s = 
+  case Parse.parseOnly parseExp s of
+    Left _ -> Nothing
+    Right r -> Just r
 
 -- kinda gross, maybe we should redo it in alex/happy
 parseExp :: Parse.Parser ModelExp
