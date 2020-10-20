@@ -10,6 +10,7 @@ model CHIME_GTRI_IR:
   let gamma = 1.0 / 14.0
   let policy_days0 = 37.0
   let policy_days1 = 77.0
+  let contact_rate = 0.05
 
   let total_pop = Susceptible + Infected + Recovered
   let beta =

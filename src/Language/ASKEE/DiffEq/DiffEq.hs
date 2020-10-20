@@ -1,7 +1,7 @@
 -- TODO: support enabling predicates
 {-# Language FlexibleInstances #-}
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.DiffEq where
+module Language.ASKEE.DiffEq.DiffEq where
 
 import Data.Text(Text)
 import Control.Monad.Fail(MonadFail)

@@ -14,7 +14,7 @@ import           Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy as BS
 
-import qualified Language.ASKEE.DiffEq as DiffEq
+import qualified Language.ASKEE.DiffEq.DiffEq as DiffEq
 import qualified Language.ASKEE.AMIDOLIR as AMI
 
 type Identifier = String
