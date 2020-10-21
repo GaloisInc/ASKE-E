@@ -91,7 +91,7 @@ sumTerms = foldr addExp (Lit 0.0)
 
 asEquationSystem :: Syntax.Model -> EqGen ([DiffEq], Map Text EqExp)
 asEquationSystem mdl =
-  do  declEqs <- declEq `traverse` (Syntax.modelDecls mdl)
+  do  declEqs <- declEq `traverse` letDecls
       stateEqs <- stateEq `traverse` stateVars
       icMap <- mkInitialCondMap
       pure (declEqs ++ stateEqs, icMap)
@@ -114,6 +114,11 @@ asEquationSystem mdl =
 
     stateVars = 
       catMaybes (asMbStateVar <$> Syntax.modelDecls mdl)
+
+    isLetVar (Syntax.Let _ _) = True
+    isLetVar _ = False
+
+    letDecls = filter isLetVar $ Syntax.modelDecls mdl
 
     stateEq (sv, _) = StateEq sv . sumTerms <$> eventTerms sv
 
@@ -217,6 +222,7 @@ inlineNonStateVars eqs = eqs >>= inlineEq
         Div e1 e2 -> bin e1 e2 Div
         Mul e1 e2 -> bin e1 e2 Mul
         Neg e0 -> Neg $ inlineExp e0
+        Lit d -> Lit d
     
     bin e1 e2 c = c (inlineExp e1) (inlineExp e2)
 
@@ -267,5 +273,5 @@ simulateModelDiffEq mdl time =
   where
     resultMap :: [Text] -> LinAlg.Matrix Double -> Map Text [Double]
     resultMap stateVars matrix = 
-      let rows = LinAlg.toList <$> LinAlg.toRows matrix
+      let rows = LinAlg.toList <$> LinAlg.toColumns matrix
       in Map.fromList (stateVars `zip` rows)
