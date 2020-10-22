@@ -23,6 +23,7 @@ library
                      , Language.ASKEE.DiffEq.GenLexer
                      , Language.ASKEE.DiffEq.GenParser
                      , Language.ASKEE.DiffEq.DiffEq
+                     , Language.ASKEE.Reaction
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
