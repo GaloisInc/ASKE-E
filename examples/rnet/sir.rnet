@@ -1,0 +1,7 @@
+let alpha = .1/1000
+let beta = .01
+
+alpha, S + I --> 2I
+beta,  I     --> R
+
+
