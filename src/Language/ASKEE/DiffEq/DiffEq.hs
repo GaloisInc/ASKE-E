@@ -94,11 +94,14 @@ asEquationSystem mdl =
   do  declEqs <- letEq `traverse` letVars
       stateEqs <- stateEq `traverse` stateVars
       icMap <- mkInitialCondMap
-      pure (declEqs ++ stateEqs, icMap)
+      pure (timeEq : declEqs ++ stateEqs, icMap)
 
   where
     mkInitialCondMap :: EqGen (Map Text EqExp)
-    mkInitialCondMap = Map.unions <$> (icMapElt `traverse` Syntax.modelDecls mdl)
+    mkInitialCondMap = 
+      do decls <- icMapElt `traverse` Syntax.modelDecls mdl
+         let time = Map.singleton "time" (Lit 0.0)
+         pure $ Map.unions (time : decls)
 
     icMapElt :: Syntax.Decl -> EqGen (Map Text EqExp)
     icMapElt decl =
@@ -145,6 +148,9 @@ asEquationSystem mdl =
           do  rate' <- asEqExp (Map.fromList letVars) (Syntax.eventRate event)
               stExp' <- asEqExp (Map.fromList letVars) stExp
               pure . Just $ stateEventTerm stExp' sv rate'
+    
+    timeEq :: DiffEq
+    timeEq = StateEq "time" (Lit 1.0) -- put "time" in scope
 
 stateEventTerm :: EqExp -> Text -> EqExp -> EqExp
 stateEventTerm e0 stateVar rateExp = rateExp `mulExp` (e0 `subExp` (Var stateVar))
@@ -293,4 +299,4 @@ simulateModelDiffEq mdl time =
     resultMap :: [Text] -> LinAlg.Matrix Double -> Map Text [Double]
     resultMap stateVars matrix = 
       let rows = LinAlg.toList <$> LinAlg.toColumns matrix
-      in Map.fromList (stateVars `zip` rows)
+      in Map.delete "time" $ Map.fromList (stateVars `zip` rows)
