@@ -91,64 +91,83 @@ sumTerms = foldr addExp (Lit 0.0)
 
 asEquationSystem :: Syntax.Model -> EqGen ([DiffEq], Map Text EqExp)
 asEquationSystem mdl =
-  do  declEqs <- declEq `traverse` letDecls
+  do  declEqs <- letEq `traverse` letVars
       stateEqs <- stateEq `traverse` stateVars
       icMap <- mkInitialCondMap
       pure (declEqs ++ stateEqs, icMap)
 
   where
+    mkInitialCondMap :: EqGen (Map Text EqExp)
     mkInitialCondMap = Map.unions <$> (icMapElt `traverse` Syntax.modelDecls mdl)
+
+    icMapElt :: Syntax.Decl -> EqGen (Map Text EqExp)
     icMapElt decl =
       case decl of
-        Syntax.State n v ->  Map.singleton n <$> asEqExp v 
+        Syntax.State n v -> Map.singleton n <$> asEqExp (Map.fromList letVars) v 
         _ -> pure Map.empty
 
+    asMbStateVar :: Syntax.Decl -> Maybe (Text, Syntax.Exp)
     asMbStateVar decl =
       case decl of
         Syntax.State n v -> Just (n, v)
         Syntax.Let _ _ -> Nothing
 
-    declEq decl =
-      do  declExp' <- asEqExp (Syntax.val decl)
-          pure $ VarEq (Syntax.name decl) declExp' 
+    asMbLetVar :: Syntax.Decl -> Maybe (Text, Syntax.Exp)
+    asMbLetVar decl =
+      case decl of
+        Syntax.Let n v -> Just (n, v)
+        Syntax.State _ _ -> Nothing
 
+    stateVars :: [(Text, Syntax.Exp)]
     stateVars = 
       catMaybes (asMbStateVar <$> Syntax.modelDecls mdl)
 
-    isLetVar (Syntax.Let _ _) = True
-    isLetVar _ = False
+    letVars :: [(Text, Syntax.Exp)]
+    letVars =
+      catMaybes (asMbLetVar <$> Syntax.modelDecls mdl)
 
-    letDecls = filter isLetVar $ Syntax.modelDecls mdl
+    letEq :: (Text, Syntax.Exp) -> EqGen DiffEq
+    letEq (name, exp) =
+      VarEq name <$> asEqExp (Map.fromList letVars) exp
 
+    stateEq :: (Text, Syntax.Exp) -> EqGen DiffEq
     stateEq (sv, _) = StateEq sv . sumTerms <$> eventTerms sv
 
+    eventTerms :: Text -> EqGen [EqExp]
     eventTerms sv =
       catMaybes <$> (eventTerm sv `traverse` (Syntax.modelEvents mdl))
 
+    eventTerm :: Text -> Syntax.Event -> EqGen (Maybe EqExp)
     eventTerm sv event = 
       case sv `lookup` Syntax.eventEffect event of
         Nothing -> pure Nothing
         Just stExp -> 
-          do  rate' <- asEqExp (Syntax.eventRate event)
-              stExp' <- asEqExp stExp
+          do  rate' <- asEqExp (Map.fromList letVars) (Syntax.eventRate event)
+              stExp' <- asEqExp (Map.fromList letVars) stExp
               pure . Just $ stateEventTerm stExp' sv rate'
 
 stateEventTerm :: EqExp -> Text -> EqExp -> EqExp
 stateEventTerm e0 stateVar rateExp = rateExp `mulExp` (e0 `subExp` (Var stateVar))
 
-asEqExp :: Syntax.Exp -> EqGen EqExp
-asEqExp e =
-  case e of
-    Syntax.Add e1 e2 -> binop addExp e1 e2
-    Syntax.Sub e1 e2 -> binop subExp e1 e2
-    Syntax.Mul e1 e2 -> binop mulExp e1 e2
-    Syntax.Div e1 e2 -> binop divExp e1 e2
-    Syntax.Neg en -> negExp <$> asEqExp en
-    Syntax.Var v -> pure $ Var v
-    Syntax.Real r -> pure $ Lit r
-    _ -> expNotImplemented e
+asEqExp :: Map Text Syntax.Exp -> Syntax.Exp -> EqGen EqExp
+asEqExp vars e = go e
   where
-    binop op e1 e2 = op <$> asEqExp e1 <*> asEqExp e2
+    go e =
+      case e of
+        Syntax.Add e1 e2 -> binop addExp e1 e2
+        Syntax.Sub e1 e2 -> binop subExp e1 e2
+        Syntax.Mul e1 e2 -> binop mulExp e1 e2
+        Syntax.Div e1 e2 -> binop divExp e1 e2
+        Syntax.Neg en -> negExp <$> go en
+        Syntax.Var v -> varExp v 
+        Syntax.Real r -> pure $ Lit r
+        _ -> expNotImplemented e
+
+    varExp v =
+      case vars Map.!? v of
+        Nothing -> pure $ Var v
+        Just e -> go e
+    binop op e1 e2 = op <$> go e1 <*> go e2
     expNotImplemented nexp = fail ("Expression form not implemented: " ++ show nexp)
 
 -- PP -------------------------------------------------------------------------
