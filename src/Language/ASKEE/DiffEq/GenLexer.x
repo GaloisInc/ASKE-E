@@ -15,14 +15,14 @@ $digit = [0-9]
 $ident = [A-Za-z0-9_]
 
 @identifier = $ident+
-@real       = $digit+ ("\." $digit+)?
+@real       = $digit+ (\. $digit+)?
 
 tokens :-
 
 "{"              { atomic OpenB  }
 "}"              { atomic CloseB }
-"("              { atomic OpenP  }
-")"              { atomic CloseP }
+"\left("         { atomic OpenP  }
+"\right)"        { atomic CloseP }
 "+"              { atomic Plus   }
 "-"              { atomic Minus  }
 "*"              { atomic Times  }
@@ -30,8 +30,8 @@ tokens :-
 "="              { atomic Eq     }
 $bs "frac"       { atomic Frac   }
 $bs @identifier  { reserved      }
-@identifier      { ident         }
 @real            { real          }
+@identifier      { ident         }
 
 $white+          ;
 

@@ -10,6 +10,7 @@ import Control.Monad.Fail(MonadFail)
 import Data.List(partition)
 import Data.Maybe(catMaybes)
 import qualified Text.PrettyPrint as Pretty
+import Text.Printf (printf)
 import qualified Data.Map as Map
 import Data.Map(Map)
 import qualified Data.Text as Text
@@ -220,7 +221,52 @@ ppEqExp e =
         then Pretty.parens (ppEqExp p)
         else ppEqExp p
 
-    binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text op, ppEqExp p2]
+    binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text op, ppPrec p2]
+
+latexDiffEq :: DiffEq -> Pretty.Doc
+latexDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
+  where
+    expr = 
+      latexEqExp $
+        case deq of
+          StateEq var e -> e
+          VarEq var e -> e
+
+    intro = 
+      case deq of
+        StateEq var e -> Pretty.text ("\\frac{d"<>Text.unpack var<>"}{dt}")
+        VarEq var e   -> Pretty.text $ Text.unpack var
+
+latexEqExp :: EqExp -> Pretty.Doc
+latexEqExp e =
+  case e of
+    Var t -> Pretty.text (Text.unpack t)
+    Lit d -> Pretty.text (printf "%f" d) -- Pretty.double 0.04 == "4.0e-2", no good for latex
+    Add p1 p2 -> binop "+" p1 p2 
+    Sub p1 p2 -> binop "-" p1 p2
+    Mul p1 p2 -> binop "*" p1 p2 -- or just whitespace?
+    Div p1 p2 -> "\\frac{"<>latexEqExp p1<>"}{"<>latexEqExp p2<>"}"
+    Neg p1 -> parenthesize $ latexEqExp p1
+      
+  where
+    (litP, negP, mulP, addP) = (0,1,2,3)
+    plvl pe =
+     case pe of
+       Var _ -> litP
+       Lit _ -> litP
+       Add _ _ -> addP
+       Sub _ _ -> addP
+       Mul _ _ -> mulP
+       Div _ _ -> mulP
+       Neg _ -> negP
+
+    ppPrec p =
+      if plvl p > plvl e
+        then parenthesize (latexEqExp p)
+        else latexEqExp p
+
+    parenthesize e = "\\left("<>e<>"\\right)"
+    binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text op, ppPrec p2]
 
 -- evaluator ------------------------------------------------------------------
 

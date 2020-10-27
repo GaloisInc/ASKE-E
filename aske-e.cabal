@@ -47,4 +47,4 @@ executable evaltest
   main-is:             app/evaltest/Main.hs
   build-depends:       base >=4.13.0.0 && <5,
                        aske-e
-  
+  default-language:    Haskell2010  
