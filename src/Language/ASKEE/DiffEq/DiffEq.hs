@@ -5,38 +5,27 @@
 
 module Language.ASKEE.DiffEq.DiffEq where
 
-import Data.Text(Text)
-import Control.Monad.Fail(MonadFail)
-import Data.List(partition)
-import Data.Maybe(catMaybes)
-import qualified Text.PrettyPrint as Pretty
-import Text.Printf (printf)
+import           Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Map(Map)
+import           Data.Maybe (catMaybes)
+import           Data.Text (Text)
 import qualified Data.Text as Text
+
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE as ODE
 
+import           Language.ASKEE.Expr (ArithExpr(..))
 import qualified Language.ASKEE.Syntax as Syntax
+
+import qualified Text.PrettyPrint as Pretty
+import           Text.Printf (printf)
 
 type Identifier = Text
 type EqGen a = Either String a
-instance MonadFail (Either String) where
-  fail = Left
 
 data DiffEq =
-    StateEq {deVarName :: Text, deExpr :: EqExp } -- dx/dt = exp
-  | VarEq   {deVarName :: Text, deExpr :: EqExp } -- x = exp 
-  deriving(Show, Eq, Ord)
-
-data EqExp =
-    Var Text          
-  | Lit Double
-  | Add EqExp EqExp
-  | Sub EqExp EqExp 
-  | Mul EqExp EqExp
-  | Div EqExp EqExp
-  | Neg EqExp
+    StateEq {deVarName :: Text, deExpr :: ArithExpr } -- dx/dt = exp
+  | VarEq   {deVarName :: Text, deExpr :: ArithExpr } -- x = exp 
   deriving(Show, Eq, Ord)
 
 eqVarName :: DiffEq -> Text
@@ -47,50 +36,50 @@ eqVarName eq =
 
 -- algebraic constructors -----------------------------------------------------
 
-negExp :: EqExp -> EqExp
+negExp :: ArithExpr -> ArithExpr
 negExp (Neg e0) = e0
-negExp (Lit e1) = Lit (negate e1)
+negExp (ALit e1) = ALit (negate e1)
 negExp e0 = Neg e0
 
-addExp :: EqExp -> EqExp -> EqExp
-addExp (Lit 0.0) e = e
-addExp e (Lit 0.0) = e
-addExp (Lit d1) (Lit d2) = Lit (d1 + d2)
+addExp :: ArithExpr -> ArithExpr -> ArithExpr
+addExp (ALit 0.0) e = e
+addExp e (ALit 0.0) = e
+addExp (ALit d1) (ALit d2) = ALit (d1 + d2)
 addExp e1 e2 = Add e1 e2
 
-subExp :: EqExp -> EqExp -> EqExp
-subExp e (Lit 0.0) = e
-subExp (Lit 0.0) e = negExp e
-subExp (Lit d1) (Lit d2) = Lit (d1 - d2)
+subExp :: ArithExpr -> ArithExpr -> ArithExpr
+subExp e (ALit 0.0) = e
+subExp (ALit 0.0) e = negExp e
+subExp (ALit d1) (ALit d2) = ALit (d1 - d2)
 subExp e1 e2 = Sub e1 e2
 
-mulExp :: EqExp -> EqExp -> EqExp
-mulExp (Lit 0.0) _ = Lit 0.0
-mulExp _ (Lit 0.0) = Lit 0.0
-mulExp (Lit 1.0) e = e
-mulExp e (Lit 1.0) = e
-mulExp (Lit d1) (Lit d2) = Lit (d1 * d2)
+mulExp :: ArithExpr -> ArithExpr -> ArithExpr
+mulExp (ALit 0.0) _ = ALit 0.0
+mulExp _ (ALit 0.0) = ALit 0.0
+mulExp (ALit 1.0) e = e
+mulExp e (ALit 1.0) = e
+mulExp (ALit d1) (ALit d2) = ALit (d1 * d2)
 mulExp e1 e2 = Mul e1 e2
 
-divExp :: EqExp -> EqExp -> EqExp
-divExp (Lit d1) (Lit d2) = Lit (d1/d2)
-divExp e (Lit 1.0) = e
+divExp :: ArithExpr -> ArithExpr -> ArithExpr
+divExp (ALit d1) (ALit d2) = ALit (d1/d2)
+divExp e (ALit 1.0) = e
 divExp e1 e2 = Div e1 e2
 
-termList :: EqExp -> [EqExp]
+termList :: ArithExpr -> [ArithExpr]
 termList e =
   case e of
     Add e1 e2 -> termList e1 ++ termList e2
     Sub e1 e2 -> termList e1 ++ (negExp <$> termList e2)
     _ -> [e]
 
-sumTerms :: [EqExp] -> EqExp
-sumTerms = foldr addExp (Lit 0.0)
+sumTerms :: [ArithExpr] -> ArithExpr
+sumTerms = foldr addExp (ALit 0.0)
 
 
 -- 'interpreter' --------------------------------------------------------------
 
-asEquationSystem :: Syntax.Model -> EqGen ([DiffEq], Map Text EqExp)
+asEquationSystem :: Syntax.Model -> EqGen ([DiffEq], Map Text ArithExpr)
 asEquationSystem mdl =
   do  declEqs <- letEq `traverse` letVars
       stateEqs <- stateEq `traverse` stateVars
@@ -98,84 +87,94 @@ asEquationSystem mdl =
       pure (timeEq : declEqs ++ stateEqs, icMap)
 
   where
-    mkInitialCondMap :: EqGen (Map Text EqExp)
+    mkInitialCondMap :: EqGen (Map Text ArithExpr)
     mkInitialCondMap = 
       do decls <- icMapElt `traverse` Syntax.modelDecls mdl
-         let time = Map.singleton "time" (Lit 0.0)
+         let time = Map.singleton "time" (ALit 0.0)
          pure $ Map.unions (time : decls)
 
-    icMapElt :: Syntax.Decl -> EqGen (Map Text EqExp)
+    icMapElt :: Syntax.Decl -> EqGen (Map Text ArithExpr)
     icMapElt decl =
       case decl of
-        Syntax.State n v -> Map.singleton n <$> asEqExp (Map.fromList letVars) v 
+        Syntax.State n v -> Map.singleton n <$> inlineVars (Map.fromList letVars) v 
         _ -> pure Map.empty
 
-    asMbStateVar :: Syntax.Decl -> Maybe (Text, Syntax.Exp)
+    -- Don't support non-arithmetic expressions for DE generation
+    asMbStateVar :: Syntax.Decl -> Maybe (Text, ArithExpr)
     asMbStateVar decl =
       case decl of
-        Syntax.State n v -> Just (n, v)
-        Syntax.Let _ _ -> Nothing
+        Syntax.State n (Syntax.ArithExpr v) -> Just (n, v)
+        _ -> Nothing
 
-    asMbLetVar :: Syntax.Decl -> Maybe (Text, Syntax.Exp)
+    -- Don't support non-arithmetic expressions for DE generation
+    asMbLetVar :: Syntax.Decl -> Maybe (Text, ArithExpr)
     asMbLetVar decl =
       case decl of
-        Syntax.Let n v -> Just (n, v)
-        Syntax.State _ _ -> Nothing
+        Syntax.Let n (Syntax.ArithExpr v) -> Just (n, v)
+        _ -> Nothing
 
-    stateVars :: [(Text, Syntax.Exp)]
+    stateVars :: [(Text, ArithExpr)]
     stateVars = 
       catMaybes (asMbStateVar <$> Syntax.modelDecls mdl)
 
-    letVars :: [(Text, Syntax.Exp)]
+    letVars :: [(Text, ArithExpr)]
     letVars =
       catMaybes (asMbLetVar <$> Syntax.modelDecls mdl)
 
-    letEq :: (Text, Syntax.Exp) -> EqGen DiffEq
+    letEq :: (Text, ArithExpr) -> EqGen DiffEq
     letEq (name, exp) =
-      VarEq name <$> asEqExp (Map.fromList letVars) exp
+      VarEq name <$> inlineVars (Map.fromList letVars) (Syntax.ArithExpr exp)
 
-    stateEq :: (Text, Syntax.Exp) -> EqGen DiffEq
+    stateEq :: (Text, ArithExpr) -> EqGen DiffEq
     stateEq (sv, _) = StateEq sv . sumTerms <$> eventTerms sv
 
-    eventTerms :: Text -> EqGen [EqExp]
+    eventTerms :: Text -> EqGen [ArithExpr]
     eventTerms sv =
       catMaybes <$> (eventTerm sv `traverse` (Syntax.modelEvents mdl))
 
-    eventTerm :: Text -> Syntax.Event -> EqGen (Maybe EqExp)
+    eventTerm :: Text -> Syntax.Event -> EqGen (Maybe ArithExpr)
     eventTerm sv event = 
       case sv `lookup` Syntax.eventEffect event of
         Nothing -> pure Nothing
         Just stExp -> 
-          do  rate' <- asEqExp (Map.fromList letVars) (Syntax.eventRate event)
-              stExp' <- asEqExp (Map.fromList letVars) stExp
+          do  rate' <- inlineVars (Map.fromList letVars) (Syntax.eventRate event)
+              stExp' <- inlineVars (Map.fromList letVars) (Syntax.ArithExpr stExp)
               pure . Just $ stateEventTerm stExp' sv rate'
     
     timeEq :: DiffEq
-    timeEq = StateEq "time" (Lit 1.0) -- put "time" in scope
+    timeEq = StateEq "time" (ALit 1.0) -- put "time" in scope
 
-stateEventTerm :: EqExp -> Text -> EqExp -> EqExp
+stateEventTerm :: ArithExpr -> Text -> ArithExpr -> ArithExpr
 stateEventTerm e0 stateVar rateExp = rateExp `mulExp` (e0 `subExp` (Var stateVar))
 
-asEqExp :: Map Text Syntax.Exp -> Syntax.Exp -> EqGen EqExp
-asEqExp vars e = go e
+inlineVars :: Map Text ArithExpr -> Syntax.ModelExpr -> EqGen ArithExpr
+inlineVars vars e = goM e
   where
-    go e =
+    goM :: Syntax.ModelExpr -> EqGen ArithExpr
+    goM e =
       case e of
-        Syntax.Add e1 e2 -> binop addExp e1 e2
-        Syntax.Sub e1 e2 -> binop subExp e1 e2
-        Syntax.Mul e1 e2 -> binop mulExp e1 e2
-        Syntax.Div e1 e2 -> binop divExp e1 e2
-        Syntax.Neg en -> negExp <$> go en
-        Syntax.Var v -> varExp v 
-        Syntax.Real r -> pure $ Lit r
+        Syntax.ArithExpr e -> goA e
         _ -> expNotImplemented e
-
+    
+    goA :: ArithExpr -> EqGen ArithExpr
+    goA e =
+      case e of 
+        Add e1 e2 -> binop addExp e1 e2
+        Sub e1 e2 -> binop subExp e1 e2
+        Mul e1 e2 -> binop mulExp e1 e2
+        Div e1 e2 -> binop divExp e1 e2
+        Neg en -> negExp <$> goA en
+        Var v -> varExp v 
+        ALit r -> pure $ ALit r
+        
+    varExp :: Text -> EqGen ArithExpr
     varExp v =
       case vars Map.!? v of
         Nothing -> pure $ Var v
-        Just e -> go e
-    binop op e1 e2 = op <$> go e1 <*> go e2
-    expNotImplemented nexp = fail ("Expression form not implemented: " ++ show nexp)
+        Just e -> goA e
+
+    binop op e1 e2 = op <$> goA e1 <*> goA e2
+    expNotImplemented nexp = fail ("DiffEq: expression form not implemented: " ++ show nexp)
 
 -- PP -------------------------------------------------------------------------
 
@@ -183,7 +182,7 @@ ppDiffEq :: DiffEq -> Pretty.Doc
 ppDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
   where
     expr = 
-      ppEqExp $
+      ppArithExpr $
         case deq of
           StateEq var e -> e
           VarEq var e -> e
@@ -193,11 +192,11 @@ ppDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
         StateEq var e -> Pretty.text ("d" <> Text.unpack var <> "/dt")
         VarEq var e   -> Pretty.text $ Text.unpack var
 
-ppEqExp :: EqExp -> Pretty.Doc
-ppEqExp e =
+ppArithExpr :: ArithExpr -> Pretty.Doc
+ppArithExpr e =
   case e of
     Var t -> Pretty.text (Text.unpack t)
-    Lit d -> Pretty.double d
+    ALit d -> Pretty.double d
     Add p1 p2 -> binop "+" p1 p2 
     Sub p1 p2 -> binop "-" p1 p2
     Mul p1 p2 -> binop "*" p1 p2
@@ -209,7 +208,7 @@ ppEqExp e =
     plvl pe =
      case pe of
        Var _ -> litP
-       Lit _ -> litP
+       ALit _ -> litP
        Add _ _ -> addP
        Sub _ _ -> addP
        Mul _ _ -> mulP
@@ -218,8 +217,8 @@ ppEqExp e =
 
     ppPrec p =
       if plvl p > plvl e
-        then Pretty.parens (ppEqExp p)
-        else ppEqExp p
+        then Pretty.parens (ppArithExpr p)
+        else ppArithExpr p
 
     binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text op, ppPrec p2]
 
@@ -227,7 +226,7 @@ latexDiffEq :: DiffEq -> Pretty.Doc
 latexDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
   where
     expr = 
-      latexEqExp $
+      latexArithExpr $
         case deq of
           StateEq var e -> e
           VarEq var e -> e
@@ -237,23 +236,23 @@ latexDiffEq deq = Pretty.hsep [ intro, Pretty.text "=", expr ]
         StateEq var e -> Pretty.text ("\\frac{d"<>Text.unpack var<>"}{dt}")
         VarEq var e   -> Pretty.text $ Text.unpack var
 
-latexEqExp :: EqExp -> Pretty.Doc
-latexEqExp e =
+latexArithExpr :: ArithExpr -> Pretty.Doc
+latexArithExpr e =
   case e of
     Var t -> Pretty.text (Text.unpack t)
-    Lit d -> Pretty.text (printf "%f" d) -- Pretty.double 0.04 == "4.0e-2", no good for latex
+    ALit d -> Pretty.text (printf "%f" d) -- Pretty.double 0.04 => "4.0e-2", no good for latex
     Add p1 p2 -> binop "+" p1 p2 
     Sub p1 p2 -> binop "-" p1 p2
     Mul p1 p2 -> binop "*" p1 p2 -- or just whitespace?
-    Div p1 p2 -> "\\frac{"<>latexEqExp p1<>"}{"<>latexEqExp p2<>"}"
-    Neg p1 -> parenthesize $ latexEqExp p1
+    Div p1 p2 -> "\\frac{"<>latexArithExpr p1<>"}{"<>latexArithExpr p2<>"}"
+    Neg p1 -> parenthesize $ latexArithExpr p1
       
   where
     (litP, negP, mulP, addP) = (0,1,2,3)
     plvl pe =
      case pe of
        Var _ -> litP
-       Lit _ -> litP
+       ALit _ -> litP
        Add _ _ -> addP
        Sub _ _ -> addP
        Mul _ _ -> mulP
@@ -262,15 +261,15 @@ latexEqExp e =
 
     ppPrec p =
       if plvl p > plvl e
-        then parenthesize (latexEqExp p)
-        else latexEqExp p
+        then parenthesize (latexArithExpr p)
+        else latexArithExpr p
 
     parenthesize e = "\\left("<>e<>"\\right)"
     binop op p1 p2 = Pretty.hsep [ppPrec p1, Pretty.text op, ppPrec p2]
 
 -- evaluator ------------------------------------------------------------------
 
-stateEqs :: [DiffEq] -> [(Text, EqExp)]
+stateEqs :: [DiffEq] -> [(Text, ArithExpr)]
 stateEqs eqs = eqs >>= stEqElt
   where  
     stEqElt (StateEq n e) = [(n, e)]
@@ -293,7 +292,7 @@ inlineNonStateVars eqs = eqs >>= inlineEq
         Div e1 e2 -> bin e1 e2 Div
         Mul e1 e2 -> bin e1 e2 Mul
         Neg e0 -> Neg $ inlineExp e0
-        Lit d -> Lit d
+        ALit d -> ALit d
     
     bin e1 e2 c = c (inlineExp e1) (inlineExp e2)
 
@@ -308,11 +307,11 @@ inlineNonStateVars eqs = eqs >>= inlineEq
         StateEq _ _ -> Map.empty
         VarEq n e   -> Map.singleton n e
 
-eval :: Map Text Int -> LinAlg.Vector Double -> EqExp -> Double
+eval :: Map Text Int -> LinAlg.Vector Double -> ArithExpr -> Double
 eval nameMap env e =
   case e of
     Var v -> env LinAlg.! (nameMap Map.! v) 
-    Lit l -> l
+    ALit l -> l
     Add e1 e2 -> eval' e1 + eval' e2
     Sub e1 e2 -> eval' e1 - eval' e2
     Mul e1 e2 -> eval' e1 * eval' e2
@@ -321,7 +320,7 @@ eval nameMap env e =
   where
     eval' = eval nameMap env
 
-eval' :: EqExp -> Double
+eval' :: ArithExpr -> Double
 eval' eq = eval Map.empty (LinAlg.fromList []) eq
 
 asGSLODEfn :: [DiffEq] -> Double -> [Double] -> [Double]

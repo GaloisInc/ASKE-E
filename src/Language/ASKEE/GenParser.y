@@ -2,8 +2,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Language.ASKEE.GenParser where
 import Language.ASKEE.GenLexer
-import Language.ASKEE.Lexer as Lexer
+import Language.ASKEE.Lexer  as Lexer
 import Language.ASKEE.Syntax as Syntax
+import Language.ASKEE.Expr   as Expr
 
 import Control.Monad.State
 
@@ -70,9 +71,9 @@ Decls :            { [] }
       | Decls Decl { $2 : $1 }
 
 Decl : let   sym '=' Exp      ';'  { Syntax.Let $2 $4 }
-     | let   sym '=' ExpBlock      { Syntax.Let $2 $4 }
+     | let   sym '=' CondExp       { Syntax.Let $2 $4 }
      | state sym '=' Exp      ';'  { Syntax.State $2 $4 }
-     | state sym '=' ExpBlock      { Syntax.State $2 $4 }
+     | state sym '=' CondExp       { Syntax.State $2 $4 }
 
 Events :              { [] }
        | Events Event { $2 : $1 }
@@ -80,8 +81,8 @@ Events :              { [] }
 Event : event NamedBlockInit WhenBlock RateBlock EffectBlock MDBlock BlockEnd { Syntax.Event $2 $3 $4 $5 Nothing }
 
 WhenBlock   :                                       { Nothing }
-            | when   BlockInit Exp ';'     BlockEnd { Just $3 }
-RateBlock   : rate   BlockInit Exp ';'     BlockEnd { $3 }
+            | when   BlockInit LExp ';'    BlockEnd { Just $3 }
+RateBlock   : rate   BlockInit Exp  ';'    BlockEnd { $3 }
 EffectBlock : effect BlockInit Statements  BlockEnd { (reverse $3) }
 
 MDBlock : {}
@@ -89,47 +90,52 @@ MDBlock : {}
 Statements :                      { [] }
            | Statements Statement { $2 : $1 }
 
-Statement : sym '='  Exp ';' { ($1, $3) }
-          | sym OpEq Exp ';' { ($1, $2 (Syntax.Var $1) $3) }
+Statement : sym '='  AExp ';' { ($1, $3) }
+          | sym OpEq AExp ';' { ($1, $2 (Expr.Var $1) $3) }
 
-OpEq : '+=' { Syntax.Add }
-     | '-=' { Syntax.Sub }
-     | '*=' { Syntax.Mul }
-     | '/=' { Syntax.Div }
+OpEq : '+=' { Expr.Add }
+     | '-=' { Expr.Sub }
+     | '*=' { Expr.Mul }
+     | '/=' { Expr.Div }
 
 NamedBlockInit : sym ':' bopen  { $1 }
 BlockInit      :     ':' bopen  {}
 BlockEnd       :         bclose {}
 
-Exp : Exp '+' Exp                { Syntax.Add  $1 $3 }
-    | Exp '-' Exp                { Syntax.Sub  $1 $3 }
-    | Exp '*' Exp                { Syntax.Mul  $1 $3 }
-    | Exp '/' Exp                { Syntax.Div  $1 $3 }
-    | '-' Exp                    { Syntax.Neg  $2 }
-    | Exp '>' Exp                { Syntax.GT   $1 $3 }
-    | Exp '>=' Exp               { Syntax.GTE  $1 $3 }
-    | Exp '==' Exp               { Syntax.EQ   $1 $3 }
-    | Exp '<=' Exp               { Syntax.LTE  $1 $3 }
-    | Exp '<' Exp                { Syntax.LT   $1 $3 }
-    | Exp and Exp                { Syntax.And  $1 $3 }
-    | Exp or  Exp                { Syntax.Or   $1 $3 }
-    | not Exp                    { Syntax.Not $2 }
+Exp : AExp                       { Syntax.ArithExpr $1 }
     | '(' Exp ')'                { $2 }
-    | if Exp then Exp else Exp   { Syntax.If $2 $4 $6 }
-    | real                       { Syntax.Real $1 }
-    | sym                        { Syntax.Var  $1 }
+    | if LExp then Exp else Exp  { Syntax.IfExpr $2 $4 $6 }
 
-ExpBlock : cond BlockInit Condition BlockEnd { Syntax.Cond $3 }
+AExp : AExp '+' AExp    { Expr.Add  $1 $3 }
+     | AExp '-' AExp    { Expr.Sub  $1 $3 }
+     | AExp '*' AExp    { Expr.Mul  $1 $3 }
+     | AExp '/' AExp    { Expr.Div  $1 $3 }
+     | '-' AExp         { Expr.Neg  $2 }
+     | '(' AExp ')'     { $2 }
+     | sym              { Expr.Var $1 }
+     | real             { Expr.ALit $1 }
+
+LExp : AExp '>' AExp    { Expr.GT  $1 $3 }
+     | AExp '>=' AExp   { Expr.GTE $1 $3 }
+     | AExp '==' AExp   { Expr.EQ  $1 $3 }
+     | AExp '<=' AExp   { Expr.LTE $1 $3 }
+     | AExp '<' AExp    { Expr.LT  $1 $3 }
+     | LExp and LExp    { Expr.And $1 $3 }
+     | LExp or  LExp    { Expr.Or  $1 $3 } 
+     | not LExp         { Expr.Not $2 }
+     | '(' LExp ')'     { $2 }
+
+CondExp : cond BlockInit Condition BlockEnd { Syntax.CondExpr $3 }
 
 Condition : CondChoices CondOtherwise { Syntax.Condition (reverse $1) $2 }
 
 CondChoices :                        { [] }
             | CondChoices CondChoice { $2 : $1 }
 
-CondChoice : Exp if Exp ';' { ($1, $3) }
+CondChoice : AExp if LExp ';' { ($1, $3) }
 
-CondOtherwise :                   { Nothing }
-              | Exp otherwise ';' { Just $1 }
+CondOtherwise :                    { Nothing }
+              | AExp otherwise ';' { Just $1 }
 
 
 {

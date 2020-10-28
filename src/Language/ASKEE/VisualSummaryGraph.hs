@@ -15,6 +15,7 @@ import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy as BS
 
 import qualified Language.ASKEE.DiffEq.DiffEq as DiffEq
+import qualified Language.ASKEE.Expr as Expr
 import qualified Language.ASKEE.AMIDOLIR as AMI
 
 type Identifier = String
@@ -173,35 +174,35 @@ withGroups graph groups =
 
 -- everything below this is deletable - mostly added for testing 
 
-edgesForEqExp :: Text -> DiffEq.EqExp -> [(Identifier, Identifier)]
-edgesForEqExp tgt eqn =
+edgesForArithExp :: Text -> Expr.ArithExpr -> [(Identifier, Identifier)]
+edgesForArithExp tgt eqn =
   case eqn of
-    DiffEq.Var name -> [(Text.unpack name, Text.unpack tgt)]
-    DiffEq.Lit _ -> []
-    DiffEq.Add e1 e2 -> bin e1 e2
-    DiffEq.Sub e1 e2 -> bin e1 e2
-    DiffEq.Mul e1 e2 -> bin e1 e2
-    DiffEq.Div e1 e2 -> bin e1 e2
-    DiffEq.Neg e -> edgesForEqExp tgt e
+    Expr.Var name -> [(Text.unpack name, Text.unpack tgt)]
+    Expr.ALit _ -> []
+    Expr.Add e1 e2 -> bin e1 e2
+    Expr.Sub e1 e2 -> bin e1 e2
+    Expr.Mul e1 e2 -> bin e1 e2
+    Expr.Div e1 e2 -> bin e1 e2
+    Expr.Neg e -> edgesForArithExp tgt e
   where
-    bin e1 e2 = edgesForEqExp tgt e1 ++ edgesForEqExp tgt e2
+    bin e1 e2 = edgesForArithExp tgt e1 ++ edgesForArithExp tgt e2
 
 edgesForDiffEq :: DiffEq.DiffEq -> [(Identifier, Identifier)]
 edgesForDiffEq eq =
   case eq of
-    DiffEq.StateEq n eqn -> edgesForEqExp n eqn
-    DiffEq.VarEq n eqn -> edgesForEqExp n eqn
+    DiffEq.StateEq n eqn -> edgesForArithExp n eqn
+    DiffEq.VarEq n eqn -> edgesForArithExp n eqn
 
-irExpAsDiffEq :: AMI.ModelExp -> DiffEq.EqExp
+irExpAsDiffEq :: AMI.ModelExp -> Expr.ArithExpr
 irExpAsDiffEq e = 
   case e of
-    AMI.Add e1 e2 -> bin e1 e2 DiffEq.Add
-    AMI.Mul e1 e2 -> bin e1 e2 DiffEq.Mul
-    AMI.Sub e1 e2 -> bin e1 e2 DiffEq.Sub
-    AMI.Div e1 e2 -> bin e1 e2 DiffEq.Div
-    AMI.Neg e -> DiffEq.Neg $ irExpAsDiffEq e
-    AMI.LitNum n -> DiffEq.Lit n
-    AMI.Var t -> DiffEq.Var t
+    AMI.Add e1 e2 -> bin e1 e2 Expr.Add
+    AMI.Mul e1 e2 -> bin e1 e2 Expr.Mul
+    AMI.Sub e1 e2 -> bin e1 e2 Expr.Sub
+    AMI.Div e1 e2 -> bin e1 e2 Expr.Div
+    AMI.Neg e -> Expr.Neg $ irExpAsDiffEq e
+    AMI.LitNum n -> Expr.ALit n
+    AMI.Var t -> Expr.Var t
   where
     bin e1 e2 c = irExpAsDiffEq e1 `c` irExpAsDiffEq e2
 

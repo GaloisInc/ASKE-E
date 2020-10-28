@@ -1,8 +1,10 @@
 module Language.ASKEE.Syntax where
 
-import Data.Text ( Text )
+import Data.Text (Text)
 
 import Prelude hiding (LT, EQ, GT)
+
+import qualified Language.ASKEE.Expr as Expr
 
 data Model = Model { modelName :: Text
                    , modelDecls :: [Decl]
@@ -10,44 +12,31 @@ data Model = Model { modelName :: Text
                    }
   deriving (Show, Eq)
 
-data Decl = Let { name :: Text
-                , val  :: Exp
-                }
+data Decl = Let   { name :: Text
+                  , val  :: ModelExpr
+                  }
           | State { name :: Text
-                  , val  :: Exp 
+                  , val  :: ModelExpr
                   }
   deriving (Show, Eq)
 
 data Event = Event { eventName     :: Text
-                   , eventWhen     :: Maybe Exp
-                   , eventRate     :: Exp
+                   , eventWhen     :: Maybe (Expr.LogExpr)
+                   , eventRate     :: ModelExpr
                    , eventEffect   :: [Statement]
                    , eventMetadata :: Maybe Text
                    }
   deriving (Show, Eq)
 
-type Statement = (Text, Exp)
+type Statement = (Text, Expr.ArithExpr)
 
-data Exp = Add  Exp Exp
-         | Sub  Exp Exp
-         | Mul  Exp Exp
-         | Div  Exp Exp
-         | Neg  Exp
-         | GT   Exp Exp
-         | GTE  Exp Exp
-         | EQ   Exp Exp
-         | LTE  Exp Exp
-         | LT   Exp Exp
-         | And  Exp Exp
-         | Or   Exp Exp
-         | Not  Exp
-         | If   Exp Exp Exp
-         | Cond Condition
-         | Real Double
-         | Var  Text
+data ModelExpr = 
+    ArithExpr Expr.ArithExpr
+  | IfExpr    Expr.LogExpr ModelExpr ModelExpr
+  | CondExpr  Condition
   deriving (Show, Eq)
 
-data Condition = Condition { condChoices   :: [(Exp, Exp)]
-                           , condOtherwise :: Maybe Exp
+data Condition = Condition { condChoices   :: [(Expr.ArithExpr, Expr.LogExpr)]
+                           , condOtherwise :: Maybe (Expr.ArithExpr)
                            }
   deriving (Show, Eq)

@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import Language.ASKEE.DiffEq.GenLexer
 import Language.ASKEE.DiffEq.Lexer    as Lexer
 import Language.ASKEE.DiffEq.DiffEq   as Syntax
+import Language.ASKEE.Expr            as Expr
 }
 
 %name parse
@@ -41,16 +42,16 @@ Eqns :            { [] }
 Eqn : frac '{' var '}' '{' var '}' '=' Exp   { Syntax.StateEq (fromD $3) $9 }
     | var '=' Exp                            { Syntax.VarEq $1 $3 }
 
-Exp : Exp '+' Exp                    { Syntax.Add $1 $3 }
-    | Exp '-' Exp                    { Syntax.Sub $1 $3 }
-    | Exp '*' Exp                    { Syntax.Mul $1 $3 }
-    | Exp '/' Exp                    { Syntax.Div $1 $3 }
-    | frac '{' Exp '}' '{' Exp '}'   { Syntax.Div $3 $6 }
-    | '-' Exp                        { Syntax.Neg $2 }
+Exp : Exp '+' Exp                    { Expr.Add $1 $3 }
+    | Exp '-' Exp                    { Expr.Sub $1 $3 }
+    | Exp '*' Exp                    { Expr.Mul $1 $3 }
+    | Exp '/' Exp                    { Expr.Div $1 $3 }
+    | frac '{' Exp '}' '{' Exp '}'   { Expr.Div $3 $6 }
+    | '-' Exp                        { Expr.Neg $2 }
     | '(' Exp ')'                    { $2 }
-    | var Exp                        { Syntax.Mul (Syntax.Var $1) $2 }
-    | var                            { Syntax.Var $1 }
-    | lit                            { Syntax.Lit $1 }
+    | var Exp                        { Expr.Mul (Expr.Var $1) $2 }
+    | var                            { Expr.Var $1 }
+    | lit                            { Expr.ALit $1 }
 
 {
 textFromVar :: Located Token -> Text

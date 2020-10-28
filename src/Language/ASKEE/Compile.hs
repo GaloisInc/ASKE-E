@@ -1,164 +1,144 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{- LANGUAGE MultiParamTypeClasses #-}
+{- LANGUAGE FlexibleInstances #-}
+{- LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Compile where
 
 import Language.ASKEE.Core   as Core
+import Language.ASKEE.Expr   as Expr
 import Language.ASKEE.Syntax as Syntax
 
-import Data.List as List ( find )
+import           Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Text         ( unpack, Text )
 import Data.Foldable     ( foldrM )
 
-import Prelude hiding (GT, EQ, LT)
+type ModelGen a = Either String a
 
-type Err = Either String
 
-instance MonadFail Err where
-  fail = Left
-
-compileModel :: Syntax.Model -> Err Core.Model
+compileModel :: Syntax.Model -> ModelGen Core.Model
 compileModel m@(Syntax.Model {..}) = 
   do  (identMap, modelInitState) <- initialValues m
       modelEvents <- mapM (compileEvent identMap) modelEvents
       pure $ Core.Model {..}
 
-initialValues :: Syntax.Model -> Err ([(Text, Core.Ident)], [(Core.Ident, Double)])
-initialValues (Syntax.Model _ decls _) = 
-  do  let names = map name decls
-          exps  = map val decls
-      results <- mapM (evalExp decls) exps
-      pure $  (zip names [0..], zip [0..] results)
 
-compileEvent :: [(Text, Core.Ident)] -> Syntax.Event -> Err Core.Event
+initialValues :: Syntax.Model -> ModelGen ([(Text, Core.Ident)], [(Core.Ident, Double)])
+initialValues (Syntax.Model _ decls _) = 
+  do  let names = "time"                        : map name decls
+          exps  = (Syntax.ArithExpr (ALit 0.0)) : map val decls
+          vars = Map.fromList (zip names exps)
+      vals <- mapM (evalExp vars) exps
+      pure $ (zip names [0..], zip [0..] vals)
+
+
+compileEvent :: [(Text, Core.Ident)] -> Syntax.Event -> ModelGen Core.Event
 compileEvent identMap (Syntax.Event {..}) = do
   rate <- compileExp identMap eventRate
   when <- case eventWhen of
-    Just w  -> compileExp identMap w
+    Just w  -> compileLog identMap w
     Nothing -> pure $ ExprNumLit 1.0 -- True
   effect <- mapM (compileStatement identMap) eventEffect
   pure $ Core.Event rate when effect
 
-compileStatement :: [(Text, Core.Ident)] -> Syntax.Statement -> Err (Core.Ident, Expr)
+
+compileStatement :: [(Text, Core.Ident)] -> Syntax.Statement -> ModelGen (Core.Ident, Core.Expr)
 compileStatement identMap (name, exp) =
-  do  expr <- compileExp identMap exp
+  do  expr <- compileArith identMap exp
       ident <- case lookup name identMap of
         Just ident -> pure ident
-        Nothing    -> fail $ "internal error: identifier "++show (unpack name)++" not found"
+        Nothing    -> fail $ "Compile: compileStatement: internal error: unbound identifier "<>unpack name
       pure (ident, expr)
 
-compileExp :: [(Text, Core.Ident)] -> Exp -> Err Expr
-compileExp identMap = compile
+
+compileExp :: [(Text, Core.Ident)] -> Syntax.ModelExpr -> ModelGen Core.Expr
+compileExp identMap (ArithExpr e) = compileArith identMap e
+compileExp identMap (IfExpr e1 e2 e3) = compileIf identMap e1 e2 e3
+compileExp identMap (CondExpr (Condition choices other)) = compileCond identMap choices other
+
+compileArith :: [(Text, Core.Ident)] -> Expr.ArithExpr -> ModelGen Core.Expr
+compileArith identMap = go
   where
-    compile :: Exp -> Err Expr
-    compile (Add e1 e2)   = binop ExprAdd e1 e2
-    compile (Sub e1 e2)   = binop ExprSub e1 e2
-    compile (Mul e1 e2)   = binop ExprMul e1 e2
-    compile (Div e1 e2)   = binop ExprDiv e1 e2
-    compile (Neg e1)      = ExprNeg <$> (compile e1)
-    compile (GT e1 e2)    = binop ExprGT e1 e2
-    compile (GTE e1 e2)   = ExprNot <$> (binop ExprLT e1 e2)
-    compile (EQ e1 e2)    = binop ExprEQ e1 e2
-    compile (LTE e1 e2)   = ExprNot <$> (binop ExprGT e1 e2)
-    compile (LT e1 e2)    = binop ExprLT e1 e2
-    compile (And e1 e2)   = binop ExprAnd e1 e2
-    compile (Or e1 e2)    = binop ExprOr e1 e2
-    compile (Not e1)      = ExprNot <$> (compile e1)
-    compile (If e1 e2 e3) = 
-      do  e1' <- compile e1
-          e2' <- compile e2
-          e3' <- compile e3
-          pure $ ExprIf e1' e2' e3'
-    compile (Cond (Condition choices Nothing)) =
-      let default' = ExprDiv (ExprNumLit 1) (ExprNumLit 0)
-      in  foldrM cond default' choices
-    compile (Cond (Condition choices (Just defaultExp))) =
-      do  default' <- compile defaultExp
-          foldrM cond default' choices
-    compile (Real d) = pure $ ExprNumLit d
-    compile (Var t) = 
+    go :: Expr.ArithExpr -> ModelGen Core.Expr
+    go (Expr.Add e1 e2) = binop go Core.ExprAdd e1 e2
+    go (Expr.Sub e1 e2) = binop go Core.ExprSub e1 e2
+    go (Expr.Mul e1 e2) = binop go Core.ExprMul e1 e2
+    go (Expr.Div e1 e2) = binop go Core.ExprDiv e1 e2
+    go (Expr.Neg e1) = Core.ExprNeg <$> (go e1)
+    go (ALit d) = pure $ Core.ExprNumLit d
+    go (Var t) = 
       case lookup t identMap of
-        Just ident -> pure $ ExprVar ident
-        Nothing    -> fail $ "compile: unbound identifier "++show (unpack t)
+        Just ident -> pure $ Core.ExprVar ident
+        Nothing    -> fail $ "Compile: compileArith: internal error: unbound identifier "<>unpack t
 
-    binop :: (Expr -> Expr -> Expr) -> Exp -> Exp -> Err Expr
-    binop op e1 e2 = do
-      e1' <- compile e1
-      e2' <- compile e2
-      pure $ op e1' e2'
-
-    cond :: (Exp, Exp) -> Expr -> Err Expr
-    cond (result, condition) otherwise = do
-      result' <- compile result
-      condition' <- compile condition
-      pure $ ExprIf condition' result' otherwise
-
--- Largely a duplication of the effort in Language.ASKEE.Core, but that
--- evaluation runs in IO
-evalExp :: [Decl] -> Exp -> Err Double
-evalExp decls = ev
+compileLog :: [(Text, Core.Ident)] -> Expr.LogExpr -> ModelGen Core.Expr
+compileLog identMap = goL
   where
-    ev :: Exp -> Err Double
-    ev (Add e1 e2)   = binop (+) e1 e2
-    ev (Sub e1 e2)   = binop (-) e1 e2
-    ev (Mul e1 e2)   = binop (*) e1 e2
-    ev (Div e1 e2)   = binop (/) e1 e2
-    ev (Neg e1)      = negate <$> (ev e1)
-    ev (GT e1 e2)    = cmpop (>) e1 e2
-    ev (GTE e1 e2)   = cmpop (>=) e1 e2
-    ev (EQ e1 e2)    = cmpop (==) e1 e2
-    ev (LTE e1 e2)   = cmpop (<=) e1 e2
-    ev (LT e1 e2)    = cmpop (<) e1 e2
-    ev (And e1 e2)   = logop (&&) e1 e2
-    ev (Or e1 e2)    = logop (||) e1 e2
-    ev (Not e1)      = logop (\x _ -> not x) e1 undefined
-    ev (If e1 e2 e3) = 
-      do  e1' <- bool <$> ev e1
-          e2' <- ev e2
-          e3' <- ev e3
-          pure $ if e1' then e2' else e3'
-    ev (Cond (Condition choices Nothing)) =       
-      let default' = 1 / 0
+    goL :: Expr.LogExpr -> ModelGen Core.Expr
+    goL (Expr.GT e1 e2)  = binop goA Core.ExprGT e1 e2
+    goL (Expr.GTE e1 e2) = Core.ExprNot <$> (binop goA Core.ExprLT e1 e2)
+    goL (Expr.EQ e1 e2)  = binop goA Core.ExprEQ e1 e2
+    goL (Expr.LTE e1 e2) = Core.ExprNot <$> (binop goA Core.ExprGT e1 e2)
+    goL (Expr.LT e1 e2)  = binop goA Core.ExprLT e1 e2
+    goL (Expr.And e1 e2) = binop goL Core.ExprAnd e1 e2
+    goL (Expr.Or e1 e2)  = binop goL Core.ExprOr e1 e2
+    goL (Expr.Not e1)    = Core.ExprNot <$> (goL e1)
+
+    goA :: Expr.ArithExpr -> ModelGen Core.Expr
+    goA = compileArith identMap
+
+binop :: 
+  (e -> ModelGen Core.Expr) ->
+  (Core.Expr -> Core.Expr -> Core.Expr) ->
+  e ->
+  e ->
+  ModelGen Core.Expr
+binop comp op e1 e2 = op <$> comp e1 <*> comp e2
+
+compileIf :: 
+  [(Text, Core.Ident)] ->
+  Expr.LogExpr ->
+  Syntax.ModelExpr ->
+  Syntax.ModelExpr ->
+  ModelGen Core.Expr
+compileIf identMap e1 e2 e3 = 
+  Core.ExprIf <$> 
+  compileLog identMap e1 <*>
+  compileExp identMap e2 <*> 
+  compileExp identMap e3
+
+compileCond :: [(Text, Core.Ident)] -> [(ArithExpr, LogExpr)] -> Maybe ArithExpr -> ModelGen Core.Expr
+compileCond identMap choices otherM =
+  case otherM of
+    Nothing -> 
+      let default' = Core.ExprDiv (Core.ExprNumLit 1) (Core.ExprNumLit 0)
       in  foldrM cond default' choices
-    ev (Cond (Condition choices (Just defaultExp))) = 
-      do  default' <- ev defaultExp
+    Just other ->
+      do  default' <- compileArith identMap other
           foldrM cond default' choices
-    ev (Real d) = pure d
-    ev (Var t) = case List.find (\d -> name d == t) decls of
-      Just decl -> ev (val decl)
-      Nothing   -> fail $ "eval: unbound identifier "++show (unpack t)
 
-    binop :: (Double -> Double -> Double) -> Exp -> Exp -> Err Double
-    binop op e1 e2 =
-      do  e1' <- ev e1
-          e2' <- ev e2
-          pure $ op e1' e2'
-
-    cmpop :: (Double -> Double -> Bool) -> Exp -> Exp -> Err Double
-    cmpop op e1 e2 = 
-      do  e1' <- ev e1
-          e2' <- ev e2
-          pure $ double $ op e1' e2'
-
-    logop:: (Bool -> Bool -> Bool) -> Exp -> Exp -> Err Double
-    logop op e1 e2 = 
-      do  e1' <- bool <$> ev e1
-          e2' <- bool <$> ev e2
-          pure $ double $ op e1' e2'
-
-    cond :: (Exp, Exp) -> Double -> Err Double
+  where
+    cond :: (ArithExpr, LogExpr) -> Core.Expr -> ModelGen Core.Expr
     cond (result, condition) otherwise = do
-      result' <- ev result
-      condition' <- bool <$> ev condition
-      pure $ if condition' then result' else otherwise
+      resultExpr <- compileArith identMap result
+      conditionExpr <- compileLog identMap condition
+      pure $ Core.ExprIf conditionExpr resultExpr otherwise
 
 
-bool :: Double -> Bool
-bool d
-  | d == 0 = False
-  | d > 0 = True
-  | d < 0 = undefined -- ?
+evalExp :: Map Text Syntax.ModelExpr -> Syntax.ModelExpr -> Either String Double
+evalExp vars = go
+  where
+    go (Syntax.ArithExpr e) = Expr.evalArith vars' e
+    go (Syntax.IfExpr e1 e2 e3) = 
+      do  cond <- Expr.evalLog vars' e1
+          if cond
+            then go e2
+            else go e3
+    go (Syntax.CondExpr (Syntax.Condition choices otherM)) = undefined
 
-double :: Bool -> Double
-double True = 1.0
-double False = 0.0
+    vars' = Map.mapMaybe arith vars
+
+    arith :: Syntax.ModelExpr -> Maybe Expr.ArithExpr
+    arith (Syntax.ArithExpr ae) = Just ae
+    arith _                     = Nothing

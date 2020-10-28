@@ -1,31 +1,41 @@
 module Language.ASKEE.Experiments where
 
-import Language.ASKEE.GenLexer ( lexModel )
-import Language.ASKEE.Lexer ( Token, Located )
-import Language.ASKEE.GenParser ( parse )
-import Language.ASKEE.Syntax ( Model )
+import Data.Map (toList, Map)
+import Data.Text (Text)
 
-import qualified Language.ASKEE.DiffEq.GenLexer as GL
-import qualified Language.ASKEE.DiffEq.GenParser as GP
-import qualified Language.ASKEE.DiffEq.Lexer as L
-import qualified Language.ASKEE.DiffEq.DiffEq as S
+import qualified Language.ASKEE.DiffEq.GenLexer as DL
+import qualified Language.ASKEE.DiffEq.GenParser as DP
+import           Language.ASKEE.DiffEq.DiffEq (DiffEq, EqGen)
+import qualified Language.ASKEE.GenLexer as AL
+import qualified Language.ASKEE.GenParser as AP
+import           Language.ASKEE.Lexer (Token, Located)
+import           Language.ASKEE.Syntax (Model)
 
 
-{- testLex :: FilePath -> IO [Located Token]
-testLex fp = do
-  Right toks <- lexModel <$> readFile fp
-  mapM_ print toks
-  pure $ toks
+import System.IO.Unsafe (unsafePerformIO)
 
-testParse :: FilePath -> IO Model
-testParse fp =
-  do  toks <- testLex fp
-      pure $ parse toks
 
- -}
+testLexModel :: FilePath -> [Located Token]
+testLexModel fp = 
+  let model = unsafePerformIO $ readFile fp
+      Right toks = AL.lexModel model
+  in  toks
 
-testLex :: FilePath -> IO [L.Located L.Token]
-testLex fp = GL.alexScanTokens <$> readFile fp
+testParseModel :: FilePath -> Model
+testParseModel fp =
+  let toks = testLexModel fp
+  in  AP.parse toks
 
-testParse :: FilePath -> IO [S.DiffEq]
-testParse fp = GP.parse <$> testLex fp
+dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
+dump (Right m) fp = writeFile fp $ show $ toList m 
+
+sir, sirs, sirVD :: [Char]
+sir = "examples/askee/sir.askee"
+sirs = "examples/askee/sirs.askee"
+sirVD = "examples/askee/sir-vd.askee"
+
+deqs :: String
+deqs = unsafePerformIO $ readFile "/Users/sam/Desktop/projects/aske-e/aske-e/equations.txt"
+
+p :: String -> [DiffEq]
+p = DP.parse . DL.alexScanTokens
