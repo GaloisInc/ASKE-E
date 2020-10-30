@@ -1,0 +1,24 @@
+model Marbles:
+  state R = 1
+  state G = 1
+  state B = 1
+
+  let bag = R + G + B
+
+  event DrawRed:
+    rate:
+      R / bag
+    effect:
+      R += 1
+
+  event DrawGreen:
+    rate:
+      G / bag
+    effect:
+      G += 1
+
+  event DrawBlue:
+    rate:
+      B / bag
+    effect:
+      B += 1
