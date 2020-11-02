@@ -73,8 +73,28 @@ termList e =
     Sub e1 e2 -> termList e1 ++ (negExp <$> termList e2)
     _ -> [e]
 
+prodList :: ArithExpr -> [ArithExpr]
+prodList e =
+  case e of
+    Mul e1 e2 -> prodList e1 ++ prodList e2
+    _ -> [e]
+
+prodListPos :: ArithExpr -> (Bool, [ArithExpr])
+prodListPos e = (isNeg False prodTerms, unNeg <$> prodTerms)
+  where
+    prodTerms = prodList e
+    isNeg t (Neg e':tl) = not t
+    isNeg t e = t
+
+    unNeg (Neg e') = e'
+    unNeg e' = e'
+
+
 sumTerms :: [ArithExpr] -> ArithExpr
 sumTerms = foldr addExp (ALit 0.0)
+
+prodTerms :: [ArithExpr] -> ArithExpr
+prodTerms = foldr mulExp (ALit 1.0)
 
 
 -- 'interpreter' --------------------------------------------------------------
@@ -345,3 +365,65 @@ simulateModelDiffEq mdl time =
     resultMap stateVars matrix = 
       let rows = LinAlg.toList <$> LinAlg.toColumns matrix
       in Map.delete "time" $ Map.fromList (stateVars `zip` rows)
+
+
+-- diffeq -> model ------------------------------------------------------------
+
+
+--
+-- in general we can take something of the form:
+--
+--  dX/dt = r + nY
+--  dY/dt = -nY
+--
+
+
+-- WIP
+-- equationSystemAsModel :: [DiffEq] -> Maybe Syntax.Model
+-- equationSystemAsModel ds = undefined
+--   where
+--     stateEq (StateEq n e) = [(n, e)]
+--     stateEq _ = []
+
+--     stateEqs = ds >>= stateEq
+--     stateVars = fst <$> stateEqs
+
+--     events =
+--       asEvent <$> [0..] `zip` Map.toList effMap 
+
+--     asEvent (n, (rate, effs)) =
+--       Syntax.Event { eventName = "event_" ++ show n
+--                    , eventRate = rate
+--                    , eventEffect = effs
+--                    }
+
+--     effMap = Map.unionWith (++) stateEqs >>= rateElts
+
+--     rateElts (var, eq) = 
+--       let effs = mkTermEffect var <$> termList eq
+--       in undefined
+          
+
+--     mkTermEffect var term =
+--       let (isNeg, rateTerms, svTerms) = decomposeStateTerm term
+--           effect = 
+--             if isNeg
+--                 then Var var `subExp` prodTerms svTerms
+--                 else Var var `addExp` prodTerms svTerms
+--           in (prodTerms rateTerms, [(var, effect)])
+
+
+    
+--     -- decompose state terms into rate/state var pairs 
+--     decomposeStateTerm t =
+--       let (isNeg, term)        = prodListPos t
+--           (svTerms, rateTerms) = partition (`elem` stateVars)
+--       in (isNeg, rateTerms, svTerms)
+
+
+
+
+
+
+
+
