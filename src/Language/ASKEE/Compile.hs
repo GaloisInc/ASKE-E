@@ -26,8 +26,8 @@ compileModel m@(Syntax.Model {..}) =
 
 initialValues :: Syntax.Model -> ModelGen ([(Text, Core.Ident)], [(Core.Ident, Double)])
 initialValues (Syntax.Model _ decls _) = 
-  do  let names = "time"                        : map name decls
-          exps  = (Syntax.ArithExpr (ALit 0.0)) : map val decls
+  do  let names = "time"                        : map fst (varDecls decls)
+          exps  = (Syntax.ArithExpr (ALit 0.0)) : map snd (varDecls decls)
           vars = Map.fromList (zip names exps)
       vals <- mapM (evalExp vars) exps
       pure $ (zip names [0..], zip [0..] vals)

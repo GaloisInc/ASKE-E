@@ -61,6 +61,7 @@ data Token = EOF
   | When
   | Whitespace
   | Wrap Token
+  | Assert
   deriving (Eq, Show)
 
 

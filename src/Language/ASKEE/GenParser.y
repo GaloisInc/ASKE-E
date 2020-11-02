@@ -55,6 +55,7 @@ then            { Located _ _ Lexer.Then }
 '*'             { Located _ _ Lexer.Times }
 '*='            { Located _ _ Lexer.TimesAssign }
 when            { Located _ _ Lexer.When }
+assert          { Located _ _ Lexer.Assert }
 
 %left and or
 %nonassoc '<' '<=' '==' '>=' '>'
@@ -74,6 +75,7 @@ Decl : let   sym '=' Exp      ';'  { Syntax.Let $2 $4 }
      | let   sym '=' CondExp       { Syntax.Let $2 $4 }
      | state sym '=' Exp      ';'  { Syntax.State $2 $4 }
      | state sym '=' CondExp       { Syntax.State $2 $4 }
+     | assert LExp ';'             { Syntax.Assert $2 }
 
 Events :              { [] }
        | Events Event { $2 : $1 }

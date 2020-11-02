@@ -68,6 +68,7 @@ tokens :-
 <0> "when"      { atomic When }
 <0> "rate"      { atomic Rate }
 <0> "effect"    { atomic Effect }
+<0> "assert"    { atomic Assert }
 
 <0> @upperID    { ident }
 <0> @lowerID    { ident }

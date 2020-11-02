@@ -12,6 +12,8 @@ model SIR:
 
   let total_population = S + I + R
 
+  assert total_population == s_initial + i_initial + r_initial # total population is constant
+
   event Infect:
     when:
       S > 0 and I > 0
