@@ -25,6 +25,8 @@ library
                      , Language.ASKEE.DiffEq.GenParser
                      , Language.ASKEE.DiffEq.DiffEq
                      , Language.ASKEE.Reaction
+                     , Language.ASKEE.SimulatorGen
+                     , Language.ASKEE.ExprTransform
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
@@ -38,7 +40,8 @@ library
                        random,
                        mtl,
                        hmatrix-gsl,
-                       hmatrix
+                       hmatrix,
+                       language-c
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010

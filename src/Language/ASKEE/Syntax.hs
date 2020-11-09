@@ -38,7 +38,6 @@ data Condition = Condition { condChoices   :: [(Expr.ArithExpr, Expr.LogExpr)]
                            }
   deriving (Show, Eq)
 
-
 -------------------------------------------------------------------------------
 
 -- utility functions

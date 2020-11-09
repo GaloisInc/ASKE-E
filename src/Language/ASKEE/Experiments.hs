@@ -10,6 +10,10 @@ import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
 import           Language.ASKEE.Lexer (Token, Located)
 import           Language.ASKEE.Syntax (Model)
+import           Language.ASKEE.Compile (compileModel)
+import qualified Language.ASKEE.SimulatorGen as SG
+import qualified Language.ASKEE.ExprTransform as Transform
+import qualified Text.PrettyPrint as PP
 
 
 import System.IO.Unsafe (unsafePerformIO)
@@ -39,3 +43,13 @@ deqs = unsafePerformIO $ readFile "/Users/sam/Desktop/projects/aske-e/aske-e/equ
 
 p :: String -> [DiffEq]
 p = DP.parse . DL.alexScanTokens
+
+genCppModel :: FilePath -> FilePath -> IO ()
+genCppModel fp output =
+  do let mdl = testParseModel fp
+     case Transform.modelAsCore mdl of
+       Left err       -> putStrLn ("Failed to compile model: " <> err)
+       Right compiled ->
+          do  let rendered = PP.render (SG.genModel compiled)
+              writeFile output rendered
+              putStrLn "compiled!"

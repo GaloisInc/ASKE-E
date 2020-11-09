@@ -16,7 +16,6 @@ import Data.Foldable     ( foldrM )
 
 type ModelGen a = Either String a
 
-
 compileModel :: Syntax.Model -> ModelGen Core.Model
 compileModel m@(Syntax.Model {..}) = 
   do  (identMap, modelInitState) <- initialValues m
@@ -30,7 +29,7 @@ initialValues (Syntax.Model _ decls _) =
           exps  = (Syntax.ArithExpr (ALit 0.0)) : map snd (varDecls decls)
           vars = Map.fromList (zip names exps)
       vals <- mapM (evalExp vars) exps
-      pure $ (zip names [0..], zip [0..] vals)
+      pure $ (zip names names, zip names vals) --TODO: kinda sketchy
 
 
 compileEvent :: [(Text, Core.Ident)] -> Syntax.Event -> ModelGen Core.Event
@@ -40,7 +39,7 @@ compileEvent identMap (Syntax.Event {..}) = do
     Just w  -> compileLog identMap w
     Nothing -> pure $ ExprNumLit 1.0 -- True
   effect <- mapM (compileStatement identMap) eventEffect
-  pure $ Core.Event rate when effect
+  pure $ Core.Event eventName rate when effect
 
 
 compileStatement :: [(Text, Core.Ident)] -> Syntax.Statement -> ModelGen (Core.Ident, Core.Expr)
