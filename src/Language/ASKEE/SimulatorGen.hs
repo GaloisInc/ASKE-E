@@ -106,7 +106,12 @@ genExecuteStep evts =
           , PP.text "auto rate_dist = std::uniform_real_distribution<double> { 0.0, "
                  <> totalRateName
                  <> PP.text "};"
+
+          , PP.text "auto dt_dist = std::exponential_distribution<double> {"
+                <+> totalRateName
+                <+> PP.text "};"
           , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
+          , assignStmt timeName (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
           , PP.vcat $ runEffectCondStmt <$> (evts `zip` [1..])
           , returnStmt (PP.int (negate 1))
           ]
@@ -156,7 +161,7 @@ genModel mdl =
                     , PP.vcat (mkEventRateDecl <$> Core.modelEvents mdl)
                     , PP.vcat (mkEventEffectDecl <$> Core.modelEvents mdl)
                     , stepFunction (Core.modelEvents mdl)
-                    , setSeedFunc1
+                    --, setSeedFunc1
                     , setSeedFunc2
                     , stateVars
                     , declareInitStmt dblTypeName timeName (PP.double 0.0)
