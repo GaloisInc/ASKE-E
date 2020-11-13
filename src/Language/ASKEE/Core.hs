@@ -1,40 +1,43 @@
 {-# Language FlexibleContexts #-}
 
 module Language.ASKEE.Core where
+
+import Data.Map
 import Data.Text(Text)
 
 type Ident = Text
 
 data Expr =
-    ExprAdd    Expr Expr
-  | ExprMul    Expr Expr
-  | ExprSub    Expr Expr
-  | ExprDiv    Expr Expr
-  | ExprLT     Expr Expr
-  | ExprEQ     Expr Expr
-  | ExprGT     Expr Expr
-  | ExprNot    Expr
-  | ExprNeg    Expr
-  | ExprIf     Expr Expr Expr
-  | ExprAnd    Expr Expr
-  | ExprOr     Expr Expr
-  | ExprNumLit Double
-  | ExprBoolLit Bool
-  | ExprVar    Ident
-  | ExprFail   String
-  deriving (Show, Eq)
+    Literal Literal
+  | Op1 Op1 Expr
+  | Op2 Op2 Expr Expr
+  | Var Ident
+  | If Expr Expr Expr
+  | Fail String
+    deriving (Show,Eq)
+
+data Op1 = Not | Neg
+  deriving (Show,Eq)
+
+data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
+  deriving (Show,Eq)
+
+data Literal =
+    Num Double
+  | Bool Bool
+    deriving (Show,Eq)
 
 data Event =
   Event { eventName   :: Ident
         , eventRate   :: Expr
         , eventWhen   :: Expr
-        , eventEffect :: [(Ident, Expr)]
+        , eventEffect :: Map Ident Expr
         }
   deriving (Show, Eq)
 
 data Model =
   Model { modelName :: Text
-        , modelInitState :: [(Ident, Double)]
+        , modelInitState :: Map Ident Double
         , modelEvents    :: [Event]
         }
   deriving (Show, Eq)

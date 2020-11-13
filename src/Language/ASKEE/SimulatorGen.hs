@@ -1,4 +1,4 @@
-{-# Language LambdaCase #-}
+{-# Language LambdaCase, OverloadedStrings #-}
 module Language.ASKEE.SimulatorGen where
 
 import qualified Language.ASKEE.Core as Core
@@ -214,28 +214,38 @@ genModel mdl =
 genExpr :: Core.Expr -> PP.Doc
 genExpr e0 =
   case e0 of
-    Core.ExprAdd    e1 e2 -> binop "+" e1 e2
-    Core.ExprMul    e1 e2 -> binop "*" e1 e2
-    Core.ExprSub    e1 e2 -> binop "-" e1 e2
-    Core.ExprDiv    e1 e2 -> binop "/" e1 e2
-    Core.ExprLT     e1 e2 -> binop "<" e1 e2
-    Core.ExprEQ     e1 e2 -> binop "==" e1 e2
-    Core.ExprGT     e1 e2 -> binop ">" e1 e2
-    Core.ExprAnd    e1 e2 -> binop "&&" e1 e2
-    Core.ExprOr     e1 e2 -> binop "||" e1 e2
-    Core.ExprNot    e1 -> unop "!" e1
-    Core.ExprNeg    e1 -> unop "-" e1
-    Core.ExprIf     test thn els -> 
+    Core.Expr1 op e     -> unop (op1 op) e
+    Core.Expr2 op e1 e2 -> binop (op2 op) e1 e2
+    Core.ExprIf test thn els ->
       PP.hsep [ genExprSub test
               , PP.text "?"
               , genExprSub thn
               , PP.text ":"
               , genExprSub els
               ]
-    Core.ExprNumLit d -> PP.text $ show d
-    Core.ExprVar    n -> stateVarName n
+    Core.Literal l -> lit l
+    Core.ExprVar n -> stateVarName n
 
   where
+    op1 op = case op of
+               Not -> "!"
+               Neg -> "-"
+
+    op2 op = case op of
+               Add -> "+"
+               Sub -> "-"
+               Mul -> "*"
+               Div -> "/"
+               Lt  -> "<"
+               Eq  -> "=="
+               And -> "&&"
+               Or  -> "||"
+
+    lit l = case l of
+              NumLit d  -> PP.double d
+              BoolLit d -> if d then "true" else "false"
+
+
     binop op e1 e2 = PP.hsep [genExprSub e1, PP.text op, genExprSub e2]
     unop op e1 = PP.text op <> genExprSub e1
 
@@ -243,20 +253,11 @@ genExpr e0 =
 genExprSub :: Core.Expr -> PP.Doc
 genExprSub e =
   case e of
-    Core.ExprAdd    _ _ -> paren
-    Core.ExprMul    _ _ -> paren
-    Core.ExprSub    _ _ -> paren
-    Core.ExprDiv    _ _ -> paren
-    Core.ExprLT     _ _ -> paren
-    Core.ExprEQ     _ _ -> paren
-    Core.ExprGT     _ _ -> paren
-    Core.ExprAnd    _ _ -> paren
-    Core.ExprOr     _ _ -> paren
-    Core.ExprNot    _   -> noparen
-    Core.ExprNeg    _  -> noparen
-    Core.ExprIf     _ _ _ -> paren
-    Core.ExprNumLit _ -> noparen
-    Core.ExprVar    _ -> noparen
+    Core.Expr2 {}       -> paren
+    Core.Expr1 {}       -> noparen
+    Core.ExprIf {}      -> paren
+    Core.Literal {}     -> noparen
+    Core.ExprVar {}     -> noparen
   where
     paren = PP.parens $ genExpr e
     noparen = genExpr e

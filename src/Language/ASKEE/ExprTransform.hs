@@ -110,31 +110,32 @@ transformModelExprs arithT logT modelT mdl =
 arithAsCore :: Arith -> Core.Expr
 arithAsCore ae =
   case ae of
-   Expr.Add e1 e2 -> binop Core.ExprAdd e1 e2
-   Expr.Sub e1 e2 -> binop Core.ExprSub e1 e2
-   Expr.Mul e1 e2 -> binop Core.ExprMul e1 e2
-   Expr.Div e1 e2 -> binop Core.ExprDiv e1 e2
-   Expr.Neg e1 -> Core.ExprNeg (arithAsCore e1)
-   Expr.ALit d -> Core.ExprNumLit d
-   Expr.Var t -> Core.ExprVar t
+   Expr.Add e1 e2 -> binop Core.Add e1 e2
+   Expr.Sub e1 e2 -> binop Core.Sub e1 e2
+   Expr.Mul e1 e2 -> binop Core.Mul e1 e2
+   Expr.Div e1 e2 -> binop Core.Div e1 e2
+   Expr.Neg e1    -> Core.Expr1 Neg (arithAsCore e1)
+   Expr.ALit d    -> Core.Literal (NumLit d)
+   Expr.Var t     -> Core.ExprVar t
   where
-    binop op e1 e2 = op (arithAsCore e1) (arithAsCore e2)
+    binop op e1 e2 = Core.Expr2 op (arithAsCore e1) (arithAsCore e2)
 
 logAsCore :: Log -> Core.Expr
 logAsCore le =
   case le of
-    Expr.GT e1 e2  -> cmp Core.ExprGT e1 e2
-    Expr.GTE e1 e2 -> Core.ExprNot (cmp Core.ExprLT e1 e2)
-    Expr.EQ e1 e2  -> cmp Core.ExprEQ e1 e2
-    Expr.LTE e1 e2 -> Core.ExprNot (cmp Core.ExprGT e1 e2)
-    Expr.LT e1 e2  -> cmp Core.ExprLT e1 e2
-    Expr.And e1 e2 -> binop Core.ExprAnd e1 e2
-    Expr.Or e1 e2  -> binop Core.ExprOr e1 e2
-    Expr.Not e1    -> Core.ExprNot (logAsCore e1)
-    Expr.LLit b    -> Core.ExprBoolLit b
+    Expr.GT e1 e2  -> cmp Core.Lt  e2 e1
+    Expr.GTE e1 e2 -> cmp Core.Lte e2 e1
+    Expr.EQ e1 e2  -> cmp Core.Eq  e1 e2
+    Expr.LTE e1 e2 -> cmp Core.Lte e1 e2
+    Expr.LT e1 e2  -> cmp Core.Lt  e1 e2
+    Expr.And e1 e2 -> binop Core.And e1 e2
+    Expr.Or e1 e2  -> binop Core.Or  e1 e2
+    Expr.Not e1    -> unop  Core.Not (logAsCore e1)
+    Expr.LLit b    -> Core.Literal (Core.BoolLit b)
   where
-    cmp op e1 e2 = op (arithAsCore e1) (arithAsCore e2)
-    binop op e1 e2 = op (logAsCore e2) (logAsCore e2)
+    cmp op e1 e2   = Core.Expr2 op (arithAsCore e1) (arithAsCore e2)
+    binop op e1 e2 = Core.Expr2 op (logAsCore e2) (logAsCore e2)
+    unop op e1     = Core.Expr1 op (logAsCore e2)
 
 modelEasCore :: ModelE -> Core.Expr
 modelEasCore me =
