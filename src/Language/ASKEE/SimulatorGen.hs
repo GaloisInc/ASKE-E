@@ -6,6 +6,7 @@ import           Data.Text(Text,unpack)
 import qualified Text.PrettyPrint as PP
 import           Text.PrettyPrint((<+>))
 import           Data.Foldable(foldl')
+import qualified Data.Map as Map
 
 -- TODO: fresh naming?
 
@@ -183,7 +184,7 @@ genModel mdl =
     mkEventEffectStmt (nm, e) = 
       PP.hsep [stateVarName nm, PP.text "=", genExpr e] <> PP.semi  
     mkEventEffectDecl evt =
-      let stmts = PP.vcat (mkEventEffectStmt <$> Core.eventEffect evt)
+      let stmts = PP.vcat (mkEventEffectStmt <$> Map.toList (Core.eventEffect evt))
       in functionTemplate (eventEffectFuncName evt) [] voidTypeName stmts;
 
     mkEventWhenDecl evt =
@@ -201,7 +202,7 @@ genModel mdl =
     ppState (varName, val) = declareInitStmt dblTypeName (stateVarName varName) (PP.double val)
               
     stateVars =
-      PP.vcat $ ppState <$> Core.modelInitState mdl
+      PP.vcat $ ppState <$> Map.toList (Core.modelInitState mdl)
     
     modelClassDecl = PP.hsep [PP.text "struct", ppText (Core.modelName mdl) ]
     modelClass =
@@ -214,9 +215,9 @@ genModel mdl =
 genExpr :: Core.Expr -> PP.Doc
 genExpr e0 =
   case e0 of
-    Core.Expr1 op e     -> unop (op1 op) e
-    Core.Expr2 op e1 e2 -> binop (op2 op) e1 e2
-    Core.ExprIf test thn els ->
+    Core.Op1 op e     -> unop (op1 op) e
+    Core.Op2 op e1 e2 -> binop (op2 op) e1 e2
+    Core.If test thn els ->
       PP.hsep [ genExprSub test
               , PP.text "?"
               , genExprSub thn
@@ -224,26 +225,26 @@ genExpr e0 =
               , genExprSub els
               ]
     Core.Literal l -> lit l
-    Core.ExprVar n -> stateVarName n
+    Core.Var n -> stateVarName n
 
   where
     op1 op = case op of
-               Not -> "!"
-               Neg -> "-"
+               Core.Not -> "!"
+               Core.Neg -> "-"
 
     op2 op = case op of
-               Add -> "+"
-               Sub -> "-"
-               Mul -> "*"
-               Div -> "/"
-               Lt  -> "<"
-               Eq  -> "=="
-               And -> "&&"
-               Or  -> "||"
+               Core.Add -> "+"
+               Core.Sub -> "-"
+               Core.Mul -> "*"
+               Core.Div -> "/"
+               Core.Lt  -> "<"
+               Core.Eq  -> "=="
+               Core.And -> "&&"
+               Core.Or  -> "||"
 
     lit l = case l of
-              NumLit d  -> PP.double d
-              BoolLit d -> if d then "true" else "false"
+              Core.Num d  -> PP.double d
+              Core.Bool d -> if d then "true" else "false"
 
 
     binop op e1 e2 = PP.hsep [genExprSub e1, PP.text op, genExprSub e2]
@@ -253,11 +254,11 @@ genExpr e0 =
 genExprSub :: Core.Expr -> PP.Doc
 genExprSub e =
   case e of
-    Core.Expr2 {}       -> paren
-    Core.Expr1 {}       -> noparen
-    Core.ExprIf {}      -> paren
+    Core.Op2 {}       -> paren
+    Core.Op1 {}       -> noparen
+    Core.If {}      -> paren
     Core.Literal {}     -> noparen
-    Core.ExprVar {}     -> noparen
+    Core.Var {}     -> noparen
   where
     paren = PP.parens $ genExpr e
     noparen = genExpr e

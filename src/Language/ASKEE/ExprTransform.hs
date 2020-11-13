@@ -1,3 +1,4 @@
+{-# Language PatternSynonyms #-}
 module Language.ASKEE.ExprTransform where
 
 import qualified Language.ASKEE.Syntax as Syntax
@@ -114,104 +115,101 @@ arithAsCore ae =
    Expr.Sub e1 e2 -> binop Core.Sub e1 e2
    Expr.Mul e1 e2 -> binop Core.Mul e1 e2
    Expr.Div e1 e2 -> binop Core.Div e1 e2
-   Expr.Neg e1    -> Core.Expr1 Neg (arithAsCore e1)
-   Expr.ALit d    -> Core.Literal (NumLit d)
-   Expr.Var t     -> Core.ExprVar t
+   Expr.Neg e1    -> Core.Op1 Core.Neg (arithAsCore e1)
+   Expr.ALit d    -> NumLit d
+   Expr.Var t     -> Core.Var t
   where
-    binop op e1 e2 = Core.Expr2 op (arithAsCore e1) (arithAsCore e2)
+    binop op e1 e2 = Core.Op2 op (arithAsCore e1) (arithAsCore e2)
 
 logAsCore :: Log -> Core.Expr
 logAsCore le =
   case le of
     Expr.GT e1 e2  -> cmp Core.Lt  e2 e1
-    Expr.GTE e1 e2 -> cmp Core.Lte e2 e1
+    Expr.GTE e1 e2 -> cmp Core.Leq e2 e1
     Expr.EQ e1 e2  -> cmp Core.Eq  e1 e2
-    Expr.LTE e1 e2 -> cmp Core.Lte e1 e2
+    Expr.LTE e1 e2 -> cmp Core.Leq e1 e2
     Expr.LT e1 e2  -> cmp Core.Lt  e1 e2
     Expr.And e1 e2 -> binop Core.And e1 e2
     Expr.Or e1 e2  -> binop Core.Or  e1 e2
-    Expr.Not e1    -> unop  Core.Not (logAsCore e1)
-    Expr.LLit b    -> Core.Literal (Core.BoolLit b)
+    Expr.Not e1    -> unop  Core.Not e1
+    Expr.LLit b    -> Core.Literal (Core.Bool b)
   where
-    cmp op e1 e2   = Core.Expr2 op (arithAsCore e1) (arithAsCore e2)
-    binop op e1 e2 = Core.Expr2 op (logAsCore e2) (logAsCore e2)
-    unop op e1     = Core.Expr1 op (logAsCore e2)
+    cmp op e1 e2   = Core.Op2 op (arithAsCore e1) (arithAsCore e2)
+    binop op e1 e2 = Core.Op2 op (logAsCore e2) (logAsCore e2)
+    unop op e1     = Core.Op1 op (logAsCore e1)
 
 modelEasCore :: ModelE -> Core.Expr
 modelEasCore me =
   case me of
     Syntax.ArithExpr e1 -> arithAsCore e1
-    Syntax.IfExpr tst e1 e2 -> Core.ExprIf (logAsCore tst) (modelEasCore e1) (modelEasCore e2)
+    Syntax.IfExpr tst e1 e2 -> Core.If (logAsCore tst) (modelEasCore e1) (modelEasCore e2)
     Syntax.CondExpr cs ->
       condAsCore (Syntax.condChoices cs) (Syntax.condOtherwise cs)
   where
     condAsCore [] (Just e) = arithAsCore e
-    condAsCore [] Nothing = Core.ExprFail "Incomplete match"
+    condAsCore [] Nothing = Core.Fail "Incomplete match"
     condAsCore ((ae, le):t) oth =
-      Core.ExprIf (logAsCore le) (arithAsCore ae) (condAsCore t oth)
+      Core.If (logAsCore le) (arithAsCore ae) (condAsCore t oth)
 
 
 transformCoreExprM :: Monad m => (Core.Expr -> m Core.Expr) -> Core.Expr -> m Core.Expr
 transformCoreExprM tx e0 =
   case e0 of
-    Core.ExprAdd e1 e2 -> binop Core.ExprAdd e1 e2
-    Core.ExprMul e1 e2 -> binop Core.ExprMul e1 e2
-    Core.ExprSub e1 e2 -> binop Core.ExprSub e1 e2
-    Core.ExprDiv e1 e2 -> binop Core.ExprDiv e1 e2
-    Core.ExprLT  e1 e2 -> binop Core.ExprLT e1 e2
-    Core.ExprEQ  e1 e2 -> binop Core.ExprEQ e1 e2
-    Core.ExprGT  e1 e2 -> binop Core.ExprGT e1 e2
-    Core.ExprAnd e1 e2 -> binop Core.ExprAnd e1 e2
-    Core.ExprOr  e1 e2 -> binop Core.ExprOr e1 e2
-    Core.ExprNot e1    -> unop Core.ExprNot e1
-    Core.ExprNeg e1    -> unop Core.ExprNot e1
-    Core.ExprIf  e1 e2 e3 ->
-      (Core.ExprIf <$> subExpr e1 <*> subExpr e2 <*> subExpr e3) >>= tx
-    Core.ExprNumLit _ -> tx e0
-    Core.ExprVar    _ -> tx e0
-    Core.ExprFail   _ -> tx e0
-    Core.ExprBoolLit _ -> tx e0
+    Core.Op2 op e1 e2 -> binop op e1 e2
+    Core.Op1 op e1    -> unop op e1
+    Core.If  e1 e2 e3 ->
+      (Core.If <$> subExpr e1 <*> subExpr e2 <*> subExpr e3) >>= tx
+    Core.Literal {} -> tx e0
+    Core.Var    _ -> tx e0
+    Core.Fail   _ -> tx e0
   where
     subExpr = transformCoreExprM tx
-    unop op e1 = (op <$> subExpr e1) >>= tx
-    binop op e1 e2 = (op <$> subExpr e1 <*> subExpr e2) >>= tx
+    unop op e1 = (Core.Op1 op <$> subExpr e1) >>= tx
+    binop op e1 e2 = (Core.Op2 op <$> subExpr e1 <*> subExpr e2) >>= tx
 
 transformCoreExpr :: (Core.Expr -> Core.Expr) -> Core.Expr -> Core.Expr
 transformCoreExpr f = runIdentity . transformCoreExprM (Identity . f)
 
+
+pattern NumLit :: Double -> Core.Expr
+pattern NumLit d = Core.Literal (Core.Num d)
+pattern BoolLit :: Bool -> Core.Expr
+pattern BoolLit b = Core.Literal (Core.Bool b)
+
 simplifyLiterals :: Core.Expr -> Core.Expr
 simplifyLiterals = transformCoreExpr simpl
   where
+
     simpl e0 =
       case e0 of
         -- ops on literals
-        Core.ExprNeg (Core.ExprNumLit d) -> Core.ExprNumLit (-d)
-        Core.ExprAdd (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprNumLit (d1 + d2)
-        Core.ExprSub (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprNumLit (d1 - d2)
-        Core.ExprDiv (Core.ExprNumLit d1) (Core.ExprNumLit d2)
-          | d2 /= 0.0 -> Core.ExprNumLit (d1 / d2)
-          | d2 == 0.0 -> Core.ExprFail "Division by 0"
-        Core.ExprMul (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprNumLit (d1 * d2)
+        Core.Op1 Core.Neg (NumLit d) -> NumLit (-d)
+        Core.Op2 Core.Add (NumLit d1) (NumLit d2) ->
+          NumLit (d1 + d2)
+        Core.Op2 Core.Sub (NumLit d1) (NumLit d2) ->
+          NumLit (d1 - d2)
+        Core.Op2 Core.Div (NumLit d1) (NumLit d2)
+          | d2 /= 0.0 -> NumLit (d1 / d2)
+          | d2 == 0.0 -> Core.Fail "Division by 0"
+        Core.Op2 Core.Mul (NumLit d1) (NumLit d2) ->
+          NumLit (d1 * d2)
 
-        Core.ExprAnd (Core.ExprBoolLit b1) (Core.ExprBoolLit b2) ->
-          Core.ExprBoolLit (b1 && b2)
-        Core.ExprOr (Core.ExprBoolLit b1) (Core.ExprBoolLit b2) ->
-          Core.ExprBoolLit (b1 || b2)
-        Core.ExprNot (Core.ExprBoolLit b1) ->
-          Core.ExprBoolLit (not b1)
+        Core.Op2 Core.And (BoolLit b1) (BoolLit b2) ->
+          BoolLit (b1 && b2)
+        Core.Op2 Core.Or (BoolLit b1) (BoolLit b2) ->
+          BoolLit (b1 || b2)
+        Core.Op1 Core.Not (BoolLit b1) ->
+          BoolLit (not b1)
 
-        Core.ExprLT (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprBoolLit (d1 < d2)
-        Core.ExprGT (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprBoolLit (d1 > d2)
-        Core.ExprEQ (Core.ExprNumLit d1) (Core.ExprNumLit d2) ->
-          Core.ExprBoolLit (d1 == d2)
+        Core.Op2 Core.Lt (NumLit d1) (NumLit d2) ->
+          BoolLit (d1 < d2)
+        Core.Op2 Core.Leq (NumLit d1) (NumLit d2) ->
+          BoolLit (d1 > d2)
+        Core.Op2 Core.Eq (NumLit d1) (NumLit d2) ->
+          BoolLit (d1 == d2)
 
-        Core.ExprIf (Core.ExprBoolLit True) e1 _ -> e1
-        Core.ExprIf (Core.ExprBoolLit False) _ e2 -> e2
+        Core.If (BoolLit True) e1 _ -> e1
+        Core.If (BoolLit False) _ e2 -> e2
 
         e -> e
 
@@ -222,7 +220,7 @@ modelAsCore mdl =
       inits <- initState `traverse` Syntax.stateDecls (Syntax.modelDecls mdl)
       pure $ Core.Model  { Core.modelName = Syntax.modelName mdl
                          , Core.modelEvents =  events'
-                         , Core.modelInitState = inits
+                         , Core.modelInitState = Map.fromList inits
                          }
 
   where
@@ -232,22 +230,22 @@ modelAsCore mdl =
           mbWhen = letSubst . logAsCore <$> Syntax.eventWhen evt
           when =
             case mbWhen of
-              Nothing -> Core.ExprBoolLit True
+              Nothing -> BoolLit True
               Just a  -> a
 
       in Core.Event { Core.eventName = Syntax.eventName evt
                     , Core.eventRate = rate
                     , Core.eventWhen = when
-                    , Core.eventEffect = effs'
+                    , Core.eventEffect = Map.fromList effs'
                     }
 
     mkEffect (n, v) = (n, letSubst (arithAsCore v))
 
     lets = Syntax.letDecls (Syntax.modelDecls mdl)
     letMap = Map.fromList (fmap modelEasCore <$> lets)
-    letSubstVar (Core.ExprVar v) =
+    letSubstVar (Core.Var v) =
       case Map.lookup v letMap of
-        Nothing -> Core.ExprVar v
+        Nothing -> Core.Var v
         Just e  -> letSubst e
 
     letSubstVar e = e
@@ -258,7 +256,7 @@ modelAsCore mdl =
     -- TODO: better errors
     evalConstDouble e =
       case simplifyLiterals $ letSubst e of
-        (Core.ExprNumLit d) -> pure d
+        (NumLit d) -> pure d
         _ -> Left ("Expression is not a constant double: " ++ show e)
 
 
