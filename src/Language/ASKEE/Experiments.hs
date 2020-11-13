@@ -10,7 +10,6 @@ import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
 import           Language.ASKEE.Lexer (Token, Located)
 import           Language.ASKEE.Syntax (Model)
-import           Language.ASKEE.Compile (compileModel)
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.ExprTransform as Transform
 import qualified Text.PrettyPrint as PP

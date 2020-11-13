@@ -17,7 +17,6 @@ library
                      , Language.ASKEE.GenParser
                      , Language.ASKEE.Core
                      , Language.ASKEE.Print
-                     , Language.ASKEE.Compile
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
                      , Language.ASKEE.DiffEq.Lexer
