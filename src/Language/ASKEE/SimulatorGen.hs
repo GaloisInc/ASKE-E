@@ -98,6 +98,16 @@ returnStmt :: PP.Doc -> PP.Doc
 returnStmt val =
   (PP.text "return" <+> val) <> PP.text ";"
 
+modelClassName :: Core.Model -> PP.Doc
+modelClassName mdl = ppText (Core.modelName mdl)
+
+eventNum :: [Core.Event]-> Core.Ident -> Int
+eventNum events name =
+  case lookup name indexedEventList of
+    Nothing -> error ("[BUG] did not find event named " ++ unpack name ++ " in model")
+    Just i -> i
+  where
+    indexedEventList = (Core.eventName <$> events) `zip` [1..]
 
 -- TODO: advance time
 genExecuteStep :: [Core.Event] -> PP.Doc
@@ -113,20 +123,20 @@ genExecuteStep evts =
                 <+> PP.text "};"
           , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
           , assignStmt timeName (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
-          , PP.vcat $ runEffectCondStmt <$> (evts `zip` [1..])
+          , PP.vcat $ runEffectCondStmt <$> evts
           , returnStmt (PP.int (negate 1))
           ]
   where
     subtractRateStmt evt =
       assignStmt randomValueName (randomValueName <+> PP.text "-" <+> effRateName evt)
 
-    runEffectCondStmt (evt, i) =
+    runEffectCondStmt evt =
       PP.vcat
         [ PP.hsep [randomValueName, PP.text "-=", effRateName evt <> PP.semi]
         , PP.text "if" <> PP.parens (randomValueName <+> PP.text "<= 0.0") <> PP.text "{"
         , PP.nest 4 $
             PP.vcat [ callProc (eventEffectFuncName evt) <> PP.semi
-                    , returnStmt (PP.int i)
+                    , returnStmt (PP.int (eventNum evts (Core.eventName evt)))
                     ]
         , PP.text "}"
         ]
@@ -148,9 +158,6 @@ genExecuteStep evts =
 
     rateDecl evt =
       declareInitStmt dblTypeName (effRateName evt) (effRateExpr evt)
-
-runNSteps :: PP.Doc
-runNSteps = undefined
 
 genModel :: Core.Model -> PP.Doc
 genModel mdl = 
@@ -204,7 +211,7 @@ genModel mdl =
     stateVars =
       PP.vcat $ ppState <$> Map.toList (Core.modelInitState mdl)
     
-    modelClassDecl = PP.hsep [PP.text "struct", ppText (Core.modelName mdl) ]
+    modelClassDecl = PP.hsep [PP.text "struct", modelClassName mdl ]
     modelClass =
       PP.vcat [ modelClassDecl <+> PP.text "{" 
               , PP.nest 4 decls 
@@ -212,20 +219,20 @@ genModel mdl =
               ]
 
 
-genExpr :: Core.Expr -> PP.Doc
-genExpr e0 =
+genExpr' :: (Core.Ident -> PP.Doc) -> Core.Expr -> PP.Doc
+genExpr' vf e0 =
   case e0 of
     Core.Op1 op e     -> unop (op1 op) e
     Core.Op2 op e1 e2 -> binop (op2 op) e1 e2
     Core.If test thn els ->
-      PP.hsep [ genExprSub test
+      PP.hsep [ subExpr test
               , PP.text "?"
-              , genExprSub thn
+              , subExpr thn
               , PP.text ":"
-              , genExprSub els
+              , subExpr els
               ]
     Core.Literal l -> lit l
-    Core.Var n -> stateVarName n
+    Core.Var n -> vf n
 
   where
     op1 op = case op of
@@ -247,12 +254,17 @@ genExpr e0 =
               Core.Bool d -> if d then "true" else "false"
 
 
-    binop op e1 e2 = PP.hsep [genExprSub e1, PP.text op, genExprSub e2]
-    unop op e1 = PP.text op <> genExprSub e1
+    binop op e1 e2 = PP.hsep [subExpr e1, PP.text op, subExpr e2]
+    unop op e1 = PP.text op <> subExpr e1
+    subExpr = genExprSub vf
+
+genExpr :: Core.Expr -> PP.Doc
+genExpr = genExpr' stateVarName
+
 
 -- todo: real precedence
-genExprSub :: Core.Expr -> PP.Doc
-genExprSub e =
+genExprSub :: (Core.Ident -> PP.Doc) -> Core.Expr -> PP.Doc
+genExprSub f e =
   case e of
     Core.Op2 {}       -> paren
     Core.Op1 {}       -> noparen
@@ -260,8 +272,8 @@ genExprSub e =
     Core.Literal {}     -> noparen
     Core.Var {}     -> noparen
   where
-    paren = PP.parens $ genExpr e
-    noparen = genExpr e
+    paren = PP.parens $ genExpr' f e
+    noparen = genExpr' f e
 
 test :: String
 test =

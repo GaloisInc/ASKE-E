@@ -1,3 +1,4 @@
+{-# Language OverloadedStrings #-}
 module Language.ASKEE.Experiments where
 
 import Data.Map (toList, Map)
@@ -13,6 +14,8 @@ import           Language.ASKEE.Syntax (Model)
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.ExprTransform as Transform
 import qualified Text.PrettyPrint as PP
+import qualified Language.ASKEE.Measure as M
+import qualified Language.ASKEE.Core as Core
 
 
 import System.IO.Unsafe (unsafePerformIO)
@@ -52,3 +55,16 @@ genCppModel fp output =
           do  let rendered = PP.render (SG.genModel compiled)
               writeFile output rendered
               putStrLn "compiled!"
+
+
+genCppRunner :: FilePath -> IO ()
+genCppRunner fp =
+  do let mdl = testParseModel fp
+     let ms = [ M.Measure (M.TraceExpr "n" undefined) (M.TimeLT 120.0)
+              , M.Measure (M.Accumulate "m" (Core.Op2 Core.Add (Core.Var "m") (Core.Literal $ Core.Num 1.0)) 1.0) (M.TimeLT 120.0)
+              ]
+
+     case Transform.modelAsCore mdl of
+       Left err       -> putStrLn ("Failed to compile model: " <> err)
+       Right compiled ->
+         putStrLn $ PP.render (M.genSimulationRunnerCpp compiled 100.0 ms)
