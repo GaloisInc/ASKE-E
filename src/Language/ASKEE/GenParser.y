@@ -75,7 +75,7 @@ Decl : let   sym '=' Exp      ';'  { Syntax.Let $2 $4 }
      | let   sym '=' CondExp       { Syntax.Let $2 $4 }
      | state sym '=' Exp      ';'  { Syntax.State $2 $4 }
      | state sym '=' CondExp       { Syntax.State $2 $4 }
-     | assert LExp ';'             { Syntax.Assert $2 }
+     | assert Exp ';'              { Syntax.Assert $2 }
 
 Events :              { [] }
        | Events Event { $2 : $1 }
@@ -83,7 +83,7 @@ Events :              { [] }
 Event : event NamedBlockInit WhenBlock RateBlock EffectBlock MDBlock BlockEnd { Syntax.Event $2 $3 $4 $5 Nothing }
 
 WhenBlock   :                                       { Nothing }
-            | when   BlockInit LExp ';'    BlockEnd { Just $3 }
+            | when   BlockInit Exp  ';'    BlockEnd { Just $3 }
 RateBlock   : rate   BlockInit Exp  ';'    BlockEnd { $3 }
 EffectBlock : effect BlockInit Statements  BlockEnd { (reverse $3) }
 
@@ -92,8 +92,8 @@ MDBlock : {}
 Statements :                      { [] }
            | Statements Statement { $2 : $1 }
 
-Statement : sym '='  AExp ';' { ($1, $3) }
-          | sym OpEq AExp ';' { ($1, $2 (Expr.Var $1) $3) }
+Statement : sym '='  Exp ';' { ($1, $3) }
+          | sym OpEq Exp ';' { ($1, $2 (Expr.Var $1) $3) }
 
 OpEq : '+=' { Expr.Add }
      | '-=' { Expr.Sub }
@@ -104,40 +104,36 @@ NamedBlockInit : sym ':' bopen  { $1 }
 BlockInit      :     ':' bopen  {}
 BlockEnd       :         bclose {}
 
-Exp : AExp                       { Syntax.ArithExpr $1 }
-    | '(' Exp ')'                { $2 }
-    | if LExp then Exp else Exp  { Syntax.IfExpr $2 $4 $6 }
+Exp : Exp '+' Exp               { Expr.Add  $1 $3 }
+    | Exp '-' Exp               { Expr.Sub  $1 $3 }
+    | Exp '*' Exp               { Expr.Mul  $1 $3 }
+    | Exp '/' Exp               { Expr.Div  $1 $3 }
+    | '-' Exp                   { Expr.Neg  $2 }
+    | Exp '>' Exp               { Expr.GT  $1 $3 }
+    | Exp '>=' Exp              { Expr.GTE $1 $3 }
+    | Exp '==' Exp              { Expr.EQ  $1 $3 }
+    | Exp '<=' Exp              { Expr.LTE $1 $3 }
+    | Exp '<' Exp               { Expr.LT  $1 $3 }
+    | Exp and Exp               { Expr.And $1 $3 }
+    | Exp or  Exp               { Expr.Or  $1 $3 } 
+    | not Exp                   { Expr.Not $2 }
+    | '(' Exp ')'               { $2 }
+    | sym                       { Expr.Var $1 }
+    | real                      { Expr.LitD $1 }
+    | if Exp then Exp else Exp  { Expr.If $2 $4 $6 }
+    | CondExp                   { $1 }
 
-AExp : AExp '+' AExp    { Expr.Add  $1 $3 }
-     | AExp '-' AExp    { Expr.Sub  $1 $3 }
-     | AExp '*' AExp    { Expr.Mul  $1 $3 }
-     | AExp '/' AExp    { Expr.Div  $1 $3 }
-     | '-' AExp         { Expr.Neg  $2 }
-     | '(' AExp ')'     { $2 }
-     | sym              { Expr.Var $1 }
-     | real             { Expr.ALit $1 }
+CondExp : cond BlockInit Condition BlockEnd { $3 }
 
-LExp : AExp '>' AExp    { Expr.GT  $1 $3 }
-     | AExp '>=' AExp   { Expr.GTE $1 $3 }
-     | AExp '==' AExp   { Expr.EQ  $1 $3 }
-     | AExp '<=' AExp   { Expr.LTE $1 $3 }
-     | AExp '<' AExp    { Expr.LT  $1 $3 }
-     | LExp and LExp    { Expr.And $1 $3 }
-     | LExp or  LExp    { Expr.Or  $1 $3 } 
-     | not LExp         { Expr.Not $2 }
-     | '(' LExp ')'     { $2 }
-
-CondExp : cond BlockInit Condition BlockEnd { Syntax.CondExpr $3 }
-
-Condition : CondChoices CondOtherwise { Syntax.Condition (reverse $1) $2 }
+Condition : CondChoices CondOtherwise { Expr.Cond (reverse $1) $2 }
 
 CondChoices :                        { [] }
             | CondChoices CondChoice { $2 : $1 }
 
-CondChoice : AExp if LExp ';' { ($1, $3) }
+CondChoice : Exp if Exp ';' { ($1, $3) }
 
-CondOtherwise :                    { Nothing }
-              | AExp otherwise ';' { Just $1 }
+CondOtherwise :                   { Nothing }
+              | Exp otherwise ';' { Just $1 }
 
 
 {

@@ -15,42 +15,21 @@ import Text.PrettyPrint
 -- Notes:
 -- More line spacing could be nice?
 
-printModelExpr :: ModelExpr -> Doc
-printModelExpr e =
-  case e of
-    ArithExpr e -> printArithExpr e
-    IfExpr e1 e2 e3 -> 
-      (parens . hsep) [ text "if"
-                      , printLogExpr e1
-                      , text "then"
-                      , printModelExpr e2 
-                      , text "else"
-                      , printModelExpr e3
-                      ]
-    CondExpr (Condition branches other) ->
-      let decl = text ("cond:")
-          branches' = vcat $ case other of
-            Just e  -> (map (uncurry condBranch) branches) ++ [condOther e]
-            Nothing -> (map (uncurry condBranch) branches)
-      in  nest 2 decl $$ nest 4 branches' 
+-- printExpr :: ModelExpr -> Doc
+-- printExpr e =
+--   case e of
+--     Expr e -> printExpr e
 
-printArithExpr :: ArithExpr -> Doc
-printArithExpr e = 
+printExpr :: Expr -> Doc
+printExpr e = 
   case e of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    (Neg e1) -> parens (char '-' <> printArithExpr e1)
-    (ALit d) -> double d
+    (Neg e1) -> parens (char '-' <> printExpr e1)
+    (LitD d) -> double d
     (Var i) -> text (unpack i)
-  
-  where
-    binop = expBinop printArithExpr
-
-printLogExpr :: LogExpr -> Doc
-printLogExpr e =
-  case e of
     (GT e1 e2)  -> aBinop e1 ">"   e2
     (GTE e1 e2) -> aBinop e1 ">="  e2
     (EQ e1 e2)  -> aBinop e1 "=="  e2
@@ -60,21 +39,36 @@ printLogExpr e =
     (Or e1 e2)  -> lBinop e1 "or"  e2
     (Not e1) -> 
       (parens . hsep) [ text "not"
-                      , printLogExpr e1]
+                      , printExpr e1]
+    If e1 e2 e3 -> 
+      (parens . hsep) [ text "if"
+                      , printExpr e1
+                      , text "then"
+                      , printExpr e2 
+                      , text "else"
+                      , printExpr e3
+                      ]
+    Cond branches other ->
+      let decl = text ("cond:")
+          branches' = vcat $ case other of
+            Just e  -> (map (uncurry condBranch) branches) ++ [condOther e]
+            Nothing -> (map (uncurry condBranch) branches)
+      in  nest 2 decl $$ nest 4 branches' 
   
   where
-    aBinop = expBinop printArithExpr
-    lBinop = expBinop printLogExpr
+    binop = expBinop printExpr
+    aBinop = expBinop printExpr
+    lBinop = expBinop printExpr
 
-condBranch :: ArithExpr -> LogExpr -> Doc
+condBranch :: Expr -> Expr -> Doc
 condBranch e1 e2 = 
-  printArithExpr e1 <+>
+  printExpr e1 <+>
   text "if" <+>
-  printLogExpr e2
+  printExpr e2
 
-condOther :: ArithExpr -> Doc
+condOther :: Expr -> Doc
 condOther e =
-  printArithExpr e <+>
+  printExpr e <+>
   text "otherwise"
 
 expBinop :: (a -> Doc) -> a -> String -> a -> Doc
@@ -96,12 +90,12 @@ printEvent (Event {..}) = decl $+$ nest 2 body
     body = vcat [rate, when, effect]
 
     rate :: Doc
-    rate = text "rate:" $+$ nest 2 (printModelExpr eventRate)
+    rate = text "rate:" $+$ nest 2 (printExpr eventRate)
 
     when :: Doc
     when = case eventWhen of
       Nothing -> empty
-      Just w -> text "when:" $+$ nest 2 (printLogExpr w)
+      Just w -> text "when:" $+$ nest 2 (printExpr w)
 
     effect :: Doc
     effect = text "effect:" $+$ nest 2 statements
@@ -109,11 +103,11 @@ printEvent (Event {..}) = decl $+$ nest 2 body
     statements :: Doc
     statements = vcat $ map (uncurry printAssign) eventEffect
 
-    printAssign :: Text -> ArithExpr -> Doc
+    printAssign :: Text -> Expr -> Doc
     printAssign ident exp = 
       hsep [ text (unpack ident)
            , char '='
-           , printArithExpr exp]
+           , printExpr exp]
 
 
 printModel :: Model -> Doc
@@ -138,11 +132,11 @@ printModel (Model {..}) = decl $+$ nest 2 body
       fsep [ text "let"
            , text (unpack name)
            , char '='
-           , printModelExpr val
+           , printExpr val
            ]
     printDecl (State name val) = 
       fsep [ text "state"
            , text (unpack name)
            , char '='
-           , printModelExpr val
+           , printExpr val
            ]

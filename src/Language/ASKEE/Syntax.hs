@@ -4,7 +4,7 @@ import Data.Text (Text)
 
 import Prelude hiding (LT, EQ, GT)
 
-import qualified Language.ASKEE.Expr as Expr
+import Language.ASKEE.Expr
 
 data Model = Model { modelName :: Text
                    , modelDecls :: [Decl]
@@ -12,49 +12,49 @@ data Model = Model { modelName :: Text
                    }
   deriving (Show, Eq)
 
-data Decl = Let   Text ModelExpr
-          | State Text ModelExpr
-          | Assert Expr.LogExpr
+data Decl = Let   Text Expr
+          | State Text Expr
+          | Assert Expr
   deriving (Show, Eq)   
 
 data Event = Event { eventName     :: Text
-                   , eventWhen     :: Maybe (Expr.LogExpr)
-                   , eventRate     :: ModelExpr
+                   , eventWhen     :: Maybe Expr
+                   , eventRate     :: Expr
                    , eventEffect   :: [Statement]
                    , eventMetadata :: Maybe Text
                    }
   deriving (Show, Eq)
 
-type Statement = (Text, Expr.ArithExpr)
+type Statement = (Text, Expr)
 
-data ModelExpr = 
-    ArithExpr Expr.ArithExpr
-  | IfExpr    Expr.LogExpr ModelExpr ModelExpr
-  | CondExpr  Condition
-  deriving (Show, Eq)
+-- data ModelExpr = 
+--     ArithExpr Expr.ArithExpr
+--   | IfExpr    Expr.LogExpr ModelExpr ModelExpr
+--   | CondExpr  Condition
+--   deriving (Show, Eq)
 
-data Condition = Condition { condChoices   :: [(Expr.ArithExpr, Expr.LogExpr)]
-                           , condOtherwise :: Maybe (Expr.ArithExpr)
-                           }
-  deriving (Show, Eq)
+-- data Condition = Condition { condChoices   :: [(Expr.ArithExpr, Expr.LogExpr)]
+--                            , condOtherwise :: Maybe (Expr.ArithExpr)
+--                            }
+--   deriving (Show, Eq)
 
 -------------------------------------------------------------------------------
 
 -- utility functions
 
-stateDecls :: [Decl] -> [(Text, ModelExpr)]
+stateDecls :: [Decl] -> [(Text, Expr)]
 stateDecls ds = ds >>= sd
   where
     sd (State n v) = [(n,v)]
     sd _ = [] 
 
-letDecls :: [Decl] -> [(Text, ModelExpr)]
+letDecls :: [Decl] -> [(Text, Expr)]
 letDecls ds = ds >>= ld 
   where
     ld (Let n v) = [(n, v)]
     ld _ = []
 
-varDecls :: [Decl] -> [(Text, ModelExpr)]
+varDecls :: [Decl] -> [(Text, Expr)]
 varDecls ds = ds >>= vd
   where
     vd (Let n v) = [(n, v)]

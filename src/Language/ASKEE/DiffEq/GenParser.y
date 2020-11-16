@@ -51,7 +51,7 @@ Exp : Exp '+' Exp                    { Expr.Add $1 $3 }
     | '(' Exp ')'                    { $2 }
     | var Exp                        { Expr.Mul (Expr.Var $1) $2 }
     | var                            { Expr.Var $1 }
-    | lit                            { Expr.ALit $1 }
+    | lit                            { Expr.LitD $1 }
 
 {
 textFromVar :: Located Token -> Text

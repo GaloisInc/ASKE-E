@@ -174,11 +174,11 @@ withGroups graph groups =
 
 -- everything below this is deletable - mostly added for testing 
 
-edgesForArithExp :: Text -> Expr.ArithExpr -> [(Identifier, Identifier)]
+edgesForArithExp :: Text -> Expr.Expr -> [(Identifier, Identifier)]
 edgesForArithExp tgt eqn =
   case eqn of
     Expr.Var name -> [(Text.unpack name, Text.unpack tgt)]
-    Expr.ALit _ -> []
+    Expr.LitD _ -> []
     Expr.Add e1 e2 -> bin e1 e2
     Expr.Sub e1 e2 -> bin e1 e2
     Expr.Mul e1 e2 -> bin e1 e2
@@ -193,7 +193,7 @@ edgesForDiffEq eq =
     DiffEq.StateEq n eqn -> edgesForArithExp n eqn
     DiffEq.VarEq n eqn -> edgesForArithExp n eqn
 
-irExpAsDiffEq :: AMI.ModelExp -> Expr.ArithExpr
+irExpAsDiffEq :: AMI.ModelExp -> Expr.Expr
 irExpAsDiffEq e = 
   case e of
     AMI.Add e1 e2 -> bin e1 e2 Expr.Add
@@ -201,7 +201,7 @@ irExpAsDiffEq e =
     AMI.Sub e1 e2 -> bin e1 e2 Expr.Sub
     AMI.Div e1 e2 -> bin e1 e2 Expr.Div
     AMI.Neg e -> Expr.Neg $ irExpAsDiffEq e
-    AMI.LitNum n -> Expr.ALit n
+    AMI.LitNum n -> Expr.LitD n
     AMI.Var t -> Expr.Var t
   where
     bin e1 e2 c = irExpAsDiffEq e1 `c` irExpAsDiffEq e2

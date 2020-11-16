@@ -9,36 +9,22 @@ import           Data.Map(Map)
 import           Data.Text(Text)
 import           Control.Monad.Identity(Identity(..), runIdentity)
 
-type Arith = Expr.ArithExpr
-type Log = Expr.LogExpr
-type ModelE = Syntax.ModelExpr
+-- type Arith = Expr.ArithExpr
+-- type Log = Expr.LogExpr
+type ModelE = Expr.Expr -- .ModelExpr
 
-transformArith ::
+transformExpr ::
   Monad m =>
-  (Arith -> m Arith) ->
-  Arith ->
-  m Arith
-transformArith arithT ae =
-  case ae of
+  (Expr.Expr -> m Expr.Expr) ->
+  Expr.Expr ->
+  m Expr.Expr
+transformExpr exprT e =
+  case e of
     Expr.Add e1 e2 -> bin Expr.Add e1 e2
     Expr.Sub e1 e2 -> bin Expr.Sub e1 e2
     Expr.Mul e1 e2 -> bin Expr.Mul e1 e2
     Expr.Div e1 e2 -> bin Expr.Div e1 e2
-    Expr.Neg e1    -> (Expr.Neg <$> aExpr e1) >>= arithT
-    Expr.Var _     -> arithT ae
-    Expr.ALit _    -> arithT ae
-  where
-    aExpr = transformArith arithT
-    bin op e1 e2 = (op <$> aExpr e1 <*> aExpr e2) >>= arithT
-
-transformLog ::
-  Monad m =>
-  (Arith -> m Arith) ->
-  (Log -> m Log) ->
-  Log ->
-  m Log
-transformLog arithT logT le =
-  case le of
+    Expr.Neg e1    -> (Expr.Neg <$> expr e1) >>= exprT
     Expr.And e1 e2 -> bin Expr.And e1 e2
     Expr.Or  e1 e2 -> bin Expr.Or e1 e2
     Expr.LT  e1 e2 -> cmp Expr.LT e1 e2
@@ -46,110 +32,83 @@ transformLog arithT logT le =
     Expr.EQ  e1 e2 -> cmp Expr.EQ e1 e2
     Expr.GTE e1 e2 -> cmp Expr.GTE e1 e2
     Expr.GT  e1 e2 -> cmp Expr.GT e1 e2
-    Expr.Not e1 -> (Expr.Not <$> lExpr e1) >>= logT
-    Expr.LLit _ -> logT le
+    Expr.Not e1 -> (Expr.Not <$> expr e1) >>= exprT
+    Expr.Var _     -> exprT e
+    Expr.LitD _    -> exprT e
+    Expr.LitB _ -> exprT e
+    Expr.If test thn els ->
+      (Expr.If <$> expr test <*> expr thn <*> expr els) >>= expr
+    Expr.Cond choices other ->
+      do  choices <- condChoice `traverse` choices
+          oth <- expr `traverse` other
+          exprT $ Expr.Cond choices oth
   where
-    lExpr = transformLog arithT logT
-    aExpr = transformArith arithT
-    bin op e1 e2 = (op <$> lExpr e1 <*> lExpr e2) >>= logT
-    cmp op e1 e2 = (op <$> aExpr e1 <*> aExpr e2) >>= logT
-
-transformMExpr ::
-  Monad m =>
-  (Arith -> m Arith) ->
-  (Log -> m Log) ->
-  (ModelE -> m ModelE) ->
-  ModelE ->
-  m ModelE
-transformMExpr arithT logT modelT me =
-  case me of
-    Syntax.ArithExpr e -> (Syntax.ArithExpr <$> transformArith arithT e) >>= modelT
-    Syntax.IfExpr test thn els ->
-      (Syntax.IfExpr <$> lExpr test <*> mExpr thn <*> mExpr els) >>= modelT
-    Syntax.CondExpr cond ->
-      do  choices <- condChoice `traverse` (Syntax.condChoices cond)
-          oth <- aExpr `traverse` (Syntax.condOtherwise cond)
-          modelT $ Syntax.CondExpr (Syntax.Condition choices oth)
-  where
-    condChoice (ae, le) = (,) <$> aExpr ae <*> lExpr le
-    mExpr = transformMExpr arithT logT modelT
-    lExpr = transformLog arithT logT
-    aExpr = transformArith arithT
+    -- bin op e1 e2 = (op <$> expr e1 <*> expr e2) >>= logT
+    cmp op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
+    expr = transformExpr exprT
+    bin op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
+    condChoice (ae, le) = (,) <$> expr ae <*> expr le
 
 transformModelExprs ::
   Monad m =>
-  (Arith -> m Arith) ->
-  (Log -> m Log) ->
-  (ModelE -> m ModelE) ->
+  (Expr.Expr -> m Expr.Expr) ->
+  -- (Log -> m Log) ->
+  -- (ModelE -> m ModelE) ->
   Syntax.Model ->
   m Syntax.Model
-transformModelExprs arithT logT modelT mdl =
+transformModelExprs exprT mdl =
   do  decls' <- transformDecl `traverse` (Syntax.modelDecls mdl)
       events' <- transformEvent `traverse` (Syntax.modelEvents mdl)
       pure $ mdl { Syntax.modelDecls = decls'
                  , Syntax.modelEvents = events'
                  }
   where
-    transformDecl (Syntax.Let n v) = Syntax.Let n <$> mExpr v
-    transformDecl (Syntax.State n v) = Syntax.State n <$> mExpr v
-    transformDecl (Syntax.Assert e) = Syntax.Assert <$> lExpr e
+    transformDecl (Syntax.Let n v) = Syntax.Let n <$> expr v
+    transformDecl (Syntax.State n v) = Syntax.State n <$> expr v
+    transformDecl (Syntax.Assert e) = Syntax.Assert <$> expr e
 
-    transformStmt (n, v) = (,) n <$> aExpr v
+    transformStmt (n, v) = (,) n <$> expr v
     transformEvent evt =
-      do  when' <- lExpr `traverse` Syntax.eventWhen evt
-          rate' <- mExpr (Syntax.eventRate evt)
+      do  when' <- expr `traverse` Syntax.eventWhen evt
+          rate' <- expr (Syntax.eventRate evt)
           effect' <- transformStmt `traverse` Syntax.eventEffect evt
           pure $ evt { Syntax.eventWhen = when'
                      , Syntax.eventRate = rate'
                      , Syntax.eventEffect = effect'
                      }
 
-    mExpr = transformMExpr arithT logT modelT
-    lExpr = transformLog arithT logT
-    aExpr = transformArith arithT
+    expr = transformExpr exprT
 
-arithAsCore :: Arith -> Core.Expr
-arithAsCore ae =
-  case ae of
-   Expr.Add e1 e2 -> binop Core.Add e1 e2
-   Expr.Sub e1 e2 -> binop Core.Sub e1 e2
-   Expr.Mul e1 e2 -> binop Core.Mul e1 e2
-   Expr.Div e1 e2 -> binop Core.Div e1 e2
-   Expr.Neg e1    -> Core.Op1 Core.Neg (arithAsCore e1)
-   Expr.ALit d    -> NumLit d
-   Expr.Var t     -> Core.Var t
-  where
-    binop op e1 e2 = Core.Op2 op (arithAsCore e1) (arithAsCore e2)
-
-logAsCore :: Log -> Core.Expr
-logAsCore le =
-  case le of
-    Expr.GT e1 e2  -> cmp Core.Lt  e2 e1
-    Expr.GTE e1 e2 -> cmp Core.Leq e2 e1
-    Expr.EQ e1 e2  -> cmp Core.Eq  e1 e2
+expAsCore :: Expr.Expr -> Core.Expr
+expAsCore e =
+  case e of
+    Expr.Add e1 e2 -> binop Core.Add e1 e2
+    Expr.Sub e1 e2 -> binop Core.Sub e1 e2
+    Expr.Mul e1 e2 -> binop Core.Mul e1 e2
+    Expr.Div e1 e2 -> binop Core.Div e1 e2
+    Expr.Neg e1    -> Core.Op1 Core.Neg (expAsCore e1)
+    Expr.LitD d    -> NumLit d
+    Expr.Var t     -> Core.Var t
+    Expr.GT e1 e2  -> cmp Core.Lt e2 e1
+    Expr.GTE e1 e2 -> cmp Core.Leq e1 e2
+    Expr.EQ e1 e2  -> cmp Core.Eq e1 e2
     Expr.LTE e1 e2 -> cmp Core.Leq e1 e2
-    Expr.LT e1 e2  -> cmp Core.Lt  e1 e2
+    Expr.LT e1 e2  -> cmp Core.Lt e1 e2
     Expr.And e1 e2 -> binop Core.And e1 e2
-    Expr.Or e1 e2  -> binop Core.Or  e1 e2
-    Expr.Not e1    -> unop  Core.Not e1
-    Expr.LLit b    -> Core.Literal (Core.Bool b)
+    Expr.Or e1 e2  -> binop Core.Or e1 e2
+    Expr.Not e1    -> unop Core.Not e1
+    Expr.LitB b    -> Core.Literal (Core.Bool b)
+    Expr.If tst e1 e2 -> Core.If (expAsCore tst) (expAsCore e1) (expAsCore e2)
+    Expr.Cond bs oth -> condAsCore bs oth
   where
-    cmp op e1 e2   = Core.Op2 op (arithAsCore e1) (arithAsCore e2)
-    binop op e1 e2 = Core.Op2 op (logAsCore e2) (logAsCore e2)
-    unop op e1     = Core.Op1 op (logAsCore e1)
-
-modelEasCore :: ModelE -> Core.Expr
-modelEasCore me =
-  case me of
-    Syntax.ArithExpr e1 -> arithAsCore e1
-    Syntax.IfExpr tst e1 e2 -> Core.If (logAsCore tst) (modelEasCore e1) (modelEasCore e2)
-    Syntax.CondExpr cs ->
-      condAsCore (Syntax.condChoices cs) (Syntax.condOtherwise cs)
-  where
-    condAsCore [] (Just e) = arithAsCore e
+    cmp op e1 e2   = Core.Op2 op (expAsCore e1) (expAsCore e2)
+    binop op e1 e2 = Core.Op2 op (expAsCore e1) (expAsCore e2)
+    unop op e1     = Core.Op1 op (expAsCore e1)
+    
+    condAsCore [] (Just e) = expAsCore e
     condAsCore [] Nothing = Core.Fail "Incomplete match"
     condAsCore ((ae, le):t) oth =
-      Core.If (logAsCore le) (arithAsCore ae) (condAsCore t oth)
+      Core.If (expAsCore le) (expAsCore ae) (condAsCore t oth)
 
 
 transformCoreExprM :: Monad m => (Core.Expr -> m Core.Expr) -> Core.Expr -> m Core.Expr
@@ -226,8 +185,8 @@ modelAsCore mdl =
   where
     mkEvent evt =
       let effs' = mkEffect <$> Syntax.eventEffect evt
-          rate = letSubst (modelEasCore $ Syntax.eventRate evt)
-          mbWhen = letSubst . logAsCore <$> Syntax.eventWhen evt
+          rate = letSubst (expAsCore $ Syntax.eventRate evt)
+          mbWhen = letSubst . expAsCore <$> Syntax.eventWhen evt
           when =
             case mbWhen of
               Nothing -> BoolLit True
@@ -239,10 +198,10 @@ modelAsCore mdl =
                     , Core.eventEffect = Map.fromList effs'
                     }
 
-    mkEffect (n, v) = (n, letSubst (arithAsCore v))
+    mkEffect (n, v) = (n, letSubst (expAsCore v))
 
     lets = Syntax.letDecls (Syntax.modelDecls mdl)
-    letMap = Map.fromList (fmap modelEasCore <$> lets)
+    letMap = Map.fromList (fmap expAsCore <$> lets)
     letSubstVar (Core.Var v) =
       case Map.lookup v letMap of
         Nothing -> Core.Var v
@@ -251,7 +210,7 @@ modelAsCore mdl =
     letSubstVar e = e
     letSubst = transformCoreExpr letSubstVar
 
-    initState (n, v) = (,) n <$> evalConstDouble (modelEasCore v)
+    initState (n, v) = (,) n <$> evalConstDouble (expAsCore v)
 
     -- TODO: better errors
     evalConstDouble e =

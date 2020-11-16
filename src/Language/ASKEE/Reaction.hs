@@ -3,7 +3,7 @@ module Language.ASKEE.Reaction where
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Text(Text)
-import Language.ASKEE.Expr ( ArithExpr(.. ), LogExpr )
+import Language.ASKEE.Expr ( Expr(..) )
 import qualified Data.Set as Set
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Data.List as List
@@ -24,9 +24,9 @@ guarded:
 -- for a surface syntax, we may also want to support the "multiple reactions in one line" from [1]
 -- TODO: fixed actions instead of mass actions
 data Reaction =
-  Reaction { reactionRate       :: ArithExpr
+  Reaction { reactionRate       :: Expr
            , reactionType       :: ReactionRate
-           , reactionEnabled    :: Maybe LogExpr
+           , reactionEnabled    :: Maybe Expr
            , reactionSubstrates :: ReactionExp
            , reactionProducts   :: ReactionExp 
            } 
@@ -35,28 +35,28 @@ data ReactionExp = Nil | ReactionTerms [ReactionTerm]
 data ReactionTerm = ReactionTerm Int Text
 data ReactionRate = MassAction | FixedRate
 
-reactionEffects :: ReactionExp -> ReactionExp -> Map Text ArithExpr
+reactionEffects :: ReactionExp -> ReactionExp -> Map Text Expr
 reactionEffects substrates products =
     Map.mapWithKey reifyEffect effs 
   where
     effs = Map.unionWith (.) (substrateEffects substrates) (productEffects products)
     reifyEffect k eff = eff (Var k)
 
-substrateEffects :: ReactionExp -> Map Text (ArithExpr -> ArithExpr)
+substrateEffects :: ReactionExp -> Map Text (Expr -> Expr)
 substrateEffects = reactionExpEffects Sub
 
-productEffects :: ReactionExp -> Map Text (ArithExpr -> ArithExpr)
+productEffects :: ReactionExp -> Map Text (Expr -> Expr)
 productEffects = reactionExpEffects Add
 
-reactionExpEffects :: (ArithExpr -> ArithExpr -> ArithExpr) -> ReactionExp -> Map Text (ArithExpr -> ArithExpr)
+reactionExpEffects :: (Expr -> Expr -> Expr) -> ReactionExp -> Map Text (Expr -> Expr)
 reactionExpEffects effectOp rexp =
   case rexp of
     Nil -> Map.empty
     ReactionTerms ts -> Map.fromList (fromTerm <$> ts)
   where
-    fromTerm (ReactionTerm scale n) = (n, \e -> e `effectOp` ALit (fromIntegral scale))
+    fromTerm (ReactionTerm scale n) = (n, \e -> e `effectOp` LitD (fromIntegral scale))
 
-reactionRateExp :: Reaction -> ArithExpr
+reactionRateExp :: Reaction -> Expr
 reactionRateExp r =
   case reactionType r of
     FixedRate -> reactionRate r
@@ -69,10 +69,10 @@ reactionRateExp r =
     pow x y = (iterate (Mul x) x) !! (y - 1)
     sumTerms terms =
       case terms of
-        [] -> ALit 0
+        [] -> LitD 0
         t0:ts -> foldr Add t0 ts
 
--- arithExpAsModelExp :: ArithExpr -> Syntax.Exp
+-- arithExpAsModelExp :: Expr -> Syntax.Exp
 -- arithExpAsModelExp aexp =
 --   case aexp of
 --     Lit d -> Syntax.Real d
@@ -104,7 +104,7 @@ reactionAsEvent name r =
                , Syntax.eventWhen = reactionEnabled r
                , Syntax.eventEffect = effects
                , Syntax.eventMetadata = Nothing
-               , Syntax.eventRate = Syntax.ArithExpr (reactionRateExp r)
+               , Syntax.eventRate = reactionRateExp r
                }
   where
     effMap = reactionEffects (reactionSubstrates r) (reactionProducts r)  
@@ -123,7 +123,7 @@ tsort dependsOn elts =
     noDeps e = not $ any (e `dependsOn`) elts 
 
 -- make a model with automatically generated names
-reactionsAsModel :: Text -> Map Text (ArithExpr) -> [Reaction] -> Either String Syntax.Model 
+reactionsAsModel :: Text -> Map Text (Expr) -> [Reaction] -> Either String Syntax.Model 
 reactionsAsModel mname env rs = undefined
   where
     reactionVar (ReactionTerm _ v) = v
@@ -137,7 +137,7 @@ reactionsAsModel mname env rs = undefined
 
     mkStateDecl v =
       do e <- Map.lookup v env
-         return (Syntax.State v (Syntax.ArithExpr e))
+         return (Syntax.State v e)
 
     stateDecls =
       case mkStateDecl `traverse` stateVars of
