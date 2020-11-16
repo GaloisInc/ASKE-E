@@ -84,7 +84,7 @@ expAsCore e =
     Expr.LitD d    -> NumLit d
     Expr.Var t     -> Core.Var t
     Expr.GT e1 e2  -> cmp Core.Lt e2 e1
-    Expr.GTE e1 e2 -> cmp Core.Leq e1 e2
+    Expr.GTE e1 e2 -> cmp Core.Leq e2 e1
     Expr.EQ e1 e2  -> cmp Core.Eq e1 e2
     Expr.LTE e1 e2 -> cmp Core.Leq e1 e2
     Expr.LT e1 e2  -> cmp Core.Lt e1 e2
