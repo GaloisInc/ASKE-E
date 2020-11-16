@@ -40,9 +40,6 @@ sir = "examples/askee/sir.askee"
 sirs = "examples/askee/sirs.askee"
 sirVD = "examples/askee/sir-vd.askee"
 
-deqs :: String
-deqs = unsafePerformIO $ readFile "/Users/sam/Desktop/projects/aske-e/aske-e/equations.txt"
-
 p :: String -> [DiffEq]
 p = DP.parse . DL.alexScanTokens
 

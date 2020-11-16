@@ -15,10 +15,6 @@ import Text.PrettyPrint
 -- Notes:
 -- More line spacing could be nice?
 
--- printExpr :: ModelExpr -> Doc
--- printExpr e =
---   case e of
---     Expr e -> printExpr e
 
 printExpr :: Expr -> Doc
 printExpr e = 
@@ -139,4 +135,8 @@ printModel (Model {..}) = decl $+$ nest 2 body
            , text (unpack name)
            , char '='
            , printExpr val
+           ]
+    printDecl (Assert exp) =
+      fsep [ text "assert"
+           , printExpr exp
            ]

@@ -38,10 +38,6 @@ model CHIME_GTRI_IR:
     effect:
       Susceptible = Susceptible - 1.0
       Infected    = Infected + 1.0
-    
-    metadata:
-      lkdsnflkheorng
-      ldkthbglkn
 
   event Cure:
     when:

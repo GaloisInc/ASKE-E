@@ -9,9 +9,6 @@ import           Data.Map(Map)
 import           Data.Text(Text)
 import           Control.Monad.Identity(Identity(..), runIdentity)
 
--- type Arith = Expr.ArithExpr
--- type Log = Expr.LogExpr
-type ModelE = Expr.Expr -- .ModelExpr
 
 transformExpr ::
   Monad m =>
@@ -43,7 +40,6 @@ transformExpr exprT e =
           oth <- expr `traverse` other
           exprT $ Expr.Cond choices oth
   where
-    -- bin op e1 e2 = (op <$> expr e1 <*> expr e2) >>= logT
     cmp op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
     expr = transformExpr exprT
     bin op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
@@ -52,8 +48,6 @@ transformExpr exprT e =
 transformModelExprs ::
   Monad m =>
   (Expr.Expr -> m Expr.Expr) ->
-  -- (Log -> m Log) ->
-  -- (ModelE -> m ModelE) ->
   Syntax.Model ->
   m Syntax.Model
 transformModelExprs exprT mdl =

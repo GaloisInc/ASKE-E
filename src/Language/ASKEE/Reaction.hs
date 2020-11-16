@@ -14,10 +14,10 @@ import qualified Data.List as List
 Concrete syntax:
 
 unconditional:
-  ArithExp ',' ReactionExp '-->' ReactionExp
+  Expr ',' ReactionExp '-->' ReactionExp
 
 guarded:
-  ArithExp 'when' LogExp ',' ReactionExp '-->' ReactionExp 
+  Expr 'when' Expr ',' ReactionExp '-->' ReactionExp 
 
 -}
 
@@ -72,31 +72,6 @@ reactionRateExp r =
         [] -> LitD 0
         t0:ts -> foldr Add t0 ts
 
--- arithExpAsModelExp :: Expr -> Syntax.Exp
--- arithExpAsModelExp aexp =
---   case aexp of
---     Lit d -> Syntax.Real d
---     Var v -> Syntax.Var v
---     Add e1 e2 -> bin Syntax.Add e1 e2
---     Sub e1 e2 -> bin Syntax.Sub e1 e2
---     Mul e1 e2 -> bin Syntax.Mul e1 e2
---     Div e1 e2 -> bin Syntax.Div e1 e2
---     Neg e1 -> arithExpAsModelExp e1
---   where
---     bin o e1 e2 = arithExpAsModelExp e1 `o` arithExpAsModelExp e2
-
--- logExpAsModelExp :: LogicalExpression -> Syntax.Exp
--- logExpAsModelExp lexp =
---   case lexp of
---     And e1 e2 -> bin Syntax.And e1 e2
---     Or e1 e2 -> bin Syntax.Or e1 e2
---     Not e -> Syntax.Not $ logExpAsModelExp e
---     LessThan e1 e2 -> cmp Syntax.LT e1 e2
---     GreaterThan e1 e2 -> cmp Syntax.GT e1 e2
---     Equals e1 e2 -> cmp Syntax.EQ e1 e2
-  -- where
-  --   bin o e1 e2 = logExpAsModelExp e1 `o` logExpAsModelExp e2
-  --   cmp o e1 e2 = arithExpAsModelExp e1 `o` arithExpAsModelExp e2
 
 reactionAsEvent :: Text -> Reaction -> Syntax.Event
 reactionAsEvent name r = 

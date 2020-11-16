@@ -25,7 +25,6 @@ cond            { Located _ _ Lexer.Cond }
 '/'             { Located _ _ Lexer.Divide }
 '/='            { Located _ _ Lexer.DivideAssign }
 effect          { Located _ _ Lexer.Effect }
--- elif            { Located _ _ Lexer.Elif }
 else            { Located _ _ Lexer.Else }
 '=='            { Located _ _ Lexer.EQ }
 event           { Located _ _ Lexer.Event }

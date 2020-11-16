@@ -27,17 +27,6 @@ data Event = Event { eventName     :: Text
 
 type Statement = (Text, Expr)
 
--- data ModelExpr = 
---     ArithExpr Expr.ArithExpr
---   | IfExpr    Expr.LogExpr ModelExpr ModelExpr
---   | CondExpr  Condition
---   deriving (Show, Eq)
-
--- data Condition = Condition { condChoices   :: [(Expr.ArithExpr, Expr.LogExpr)]
---                            , condOtherwise :: Maybe (Expr.ArithExpr)
---                            }
---   deriving (Show, Eq)
-
 -------------------------------------------------------------------------------
 
 -- utility functions
