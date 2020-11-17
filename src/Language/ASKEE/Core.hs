@@ -4,6 +4,7 @@ module Language.ASKEE.Core where
 
 import Data.Map
 import Data.Text(Text)
+import qualified Data.Map as Map
 
 type Ident = Text
 
@@ -42,5 +43,6 @@ data Model =
         }
   deriving (Show, Eq)
 
-
+modelStateVars :: Model -> [Ident]
+modelStateVars mdl = fst <$> Map.toList (modelInitState mdl)
 

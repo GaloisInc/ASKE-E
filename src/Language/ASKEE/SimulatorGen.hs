@@ -4,7 +4,7 @@ module Language.ASKEE.SimulatorGen where
 import qualified Language.ASKEE.Core as Core
 import           Data.Text(Text,unpack)
 import qualified Text.PrettyPrint as PP
-import           Text.PrettyPrint((<+>))
+import           Text.PrettyPrint((<+>), ($$))
 import           Data.Foldable(foldl')
 import qualified Data.Map as Map
 
@@ -109,24 +109,48 @@ eventNum events name =
   where
     indexedEventList = (Core.eventName <$> events) `zip` [1..]
 
--- TODO: advance time
-genExecuteStep :: [Core.Event] -> PP.Doc
-genExecuteStep evts =
-  PP.vcat [ PP.vcat $ rateDecl <$> evts
-          , declareInitStmt dblTypeName totalRateName (totalRateExpr evts)
-          , PP.text "auto rate_dist = std::uniform_real_distribution<double> { 0.0, "
-                 <> totalRateName
-                 <> PP.text "};"
-
-          , PP.text "auto dt_dist = std::exponential_distribution<double> {"
-                <+> totalRateName
-                <+> PP.text "};"
-          , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
-          , assignStmt timeName (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
-          , PP.vcat $ runEffectCondStmt <$> evts
-          , returnStmt (PP.int (negate 1))
-          ]
+genExecStep :: Core.Model-> PP.Doc
+genExecStep mdl =
+    functionTemplate "run_event" ["int nextEvent", "double nextTime" ] voidTypeName body'
   where
+    body' = PP.vcat body
+    evts = Core.modelEvents mdl
+    stateVarCurName sv = "cur_" <> stateVarName sv
+    copyVar n = declareInitStmt "auto" (stateVarCurName n) (stateVarName n)
+    mkEffect (n, expr) = assignStmt (stateVarName n) (genExpr' stateVarCurName expr)
+    mkCase evt =
+      PP.vcat [ ("case" <+> PP.int (eventNum evts (Core.eventName evt))) <> ":"
+              , PP.nest 4 (
+                  PP.vcat (mkEffect <$> Map.toList (Core.eventEffect evt))
+                  $$ "break;")
+              ]
+    body =
+      [ assignStmt timeName "nextTime"
+      , PP.vcat (copyVar <$> Core.modelStateVars mdl)
+      , "switch(nextEvent) {"
+      , PP.nest 4 $ PP.vcat (mkCase <$> evts)
+      , "}"
+      ]
+
+genNextStep :: [Core.Event] -> PP.Doc
+genNextStep evts =
+    functionTemplate "next_event" ["int& nextEvent", "double& nextTime" ] voidTypeName body
+  where
+    body =
+      PP.vcat [ PP.vcat $ rateDecl <$> evts
+        , declareInitStmt dblTypeName totalRateName (totalRateExpr evts)
+        , PP.text "auto rate_dist = std::uniform_real_distribution<double> { 0.0, "
+                <> totalRateName
+                <> PP.text "};"
+
+        , PP.text "auto dt_dist = std::exponential_distribution<double> {"
+              <+> totalRateName
+              <+> PP.text "};"
+        , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
+        , assignStmt "nextTime" (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
+        , PP.vcat $ runEffectCondStmt <$> evts
+        ]
+
     subtractRateStmt evt =
       assignStmt randomValueName (randomValueName <+> PP.text "-" <+> effRateName evt)
 
@@ -135,8 +159,8 @@ genExecuteStep evts =
         [ PP.hsep [randomValueName, PP.text "-=", effRateName evt <> PP.semi]
         , PP.text "if" <> PP.parens (randomValueName <+> PP.text "<= 0.0") <> PP.text "{"
         , PP.nest 4 $
-            PP.vcat [ callProc (eventEffectFuncName evt) <> PP.semi
-                    , returnStmt (PP.int (eventNum evts (Core.eventName evt)))
+            PP.vcat [ assignStmt "nextEvent" (PP.int (eventNum evts (Core.eventName evt)))
+                    , "return;"
                     ]
         , PP.text "}"
         ]
@@ -168,8 +192,9 @@ genModel mdl =
     decls = PP.vcat [ PP.vcat (mkEventWhenDecl <$> Core.modelEvents mdl)
                     , PP.vcat (mkEventRateDecl <$> Core.modelEvents mdl)
                     , PP.vcat (mkEventEffectDecl <$> Core.modelEvents mdl)
-                    , stepFunction (Core.modelEvents mdl)
-                    --, setSeedFunc1
+                    , genNextStep (Core.modelEvents mdl)
+                    , genExecStep mdl
+                     --, setSeedFunc1
                     , setSeedFunc2
                     , stateVars
                     , declareInitStmt dblTypeName timeName (PP.double 0.0)
@@ -202,8 +227,7 @@ genModel mdl =
       let result = PP.text "return" <+> (genExpr (Core.eventRate evt) <> PP.semi)
       in functionTemplate (eventRateName evt) [] dblTypeName result
 
-    stepFunction evts =
-      functionTemplate stepFunctionName [] dblTypeName (genExecuteStep evts)
+    stepFunction evts = genNextStep evts
 
     -- TODO: make sure this is const
     ppState (varName, val) = declareInitStmt dblTypeName (stateVarName varName) (PP.double val)

@@ -35,11 +35,15 @@
 			"patterns": [		
 				{
 					"name": "keyword.block.askee",
-					"match": "\\b(model|let|derived|state|event|when|rate|effect|measure|var|update|aggregate|result|reduce|on|assert)\\b"
+					"match": "\\b(model|let|derived|state|event|when|rate|effect|measure|var|update|aggregate|result|reduce|on|assert|trace|init|expression)\\b"
 				},
 				{
 					"name": "keyword.control",
 					"match": "\\b(and|or|not|if|then|otherwise|else|cond)\\b"
+				},
+				{
+					"name": "keyword.other",
+					"match": "\\b(time)\\b"
 				}
 			]
 		},
