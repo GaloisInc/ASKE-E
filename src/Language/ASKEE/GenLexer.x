@@ -33,49 +33,49 @@ tokens :-
 
 
 
-<0> "model"     { atomic Model }
-<0> "state"     { atomic State }
-<0> "let"       { atomic Let }
-<0> "event"     { atomic Event }
-<0> @real       { real }
-<0> "+="        { atomic PlusAssign }
-<0> "-="        { atomic MinusAssign }
-<0> "*="        { atomic TimesAssign }
-<0> "/="        { atomic DivideAssign }
-<0> "+"         { atomic Plus }
-<0> "-"         { atomic Minus }
-<0> "*"         { atomic Times }
-<0> "/"         { atomic Divide }
-<0> "="         { atomic Assign }
-<0> "<="        { atomic LTE }
-<0> ">="        { atomic GTE }
-<0> "<"         { atomic LT }
-<0> ">"         { atomic GT }
-<0> "=="        { atomic EQ }
-<0> "("         { atomic OpenP }
-<0> ")"         { atomic CloseP }
-<0> ":"         { atomic Colon }
-<0> "not"       { atomic Not }
-<0> "and"       { atomic And }
-<0> "or"        { atomic Or }
-<0> "if"        { atomic If }
-<0> "then"      { atomic Then }
-<0> "else"      { atomic Else }
-<0> "elif"      { atomic Elif }
-<0> "otherwise" { atomic Otherwise }
-<0> "metadata"  { atomic Metadata }
-<0> "cond"      { atomic Cond }
-<0> "when"      { atomic When }
-<0> "rate"      { atomic Rate }
-<0> "effect"    { atomic Effect }
-<0> "assert"    { atomic Assert }
+"model"     { atomic Model }
+"state"     { atomic State }
+"let"       { atomic Let }
+"event"     { atomic Event }
+@real       { real }
+"+="        { atomic PlusAssign }
+"-="        { atomic MinusAssign }
+"*="        { atomic TimesAssign }
+"/="        { atomic DivideAssign }
+"+"         { atomic Plus }
+"-"         { atomic Minus }
+"*"         { atomic Times }
+"/"         { atomic Divide }
+"="         { atomic Assign }
+"<="        { atomic LTE }
+">="        { atomic GTE }
+"<"         { atomic LT }
+">"         { atomic GT }
+"=="        { atomic EQ }
+"("         { atomic OpenP }
+")"         { atomic CloseP }
+":"         { atomic Colon }
+"not"       { atomic Not }
+"and"       { atomic And }
+"or"        { atomic Or }
+"if"        { atomic If }
+"then"      { atomic Then }
+"else"      { atomic Else }
+"elif"      { atomic Elif }
+"otherwise" { atomic Otherwise }
+"metadata"  { atomic Metadata }
+"cond"      { atomic Cond }
+"when"      { atomic When }
+"rate"      { atomic Rate }
+"effect"    { atomic Effect }
+"assert"    { atomic Assert }
 
-<0> @upperID    { ident }
-<0> @lowerID    { ident }
+@upperID    { ident }
+@lowerID    { ident }
 
--- <0> \n $ws*    { atomic Newline }
-<0> $white+    { atomic Whitespace }
-<0> "#".*      ;
+-- \n $ws*    { atomic Newline }
+$white+    { atomic Whitespace }
+"#".*      ;
 
 
 {
