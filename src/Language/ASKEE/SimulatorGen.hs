@@ -8,6 +8,8 @@ import           Text.PrettyPrint((<+>), ($$))
 import           Data.Foldable(foldl')
 import qualified Data.Map as Map
 
+import qualified Language.ASKEE.C as C
+
 -- TODO: fresh naming?
 
 -- foreign import ccall "ASKEE_run_simulate" frunSimulation :: 
@@ -125,58 +127,53 @@ eventNum events name =
 
 genExecStep :: Core.Model-> PP.Doc
 genExecStep mdl =
-    functionTemplate runEventFunctionName ["int nextEvent", "double nextTime" ] voidTypeName body'
+  C.function C.void runEventFunctionName [ C.int    <+> "nextEvent"
+                                         , C.double <+> "nextTime" ]
+  [ assignStmt timeName "nextTime"
+  , PP.vcat (copyVar <$> Core.modelStateVars mdl)
+  , C.switch "nextEvent" (mkCase <$> evts)
+  ]
+
   where
-    body' = PP.vcat body
-    evts = Core.modelEvents mdl
-    stateVarCurName sv = "cur_" <> stateVarName sv
-    copyVar n = declareInitStmt "auto" (stateVarCurName n) (stateVarName n)
-    mkEffect (n, expr) = assignStmt (stateVarName n) (genExpr' stateVarCurName expr)
-    mkCase evt =
-      PP.vcat [ ("case" <+> PP.int (eventNum evts (Core.eventName evt))) <> ":"
-              , PP.nest 4 (
-                  PP.vcat (mkEffect <$> Map.toList (Core.eventEffect evt))
-                  $$ "break;")
-              ]
-    body =
-      [ assignStmt timeName "nextTime"
-      , PP.vcat (copyVar <$> Core.modelStateVars mdl)
-      , "switch(nextEvent) {"
-      , PP.nest 4 $ PP.vcat (mkCase <$> evts)
-      , "}"
-      ]
+  evts = Core.modelEvents mdl
+  stateVarCurName sv = "cur_" <> stateVarName sv
+  copyVar n = declareInitStmt "auto" (stateVarCurName n) (stateVarName n)
+  mkEffect (n, expr) = assignStmt (stateVarName n) (genExpr' stateVarCurName expr)
+  mkCase evt =
+    C.stmts [ C.case' (PP.int (eventNum evts (Core.eventName evt)))
+            , C.nested $ fmap mkEffect (Map.toList (Core.eventEffect evt))
+                      ++ [ C.break ]
+            ]
 
 genNextStep :: [Core.Event] -> PP.Doc
 genNextStep evts =
-    functionTemplate nextEventFunctionName ["int& nextEvent", "double& nextTime" ] voidTypeName body
-  where
-    body =
-      PP.vcat [ PP.vcat $ rateDecl <$> evts
-        , declareInitStmt dblTypeName totalRateName (totalRateExpr evts)
-        , PP.text "auto rate_dist = std::uniform_real_distribution<double> { 0.0, "
+  C.function C.void nextEventFunctionName [ C.int <+> "&nextEvent"
+                                          , C.double <+> "&nextTime" ]
+    [ PP.vcat $ rateDecl <$> evts
+    , declareInitStmt dblTypeName totalRateName (totalRateExpr evts)
+    , PP.text "auto rate_dist = std::uniform_real_distribution<double> { 0.0, "
                 <> totalRateName
                 <> PP.text "};"
 
-        , PP.text "auto dt_dist = std::exponential_distribution<double> {"
+    , PP.text "auto dt_dist = std::exponential_distribution<double> {"
               <+> totalRateName
               <+> PP.text "};"
-        , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
-        , assignStmt "nextTime" (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
-        , PP.vcat $ runEffectCondStmt <$> evts
-        ]
+    , declareInitStmt dblTypeName randomValueName (callFunc (PP.text "rate_dist") [rngName])
+    , assignStmt "nextTime" (PP.hsep [timeName, PP.text "+", callFunc (PP.text "dt_dist") [rngName] ])
+    , PP.vcat $ runEffectCondStmt <$> evts
+    ]
 
+  where
     subtractRateStmt evt =
       assignStmt randomValueName (randomValueName <+> PP.text "-" <+> effRateName evt)
 
     runEffectCondStmt evt =
       PP.vcat
         [ PP.hsep [randomValueName, PP.text "-=", effRateName evt <> PP.semi]
-        , PP.text "if" <> PP.parens (randomValueName <+> PP.text "<= 0.0") <> PP.text "{"
-        , PP.nest 4 $
-            PP.vcat [ assignStmt "nextEvent" (PP.int (eventNum evts (Core.eventName evt)))
-                    , "return;"
-                    ]
-        , PP.text "}"
+        , C.ifThen (randomValueName <+> PP.text "<= 0.0")
+            [ assignStmt "nextEvent" (PP.int (eventNum evts (Core.eventName evt)))
+            , C.return
+            ]
         ]
 
     randomValueName = PP.text "random"

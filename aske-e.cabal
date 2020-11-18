@@ -27,6 +27,7 @@ library
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
+                     , Language.ASKEE.C
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
