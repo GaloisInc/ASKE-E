@@ -15,22 +15,26 @@ import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.ExprTransform as Transform
 import qualified Text.PrettyPrint as PP
 import qualified Language.ASKEE.Measure as M
+import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.Core as Core
 
 
-import System.IO.Unsafe (unsafePerformIO)
+testLexModel :: FilePath -> IO [Located Token]
+testLexModel fp =
+  do txt <- readFile fp
+     case AL.lexModel txt of
+       Right toks -> pure toks
+       Left err -> fail err
 
+testParseModel :: FilePath -> IO Model
+testParseModel fp = AP.parse <$> testLexModel fp
 
-testLexModel :: FilePath -> [Located Token]
-testLexModel fp = 
-  let model = unsafePerformIO $ readFile fp
-      Right toks = AL.lexModel model
-  in  toks
-
-testParseModel :: FilePath -> Model
-testParseModel fp =
-  let toks = testLexModel fp
-  in  AP.parse toks
+coreModel :: FilePath -> IO Core.Model
+coreModel fp =
+  do mb <- Transform.modelAsCore <$> testParseModel fp
+     case mb of
+       Right a  -> pure a
+       Left err -> fail err
 
 dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
 dump (Right m) fp = writeFile fp $ show $ toList m 
@@ -45,7 +49,7 @@ p = DP.parse . DL.alexScanTokens
 
 genCppModel :: FilePath -> FilePath -> IO ()
 genCppModel fp output =
-  do let mdl = testParseModel fp
+  do mdl <- testParseModel fp
      case Transform.modelAsCore mdl of
        Left err       -> putStrLn ("Failed to compile model: " <> err)
        Right compiled ->
@@ -54,14 +58,12 @@ genCppModel fp output =
               putStrLn "compiled!"
 
 
+m1 = M.EventBased $ M.When (M.TimeLT 120.0) $ M.Do
+   $ M.Accumulate "m" 1.0
+   $ Core.Op2 Core.Add (Core.Var "m") (Core.Literal (Core.Num 1.0))
+
+
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
-  do let mdl = testParseModel fp
-     let ms = [ M.Measure (M.TraceExpr "n" undefined) (M.TimeLT 120.0)
-              , M.Measure (M.Accumulate "m" (Core.Op2 Core.Add (Core.Var "m") (Core.Literal $ Core.Num 1.0)) 1.0) (M.TimeLT 120.0)
-              ]
-
-     case Transform.modelAsCore mdl of
-       Left err       -> putStrLn ("Failed to compile model: " <> err)
-       Right compiled ->
-         putStrLn $ PP.render (M.genSimulationRunnerCpp compiled 100.0 ms)
+  do compiled <- coreModel fp
+     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 m1)

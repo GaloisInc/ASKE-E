@@ -27,6 +27,7 @@ library
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
+                     , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
@@ -54,3 +55,4 @@ executable evaltest
   build-depends:       base >=4.13.0.0 && <5,
                        aske-e
   default-language:    Haskell2010  
+  ghc-options:         -Wall

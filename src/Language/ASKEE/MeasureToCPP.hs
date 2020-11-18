@@ -1,0 +1,149 @@
+{-# Language OverloadedStrings #-}
+module Language.ASKEE.MeasureToCPP where
+
+import Data.Map(Map)
+import qualified Data.Map as Map
+import Data.Text(Text)
+import qualified Data.Text as Text
+
+import qualified Language.ASKEE.Syntax as Syntax
+import qualified Language.ASKEE.Core as Core
+import           Language.ASKEE.Measure
+import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.SimulatorGen as SG
+
+
+--------------------------------------------------------------------------------
+-- API names
+
+runnerClassName :: Core.Model -> C.Doc
+runnerClassName model = SG.modelClassName model <> "_Runner"
+
+modelVarName :: C.Doc
+modelVarName = C.ident "_model"
+
+
+
+
+--------------------------------------------------------------------------------
+
+genSimulationRunnerCpp :: Core.Model -> Double -> Measure -> C.Doc
+genSimulationRunnerCpp model runUntil measure =
+  C.stmts [ C.stmts (C.include <$> includes)
+          , SG.genModel model
+          , C.struct (runnerClassName model) (attributes ++ methods)
+          ]
+  where
+  includes = ["vector", "utility"]
+
+  observations = measureObservations measure []
+
+  attributes =
+     C.declare (SG.modelClassName model) modelVarName
+   : (attributeFor <$> observations)
+
+  methods =
+    [ stepFunc model measure
+    , runFunc model runUntil observations
+    ]
+
+  attributeFor obs =
+    case obs of
+      Accumulate name initVal _ ->
+        C.declareInit C.double (C.ident name) (C.doubleLit initVal)
+      TraceExpr name _ ->
+        C.declare "std::vector<std::pair<double, double>>" (C.ident name)
+
+
+runFunc :: Core.Model -> Double -> [Observation] -> C.Doc
+runFunc model end obses =
+  C.function C.void "run" [ C.arg "uint32_t" "seed"]
+  $  [ C.assign modelVarName (C.callCon (SG.modelClassName model) [])
+     , C.callStmt (C.member modelVarName SG.setSeed1Name) [ "seed" ]
+     ]
+  ++ (resest <$> obses)
+  ++ [ C.while (C.member modelVarName SG.timeName C.< C.doubleLit end)
+        [ C.callStmt "step" [] ] ]
+
+  where
+  resest obs =
+    case obs of
+     Accumulate name initVal _ ->
+            C.assign (C.ident name) (C.doubleLit initVal)
+     TraceExpr name _ -> C.callStmt (C.member (C.ident name) "clear") []
+
+stepFunc :: Core.Model -> Measure -> C.Doc
+stepFunc model measure =
+  C.function C.void "step" []
+    $  [ C.declare C.double "nextTime"
+       , C.declare C.int    "event"
+       , C.callStmt (C.member modelVarName SG.nextEventFunctionName)
+                                                [ "event", "nextTime" ]
+       ]
+    ++ genTimeBasedMeasure model measure
+    ++ [ C.callStmt (C.member modelVarName SG.runEventFunctionName)
+                                                    [ "event", "nextTime" ]
+       ]
+    ++ genEventMeasure model measure
+
+
+genTimeBasedMeasure :: Core.Model -> Measure -> [C.Doc]
+genTimeBasedMeasure _ _ = [] -- XXX: todo
+
+
+genEventMeasure :: Core.Model -> Measure -> [C.Doc]
+genEventMeasure model measure =
+  -- we should only need to save the vars in the event based part
+  -- but for simplicity we store everything
+  [ C.declareInit C.double (prevValName x) (C.ident x)
+                  | Accumulate x _ _ <- measureObservations measure []
+  ] ++ upd measure []
+  where
+  upd :: Measure -> [C.Doc] -> [C.Doc]
+  upd m =
+    case m of
+      m1 :+: m2    -> upd m1 . upd m2
+      TimeBased {} -> id
+      EventBased s -> genStatement model env s
+
+  prevValName name = C.ident ("_prev_" <> name)
+
+  env n = if n `Map.member` Core.modelInitState model
+            then C.member modelVarName (SG.stateVarName n)
+            else prevValName n
+
+
+genStatement :: Core.Model -> SG.Env -> Statement -> [C.Doc] -> [C.Doc]
+genStatement model env s =
+  case s of
+    When sel s1 ->
+     (C.ifThen (genSelector model env sel) (genStatement model env s1 []) :)
+    s1 :> s2 -> genStatement model env s1 . genStatement model env s2
+    Do obs -> (genObservation model env obs :)
+
+
+genObservation :: Core.Model -> SG.Env -> Observation -> C.Doc
+genObservation model env obs =
+  case obs of
+    TraceExpr x e    -> C.lineComment "XXX: trace expression"
+    Accumulate x _ e -> C.assign (C.ident x) (SG.genExpr' env e)
+
+
+genSelector :: Core.Model -> SG.Env -> Selector -> C.Doc
+genSelector model env = go
+  where
+  go s =
+    case s of
+      If e -> SG.genExpr' env e
+      Every -> C.boolLit True
+      And e1 e2 -> go e1 C.&& go e2
+      Or e1 e2 ->  go e1 C.|| go e2
+      TimeGT d -> C.member modelVarName SG.timeName C.> C.doubleLit d
+      TimeLT d -> C.member modelVarName SG.timeName C.< C.doubleLit d
+      OnEvent e ->
+        "_event" C.== C.intLit (SG.eventNum (Core.modelEvents model) e)
+
+
+
+
+

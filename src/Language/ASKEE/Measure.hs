@@ -13,22 +13,41 @@ import qualified Language.ASKEE.SimulatorGen as C
 import qualified Data.Text as Text
 import qualified Data.Set as Set
 
--- observe exprs and not vars
-
--- measure single simulation
--- aggregate data from multiple simulation runs
--- summarize aggregate data
-
-ppText :: Text.Text -> PP.Doc
-ppText = PP.text . Text.unpack
-
----------
-
 
 type Name = Text
-type Time = Double
 
--- this describes some particular set of states of the model
+data Measure =
+    EventBased Statement
+    -- ^ Measurements that happen at a sepcific event
+
+  | TimeBased TimePoints Statement
+    -- ^ Measurements that happen at specific points in type
+
+  | Measure :+: Measure
+    -- ^ Multiple measures.
+    deriving Show
+
+
+-- | Desribes a guarded sets of observations.
+data Statement =
+    When Selector Statement
+  | Statement :> Statement
+  | Do Observation
+    deriving Show
+
+data Observation =
+    TraceExpr Name Core.Expr
+  | Accumulate Name Double Core.Expr
+    deriving Show
+
+-- | Desribes a collection of points in time.
+data TimePoints =
+    AtTime Double
+  | AtTimes Double Double Double -- ^ from, step, to
+  | TimePoints :&: TimePoints    -- ^ multiple time points
+    deriving Show
+
+-- | This describes some particular set of states of the model
 -- simulation we are particularly interested in - like a filter
 data Selector =
     Every
@@ -38,172 +57,21 @@ data Selector =
   | TimeLT Double            -- time <
   | OnEvent Text
   | If Core.Expr
-
--- something we want to track/record about when an event occurs
--- this allows us to summarize the state of the model over th
--- course of the simulation
-data Observation =
-    TraceExpr Name Core.Expr
-  | Accumulate Name Core.Expr Double
-
-data Measure = Measure Observation Selector
-
-data MeasureResult =
-    MeasureResult
-      { mrAccumulators :: Map Name Double
-      , mrTraces :: [(Time, Map Name Double)]
-      }
-
-measureModel :: Syntax.Model -> Double -> [Measure] -> MeasureResult
-measureModel model maxTime measures = undefined
-
-data Simulation =
-  Simulation
-    { simSelector :: Core.Expr -- observations from this run (possibly aggregate stuff from simSingleRun)
-    , simSingleRun :: [Observation]
-    , simAggregate :: [(Name, Core.Expr)]
-    }
-
-data SimulationResult
-
-measureModelManyTimes ::
-  Syntax.Model ->
-  [Measure] ->
-  Int ->
-  ([MeasureResult] -> SimulationResult) ->
-  SimulationResult
-measureModelManyTimes model measures termination summarize = undefined
+    deriving Show
 
 
-runnerClassName :: Core.Model -> PP.Doc
-runnerClassName model = SG.modelClassName model <> "_Runner"
+measureObservations :: Measure -> [Observation] -> [Observation]
+measureObservations m =
+  case m of
+    m1 :+: m2     -> measureObservations m1 . measureObservations m2
+    TimeBased _ s -> statementObservations s
+    EventBased s  -> statementObservations s
 
--- TO EXPLORE: runUntil as an expression
-genSimulationRunnerCpp :: Core.Model -> Double -> [Measure] -> PP.Doc
-genSimulationRunnerCpp model runUntil measures =
-    PP.vcat [ PP.vcat (mkInclude <$> includes)
-            , simclass
-            , runnerClass
-            ]
-  where
-    simclass = SG.genModel model
-    -- TODO: refactor into CPP generating class
-    mkInclude n = "#include" <> "<" <> n <> ">"
-    includes = ["vector", "utility"]
-
-    runnerClass =
-      PP.vcat [ "struct" <+> runnerClassName model <+> "{"
-              , PP.nest 2 (attributes $$ methods)
-              , "};"
-              ]
-
-    declVar ty name = (ty <+> name) <> ";"
-
-    attributes =
-      PP.vcat $ declVar (SG.modelClassName model) modelVarName
-              : (attributeFor <$> measures)
-
-    methods = PP.vcat [ stepFunc model measures
-                      , runFunc model runUntil measures ]
+statementObservations :: Statement -> [Observation] -> [Observation]
+statementObservations s =
+  case s of
+    When _ s1 -> statementObservations s1
+    s1 :> s2  -> statementObservations s1 . statementObservations s2
+    Do o      -> (o :)
 
 
-    stateVars = Map.keysSet $ Core.modelInitState model
-
-    attributeFor (Measure obs _) =
-      case obs of
-        Accumulate name _ initVal -> SG.declareInitStmt "double" (ppText name) (PP.double initVal)
-        TraceExpr name _ -> SG.declareStmt "std::vector<std::pair<double, double>>" (ppText name)
-
-
-{-
-void run(uint32_t seed) {
-  _model = SIR{};
-  _model.set_seed(seed);
-  // iniitalize accumulators
-  m = 0;
-  // reset traces
-  while (!endCondion) {
-    step();
-  }
-}
-
--}
-
--- XXX: We could generalize the time limit to be a function of
--- the state instead.
-runFunc :: Core.Model -> Double -> [Measure] -> PP.Doc
-runFunc model end measures = C.functionTemplate' "run" ["uint32_t seed"] "void"$
-  [ C.assignStmt modelVarName (SG.modelClassName model <> "{}")
-  , C.callFunc (C.member modelVarName SG.setSeed1Name) [ "seed" ] <> ";"
-  ] ++
-  [ case obs of
-      Accumulate name _ initVal -> C.assignStmt (ppText name) (PP.double initVal)
-      TraceExpr name _ -> C.callProc (C.member (ppText name) "clear") <> ";"
-  | Measure obs _ <- measures
-  ] ++
-  [ "while" <+> PP.parens (C.member modelVarName SG.timeName <+> "<" <+> PP.double end)
-  , PP.nest 2 (C.callProc "step" <> ";")
-  ]
-
-stepFunc :: Core.Model -> [Measure] -> PP.Doc
-stepFunc model measures = C.functionTemplate' "step" [] "void" $
-  [ C.declareStmt "double" "nextTime"
-  , C.declareStmt "int" "event"
-  , C.callFunc (C.member modelVarName SG.nextEventFunctionName)
-            [ "event", "nextTime" ] <> ";"
-  , transtionStatements
-  , C.callFunc (C.member modelVarName SG.runEventFunctionName)
-      [ "event", "nextTime" ] <> ";"
-  ] ++
-  [ prevValDecl name | Measure (Accumulate name _ _) _ <- measures ] ++
-  [ accumulatorUpdate sel name e | Measure (Accumulate name e _) sel <- measures ]
-
-  where
-  transtionStatements = PP.empty
-
-  prevValName name = "_prev_" <> ppText name
-  prevValDecl name = C.declareInitStmt "double" (prevValName name) (ppText name)
-
-  accumulatorUpdate s name e =
-    PP.vcat [ "if" <> PP.parens (genSelector model env s)
-            , PP.nest 2 (C.assignStmt (ppText name) (SG.genExpr' env e))
-            ]
-
-  stateVars = Map.keysSet (Core.modelInitState model)
-  env n | n `Set.member` stateVars = modelVarName <> "." <> SG.stateVarName n
-        | otherwise                = prevValName n
-
-
-
-
-modelVarName :: PP.Doc
-modelVarName = "_model"
-
-type Env = Core.Ident -> PP.Doc
-
-genSelector :: Core.Model -> Env -> Selector -> PP.Doc
-genSelector model env = go
-  where
-  go s =
-    case s of
-      If e -> SG.genExpr' env e
-      Every -> "true"
-      And e1 e2 -> go e1 <+> "&&" <+> go e2
-      Or e1 e2 ->  go e1 <+> "||" <+> go e2
-      TimeGT d -> (modelVarName <> "." <> SG.timeName) <+> ">" <+> PP.double d
-      TimeLT d -> (modelVarName <> "." <> SG.timeName) <+> "<" <+> PP.double d
-      OnEvent e -> "_event" <+> "==" <+> PP.int (SG.eventNum (Core.modelEvents model) e)
-
-
-
-
-
-
-
-
-
-
-
-
--- Accumulate "a" (a + 1.0) (0.0)
--- Accumulate "a" (a || something) (False)
