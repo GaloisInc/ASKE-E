@@ -37,6 +37,11 @@ functionTemplate functionName args returnType body =
     argList = PP.parens (PP.hsep $ PP.punctuate (PP.text ",") args)
     prototype = PP.hsep [returnType, functionName, argList]
 
+functionTemplate' :: PP.Doc -> [PP.Doc] -> PP.Doc -> [PP.Doc] -> PP.Doc
+functionTemplate' functionName args returnType stmts =
+  functionTemplate functionName args returnType (PP.vcat stmts)
+
+
 
 genIncludes :: PP.Doc
 genIncludes = PP.vcat (mkInc <$> ist)
@@ -62,6 +67,13 @@ stateVarName nm = PP.text "state_" <> ppText nm
 stepFunctionName :: PP.Doc
 stepFunctionName = PP.text "step"
 
+
+nextEventFunctionName :: PP.Doc
+nextEventFunctionName = "next_event"
+
+runEventFunctionName :: PP.Doc
+runEventFunctionName = "run_event"
+
 boolTypeName :: PP.Doc
 boolTypeName = PP.text "bool"
 dblTypeName :: PP.Doc
@@ -82,6 +94,8 @@ callProc p = p <> PP.parens PP.empty
 
 callFunc :: PP.Doc -> [PP.Doc] -> PP.Doc
 callFunc f args = f <> PP.parens (PP.hsep $ PP.punctuate PP.comma args)
+
+member obj x = obj <> "." <> x
 
 assignStmt :: PP.Doc -> PP.Doc -> PP.Doc
 assignStmt n v = 
@@ -111,7 +125,7 @@ eventNum events name =
 
 genExecStep :: Core.Model-> PP.Doc
 genExecStep mdl =
-    functionTemplate "run_event" ["int nextEvent", "double nextTime" ] voidTypeName body'
+    functionTemplate runEventFunctionName ["int nextEvent", "double nextTime" ] voidTypeName body'
   where
     body' = PP.vcat body
     evts = Core.modelEvents mdl
@@ -134,7 +148,7 @@ genExecStep mdl =
 
 genNextStep :: [Core.Event] -> PP.Doc
 genNextStep evts =
-    functionTemplate "next_event" ["int& nextEvent", "double& nextTime" ] voidTypeName body
+    functionTemplate nextEventFunctionName ["int& nextEvent", "double& nextTime" ] voidTypeName body
   where
     body =
       PP.vcat [ PP.vcat $ rateDecl <$> evts
