@@ -14,6 +14,7 @@ main =
      case command opts of
        OnlyLex   -> mapM_ print =<< testLexModel (modelFile opts)
        OnlyParse -> print =<< testParseModel (modelFile opts)
+       DumpCPP   -> genCppRunner (modelFile opts)
 
   `catches`
   [ Handler  \(GetOptException errs) ->

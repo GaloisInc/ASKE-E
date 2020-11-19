@@ -15,6 +15,7 @@ import SimpleGetOpt
 data Command =
     OnlyLex
   | OnlyParse
+  | DumpCPP
 
 data Options = Options
   { command :: Command
@@ -26,7 +27,7 @@ options :: OptSpec Options
 options = OptSpec
   { progDefaults =
       Options
-        { command = OnlyParse
+        { command = DumpCPP
         , modelFile = ""
         , onlyShowHelp = False
         }
