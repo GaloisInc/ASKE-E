@@ -1,12 +1,8 @@
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.MeasureToCPP where
 
-import Data.Map(Map)
 import qualified Data.Map as Map
-import Data.Text(Text)
-import qualified Data.Text as Text
 
-import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.Measure
 import qualified Language.ASKEE.C as C

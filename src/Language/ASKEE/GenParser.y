@@ -1,142 +1,170 @@
 {
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Language.ASKEE.GenParser where
-import Language.ASKEE.GenLexer
-import Language.ASKEE.Lexer  as Lexer
-import Language.ASKEE.Syntax as Syntax
-import Language.ASKEE.Expr   as Expr
 
-import Control.Monad.State
+import Prelude hiding (Ordering(..))
+import Data.Text(Text)
 
-import qualified Data.Map as M
+import qualified Language.ASKEE.GenLexer as Lexer
+import           Language.ASKEE.Lexer(Located(..))
+import qualified Language.ASKEE.Lexer as Lexer
+import           Language.ASKEE.Syntax
+import           Language.ASKEE.Expr
+
+
 }
 
 %name parse
-%tokentype {Located Token}
+%tokentype {Located Lexer.Token}
 %error {parseError}
 
 %token
-and             { Located _ _ Lexer.And }
+'and'           { Located _ _ Lexer.And }
 '='             { Located _ _ Lexer.Assign }
-bclose          { Located _ _ Lexer.CloseBlock }
+BCLOSE          { Located _ _ Lexer.CloseBlock }
 ')'             { Located _ _ Lexer.CloseP }
 ':'             { Located _ _ Lexer.Colon }
-cond            { Located _ _ Lexer.Cond }
+'cond'          { Located _ _ Lexer.Cond }
 '/'             { Located _ _ Lexer.Divide }
 '/='            { Located _ _ Lexer.DivideAssign }
-effect          { Located _ _ Lexer.Effect }
-else            { Located _ _ Lexer.Else }
+'effect'        { Located _ _ Lexer.Effect }
+'else'          { Located _ _ Lexer.Else }
 '=='            { Located _ _ Lexer.EQ }
-event           { Located _ _ Lexer.Event }
+'event'         { Located _ _ Lexer.Event }
 '>'             { Located _ _ Lexer.GT }
 '>='            { Located _ _ Lexer.GTE }
-if              { Located _ _ Lexer.If }
+'if'            { Located _ _ Lexer.If }
 '<'             { Located _ _ Lexer.LT }
 '<='            { Located _ _ Lexer.LTE }
-let             { Located _ _ Lexer.Let }
+'let'           { Located _ _ Lexer.Let }
 -- metadata        { Located _ _ Lexer.Metadata }
 '-'             { Located _ _ Lexer.Minus }
 '-='            { Located _ _ Lexer.MinusAssign }
-model           { Located _ _ Lexer.Model }
-not             { Located _ _ Lexer.Not }
-bopen           { Located _ _ Lexer.OpenBlock }
+'model'         { Located _ _ Lexer.Model }
+'not'           { Located _ _ Lexer.Not }
+BOPEN           { Located _ _ Lexer.OpenBlock }
 '('             { Located _ _ Lexer.OpenP }
-or              { Located _ _ Lexer.Or }
-otherwise       { Located _ _ Lexer.Otherwise }
+'or'            { Located _ _ Lexer.Or }
+'otherwise'     { Located _ _ Lexer.Otherwise }
 '+'             { Located _ _ Lexer.Plus }
 '+='            { Located _ _ Lexer.PlusAssign }
-rate            { Located _ _ Lexer.Rate }
-real            { Located _ _ (Lexer.Real $$) }
+'rate'          { Located _ _ Lexer.Rate }
+REAL            { Located _ _ (Lexer.Real $$) }
 ';'             { Located _ _ Lexer.BlockSeparator }
-state           { Located _ _ Lexer.State }
-sym             { Located _ _ (Lexer.Sym $$) }
-then            { Located _ _ Lexer.Then }
+'state'         { Located _ _ Lexer.State }
+SYM             { Located _ _ (Lexer.Sym $$) }
+'then'          { Located _ _ Lexer.Then }
 '*'             { Located _ _ Lexer.Times }
 '*='            { Located _ _ Lexer.TimesAssign }
-when            { Located _ _ Lexer.When }
-assert          { Located _ _ Lexer.Assert }
+'when'          { Located _ _ Lexer.When }
+'assert'        { Located _ _ Lexer.Assert }
 
-%left and or
+%left 'or'
+%left 'and'
 %nonassoc '<' '<=' '==' '>=' '>'
-%nonassoc if then else
-%right not       
+%nonassoc 'if' 'then' 'else'
+%right 'not'
 %left '+' '-'
 %left '*' '/'
 
 %%
 
-Model : model NamedBlockInit Decls Events BlockEnd { Syntax.Model $2 (reverse $3) (reverse $4) }
+Model                                :: { Model }
+  : 'model' SYM ':' BOPEN
+     Decls
+     Events
+     BCLOSE                             { Model $2 (reverse $5) (reverse $6) }
 
-Decls :            { [] }
-      | Decls Decl { $2 : $1 }
+Decls                                :: { [Decl] }
+  :                                     { [] }
+  | Decls Decl                          { $2 : $1 }
 
-Decl : let   sym '=' Exp      ';'  { Syntax.Let $2 $4 }
-     | let   sym '=' CondExp       { Syntax.Let $2 $4 }
-     | state sym '=' Exp      ';'  { Syntax.State $2 $4 }
-     | state sym '=' CondExp       { Syntax.State $2 $4 }
-     | assert Exp ';'              { Syntax.Assert $2 }
+Decl                                 :: { Decl }
+  : 'let'    SYM '=' Exp ';'            { Let $2 $4 }
+  | 'let'    SYM '=' CondExp            { Let $2 $4 }
+  | 'state'  SYM '=' Exp ';'            { State $2 $4 }
+  | 'state'  SYM '=' CondExp            { State $2 $4 }
+  | 'assert' Exp ';'                    { Assert $2 }
 
-Events :              { [] }
-       | Events Event { $2 : $1 }
+Events                               :: { [Event] }
+  :                                     { [] }
+  | Events Event                        { $2 : $1 }
 
-Event : event NamedBlockInit WhenBlock RateBlock EffectBlock MDBlock BlockEnd { Syntax.Event $2 $3 $4 $5 Nothing }
+Event                                :: { Event }
+  : 'event' SYM ':' BOPEN
+    WhenBlock
+    RateBlock
+    EffectBlock
+    MDBlock
+    BCLOSE                              { Event $2 $5 $6 $7 $8 }
 
-WhenBlock   :                                       { Nothing }
-            | when   BlockInit Exp  ';'    BlockEnd { Just $3 }
-RateBlock   : rate   BlockInit Exp  ';'    BlockEnd { $3 }
-EffectBlock : effect BlockInit Statements  BlockEnd { (reverse $3) }
+WhenBlock                            :: { Maybe Expr }
+  :                                     { Nothing }
+  | 'when' ':' BOPEN Exp  ';' BCLOSE    { Just $4 }
 
-MDBlock : {}
+RateBlock                             :: { Expr }
+  : 'rate' ':' BOPEN Exp  ';' BCLOSE     { $4 }
 
-Statements :                      { [] }
-           | Statements Statement { $2 : $1 }
+EffectBlock                           :: { [Statement] }
+  : 'effect' ':' BOPEN Statements BCLOSE { (reverse $4) }
 
-Statement : sym '='  Exp ';' { ($1, $3) }
-          | sym OpEq Exp ';' { ($1, $2 (Expr.Var $1) $3) }
+-- XXX
+MDBlock                               :: { Maybe Text }
+  :                                      { Nothing }
 
-OpEq : '+=' { Expr.Add }
-     | '-=' { Expr.Sub }
-     | '*=' { Expr.Mul }
-     | '/=' { Expr.Div }
+Statements                            :: { [Statement] }
+  :                                      { [] }
+  | Statements Statement                 { $2 : $1 }
 
-NamedBlockInit : sym ':' bopen  { $1 }
-BlockInit      :     ':' bopen  {}
-BlockEnd       :         bclose {}
+Statement                             :: { Statement }
+  : SYM '='  Exp ';'                     { ($1, $3) }
+  | SYM OpEq Exp ';'                     { ($1, $2 (Var $1) $3) }
 
-Exp : Exp '+' Exp               { Expr.Add  $1 $3 }
-    | Exp '-' Exp               { Expr.Sub  $1 $3 }
-    | Exp '*' Exp               { Expr.Mul  $1 $3 }
-    | Exp '/' Exp               { Expr.Div  $1 $3 }
-    | '-' Exp                   { Expr.Neg  $2 }
-    | Exp '>' Exp               { Expr.GT  $1 $3 }
-    | Exp '>=' Exp              { Expr.GTE $1 $3 }
-    | Exp '==' Exp              { Expr.EQ  $1 $3 }
-    | Exp '<=' Exp              { Expr.LTE $1 $3 }
-    | Exp '<' Exp               { Expr.LT  $1 $3 }
-    | Exp and Exp               { Expr.And $1 $3 }
-    | Exp or  Exp               { Expr.Or  $1 $3 } 
-    | not Exp                   { Expr.Not $2 }
-    | '(' Exp ')'               { $2 }
-    | sym                       { Expr.Var $1 }
-    | real                      { Expr.LitD $1 }
-    | if Exp then Exp else Exp  { Expr.If $2 $4 $6 }
-    | CondExp                   { $1 }
+OpEq                                  :: { Expr -> Expr -> Expr }
+  : '+='                                 { Add }
+  | '-='                                 { Sub }
+  | '*='                                 { Mul }
+  | '/='                                 { Div }
 
-CondExp : cond BlockInit Condition BlockEnd { $3 }
+Exp                                   :: { Expr }
+  : Exp '+' Exp                          { Add  $1 $3 }
+  | Exp '-' Exp                          { Sub  $1 $3 }
+  | Exp '*' Exp                          { Mul  $1 $3 }
+  | Exp '/' Exp                          { Div  $1 $3 }
+  | '-' Exp                              { Neg  $2 }
+  | Exp '>' Exp                          { GT  $1 $3 }
+  | Exp '>=' Exp                         { GTE $1 $3 }
+  | Exp '==' Exp                         { EQ  $1 $3 }
+  | Exp '<=' Exp                         { LTE $1 $3 }
+  | Exp '<' Exp                          { LT  $1 $3 }
+  | Exp 'and' Exp                        { And $1 $3 }
+  | Exp 'or'  Exp                        { Or  $1 $3 } 
+  | 'not' Exp                            { Not $2 }
+  | '(' Exp ')'                          { $2 }
+  | SYM                                  { Var $1 }
+  | REAL                                 { LitD $1 }
+  | 'if' Exp 'then' Exp 'else' Exp       { If $2 $4 $6 }
+  | CondExp                              { $1 }
 
-Condition : CondChoices CondOtherwise { Expr.Cond (reverse $1) $2 }
+CondExp                               :: { Expr }
+  : 'cond' ':' BOPEN Condition BCLOSE    { $4 }
 
-CondChoices :                        { [] }
-            | CondChoices CondChoice { $2 : $1 }
+Condition                             :: { Expr }
+  : CondChoices CondOtherwise            { Cond (reverse $1) $2 }
 
-CondChoice : Exp if Exp ';' { ($1, $3) }
+CondChoices                           :: { [(Expr,Expr)] }
+  :                                      { [] }
+  | CondChoices CondChoice               { $2 : $1 }
 
-CondOtherwise :                   { Nothing }
-              | Exp otherwise ';' { Just $1 }
+CondChoice                            :: { (Expr,Expr) }
+  : Exp 'if' Exp ';'                     { ($1, $3) }
+
+CondOtherwise                         :: { Maybe Expr }
+  :                                      { Nothing }
+  | Exp 'otherwise' ';'                  { Just $1 }
 
 
 {
-parseError :: [Located Token] -> a
+parseError :: [Located Lexer.Token] -> a
 parseError []     = error $ "parse error at end of file"
 parseError (t:ts) = error $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 }
