@@ -37,7 +37,7 @@ coreModel fp =
        Left err -> fail err
 
 dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
-dump (Right m) fp = writeFile fp $ show $ toList m 
+dump ~(Right m) fp = writeFile fp $ show $ toList m 
 
 sir, sirs, sirVD :: [Char]
 sir = "examples/askee/sir.askee"
@@ -57,7 +57,7 @@ genCppModel fp output =
               writeFile output rendered
               putStrLn "compiled!"
 
-
+m1 :: M.Measure
 m1 = M.EventBased $ M.When (M.TimeLT 120.0) $ M.Do
    $ M.Accumulate "m" 1.0
    $ Core.Op2 Core.Add (Core.Var "m") (Core.Literal (Core.Num 1.0))
