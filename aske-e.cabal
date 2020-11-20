@@ -29,6 +29,7 @@ library
                      , Language.ASKEE.Measure
                      , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
+                     , Language.ASKEE.Panic
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
@@ -40,6 +41,7 @@ library
                        text,
                        array,
                        random,
+                       panic,
                        mtl,
                        hmatrix-gsl,
                        hmatrix,

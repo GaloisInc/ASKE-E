@@ -3,6 +3,7 @@ module Language.ASKEE.GenParser where
 
 import Prelude hiding (Ordering(..))
 import Data.Text(Text)
+import Data.Either(partitionEithers)
 
 import qualified Language.ASKEE.GenLexer as Lexer
 import           Language.ASKEE.Lexer(Located(..))
@@ -49,7 +50,7 @@ BOPEN           { Located _ _ Lexer.OpenBlock }
 '+='            { Located _ _ Lexer.PlusAssign }
 'rate'          { Located _ _ Lexer.Rate }
 REAL            { Located _ _ (Lexer.Real $$) }
-';'             { Located _ _ Lexer.BlockSeparator }
+BSEP            { Located _ _ Lexer.BlockSeparator }
 'state'         { Located _ _ Lexer.State }
 SYM             { Located _ _ (Lexer.Sym $$) }
 'then'          { Located _ _ Lexer.Then }
@@ -68,44 +69,44 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 
 %%
 
-Model                                :: { Model }
-  : 'model' SYM ':' BOPEN
-     Decls
-     Events
-     BCLOSE                             { Model $2 (reverse $5) (reverse $6) }
+Model                                 :: { Model }
+  : 'model' SYM ':'
+      BOPEN ModelDecls BCLOSE            { mkModel $2 $5 }
 
-Decls                                :: { [Decl] }
-  :                                     { [] }
-  | Decls Decl                          { $2 : $1 }
+ModelDecls                            :: { [Either Decl Event] }
+  :                                      { [] }
+  | ModelDecls1                          { reverse $1 }
 
-Decl                                 :: { Decl }
-  : 'let'    SYM '=' Exp ';'            { Let $2 $4 }
-  | 'let'    SYM '=' CondExp            { Let $2 $4 }
-  | 'state'  SYM '=' Exp ';'            { State $2 $4 }
-  | 'state'  SYM '=' CondExp            { State $2 $4 }
-  | 'assert' Exp ';'                    { Assert $2 }
+ModelDecls1                           :: { [Either Decl Event] }
+  : ModelDecl                            { [$1] }
+  | ModelDecls1 BSEP ModelDecl           { $3 : $1 }
 
-Events                               :: { [Event] }
-  :                                     { [] }
-  | Events Event                        { $2 : $1 }
+ModelDecl                             :: { Either Decl Event }
+  : Decl                                 { Left $1 }
+  | Event                                { Right $1 }
 
-Event                                :: { Event }
+Decl                                  :: { Decl }
+  : 'let'    SYM '=' Exp                 { Let $2 $4 }
+  | 'state'  SYM '=' Exp                 { State $2 $4 }
+  | 'assert' Exp                         { Assert $2 }
+
+Event                                 :: { Event }
   : 'event' SYM ':' BOPEN
     WhenBlock
     RateBlock
     EffectBlock
     MDBlock
-    BCLOSE                              { Event $2 $5 $6 $7 $8 }
+    BCLOSE                               { Event $2 $5 $6 $7 $8 }
 
-WhenBlock                            :: { Maybe Expr }
-  :                                     { Nothing }
-  | 'when' ':' BOPEN Exp  ';' BCLOSE    { Just $4 }
+WhenBlock                             :: { Maybe Expr }
+  :                                      { Nothing }
+  | 'when' ':' Exp BSEP                  { Just $3 }
 
 RateBlock                             :: { Expr }
-  : 'rate' ':' BOPEN Exp  ';' BCLOSE     { $4 }
+  : 'rate' ':' Exp BSEP                  { $3 }
 
 EffectBlock                           :: { [Statement] }
-  : 'effect' ':' BOPEN Statements BCLOSE { (reverse $4) }
+  : 'effect' ':' BOPEN Statements BCLOSE { $4 }
 
 -- XXX
 MDBlock                               :: { Maybe Text }
@@ -113,11 +114,15 @@ MDBlock                               :: { Maybe Text }
 
 Statements                            :: { [Statement] }
   :                                      { [] }
-  | Statements Statement                 { $2 : $1 }
+  | Statements1                          { reverse $1 }
+
+Statements1
+  : Statement                            { [$1] }
+  | Statements1 BSEP Statement           { $3 : $1 }
 
 Statement                             :: { Statement }
-  : SYM '='  Exp ';'                     { ($1, $3) }
-  | SYM OpEq Exp ';'                     { ($1, $2 (Var $1) $3) }
+  : SYM '='  Exp                         { ($1, $3) }
+  | SYM OpEq Exp                         { ($1, $2 (Var $1) $3) }
 
 OpEq                                  :: { Expr -> Expr -> Expr }
   : '+='                                 { Add }
@@ -149,22 +154,33 @@ CondExp                               :: { Expr }
   : 'cond' ':' BOPEN Condition BCLOSE    { $4 }
 
 Condition                             :: { Expr }
-  : CondChoices CondOtherwise            { Cond (reverse $1) $2 }
+  : CondChoices                          { Cond (reverse $1) Nothing }
+  | CondChoices BSEP Exp 'otherwise'     { Cond (reverse $1) (Just $3) }
 
-CondChoices                           :: { [(Expr,Expr)] }
-  :                                      { [] }
-  | CondChoices CondChoice               { $2 : $1 }
+CondChoices
+  : CondChoice                           { [$1] }
+  | CondChoices BSEP CondChoice          { $3 : $1 }
 
 CondChoice                            :: { (Expr,Expr) }
-  : Exp 'if' Exp ';'                     { ($1, $3) }
+  : Exp 'if' Exp                         { ($1, $3) }
 
-CondOtherwise                         :: { Maybe Expr }
-  :                                      { Nothing }
-  | Exp 'otherwise' ';'                  { Just $1 }
 
 
 {
 parseError :: [Located Lexer.Token] -> a
 parseError []     = error $ "parse error at end of file"
 parseError (t:ts) = error $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
+
+
+mkModel :: Text -> [ Either Decl Event ] -> Model
+mkModel nm ps = Model { modelName = nm
+                      , modelDecls = ds
+                      , modelEvents = es
+                      }
+  where (ds,es) = partitionEithers ps
+
+
 }
+
+
+

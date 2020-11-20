@@ -4,15 +4,10 @@
 
 module Language.ASKEE.GenLexer where
 
-import Control.Monad (when)
-
-import Data.Char (isSpace)
 
 import qualified Data.Text as Text
 
 import Prelude hiding (LT,GT,EQ)
-
-import System.Environment (getArgs)
 import Language.ASKEE.Lexer
 
 }
@@ -73,9 +68,10 @@ tokens :-
 @upperID    { ident }
 @lowerID    { ident }
 
--- \n $ws*    { atomic Newline }
-$white+    { atomic Whitespace }
-"#".*      ;
+-- We can't seem to skip these as the locations of the other tokens
+-- get messed up.
+$white+     { atomic Whitespace }
+"#".*       { atomic Whitespace }
 
 
 {
@@ -100,46 +96,18 @@ getState :: Alex AlexState
 getState = Alex (\s -> Right (s,s))
 
 lexModel :: String -> Either String [Located Token]
-lexModel s = doLayout <$> runAlex s go
+lexModel s = addLayout <$> runAlex s go
   where
-    go :: Alex [Located Token]
-    go = do
-      AlexPn _ line col <- alex_pos <$> getState
-      tok <- alexMonadScan
-      case tok of
-        EOF -> pure []
-        t ->
-          do  let located = Located { locLine = line
-                                    , locCol = col
-                                    , locVal = t
-                                    }
-              ((<$>) . (:)) located go
+  go :: Alex [Located Token]
+  go =
+    do AlexPn _ line col <- alex_pos <$> getState
+       tok <- alexMonadScan
+       case tok of
+         EOF -> pure []
+         t ->
+           do rest <- go
+              pure (Located { locLine = line, locCol = col, locVal = t } : rest)
 
 alexEOF = pure EOF
 
--- main = do
---   args <- getArgs
---   when (length args /= 1) $
---     error "usage: ./Lexer <file>"
---   f <- readFile (args !! 0)
---   case test f of
---     Left s -> putStrLn s
---     Right ts -> mapM print ts >> pure ()
-
-{-
-<0>      "model" $ws+       { atomic Model      `andBegin` modelC }
-<modelC> @upperID           { ident             `andBegin` 0 }
-
-<0>      "state" $ws+       { atomic State      `andBegin` stateC }
-<stateC> @upperID           { ident             `andBegin` 0 }
-
-<0>      "let derived" $ws+ { atomic LetDerived `andBegin` letC }
-<letC>   @lowerID           { ident             `andBegin` 0 }
-
-<0>      "let" $ws+         { atomic Let        `andBegin` letC }
-<letC>   @lowerID           { ident             `andBegin` 0 }
-
-<0>      "event" $ws+       { atomic Event      `andBegin` eventC }
-<eventC> @upperID           { ident             `andBegin` 0 }
--}
 }
