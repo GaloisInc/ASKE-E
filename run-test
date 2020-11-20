@@ -7,9 +7,9 @@ fi
 
 DIR=test-bed
 
-CC=gcc
+CC=g++
 CFLAGS="-I $DIR"
-LIBS=-lm
+LIBS=
 
 cabal exec build-sym $1 > "$DIR/simulator.cpp"
 $CC $CFLAGS "$DIR/main.cpp" -o "$DIR/run" $LIBS

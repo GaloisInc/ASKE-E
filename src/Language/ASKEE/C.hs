@@ -7,7 +7,6 @@ import Text.PrettyPrint
           ( empty
           , nest,vcat,hsep,(<+>),($$)
           , punctuate, comma, semi, colon
-          , braces
           )
 import qualified Text.PrettyPrint as PP
 
@@ -44,7 +43,10 @@ call :: Doc -> [Doc] -> Doc
 call f args = f <.> parens (hsep (punctuate comma args))
 
 callCon :: Doc -> [Doc] -> Doc
-callCon f args = f <.> braces (hsep (punctuate comma args))
+callCon f args = f <.> braces args
+
+braces :: [Doc] -> Doc
+braces = PP.braces . hsep . punctuate comma
 
 callInfix :: Doc -> Doc -> Doc -> Doc
 callInfix op x y = x <+> op <+> y

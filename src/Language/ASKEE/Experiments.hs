@@ -58,12 +58,23 @@ genCppModel fp output =
               putStrLn "compiled!"
 
 m1 :: M.Measure
-m1 = M.EventBased $ M.When (M.TimeLT 120.0) $ M.Do
-   $ M.Accumulate "m" 1.0
-   $ Core.Op2 Core.Add (Core.Var "m") (Core.Literal (Core.Num 1.0))
+m1 = M.EventBased
+   $ M.When (M.TimeLT 120.0)
+   $ M.Do
+   $ M.Accumulate "m_sum" 1.0
+   $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
+
+m2 :: M.Measure
+m2 = M.EventBased
+   $ M.When (M.TimeLT 120.0)
+   $ M.Do
+   $ M.TraceExpr "i_trace" (Core.Var "I")
+
+exMeasure :: M.Measure
+exMeasure = m1 M.:+: m2
 
 
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
   do compiled <- coreModel fp
-     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 m1)
+     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 exMeasure)

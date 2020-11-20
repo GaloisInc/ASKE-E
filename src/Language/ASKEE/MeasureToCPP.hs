@@ -125,8 +125,11 @@ genStatement model env s =
 genObservation :: Core.Model -> SG.Env -> Observation -> C.Doc
 genObservation model env obs =
   case obs of
-    TraceExpr x e    -> C.lineComment "XXX"
-                            -- C.callStmt (C.member (C.ident x) "push")
+    TraceExpr x e    -> C.callStmt (C.member (C.ident x) "push_back")
+                                 [ C.braces [ C.member modelVarName SG.timeName
+                                            , SG.genExpr' env e
+                                            ]
+                                 ]
     Accumulate x _ e -> C.assign (C.ident x) (SG.genExpr' env e)
 
 
