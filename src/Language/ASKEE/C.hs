@@ -186,3 +186,6 @@ x -= y = stmt (x <+> "-=" <+> y)
 
 struct :: Doc -> [Doc] -> Doc
 struct x ys = stmt ("struct" <+> x <+> "{" $$ nested ys $$ "}")
+
+nop :: Doc
+nop = empty
