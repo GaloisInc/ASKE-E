@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+  echo "USAGE: $0 MODEL_FILE"
+  exit 1
+fi
+
+DIR=test-bed
+
+CC=gcc
+CFLAGS="-I $DIR"
+LIBS=-lm
+
+cabal exec build-sym $1 > "$DIR/simulator.cpp"
+$CC $CFLAGS "$DIR/main.cpp" -o "$DIR/run" $LIBS
