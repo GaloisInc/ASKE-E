@@ -1,17 +1,8 @@
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.Measure where
 
-import Data.Map(Map)
-import qualified Data.Map as Map
 import Data.Text(Text)
-import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.Core as Core
-import qualified Text.PrettyPrint as PP
-import           Text.PrettyPrint((<+>), ($$))
-import qualified Language.ASKEE.SimulatorGen as SG
-import qualified Language.ASKEE.SimulatorGen as C
-import qualified Data.Text as Text
-import qualified Data.Set as Set
 
 
 type Name = Text
@@ -35,12 +26,27 @@ data Statement =
   | Do Observation
     deriving Show
 
+-- | Desribes a concrete thing that we are computing.
 data Observation =
     TraceExpr Name Core.Expr
+    -- ^ Save information about a particular run
+    -- The result is a time series of the values of the expression within
+    -- an individual run.
+
   | Accumulate Name Double Core.Expr
+    -- ^ Aggreagate information within a single run
+    -- The result is a scalar containing the aggregated value at the
+    -- end of a run.
+
+  | TraceGlobal Name Double Core.Expr
+    -- ^ Save information across multiple runs.
+    -- Must be synchronized on time.
+    -- The result is a time series containing an aggregate of the
+    -- values of the expression at a sepcific time point, across all runs.
     deriving Show
 
--- | Desribes a collection of points in time.
+
+-- | Desrcibes a collection of points in time.
 data TimePoints =
     AtTime Double
   | AtTimes Double Double Double -- ^ from, step, to

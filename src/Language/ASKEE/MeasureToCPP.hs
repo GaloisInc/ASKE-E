@@ -13,7 +13,9 @@ import qualified Language.ASKEE.SimulatorGen as SG
 -- API names
 
 runnerClassName :: Core.Model -> C.Doc
-runnerClassName model = SG.modelClassName model <> "_Runner"
+runnerClassName model = "Runner" -- SG.modelClassName model <> "_Runner"
+-- We just use a fixed name for the moment, which makes it easier to
+-- write generic wrapper code
 
 modelVarName :: C.Doc
 modelVarName = C.ident "_model"
@@ -46,8 +48,10 @@ genSimulationRunnerCpp model runUntil measure =
   attributeFor obs =
     case obs of
       Accumulate name initVal _ ->
-        C.declareInit C.double (C.ident name) (C.doubleLit initVal)
+          C.declareInit C.double (C.ident name) (C.doubleLit initVal)
       TraceExpr name _ ->
+        C.declare "std::vector<std::pair<double, double>>" (C.ident name)
+      TraceGlobal name initVal _ ->
         C.declare "std::vector<std::pair<double, double>>" (C.ident name)
 
 
@@ -64,9 +68,9 @@ runFunc model end obses =
   where
   resest obs =
     case obs of
-     Accumulate name initVal _ ->
-            C.assign (C.ident name) (C.doubleLit initVal)
-     TraceExpr name _ -> C.callStmt (C.member (C.ident name) "clear") []
+      Accumulate name initVal _ -> C.assign (C.ident name) (C.doubleLit initVal)
+      TraceExpr name _ -> C.callStmt (C.member (C.ident name) "clear") []
+      TraceGlobal {} -> C.nop
 
 stepFunc :: Core.Model -> Measure -> C.Doc
 stepFunc model measure =
@@ -121,7 +125,8 @@ genStatement model env s =
 genObservation :: Core.Model -> SG.Env -> Observation -> C.Doc
 genObservation model env obs =
   case obs of
-    TraceExpr x e    -> C.lineComment "XXX: trace expression"
+    TraceExpr x e    -> C.lineComment "XXX"
+                            -- C.callStmt (C.member (C.ident x) "push")
     Accumulate x _ e -> C.assign (C.ident x) (SG.genExpr' env e)
 
 

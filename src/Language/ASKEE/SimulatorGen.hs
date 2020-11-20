@@ -2,9 +2,7 @@
 module Language.ASKEE.SimulatorGen where
 
 import qualified Language.ASKEE.Core as Core
-import           Data.Text(Text,unpack)
-import           Text.PrettyPrint((<+>), ($$))
-import           Data.Foldable(foldl')
+import           Data.Text(Text)
 import qualified Data.Map as Map
 
 import qualified Language.ASKEE.C as C
@@ -194,6 +192,7 @@ genExpr' vf e0 =
              Core.Mul -> "*"
              Core.Div -> "/"
              Core.Lt  -> "<"
+             Core.Leq -> "<="
              Core.Eq  -> "=="
              Core.And -> "&&"
              Core.Or  -> "||"
