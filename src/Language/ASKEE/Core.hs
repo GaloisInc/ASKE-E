@@ -46,3 +46,5 @@ data Model =
 modelStateVars :: Model -> [Ident]
 modelStateVars mdl = fst <$> Map.toList (modelInitState mdl)
 
+isStateVar :: Ident -> Model -> Bool
+isStateVar x m = Map.member x (modelInitState m)

@@ -1,4 +1,4 @@
-{-# Language OverloadedStrings #-}
+{-# Language OverloadedStrings, BlockArguments #-}
 module Language.ASKEE.MeasureToCPP where
 
 import qualified Data.Map as Map
@@ -32,7 +32,7 @@ genSimulationRunnerCpp model runUntil measure =
           , C.struct (runnerClassName model) (attributes ++ methods)
           ]
   where
-  includes = ["vector", "utility"]
+  includes = ["vector", "utility", "math.h"]
 
   observations = measureObservations measure []
 
@@ -80,15 +80,72 @@ stepFunc model measure =
        , C.callStmt (C.member modelVarName SG.nextEventFunctionName)
                                                 [ "event", "nextTime" ]
        ]
-    ++ genTimeBasedMeasure model measure
+    ++ genTimeBasedMeasure model measure []
     ++ [ C.callStmt (C.member modelVarName SG.runEventFunctionName)
                                                     [ "event", "nextTime" ]
        ]
     ++ genEventMeasure model measure
 
 
-genTimeBasedMeasure :: Core.Model -> Measure -> [C.Doc]
-genTimeBasedMeasure _ _ = [] -- XXX: todo
+genTimeBasedMeasure :: Core.Model -> Measure -> [C.Doc] -> [C.Doc]
+genTimeBasedMeasure model measure =
+  case measure of
+    m1 :+: m2 -> genTimeBasedMeasure model m1 . genTimeBasedMeasure model m2
+    EventBased {} -> id
+    TimeBased pts s -> (C.scope code :)
+      where
+      env n
+        | n == "time"             = C.ident "time"
+        | Core.isStateVar n model = C.member modelVarName (SG.stateVarName n)
+        | otherwise               = C.ident n
+
+      code =
+        [ C.declareInit C.double "time" (C.member modelVarName SG.timeName)
+        , C.lineComment "XXX: This is to deal with edge cases, maybe change"
+        , C.ifThen ("time" C.== C.doubleLit 0)
+                                        [ C.assign "time" (C.doubleLit (-1)) ]
+        ] ++
+        [ C.doWhile
+            (genNextTime pts ++ genStatement model env s [])
+            ("time" C.<= "nextTime")
+        ]
+
+
+
+
+-- bool nextTime(double time, double &nextTime) 
+genNextTime :: [TimePoints] -> [C.Doc]
+genNextTime tps =
+  case tps of
+    [] -> [ C.break ]
+    t : more ->
+      case t of
+        AtTime d ->
+          [ C.ifThenElse ("time" C.< C.doubleLit d)
+             [ C.assign "time" (C.doubleLit d)
+             ]
+             (genNextTime more)
+          ]
+        AtTimes start' step' end' ->
+          let start = C.doubleLit start'
+              step  = C.doubleLit step'
+              end   = C.doubleLit end'
+          in
+          [ C.ifThenElse ("time" C.< start)
+              [ C.assign "time" start
+              ]
+              [ C.ifThenElse ("time" C.< end)
+                  -- start + step * (1 + floor ((time - start) / step))
+                  [ C.assign "time"
+                    let approx = C.parens ("time" C.- start) C./ step
+                        steps = C.doubleLit 1 C.+ C.call "floor" [approx]
+                    in start C.+ step C.* C.parens steps
+                  ]
+                  (genNextTime more)
+             ]
+          ]
+
+
 
 
 genEventMeasure :: Core.Model -> Measure -> [C.Doc]
@@ -108,9 +165,11 @@ genEventMeasure model measure =
 
   prevValName name = C.ident ("_prev_" <> name)
 
-  env n = if n `Map.member` Core.modelInitState model
-            then C.member modelVarName (SG.stateVarName n)
-            else prevValName n
+  env n
+    | n `Map.member` Core.modelInitState model =
+                      C.member modelVarName (SG.stateVarName n)
+    | n == "time"   = C.member modelVarName SG.timeName
+    | otherwise     = prevValName n
 
 
 genStatement :: Core.Model -> SG.Env -> Statement -> [C.Doc] -> [C.Doc]

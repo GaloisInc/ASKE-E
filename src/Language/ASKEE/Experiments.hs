@@ -70,11 +70,23 @@ m2 = M.EventBased
    $ M.Do
    $ M.TraceExpr "i_trace" (Core.Var "I")
 
+m3 :: M.Measure
+m3 = M.EventBased
+   $ M.When (M.TimeLT 120.0)
+   $ M.Do
+   $ M.TraceExpr "i_trace" (Core.Var "time")
+
+m4 :: M.Measure
+m4 = M.TimeBased [M.AtTimes 1 15 120, M.AtTime 137]
+   $ M.Do
+   $ M.TraceExpr "i_trace" (Core.Var "time")
+
+
+
 exMeasure :: M.Measure
 exMeasure = m1 M.:+: m2
-
 
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
   do compiled <- coreModel fp
-     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 exMeasure)
+     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 m4)

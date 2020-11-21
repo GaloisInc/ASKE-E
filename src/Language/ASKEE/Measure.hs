@@ -11,8 +11,9 @@ data Measure =
     EventBased Statement
     -- ^ Measurements that happen at a sepcific event
 
-  | TimeBased TimePoints Statement
+  | TimeBased [TimePoints] Statement
     -- ^ Measurements that happen at specific points in type
+    -- ^ Assumes that the time points are sorted and non-overlapping
 
   | Measure :+: Measure
     -- ^ Multiple measures.
@@ -37,10 +38,11 @@ data Observation =
     -- ^ Aggreagate information within a single run
     -- The result is a scalar containing the aggregated value at the
     -- end of a run.
+    -- This can only appear in EventBased statement.
 
   | TraceGlobal Name Double Core.Expr
     -- ^ Save information across multiple runs.
-    -- Must be synchronized on time.
+    -- This can only appear in TimeBased statements
     -- The result is a time series containing an aggregate of the
     -- values of the expression at a sepcific time point, across all runs.
     deriving Show
@@ -50,7 +52,6 @@ data Observation =
 data TimePoints =
     AtTime Double
   | AtTimes Double Double Double -- ^ from, step, to
-  | TimePoints :&: TimePoints    -- ^ multiple time points
     deriving Show
 
 -- | This describes some particular set of states of the model

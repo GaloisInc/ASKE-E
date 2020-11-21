@@ -5,7 +5,7 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Text.PrettyPrint
           ( empty
-          , nest,vcat,hsep,(<+>),($$)
+          , nest,vcat,hsep,(<+>),($+$)
           , punctuate, comma, semi, colon
           )
 import qualified Text.PrettyPrint as PP
@@ -54,11 +54,21 @@ callInfix op x y = x <+> op <+> y
 callPrefix :: Doc -> Doc -> Doc
 callPrefix op x = op <+> x
 
+not :: Doc -> Doc
+not = callPrefix "!"
+
+
 (+) :: Doc -> Doc -> Doc
 (+) = callInfix "+"
 
 (-) :: Doc -> Doc -> Doc
 (-) = callInfix "-"
+
+(*) :: Doc -> Doc -> Doc
+(*) = callInfix "*"
+
+(/) :: Doc -> Doc -> Doc
+(/) = callInfix "/"
 
 (<=) :: Doc -> Doc -> Doc
 (<=) = callInfix "<="
@@ -146,17 +156,13 @@ assign :: Doc -> Doc -> Doc
 assign n v = stmt (n <+> "=" <+> v)
 
 switch :: Doc -> [Doc] -> Doc
-switch e cs = "switch" <+> parens e <+> "{" $$ nested cs $$ "}"
+switch e cs = block ("switch" <+> parens e) cs
 
 case' :: Doc -> Doc
 case' c = "case" <+> c <.> colon
 
 ifThen :: Doc -> [Doc] -> Doc
-ifThen c t =
-  vcat [ "if" <+> parens c <+> "{"
-       , nested t
-       , "}"
-       ]
+ifThen c t = block ("if" <+> parens c) t
 
 ifThenElse :: Doc -> [Doc] -> [Doc] -> Doc
 ifThenElse c t e =
@@ -168,7 +174,11 @@ ifThenElse c t e =
        ]
 
 while :: Doc -> [Doc] -> Doc
-while p xs = "while" <+> parens p <+> "{" $$ nested xs $$ "}"
+while p xs = block ("while" <+> parens p) xs
+
+doWhile :: [Doc] -> Doc -> Doc
+doWhile xs p =
+  stmt (block "do" xs <+> "while" <+> parens p)
 
 break :: Doc
 break = stmt "break"
@@ -187,7 +197,14 @@ returnWith e = stmt ("return" <+> e)
 x -= y = stmt (x <+> "-=" <+> y)
 
 struct :: Doc -> [Doc] -> Doc
-struct x ys = stmt ("struct" <+> x <+> "{" $$ nested ys $$ "}")
+struct x ys = stmt (block ("struct" <+> x) ys)
 
 nop :: Doc
 nop = empty
+
+scope :: [Doc] -> Doc
+scope ds = "{" $+$ nested ds $+$ "}"
+
+block :: Doc -> [Doc] -> Doc
+block pref ds = vcat [ pref <+> "{", nested ds, "}" ]
+
