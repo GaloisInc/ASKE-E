@@ -13,7 +13,6 @@ import           Language.ASKEE.Lexer (Token, Located)
 import           Language.ASKEE.Syntax (Model)
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.ExprTransform as Transform
-import qualified Text.PrettyPrint as PP
 import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.Core as Core
@@ -53,7 +52,7 @@ genCppModel fp output =
      case Transform.modelAsCore mdl of
        Left err       -> putStrLn ("Failed to compile model: " <> err)
        Right compiled ->
-          do  let rendered = PP.render (SG.genModel compiled)
+          do  let rendered = show (SG.genModel compiled)
               writeFile output rendered
               putStrLn "compiled!"
 
@@ -89,4 +88,4 @@ exMeasure = m1 M.:+: m2
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
   do compiled <- coreModel fp
-     putStrLn $ PP.render (MG.genSimulationRunnerCpp compiled 100.0 m4)
+     putStrLn $ show $ MG.genSimulationRunnerCpp compiled 100.0 m4

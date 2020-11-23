@@ -3,18 +3,17 @@ module Language.ASKEE.C where
 
 import Data.Text(Text)
 import qualified Data.Text as Text
-import Text.PrettyPrint
-          ( empty
-          , nest,vcat,hsep,(<+>),($+$)
+
+import Prettyprinter
+          ( emptyDoc
+          , nest,vcat,hsep,(<+>)
           , punctuate, comma, semi, colon
+          , pretty
           )
-import qualified Text.PrettyPrint as PP
+import qualified Prettyprinter as PP
 
-type Doc = PP.Doc
 
-infixl 6 <.>
-(<.>) :: Doc -> Doc -> Doc
-(<.>) = (PP.<>)
+type Doc = PP.Doc ()
 
 nested :: [Doc] -> Doc
 nested = nest 2 . stmts
@@ -22,7 +21,7 @@ nested = nest 2 . stmts
 
 function :: Doc -> Doc -> [Doc] -> [Doc] -> Doc
 function retTy name args xs =
-  vcat [ retTy <+> name <.> parens (hsep (punctuate comma args)) <+> "{"
+  vcat [ retTy <+> name <> parens (hsep (punctuate comma args)) <+> "{"
        , nested xs
        , "}"
        ]
@@ -31,19 +30,19 @@ arg :: Doc -> Doc -> Doc
 arg ty name = ty <+> name
 
 refArg :: Doc -> Doc -> Doc
-refArg ty name = ty <+> "&" <.> name
+refArg ty name = ty <+> "&" <> name
 
 ptrArg :: Doc -> Doc -> Doc
-ptrArg ty name = ty <+> "*" <.> name
+ptrArg ty name = ty <+> "*" <> name
 
 --------------------------------------------------------------------------------
 -- Expressions (kind of)
 
 call :: Doc -> [Doc] -> Doc
-call f args = f <.> parens (hsep (punctuate comma args))
+call f args = f <> parens (hsep (punctuate comma args))
 
 callCon :: Doc -> [Doc] -> Doc
-callCon f args = f <.> braces args
+callCon f args = f <> braces args
 
 braces :: [Doc] -> Doc
 braces = PP.braces . hsep . punctuate comma
@@ -97,13 +96,13 @@ member obj x = obj <> "." <> x
 
 -- XXX: escape bad charcarcters and avoid keywords, etc.
 ident :: Text -> Doc
-ident = PP.text . Text.unpack
+ident = pretty
 
 intLit :: Int -> Doc
-intLit = PP.int
+intLit = pretty
 
 doubleLit :: Double -> Doc
-doubleLit = PP.double
+doubleLit = pretty
 
 boolLit :: Bool -> Doc
 boolLit b = if b then "true" else "false"
@@ -138,13 +137,13 @@ bool = "bool"
 -- Statements
 
 stmt :: Doc -> Doc
-stmt s = s <.> semi
+stmt s = s <> semi
 
 stmts :: [Doc] -> Doc
 stmts = vcat
 
 include :: Doc -> Doc
-include x = "#include <" <.>  x <.> ">"
+include x = "#include <" <>  x <> ">"
 
 declare :: Doc -> Doc -> Doc
 declare t v = stmt (t <+> v)
@@ -159,7 +158,7 @@ switch :: Doc -> [Doc] -> Doc
 switch e cs = block ("switch" <+> parens e) cs
 
 case' :: Doc -> Doc
-case' c = "case" <+> c <.> colon
+case' c = "case" <+> c <> colon
 
 ifThen :: Doc -> [Doc] -> Doc
 ifThen c t = block ("if" <+> parens c) t
@@ -200,10 +199,10 @@ struct :: Doc -> [Doc] -> Doc
 struct x ys = stmt (block ("struct" <+> x) ys)
 
 nop :: Doc
-nop = empty
+nop = emptyDoc
 
 scope :: [Doc] -> Doc
-scope ds = "{" $+$ nested ds $+$ "}"
+scope ds = vcat [ "{", nested ds, "}" ]
 
 block :: Doc -> [Doc] -> Doc
 block pref ds = vcat [ pref <+> "{", nested ds, "}" ]

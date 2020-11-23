@@ -38,6 +38,7 @@ library
                        containers,
                        parser-combinators,
                        pretty,
+                       prettyprinter,
                        text,
                        array,
                        random,
