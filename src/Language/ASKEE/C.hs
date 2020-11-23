@@ -2,11 +2,10 @@
 module Language.ASKEE.C where
 
 import Data.Text(Text)
-import qualified Data.Text as Text
 
 import Prettyprinter
           ( emptyDoc
-          , nest,vcat,hsep,(<+>)
+          , indent,vcat,hsep,(<+>)
           , punctuate, comma, semi, colon
           , pretty
           )
@@ -16,7 +15,7 @@ import qualified Prettyprinter as PP
 type Doc = PP.Doc ()
 
 nested :: [Doc] -> Doc
-nested = nest 2 . stmts
+nested = indent 2 . stmts
 
 
 function :: Doc -> Doc -> [Doc] -> [Doc] -> Doc
