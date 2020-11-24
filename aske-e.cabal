@@ -16,6 +16,12 @@ library
                      , Language.ASKEE.Lexer
                      , Language.ASKEE.GenParser
                      , Language.ASKEE.Core
+                     , Language.ASKEE.Core.ImportASKEE
+                     , Language.ASKEE.Core.Simplify
+                     , Language.ASKEE.Core.DiffEq
+                     , Language.ASKEE.Core.Eval
+                     , Language.ASKEE.Core.GSLODE
+
                      , Language.ASKEE.Print
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR

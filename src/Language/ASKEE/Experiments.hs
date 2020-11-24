@@ -12,10 +12,10 @@ import qualified Language.ASKEE.GenParser as AP
 import           Language.ASKEE.Lexer (Token, Located)
 import           Language.ASKEE.Syntax (Model)
 import qualified Language.ASKEE.SimulatorGen as SG
-import qualified Language.ASKEE.ExprTransform as Transform
 import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.Core as Core
+import           Language.ASKEE.Core.ImportASKEE(modelAsCore)
 
 
 testLexModel :: FilePath -> IO [Located Token]
@@ -30,7 +30,7 @@ testParseModel fp = AP.parse <$> testLexModel fp
 
 coreModel :: FilePath -> IO Core.Model
 coreModel fp =
-  do mb <- Transform.modelAsCore <$> testParseModel fp
+  do mb <- modelAsCore <$> testParseModel fp
      case mb of
        Right a  -> pure a
        Left err -> fail err
@@ -48,13 +48,10 @@ p = DP.parse . DL.alexScanTokens
 
 genCppModel :: FilePath -> FilePath -> IO ()
 genCppModel fp output =
-  do mdl <- testParseModel fp
-     case Transform.modelAsCore mdl of
-       Left err       -> putStrLn ("Failed to compile model: " <> err)
-       Right compiled ->
-          do  let rendered = show (SG.genModel compiled)
-              writeFile output rendered
-              putStrLn "compiled!"
+  do compiled <- coreModel fp
+     let rendered = show (SG.genModel compiled)
+     writeFile output rendered
+     putStrLn "compiled!"
 
 m1 :: M.Measure
 m1 = M.EventBased
