@@ -1,7 +1,8 @@
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.Experiments where
 
-import Data.Map (toList, Map)
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Text (Text)
 
 import qualified Language.ASKEE.DiffEq.GenLexer as DL
@@ -36,7 +37,7 @@ coreModel fp =
        Left err -> fail err
 
 dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
-dump ~(Right m) fp = writeFile fp $ show $ toList m 
+dump ~(Right m) fp = writeFile fp $ show $ Map.toList m 
 
 sir, sirs, sirVD :: [Char]
 sir = "examples/askee/sir.askee"
