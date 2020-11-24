@@ -23,6 +23,7 @@ library
                      , Language.ASKEE.DiffEq.GenLexer
                      , Language.ASKEE.DiffEq.GenParser
                      , Language.ASKEE.DiffEq.DiffEq
+                     , Language.ASKEE.DiffEq.DiffEqC
                      , Language.ASKEE.Reaction
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
@@ -46,6 +47,7 @@ library
                        mtl,
                        hmatrix-gsl,
                        hmatrix,
+                       template-haskell,
                        statistics,
                        Chart
   build-tool-depends:  alex:alex, happy:happy
