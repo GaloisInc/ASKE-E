@@ -21,7 +21,7 @@ library
                      , Language.ASKEE.Core.DiffEq
                      , Language.ASKEE.Core.Eval
                      , Language.ASKEE.Core.GSLODE
-
+                     , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
@@ -43,6 +43,7 @@ library
                        attoparsec,
                        bytestring,
                        containers,
+                       vector,
                        parser-combinators,
                        pretty,
                        prettyprinter,
@@ -55,7 +56,9 @@ library
                        hmatrix,
                        template-haskell,
                        statistics,
-                       Chart
+                       Chart,
+                       cassava,
+                       unordered-containers
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -73,7 +76,8 @@ executable build-sym
   hs-source-dirs:      app/build-sym
   main-is:             Main.hs
   other-modules:       Options
-  build-depends:       base, containers, filepath, aske-e, simple-get-opt
+  build-depends:       base, containers, filepath, aske-e, simple-get-opt,
+                       bytestring
   default-language:    Haskell2010
   ghc-options:         -Wall
 
