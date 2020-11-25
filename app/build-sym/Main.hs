@@ -1,8 +1,10 @@
 {-# Language BlockArguments, OverloadedStrings #-}
 module Main(main) where
 
+import qualified Data.Map as Map
+import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..))
-import Control.Monad(when)
+import Control.Monad(when,forM_)
 import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
@@ -18,9 +20,13 @@ main :: IO ()
 main =
   do opts <- getOptions
      case command opts of
-       OnlyLex   -> mapM_ print =<< testLexModel (modelFile opts)
-       OnlyParse -> print =<< testParseModel (modelFile opts)
-       DumpCPP   -> genCppRunner (modelFile opts)
+       OnlyLex   -> forM_ (modelFiles opts) \f ->
+                        mapM_ print =<< testLexModel f
+       OnlyParse -> forM_ (modelFiles opts) \f ->
+                      print =<< testParseModel f
+       DumpCPP   -> forM_ (modelFiles opts) \f ->
+                      genCppRunner f
+
        SimulateODE x y z ->
          do res <- simODE opts x y z
             let sep = toEnum $ fromEnum $ if gnuplot opts then ' ' else ','
@@ -33,6 +39,18 @@ main =
               writeFile (replaceExtension ofile "gnuplot")
                 $ gnuPlotScript res ofile
 
+       ComputeError ->
+          forM_ (modelFiles opts) \m ->
+            do putStrLn ("model: " ++ show m)
+               eqs <- asEquationSystem <$> coreModel m
+               forM_ (dataFiles opts) \d ->
+                 do putStrLn ("  data: " ++ show d)
+                    ds <- DS.parseDataSeriesFromFile d
+                    let errs = ODE.computeErrorPerVar
+                             $ ODE.computeModelError eqs ds
+                    forM_ (Map.toList errs) \(x,e) ->
+                      putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
+
   `catches`
   [ Handler  \(GetOptException errs) ->
       case errs of
@@ -43,15 +61,16 @@ main =
   ]
 
 
-simODE :: Options -> Double -> Double -> Double -> IO DS.DataSeries
+
+simODE :: Options -> Double -> Double -> Double -> IO (DS.DataSeries Double)
 simODE opts start step end =
-  do let file = modelFile opts
+  do let file = head (modelFiles opts)
      m <- asEquationSystem <$> coreModel file
      let times = takeWhile (<= end) (iterate (+ step) start)
      pure (ODE.simulate m times)
 
 
-gnuPlotScript :: DS.DataSeries -> FilePath -> String
+gnuPlotScript :: DS.DataSeries Double -> FilePath -> String
 gnuPlotScript ds f =
   unlines
     [ "set key outside"

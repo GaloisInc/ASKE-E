@@ -1,13 +1,21 @@
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.DataSeries
-  ( DataSeries(..)
+  ( -- * Basics
+    DataSeries(..)
   , emptyDataSeries
-  , dsColumns
+    -- * Saving an loading
   , parseDataSeries
   , parseDataSeriesFromFile
   , MalformedDataSeries(..)
   , encodeDataSeries
   , saveDataSeries
+    -- * Manipulation
+  , zipAlignedWithTime
+  , zipAligned
+    -- * Queires
+  , dsColumns
+  , foldDataSeries
+  , foldDataSeriesWithTime
   ) where
 
 import Data.Word(Word8)
@@ -16,7 +24,7 @@ import Data.Text.Encoding(decodeUtf8',encodeUtf8)
 import qualified Data.Vector as Vector
 import Data.Map(Map)
 import qualified Data.Map as Map
-import Data.List(sortBy,transpose)
+import Data.List(sortBy,transpose,foldl')
 import Data.Function(on)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.ByteString.Lazy as LBS
@@ -25,22 +33,50 @@ import Control.Exception(Exception,throwIO)
 import qualified Data.Csv as CSV
 import Language.ASKEE.Panic(panic)
 
-data DataSeries = DataSeries
+data DataSeries a = DataSeries
   { times  :: [Double]
-  , values :: Map Text [Double]
+  , values :: Map Text [a]
   }
 
-emptyDataSeries :: [Text] -> DataSeries
+emptyDataSeries :: [Text] -> DataSeries a
 emptyDataSeries keys = DataSeries
   { times  = []
   , values = Map.fromList [ (k,[]) | k <- keys ]
   }
 
-dsColumns :: DataSeries -> Int
+zipAlignedWithTime ::
+  (Double -> a -> b -> c) ->
+  DataSeries a -> DataSeries b -> DataSeries c
+zipAlignedWithTime f ds1 ds2 =
+  ds1 { values = Map.intersectionWith (zipWith3 f (times ds1))
+                                      (values ds1) (values ds2) }
+
+zipAligned ::
+  (a -> b -> c) ->
+  DataSeries a -> DataSeries b -> DataSeries c
+zipAligned f = zipAlignedWithTime (\_ -> f)
+
+dsColumns :: DataSeries a -> Int
 dsColumns ds = 1 + Map.size (values ds)
 
+foldDataSeriesWithTime ::
+  (Double -> a -> b -> b) -> Map Text b -> DataSeries a -> Map Text b
+foldDataSeriesWithTime f start ds = Map.mapWithKey doFold (values ds)
+  where
+  doFold k xs = foldl' step (start Map.! k) (zip (times ds) xs)
+  step b (t,a) = f t a b
+
+foldDataSeries ::
+  (a -> b -> b) -> Map Text b -> DataSeries a -> Map Text b
+foldDataSeries f = foldDataSeriesWithTime (\_ -> f)
+
+
+
+
+--------------------------------------------------------------------------------
+
 -- yikes
-toDataPoints :: DataSeries -> [DataPoint]
+toDataPoints :: DataSeries Double -> [DataPoint]
 toDataPoints xs =
   [ DataPoint { ptTime = t, ptValues = Map.fromList pts }
   | (t,pts) <- zip (times xs)
@@ -54,7 +90,7 @@ data DataPoint = DataPoint
   , ptValues :: Map Text Double
   }
 
-addPoint :: DataPoint -> DataSeries -> DataSeries
+addPoint :: DataPoint -> DataSeries Double -> DataSeries Double
 addPoint p x =
   DataSeries { times = ptTime p : times x
              , values = Map.mergeWithKey (\_ a as -> Just (a:as)) nope id
@@ -63,7 +99,7 @@ addPoint p x =
   where
   nope = panic "addPoint" ["not enoguh values"]
 
-parseDataSeries :: LBS.ByteString -> Either String DataSeries
+parseDataSeries :: LBS.ByteString -> Either String (DataSeries Double)
 parseDataSeries bs =
   do (hdr,pts) <- CSV.decodeByName bs
      keys <- case mapM decodeUtf8' (Vector.toList hdr) of
@@ -74,7 +110,7 @@ parseDataSeries bs =
           $ Vector.toList pts
 
 -- | Parser the data throws and exception on eror
-parseDataSeriesFromFile :: FilePath -> IO DataSeries
+parseDataSeriesFromFile :: FilePath -> IO (DataSeries Double)
 parseDataSeriesFromFile file =
   do bs <- LBS.readFile file
      case parseDataSeries bs of
@@ -86,7 +122,7 @@ data MalformedDataSeries = MalformedDataSeries String deriving Show
 instance Exception MalformedDataSeries
 
 -- | Encode a data series to a lazy bytestring
-encodeDataSeries :: Word8 -> DataSeries -> LBS.ByteString
+encodeDataSeries :: Word8 -> DataSeries Double -> LBS.ByteString
 encodeDataSeries sep xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
   where
   hdr = Vector.fromList ("time" : map encodeUtf8 (Map.keys (values xs)))
@@ -94,7 +130,7 @@ encodeDataSeries sep xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
                                   , CSV.encIncludeHeader = True
                                   }
 
-saveDataSeries :: FilePath -> Word8 -> DataSeries -> IO ()
+saveDataSeries :: FilePath -> Word8 -> DataSeries Double -> IO ()
 saveDataSeries file sep xs = LBS.writeFile file (encodeDataSeries sep xs)
 
 

@@ -112,6 +112,8 @@ inlineLets model = model { modelEvents = map substEvent (modelEvents model)
   su         = substExpr su <$> modelLets model
   substEvent = mapExprs (substExpr su)
 
+
+
 -- | Replace variable with expressions as specified by the map.
 substExpr :: Map Ident Expr -> Expr -> Expr
 substExpr su expr =
