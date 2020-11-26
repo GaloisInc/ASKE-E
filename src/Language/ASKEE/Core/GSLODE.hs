@@ -1,4 +1,4 @@
-{-# Language OverloadedStrings #-}
+{-# Language BlockArguments, OverloadedStrings #-}
 module Language.ASKEE.Core.GSLODE where
 
 import Data.Map(Map)
@@ -6,11 +6,17 @@ import qualified Data.Map as Map
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE as ODE
+import qualified Numeric.GSL.Fitting as FIT
 
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Eval(evalDouble)
 import Language.ASKEE.Core.DiffEq
 import Language.ASKEE.DataSeries
+
+import Data.IORef(newIORef,atomicModifyIORef)
+import System.IO.Unsafe(unsafeDupablePerformIO)
+
+import Debug.Trace
 
 
 evalDiffEqs :: [Ident] -> [Expr] -> Double -> [Double] -> [Double]
@@ -45,5 +51,29 @@ computeErrorPerVar :: DataSeries Double -> Map Ident Double
 computeErrorPerVar errs = foldDataSeries (+) startErr errs
   where
   startErr = const 0 <$> values errs
+
+-- test
+
+model :: [Double] -> Double -> [Double]
+model = memo \[a,b] -> trace ("model: " ++ show [a,b])
+              (\t -> trace ("mode-t " ++ show t) $ [a * t + b])
+
+model' = memo \[a,b] -> trace ("deriv: " ++ show [a,b])
+                      (\t -> trace ("deriv-t " ++ show t)[ [t,1] ])
+
+
+test = fst
+     $ FIT.fitModel 1e-4 1e-4 20 (model,model')
+        [ (x, [y]) | x <- [ 1..100], let y = 2 * x + 3 ]
+        [0,0]
+
+memo :: ([Double] -> a) -> [Double] -> a
+memo f = unsafeDupablePerformIO
+  do ref <- newIORef ([], f [])
+     pure \xs -> unsafeDupablePerformIO
+               $ atomicModifyIORef ref \v@(key,val) ->
+                  if xs == key then (v,val)
+                               else let b = f xs
+                                    in ((xs,b),b)
 
 
