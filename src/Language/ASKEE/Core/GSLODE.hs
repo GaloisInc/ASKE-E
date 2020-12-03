@@ -13,10 +13,6 @@ import Language.ASKEE.Core.Eval(evalDouble)
 import Language.ASKEE.Core.DiffEq
 import Language.ASKEE.DataSeries
 
-import Data.IORef(newIORef,atomicModifyIORef)
-import System.IO.Unsafe(unsafeDupablePerformIO)
-
-import Debug.Trace
 
 
 evalDiffEqs ::
@@ -55,28 +51,64 @@ computeErrorPerVar errs = foldDataSeries (+) startErr errs
   where
   startErr = const 0 <$> values errs
 
--- test
 
-model :: [Double] -> Double -> [Double]
-model = memo \[a,b] -> trace ("model: " ++ show [a,b])
-              (\t -> trace ("mode-t " ++ show t) $ [a * t + b])
+-- | Create an computation environment from a vector of parameters.
+paramsFromVector :: [Ident] -> LinAlg.Vector Double -> Map Ident Double
+paramsFromVector ps vs = Map.fromList (ps `zip` LinAlg.toList vs)
 
-model' = memo \[a,b] -> trace ("deriv: " ++ show [a,b])
-                      (\t -> trace ("deriv-t " ++ show t)[ [t,1] ])
+-- | Turn the errors into a vector of residuals.
+paramsToVector :: [Ident] -> Map Ident Double -> LinAlg.Vector Double
+paramsToVector ps errs = LinAlg.fromList [ errs Map.! p | p <- ps ]
+
+-- | The function to be minimized
+minFunction ::
+  DiffEqs ->
+  DataSeries Double ->
+  LinAlg.Vector Double -> LinAlg.Vector Double
+minFunction eqs ds = minFunction' eqs ds . paramsFromVector (deqParams eqs)
+
+-- | The function to be minimized with parameters specified as a map
+minFunction' ::
+  DiffEqs ->
+  DataSeries Double ->
+  Map Ident Double -> LinAlg.Vector Double
+minFunction' eqs ds = getErr
+  where
+  ps = deqParams eqs
+  getErr vs = paramsToVector ps
+            $ computeErrorPerVar
+            $ computeModelError eqs vs ds
 
 
-test = fst
-     $ FIT.fitModel 1e-4 1e-4 20 (model,model')
-        [ (x, [y]) | x <- [ 1..100], let y = 2 * x + 3 ]
-        [0,0]
+-- XXX: formRows or fromCols?
+residualChange ::
+  DiffEqs ->
+  DataSeries Double ->
+  LinAlg.Vector Double -> LinAlg.Matrix Double
+residualChange eqs ds ps = LinAlg.fromRows (map change (deqParams eqs))
+  where
+  paramMap = paramsFromVector (deqParams eqs) ps
+  here     = minFunction' eqs ds paramMap
+  change p = minFunction' eqs ds (Map.adjust (+1) p paramMap) - here
 
-memo :: ([Double] -> a) -> [Double] -> a
-memo f = unsafeDupablePerformIO
-  do ref <- newIORef ([], f [])
-     pure \xs -> unsafeDupablePerformIO
-               $ atomicModifyIORef ref \v@(key,val) ->
-                  if xs == key then (v,val)
-                               else let b = f xs
-                                    in ((xs,b),b)
+
+fitModel ::
+  DiffEqs           {- ^ Model to optimize -} ->
+  DataSeries Double {- ^ Data to fit -} ->
+  FIT.FittingMethod {- ^ Method to use for fitting: XXX scaled or not? -} ->
+  Double            {- ^ Absolute tolerance -} ->
+  Double            {- ^ Relative tolerance -} ->
+  Int               {- ^ Maximum number of iterations -} ->
+  Map Ident Double  {- ^ Initial parameter values -} ->
+  Map Ident Double  {- ^ Optimized parameters -}
+fitModel eqs ds method absTol relTol limit start =
+    paramsFromVector (deqParams eqs)
+  $ fst
+  $ FIT.nlFitting method absTol relTol limit
+      (minFunction eqs ds)
+      (residualChange eqs ds)
+      (paramsToVector (deqParams eqs) start)
+
+
 
 

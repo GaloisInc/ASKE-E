@@ -11,14 +11,16 @@ import Language.ASKEE.Core.Simplify(simplifyExpr)
 -- | A sysmte of differential equations.
 -- The `let` equations are already inlined
 data DiffEqs = DiffEqs
-  { deqInitial :: Map Ident Expr
+  { deqParams  :: [Ident]
+  , deqInitial :: Map Ident Expr
   , deqState   :: Map Ident Expr      -- ^ These are the diff. eqns.
   , deqLet     :: Map Ident Expr
   }
 
 asEquationSystem :: Model -> DiffEqs
 asEquationSystem mdl =
-  DiffEqs { deqInitial = modelInitState mdl
+  DiffEqs { deqParams  = modelParams mdl
+          , deqInitial = modelInitState mdl
           , deqState   = Map.mapWithKey stateEq (modelInitState mdl)
           , deqLet     = modelLets mdl
           }
