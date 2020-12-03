@@ -8,6 +8,29 @@ import Data.Functor.Identity(runIdentity)
 
 type Ident = Text
 
+data Model =
+  Model { modelName      :: Text
+        , modelParams    :: [Ident]
+        , modelInitState :: Map Ident Expr
+        , modelEvents    :: [Event]
+        , modelLets      :: Map Ident Expr
+          -- ^ These are the `let` bound variables from the original model
+          -- We keep them here, in case one wants to observe them
+          -- (e.g., measure their values)
+          -- These should not be recursive.
+        }
+  deriving (Show, Eq)
+
+
+data Event =
+  Event { eventName   :: Ident
+        , eventRate   :: Expr
+        , eventWhen   :: Expr
+        , eventEffect :: Map Ident Expr
+        }
+  deriving (Show, Eq)
+
+
 data Expr =
     Literal Literal
   | Op1 Op1 Expr
@@ -29,6 +52,9 @@ data Literal =
     deriving (Show,Eq)
 
 
+--------------------------------------------------------------------------------
+-- Conveninece
+
 pattern (:+:) :: Expr -> Expr -> Expr
 pattern (:+:) e1 e2 = Op2 Add e1 e2
 
@@ -45,32 +71,16 @@ pattern NumLit :: Double -> Expr
 pattern NumLit  x = Literal (Num  x)
 
 
-data Event =
-  Event { eventName   :: Ident
-        , eventRate   :: Expr
-        , eventWhen   :: Expr
-        , eventEffect :: Map Ident Expr
-        }
-  deriving (Show, Eq)
-
-data Model =
-  Model { modelName      :: Text
-        , modelParams    :: [Ident]
-        , modelInitState :: Map Ident Expr
-        , modelEvents    :: [Event]
-        , modelLets      :: Map Ident Expr
-          -- ^ These are the `let` bound variables from the original model
-          -- We keep them here, in case one wants to observe them
-          -- (e.g., measure their values)
-          -- These should not be recursive.
-        }
-  deriving (Show, Eq)
-
 modelStateVars :: Model -> [Ident]
 modelStateVars mdl = fst <$> Map.toList (modelInitState mdl)
 
 isStateVar :: Ident -> Model -> Bool
 isStateVar x m = Map.member x (modelInitState m)
+
+
+
+--------------------------------------------------------------------------------
+-- One level traversals
 
 -- | Traverse the expressions in `t`
 class TraverseExprs t where
