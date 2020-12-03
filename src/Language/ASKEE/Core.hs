@@ -55,7 +55,8 @@ data Event =
 
 data Model =
   Model { modelName      :: Text
-        , modelInitState :: Map Ident Double
+        , modelParams    :: [Ident]
+        , modelInitState :: Map Ident Expr
         , modelEvents    :: [Event]
         , modelLets      :: Map Ident Expr
           -- ^ These are the `let` bound variables from the original model
@@ -77,9 +78,10 @@ class TraverseExprs t where
 
 instance TraverseExprs Model where
   traverseExprs f m =
-    do evs  <- traverse (traverseExprs f) (modelEvents m)
+    do ins  <- traverse f                 (modelInitState m)
+       evs  <- traverse (traverseExprs f) (modelEvents m)
        lets <- traverse f                 (modelLets m)
-       pure m { modelEvents = evs, modelLets = lets }
+       pure m { modelInitState = ins, modelEvents = evs, modelLets = lets }
 
 instance TraverseExprs Event where
   traverseExprs f ev =

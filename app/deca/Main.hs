@@ -42,12 +42,12 @@ main =
        ComputeError ->
           forM_ (modelFiles opts) \m ->
             do putStrLn ("model: " ++ show m)
-               eqs <- asEquationSystem <$> coreModel m
+               eqs <- asEquationSystem <$> coreModel m []
                forM_ (dataFiles opts) \d ->
                  do putStrLn ("  data: " ++ show d)
                     ds <- DS.parseDataSeriesFromFile d
                     let errs = ODE.computeErrorPerVar
-                             $ ODE.computeModelError eqs ds
+                             $ ODE.computeModelError eqs Map.empty ds
                     forM_ (Map.toList errs) \(x,e) ->
                       putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
 
@@ -65,9 +65,9 @@ main =
 simODE :: Options -> Double -> Double -> Double -> IO (DS.DataSeries Double)
 simODE opts start step end =
   do let file = head (modelFiles opts)
-     m <- asEquationSystem <$> coreModel file
+     m <- asEquationSystem <$> coreModel file []
      let times = takeWhile (<= end) (iterate (+ step) start)
-     pure (ODE.simulate m times)
+     pure (ODE.simulate m Map.empty times)
 
 
 gnuPlotScript :: DS.DataSeries Double -> FilePath -> String

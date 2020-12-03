@@ -29,9 +29,9 @@ testLexModel fp =
 testParseModel :: FilePath -> IO Model
 testParseModel fp = AP.parse <$> testLexModel fp
 
-coreModel :: FilePath -> IO Core.Model
-coreModel fp =
-  do mb <- modelAsCore <$> testParseModel fp
+coreModel :: FilePath -> [Text] -> IO Core.Model
+coreModel fp ps =
+  do mb <- modelAsCore ps <$> testParseModel fp
      case mb of
        Right a  -> pure a
        Left err -> fail err
@@ -49,7 +49,7 @@ p = DP.parse . DL.alexScanTokens
 
 genCppModel :: FilePath -> FilePath -> IO ()
 genCppModel fp output =
-  do compiled <- coreModel fp
+  do compiled <- coreModel fp []
      let rendered = show (SG.genModel compiled)
      writeFile output rendered
      putStrLn "compiled!"
@@ -85,5 +85,5 @@ exMeasure = m1 M.:+: m2
 
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
-  do compiled <- coreModel fp
+  do compiled <- coreModel fp []
      putStrLn $ show $ MG.genSimulationRunnerCpp compiled 100.0 m4

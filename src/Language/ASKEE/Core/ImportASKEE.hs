@@ -1,5 +1,6 @@
 module Language.ASKEE.Core.ImportASKEE where
 
+import Data.Text(Text)
 import qualified Data.Map as Map
 
 import qualified Language.ASKEE.Expr   as Src
@@ -7,9 +8,9 @@ import qualified Language.ASKEE.Syntax as Src
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Simplify(simplifyExpr)
 
-modelAsCore :: Src.Model -> Either String Model
-modelAsCore mdl =
-  do inits <- initState `traverse` Src.stateDecls decls
+modelAsCore :: [Text] -> Src.Model -> Either String Model
+modelAsCore params mdl =
+  do let inits = initState <$> Src.stateDecls decls
      pure modelNoInit { modelInitState = Map.fromList inits }
 
   where
@@ -19,17 +20,16 @@ modelAsCore mdl =
     mapExprs simplifyExpr $
     inlineLets
     Model { modelName      = Src.modelName mdl
+          , modelParams    = params
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
           , modelLets      = Map.fromList
-                              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
+                              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls
+                                                 , not (x `elem` params) ]
           , modelInitState = Map.empty
           }
 
-  -- TODO: better errors
   initState (n,e) =
-    case simplifyExpr (substExpr (modelLets modelNoInit) (expAsCore e)) of
-      (NumLit d) -> pure (n,d)
-      _          -> Left ("Expression is not a constant double: " ++ show e)
+    (n, simplifyExpr (substExpr (modelLets modelNoInit) (expAsCore e)))
 
 
 eventAsCore :: Src.Event -> Event

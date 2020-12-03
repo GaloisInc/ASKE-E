@@ -1,9 +1,11 @@
-{-# Language LambdaCase, OverloadedStrings #-}
+{-# Language LambdaCase, OverloadedStrings, BlockArguments #-}
 module Language.ASKEE.SimulatorGen where
 
 import qualified Language.ASKEE.Core as Core
 import           Data.Text(Text)
 import qualified Data.Map as Map
+
+import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.C as C
 
@@ -130,7 +132,10 @@ genNextStep evts =
 
 
 genModel :: Core.Model -> C.Doc
-genModel mdl =
+genModel mdl
+  | not $ null $ Core.modelParams mdl =
+    panic "genModel" [ "Model parameters not yet supported." ]
+  | otherwise =
   C.stmts
     [ genIncludes
     , C.struct (modelClassName mdl)
@@ -143,7 +148,7 @@ genModel mdl =
            , setSeedFunc
            ]
 
-        ++ [ C.declareInit C.double (stateVarName v) (C.doubleLit val)
+        ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
            | (v,val) <- Map.toList (Core.modelInitState mdl)
            ]
 
@@ -152,6 +157,10 @@ genModel mdl =
            ]
     ]
   where
+  mkInit = genExpr' \x -> panic "genModel"
+                            [ "Unexpected vairable in initial condition:"
+                            , show x ]
+
   mkEventEffectDecl evt =
     C.function C.void (eventEffectFuncName evt) []
       [ C.assign (stateVarName nm) (genExpr e)

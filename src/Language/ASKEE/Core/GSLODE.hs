@@ -19,13 +19,14 @@ import System.IO.Unsafe(unsafeDupablePerformIO)
 import Debug.Trace
 
 
-evalDiffEqs :: [Ident] -> [Expr] -> Double -> [Double] -> [Double]
-evalDiffEqs xs es t s = [ evalDouble e env | e <- es ]
+evalDiffEqs ::
+  [Ident] -> [Expr] -> Map Ident Double -> Double -> [Double] -> [Double]
+evalDiffEqs xs es ps t s = [ evalDouble e env | e <- es ]
   where
-  env = Map.insert "time" t (Map.fromList (zip xs s))
+  env = Map.insert "time" t (Map.fromList (zip xs s)) `Map.union` ps
 
-simulate :: DiffEqs -> [Double] -> DataSeries Double
-simulate eqs ts =
+simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
+simulate eqs paramVs ts =
   DataSeries { times = ts
              , values = Map.fromList (zip xs rows)
              }
@@ -33,16 +34,18 @@ simulate eqs ts =
 
   where
   (xs,es) = unzip (Map.toList (deqState eqs))
-  resMatrix = ODE.odeSolve (evalDiffEqs xs es)
-                           (Map.elems (deqInitial eqs))
+  initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs) ]
+  resMatrix = ODE.odeSolve (evalDiffEqs xs es paramVs)
+                           initS
                            (LinAlg.fromList ts)
 
   rows = LinAlg.toList <$> LinAlg.toColumns resMatrix
 
 -- | Compute the square of the difference between the model and the data.
-computeModelError :: DiffEqs -> DataSeries Double -> DataSeries Double
-computeModelError eqs expected =
-  zipAligned err (simulate eqs (times expected)) expected
+computeModelError ::
+  DiffEqs -> Map Ident Double -> DataSeries Double -> DataSeries Double
+computeModelError eqs ps expected =
+  zipAligned err (simulate eqs ps (times expected)) expected
   where
   err x y = let diff = x - y in diff * diff
 

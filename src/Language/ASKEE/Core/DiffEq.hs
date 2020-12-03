@@ -11,7 +11,7 @@ import Language.ASKEE.Core.Simplify(simplifyExpr)
 -- | A sysmte of differential equations.
 -- The `let` equations are already inlined
 data DiffEqs = DiffEqs
-  { deqInitial :: Map Ident Double
+  { deqInitial :: Map Ident Expr
   , deqState   :: Map Ident Expr      -- ^ These are the diff. eqns.
   , deqLet     :: Map Ident Expr
   }
