@@ -1,8 +1,9 @@
-{-# Language OverloadedStrings #-}
+{-# Language OverloadedStrings, ParallelListComp, BlockArguments #-}
 module Language.ASKEE.DataSeries
   ( -- * Basics
     DataSeries(..)
   , emptyDataSeries
+  , dataSeries
     -- * Saving an loading
   , parseDataSeries
   , parseDataSeriesFromFile
@@ -10,6 +11,7 @@ module Language.ASKEE.DataSeries
   , encodeDataSeries
   , saveDataSeries
     -- * Manipulation
+  , zipAlignedWithTimeAndLabel
   , zipAlignedWithTime
   , zipAligned
     -- * Queires
@@ -44,12 +46,28 @@ emptyDataSeries keys = DataSeries
   , values = Map.fromList [ (k,[]) | k <- keys ]
   }
 
+-- | Build a dataseries out of the given data.
+dataSeries :: [Text] -> [(Double,[a])] -> DataSeries a
+dataSeries labs ds = DataSeries
+  { times  = map fst ds
+  , values = Map.fromList [ (k,vs) | vs <- transpose (map snd ds)
+                                   | k  <- labs ]
+  }
+
+
+zipAlignedWithTimeAndLabel ::
+  (Text -> Double -> a -> b -> c) ->
+  DataSeries a -> DataSeries b -> DataSeries c
+zipAlignedWithTimeAndLabel f ds1 ds2 =
+  ds1 { values = Map.intersectionWithKey (\k -> zipWith3 (f k) (times ds1))
+                                      (values ds1) (values ds2) }
+
+
+
 zipAlignedWithTime ::
   (Double -> a -> b -> c) ->
   DataSeries a -> DataSeries b -> DataSeries c
-zipAlignedWithTime f ds1 ds2 =
-  ds1 { values = Map.intersectionWith (zipWith3 f (times ds1))
-                                      (values ds1) (values ds2) }
+zipAlignedWithTime f = zipAlignedWithTimeAndLabel \_ -> f
 
 zipAligned ::
   (a -> b -> c) ->
@@ -69,6 +87,7 @@ foldDataSeriesWithTime f start ds = Map.mapWithKey doFold (values ds)
 foldDataSeries ::
   (a -> b -> b) -> Map Text b -> DataSeries a -> Map Text b
 foldDataSeries f = foldDataSeriesWithTime (\_ -> f)
+
 
 
 

@@ -47,7 +47,7 @@ main =
                  do putStrLn ("  data: " ++ show d)
                     ds <- DS.parseDataSeriesFromFile d
                     let errs = ODE.computeErrorPerVar
-                             $ ODE.computeModelError eqs Map.empty ds
+                             $ ODE.modelSquareError eqs ds Map.empty
                     forM_ (Map.toList errs) \(x,e) ->
                       putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
 
