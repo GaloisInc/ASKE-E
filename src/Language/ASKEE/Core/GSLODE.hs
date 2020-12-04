@@ -103,23 +103,26 @@ fitModel eqs ds absTol relTol limit start =
     paramsFromVector ps
   $ fst
   $ FIT.nlFitting FIT.LevenbergMarquardt absTol relTol limit
-      (dsToVector . modelErrorWith err eqs ds . paramsFromVector ps)
+      residual
       (residualChange err eqs ds)
       (paramsToVector ps start)
 
   where
-  err _ = (-)
-  ps    = deqParams eqs
+  residual = dsToVector . modelErrorWith err eqs ds . paramsFromVector ps
+  err _    = (-)
+  ps       = deqParams eqs
 
 
 
+test :: DiffEqs
 test = DiffEqs
-  { deqParams  = ["c"]
+  { deqParams  = ["c","d"]
   , deqInitial = Map.singleton "x" (Var "c")
-  , deqState   = Map.singleton "x" (NumLit 2 :*: Var "time")
+  , deqState   = Map.singleton "x" (Var "d" :*: Var "time")
   , deqLet     = Map.empty
   }
 
+example :: Map Ident Double
 example =
   fitModel
     test
@@ -127,7 +130,7 @@ example =
     1e-4
     1e-4
     20
-    (Map.fromList [ ("c",0) ])
+    (Map.fromList [ ("c",0),("d",0) ])
 
 
 
