@@ -8,6 +8,8 @@ module Options
   ) where
 
 import Data.Text(Text)
+import Data.Map(Map)
+import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Control.Exception(throwIO)
 import Control.Monad(when,unless)
@@ -19,7 +21,7 @@ data Command =
   | OnlyParse
   | DumpCPP
   | SimulateODE Double Double Double
-  | FitModel [Text]
+  | FitModel [Text] (Map Text Double)
   | ComputeError
 
 data Options = Options
@@ -63,10 +65,13 @@ options = OptSpec
                      Right s { command = SimulateODE start step end }
 
       , Option [] ["fit"]
-        "Fit model parameters"
-        $ ReqArg "P1:P2:P3:..."
-          \a s -> do ps <- parseParams a
-                     Right s { command = FitModel ps }
+        "Fit model parameters with optional residual scaling"
+        $ ReqArg "PNAME or PNAME:SCALE"
+          \a s -> do p <- parseParam a
+                     let newCmd = case command s of
+                                    FitModel ps mb -> addParam p ps mb
+                                    _              -> addParam p [] Map.empty
+                     Right s { command = newCmd }
 
       , Option [] ["error-ode"]
         "Compute difference between model and data"
@@ -109,12 +114,22 @@ parseODETimes xs =
     [x] -> Right x
     _   -> Left "Malformed simulation time"
 
-parseParams :: String -> Either String [Text]
-parseParams xs =
+addParam :: (Text,Maybe Double) -> [Text] -> Map Text Double -> Command
+addParam (x,mb) xs scaled =
+  FitModel (x:xs)
+  case mb of
+    Nothing -> scaled
+    Just d  -> Map.insert x d scaled
+
+parseParam :: String -> Either String (Text,Maybe Double)
+parseParam xs =
   case break (==':') xs of
-    (as,_:bs) -> (Text.pack as :) <$> parseParams bs
-    (as,[]) | not (null as) -> Right [Text.pack as]
-    _ -> Left "Invalid parameters"
+    ([], _) -> Left "Invalid parameter"
+    (as,_:bs) ->
+      case reads bs of
+        [(d,"")] -> Right (Text.pack as, Just d)
+        _ -> Left ("Invalid scaling in parameter " ++ show as)
+    (as,[]) -> Right (Text.pack as, Nothing)
 
 
 getOptions :: IO Options

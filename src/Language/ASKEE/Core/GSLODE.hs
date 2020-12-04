@@ -94,23 +94,29 @@ dsToVector = LinAlg.fromList . concat . Map.elems . values
 fitModel ::
   DiffEqs           {- ^ Model to optimize -} ->
   DataSeries Double {- ^ Data to fit -} ->
-  Double            {- ^ Absolute tolerance -} ->
-  Double            {- ^ Relative tolerance -} ->
-  Int               {- ^ Maximum number of iterations -} ->
+  Map Ident Double  {- ^ Scaling for resudals, assumed to be 1 if missing -} ->
   Map Ident Double  {- ^ Initial parameter values -} ->
-  Map Ident Double  {- ^ Optimized parameters -}
-fitModel eqs ds absTol relTol limit start =
-    paramsFromVector ps
-  $ fst
-  $ FIT.nlFitting FIT.LevenbergMarquardt absTol relTol limit
+  (Map Ident Double, [ Map Ident Double ])
+  {- ^ Optimized parameters, and how we got there -}
+fitModel eqs ds scaled start =
+    extract
+  $ FIT.nlFitting method 1e-4 1e-4 20
       residual
       (residualChange err eqs ds)
       (paramsToVector ps start)
 
   where
+  (method,err)
+      | Map.null scaled = (FIT.LevenbergMarquardt, errNoScale)
+      | otherwise       = (FIT.LevenbergMarquardtScaled, errScale)
+
   residual = dsToVector . modelErrorWith err eqs ds . paramsFromVector ps
-  err _    = (-)
   ps       = deqParams eqs
+  extract (ans,work) = ( paramsFromVector ps ans
+                       , map (paramsFromVector ps) (LinAlg.toColumns work)
+                       )
+  errNoScale = \_ a b -> a - b
+  errScale   = \v a b -> (a - b) / Map.findWithDefault 1 v scaled
 
 
 
@@ -124,12 +130,11 @@ test = DiffEqs
 
 example :: Map Ident Double
 example =
+  fst $
   fitModel
     test
     (dataSeries ["x"] [ (t,[7+t*t]) | t <- [ 2 .. 100 ] ])
-    1e-4
-    1e-4
-    20
+    Map.empty
     (Map.fromList [ ("c",0),("d",0) ])
 
 

@@ -8,6 +8,7 @@ import Control.Monad(when,forM_)
 import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import Numeric(showFFloat)
 
 import Language.ASKEE.Experiments
 import Language.ASKEE.Core.DiffEq(asEquationSystem)
@@ -51,15 +52,22 @@ main =
                     forM_ (Map.toList errs) \(x,e) ->
                       putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
 
-       FitModel ps ->
+       FitModel ps scale ->
          case (modelFiles opts, dataFiles opts) of
            ([mf],[df]) ->
               do eqs <- asEquationSystem <$> coreModel mf ps
                  ds  <- DS.parseDataSeriesFromFile df
-                 let res = ODE.fitModel eqs ds 1e-4 1e-4 1000
-                                (Map.fromList (zip ps (repeat 0)))
-                 forM_ (Map.toList res) \(x,y) ->
-                   putStrLn ("let " ++ Text.unpack x ++ " = " ++ show y)
+                 let (res,work) = ODE.fitModel eqs ds scale
+                                          (Map.fromList (zip ps (repeat 0)))
+                     see n xs =
+                       do putStrLn n
+                          forM_ (Map.toList xs) \(x,y) ->
+                              putStrLn ("let " ++ Text.unpack x ++
+                                              " = " ++ showFFloat (Just 4) y "")
+                 forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
+                     see ("-- Step " ++ show n ++ " --") ys
+
+                 see "Result:" res
 
            _ -> throwIO (GetOptException
                            ["Fitting needs 1 model and 1 data file. (for now)"])
