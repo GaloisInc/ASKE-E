@@ -24,16 +24,23 @@ evalDiffEqs xs es ps t s = [ evalDouble e env | e <- es ]
 simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
 simulate eqs paramVs ts =
   DataSeries { times = ts
-             , values = Map.fromList (zip xs rows)
+             , values = Map.fromList (zip xs (map upd rows))
              }
   -- XXX: evalute lets also?
 
   where
   (xs,es) = unzip (Map.toList (deqState eqs))
   initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs) ]
+
   resMatrix = ODE.odeSolve (evalDiffEqs xs es paramVs)
                            initS
-                           (LinAlg.fromList ts)
+                           (LinAlg.fromList ts')
+
+  -- we add time 0, because our initial state is for time 0
+  -- also we assume no -ve times
+  (upd,ts') = case ts of
+                t:_ | t > 0 -> (tail,0 : ts)
+                _           -> (id,ts)
 
   rows = LinAlg.toList <$> LinAlg.toColumns resMatrix
 
@@ -107,20 +114,20 @@ fitModel eqs ds absTol relTol limit start =
 
 
 test = DiffEqs
-  { deqParams  = ["c","d"]
+  { deqParams  = ["c"]
   , deqInitial = Map.singleton "x" (Var "c")
-  , deqState   = Map.singleton "x" (NumLit 0)
+  , deqState   = Map.singleton "x" (NumLit 2 :*: Var "time")
   , deqLet     = Map.empty
   }
 
 example =
   fitModel
     test
-    (dataSeries ["x"] [ (t,[t]) | t <- [ 1 .. 100 ] ])
+    (dataSeries ["x"] [ (t,[7+t*t]) | t <- [ 2 .. 100 ] ])
     1e-4
     1e-4
     20
-    (Map.fromList [ ("c",0),("d",0) ])
+    (Map.fromList [ ("c",0) ])
 
 
 
