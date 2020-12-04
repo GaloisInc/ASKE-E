@@ -7,6 +7,8 @@ module Options
   , showHelp
   ) where
 
+import Data.Text(Text)
+import qualified Data.Text as Text
 import Control.Exception(throwIO)
 import Control.Monad(when,unless)
 
@@ -17,6 +19,7 @@ data Command =
   | OnlyParse
   | DumpCPP
   | SimulateODE Double Double Double
+  | FitModel [Text]
   | ComputeError
 
 data Options = Options
@@ -59,6 +62,12 @@ options = OptSpec
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
 
+      , Option [] ["fit"]
+        "Fit model parameters"
+        $ ReqArg "P1:P2:P3:..."
+          \a s -> do ps <- parseParams a
+                     Right s { command = FitModel ps }
+
       , Option [] ["error-ode"]
         "Compute difference between model and data"
         $ NoArg \s -> Right s { command = ComputeError }
@@ -99,6 +108,14 @@ parseODETimes xs =
                           ] of
     [x] -> Right x
     _   -> Left "Malformed simulation time"
+
+parseParams :: String -> Either String [Text]
+parseParams xs =
+  case break (==':') xs of
+    (as,_:bs) -> (Text.pack as :) <$> parseParams bs
+    (as,[]) | not (null as) -> Right [Text.pack as]
+    _ -> Left "Invalid parameters"
+
 
 getOptions :: IO Options
 getOptions =

@@ -3,7 +3,7 @@ module Main(main) where
 
 import qualified Data.Map as Map
 import qualified Data.Text as Text
-import Control.Exception(catches, Handler(..))
+import Control.Exception(catches, Handler(..),throwIO)
 import Control.Monad(when,forM_)
 import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
@@ -50,6 +50,19 @@ main =
                              $ ODE.modelSquareError eqs ds Map.empty
                     forM_ (Map.toList errs) \(x,e) ->
                       putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
+
+       FitModel ps ->
+         case (modelFiles opts, dataFiles opts) of
+           ([mf],[df]) ->
+              do eqs <- asEquationSystem <$> coreModel mf ps
+                 ds  <- DS.parseDataSeriesFromFile df
+                 let res = ODE.fitModel eqs ds 1e-4 1e-4 1000
+                                (Map.fromList (zip ps (repeat 0)))
+                 forM_ (Map.toList res) \(x,y) ->
+                   putStrLn ("let " ++ Text.unpack x ++ " = " ++ show y)
+
+           _ -> throwIO (GetOptException
+                           ["Fitting needs 1 model and 1 data file. (for now)"])
 
   `catches`
   [ Handler  \(GetOptException errs) ->
