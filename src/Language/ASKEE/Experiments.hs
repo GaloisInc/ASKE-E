@@ -27,7 +27,11 @@ testLexModel fp =
        Left err -> fail err
 
 testParseModel :: FilePath -> IO Model
-testParseModel fp = AP.parse <$> testLexModel fp
+testParseModel fp = 
+  do  toks <- testLexModel fp
+      case AP.parse toks of
+        Right m -> pure m
+        Left e -> error e
 
 coreModel :: FilePath -> [Text] -> IO Core.Model
 coreModel fp ps =

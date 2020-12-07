@@ -17,6 +17,7 @@ import           Language.ASKEE.Expr
 %name parse
 %tokentype {Located Lexer.Token}
 %error {parseError}
+%monad {Either String}
 
 %token
 'and'           { Located _ _ Lexer.And }
@@ -167,9 +168,9 @@ CondChoice                            :: { (Expr,Expr) }
 
 
 {
-parseError :: [Located Lexer.Token] -> a
-parseError []     = error $ "parse error at end of file"
-parseError (t:ts) = error $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
+parseError :: [Located Lexer.Token] -> Either String a
+parseError []     = fail $ "parse error at end of file"
+parseError (t:ts) = fail $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
 mkModel :: Text -> [ Either Decl Event ] -> Model
