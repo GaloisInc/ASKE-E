@@ -20,7 +20,6 @@ module Language.ASKEE.DataSeries
   , foldDataSeriesWithTime
   ) where
 
-import Data.Word(Word8)
 import Data.Text(Text)
 import Data.Text.Encoding(decodeUtf8',encodeUtf8)
 import qualified Data.Vector as Vector
@@ -141,16 +140,17 @@ data MalformedDataSeries = MalformedDataSeries String deriving Show
 instance Exception MalformedDataSeries
 
 -- | Encode a data series to a lazy bytestring
-encodeDataSeries :: Word8 -> DataSeries Double -> LBS.ByteString
-encodeDataSeries sep xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
+encodeDataSeries :: DataSeries Double -> LBS.ByteString
+encodeDataSeries xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
   where
+  sep = toEnum (fromEnum ',')
   hdr = Vector.fromList ("time" : map encodeUtf8 (Map.keys (values xs)))
   opts = CSV.defaultEncodeOptions { CSV.encDelimiter = sep
                                   , CSV.encIncludeHeader = True
                                   }
 
-saveDataSeries :: FilePath -> Word8 -> DataSeries Double -> IO ()
-saveDataSeries file sep xs = LBS.writeFile file (encodeDataSeries sep xs)
+saveDataSeries :: FilePath -> DataSeries Double -> IO ()
+saveDataSeries file xs = LBS.writeFile file (encodeDataSeries xs)
 
 
 

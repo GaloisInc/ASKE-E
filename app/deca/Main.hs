@@ -30,8 +30,7 @@ main =
 
        SimulateODE x y z ->
          do res <- simODE opts x y z
-            let sep = toEnum $ fromEnum $ if gnuplot opts then ' ' else ','
-                bs  = DS.encodeDataSeries sep res
+            let bs    = DS.encodeDataSeries res
                 ofile = outFile opts
             if null ofile
               then LBS.putStrLn bs
@@ -95,6 +94,7 @@ gnuPlotScript :: DS.DataSeries Double -> FilePath -> String
 gnuPlotScript ds f =
   unlines
     [ "set key outside"
+    , "set datafile separator \",\""
     , "plot for [col=2:" ++ show (DS.dsColumns ds) ++ "] " ++
          show f ++ " using 1:col with lines title columnheader"
     ]
