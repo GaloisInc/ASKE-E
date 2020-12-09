@@ -66,11 +66,21 @@ options = OptSpec
 
       , Option [] ["fit"]
         "Fit model parameters with optional residual scaling"
-        $ ReqArg "PNAME or PNAME:SCALE"
-          \a s -> do p <- parseParam a
+        $ ReqArg "PNAME"
+          \a s -> let newCommand = case command s of
+                                     FitModel ps mp ->
+                                        FitModel (Text.pack a:ps) mp
+                                     _ -> FitModel [Text.pack a] Map.empty
+                  in Right s { command = newCommand }
+
+      , Option [] ["fit-scale"]
+        "Scaling when fitting this variable"
+        $ ReqArg "VNAME:SCALE"
+          \a s -> do (x,d) <- parseScale a
                      let newCmd = case command s of
-                                    FitModel ps mb -> addParam p ps mb
-                                    _              -> addParam p [] Map.empty
+                                    FitModel ps mp ->
+                                         FitModel ps (Map.insert x d mp)
+                                    _ -> FitModel [] (Map.singleton x d)
                      Right s { command = newCmd }
 
       , Option [] ["error-ode"]
@@ -114,22 +124,11 @@ parseODETimes xs =
     [x] -> Right x
     _   -> Left "Malformed simulation time"
 
-addParam :: (Text,Maybe Double) -> [Text] -> Map Text Double -> Command
-addParam (x,mb) xs scaled =
-  FitModel (x:xs)
-  case mb of
-    Nothing -> scaled
-    Just d  -> Map.insert x d scaled
-
-parseParam :: String -> Either String (Text,Maybe Double)
-parseParam xs =
-  case break (==':') xs of
-    ([], _) -> Left "Invalid parameter"
-    (as,_:bs) ->
-      case reads bs of
-        [(d,"")] -> Right (Text.pack as, Just d)
-        _ -> Left ("Invalid scaling in parameter " ++ show as)
-    (as,[]) -> Right (Text.pack as, Nothing)
+parseScale :: String -> Either String (Text,Double)
+parseScale xs =
+  case break (=='/') xs of
+    (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
+    _ -> Left "Invalid value for scale-fit"
 
 
 getOptions :: IO Options
