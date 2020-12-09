@@ -32,6 +32,7 @@ BCLOSE          { Located _ _ Lexer.CloseBlock }
 'else'          { Located _ _ Lexer.Else }
 '=='            { Located _ _ Lexer.EQ }
 'event'         { Located _ _ Lexer.Event }
+'false'         { Located _ _ (Lexer.Boolean False)}
 '>'             { Located _ _ Lexer.GT }
 '>='            { Located _ _ Lexer.GTE }
 'if'            { Located _ _ Lexer.If }
@@ -55,6 +56,7 @@ BSEP            { Located _ _ Lexer.BlockSeparator }
 'state'         { Located _ _ Lexer.State }
 SYM             { Located _ _ (Lexer.Sym $$) }
 'then'          { Located _ _ Lexer.Then }
+'true'          { Located _ _ (Lexer.Boolean True)}
 '*'             { Located _ _ Lexer.Times }
 '*='            { Located _ _ Lexer.TimesAssign }
 'when'          { Located _ _ Lexer.When }
@@ -148,6 +150,8 @@ Exp                                   :: { Expr }
   | '(' Exp ')'                          { $2 }
   | SYM                                  { Var $1 }
   | REAL                                 { LitD $1 }
+  | 'true'                               { LitB True }
+  | 'false'                              { LitB False }
   | 'if' Exp 'then' Exp 'else' Exp       { If $2 $4 $6 }
   | CondExp                              { $1 }
 

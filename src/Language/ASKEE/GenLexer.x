@@ -64,6 +64,8 @@ tokens :-
 "rate"      { atomic Rate }
 "effect"    { atomic Effect }
 "assert"    { atomic Assert }
+"true"      { bool True }
+"false"     { bool False }
 
 @upperID    { ident }
 @lowerID    { ident }
@@ -86,6 +88,9 @@ real (_,_,_,s) len = (pure . Real . read . take len) s
 
 ident :: Action
 ident (_,_,_,s) len = (pure . Sym . Text.pack . take len) s
+
+bool :: Bool -> Action
+bool b (_,_,_,s) len = pure $ Boolean b
 
 isIdentChar c = c `elem` (['a'..'z']++['A'..'Z']++['0'..'9']++['_'])
 

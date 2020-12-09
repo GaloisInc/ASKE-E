@@ -14,6 +14,7 @@ data Located a =
 data Token = EOF
   | And
   | Assign
+  | Boolean Bool
   | CloseBlock
   | CloseP
   | Colon
