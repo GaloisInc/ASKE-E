@@ -37,6 +37,7 @@ library
                      , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
                      , Language.ASKEE.Panic
+                     , Language.ASKEE.Check
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
