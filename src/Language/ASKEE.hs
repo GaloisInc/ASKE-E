@@ -1,9 +1,9 @@
 {-# Language OverloadedStrings #-}
 
-module Language.ASKEE ( lexFile
-                      , parseFile
-                      , checkFile
-                      , checkPrint
+module Language.ASKEE ( lexModel
+                      , parseModel
+                      , loadModel
+                      , checkModel
                       , genCppRunner
                       , genCoreModel ) where
   
@@ -22,34 +22,38 @@ import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 
-lexFile :: FilePath -> IO (Either String [Located Token])
-lexFile = readFile >=> pure . AL.lexModel
+-- | Just lex
+lexModel :: FilePath -> IO (Either String [Located Token])
+lexModel = readFile >=> pure . AL.lexModel
 
-parseFile :: FilePath -> IO (Either String Syntax.Model)
-parseFile file = 
-  do  toks <- lexFile file
+--  Just lex and parse
+parseModel :: FilePath -> IO (Either String Syntax.Model)
+parseModel file = 
+  do  toks <- lexModel file
       pure $ AP.parse =<< toks
 
-checkFile :: FilePath -> IO (Either String Syntax.Model)
-checkFile file =
-  do  model <- parseFile file
-      pure $ Check.checkModel =<< model
-
-checkPrint :: FilePath -> IO ()
-checkPrint file = 
-  do  result <- checkFile file
-      either putStrLn (const (putStrLn "no issues found!")) result
-
 -- | Don't bother failing gracefully on lex or parse errors
-unsafeParseFile :: FilePath -> IO Syntax.Model
-unsafeParseFile file =
-  do  Right toks <- lexFile file
+unsafeparseModel :: FilePath -> IO Syntax.Model
+unsafeparseModel file =
+  do  Right toks <- lexModel file
       let Right model = AP.parse toks
       pure model
 
+-- | Just lex, parse, and check
+checkModel :: FilePath -> IO ()
+checkModel file = 
+  do  result <- loadModel file
+      either putStrLn (const (putStrLn "no issues found!")) result
+
+-- | The intended entrypoint for fetching a model
+loadModel :: FilePath -> IO (Either String Syntax.Model)
+loadModel file =
+  do  model <- parseModel file
+      pure $ Check.checkModel =<< model
+
 genCoreModel :: FilePath -> [Text] -> IO (Either String Core.Model)
 genCoreModel file ps =
-  do  modelE <- parseFile file
+  do  modelE <- parseModel file
       pure $ modelAsCore ps =<< modelE
 
 genCppRunner :: FilePath -> IO ()

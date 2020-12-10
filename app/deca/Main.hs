@@ -23,13 +23,13 @@ main =
      case command opts of
        OnlyLex -> 
           forM_ (modelFiles opts) $ 
-            lexFile >=> either fail print
+            lexModel >=> either fail print
        OnlyParse -> 
           forM_ (modelFiles opts) $ 
-            parseFile >=> either fail print
+            parseModel >=> either fail print
        OnlyCheck ->
           forM_ (modelFiles opts)
-            checkPrint
+            checkModel
        DumpCPP -> 
           forM_ (modelFiles opts) 
             genCppRunner
