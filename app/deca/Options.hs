@@ -19,6 +19,7 @@ import SimpleGetOpt
 data Command =
     OnlyLex
   | OnlyParse
+  | OnlyCheck
   | DumpCPP
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
@@ -53,6 +54,10 @@ options = OptSpec
       , Option [] ["dbg-only-parse"]
         "Show the parse tree."
         $ NoArg \s -> Right s { command = OnlyParse }
+
+      , Option [] ["dbg-only-check"]
+        "Scope- and type-check the model."
+        $ NoArg \s -> Right s { command = OnlyCheck }
 
       , Option [] ["dbg-dump-cpp"]
         "Dump some c++ code"
