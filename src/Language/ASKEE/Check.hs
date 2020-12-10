@@ -41,14 +41,6 @@ stateRepr = "state"
 assertRepr = "assert"
 eventRepr = "event"
 
-
-
-checkPrint :: Model -> IO ()
-checkPrint m =
-  case checkModel m of
-    Left err -> putStrLn err
-    Right () -> pure ()
-
 -- | Perform scope- and type-checking of a `Model`
 checkModel :: Model -> Either String Model
 checkModel m@Model{..} = evalStateT go (ExprInfo Map.empty Map.empty) >> pure m
