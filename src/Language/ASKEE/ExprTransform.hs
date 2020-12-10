@@ -29,7 +29,7 @@ transformExpr exprT e =
     Expr.LitD _    -> exprT e
     Expr.LitB _ -> exprT e
     Expr.If test thn els ->
-      (Expr.If <$> expr test <*> expr thn <*> expr els) >>= expr
+      (Expr.If <$> expr test <*> expr thn <*> expr els) >>= exprT
     Expr.Cond choices other ->
       do  choices <- condChoice `traverse` choices
           oth <- expr `traverse` other
