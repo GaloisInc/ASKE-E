@@ -53,7 +53,7 @@ loadModel file =
 
 genCoreModel :: FilePath -> [Text] -> IO (Either String Core.Model)
 genCoreModel file ps =
-  do  modelE <- parseModel file
+  do  modelE <- loadModel file
       pure $ modelAsCore ps =<< modelE
 
 genCppRunner :: FilePath -> IO ()
