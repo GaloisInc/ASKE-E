@@ -44,12 +44,19 @@ eventRepr = "event"
 
 -- | Perform scope- and type-checking of a `Model`
 checkModel :: Model -> Either String Model
-checkModel m@Model{..} = evalStateT go (ExprInfo Map.empty Map.empty) >> pure m
+checkModel m@Model{..} = evalStateT go (ExprInfo exprs types) >> pure m
   where
     go :: Check ()
     go = 
       do  checkDecls modelDecls
           checkEvents modelEvents
+
+    -- "Incorrect" but safe enough
+    exprs :: Map Text Expr
+    exprs = Map.singleton "time" (LitD 0)
+
+    types :: Map Text Type
+    types = Map.singleton "time" Double
 
 -- | Scope- and type-check model declarations
 checkDecls :: [Decl] -> Check ()
