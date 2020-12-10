@@ -100,7 +100,7 @@ bindCheck thing var expr =
       ty <- typeCheck expr
       ExprInfo exprs types <- get
       let exprs' = Map.insert var expr exprs
-          types' = types --Map.insert var ty types
+          types' = Map.insert var ty types
       put $ ExprInfo exprs' types'
 
 -- | Scope- and type-check a naked expression
