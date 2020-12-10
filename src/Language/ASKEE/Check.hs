@@ -112,7 +112,7 @@ scopeCheck thing varM expr =
         let unboundVars = show $ Set.toList $ eVars Set.\\ boundVars 
             exprStr = show $ printExpr expr
         in  fail . unlines $
-              [ "in \'"<>thing<>"\', expression"
+              [ "in \'"<>thing<>maybe "" (\var -> " "<>Text.unpack var) varM<>"\', expression"
               , exprStr
               , "references unbound variables:"
               , "  "<>unboundVars
