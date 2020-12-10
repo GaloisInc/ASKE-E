@@ -50,8 +50,8 @@ checkPrint m =
     Right () -> pure ()
 
 -- | Perform scope- and type-checking of a `Model`
-checkModel :: Model -> Either String ()
-checkModel Model{..} = evalStateT go (ExprInfo Map.empty Map.empty)
+checkModel :: Model -> Either String Model
+checkModel m@Model{..} = evalStateT go (ExprInfo Map.empty Map.empty) >> pure m
   where
     go :: Check ()
     go = 
