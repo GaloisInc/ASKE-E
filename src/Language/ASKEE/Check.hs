@@ -35,6 +35,16 @@ data ExprInfo =
            , types :: Map Text Type
            }
 
+initExprInfo :: ExprInfo
+initExprInfo = ExprInfo exprs types
+  where
+    -- "Incorrect" but safe enough
+    exprs :: Map Text Expr
+    exprs = Map.singleton "time" (LitD 0)
+
+    types :: Map Text Type
+    types = Map.singleton "time" Double
+
 type Check = StateT ExprInfo (Either String)
 
 letRepr, stateRepr, assertRepr, eventRepr :: [Char]
@@ -45,19 +55,12 @@ eventRepr = "event"
 
 -- | Perform scope- and type-checking of a `Model`
 checkModel :: Model -> Either String Model
-checkModel m@Model{..} = evalStateT go (ExprInfo exprs types) >> pure m
+checkModel m@Model{..} = evalStateT go initExprInfo >> pure m
   where
     go :: Check ()
     go = 
       do  checkDecls modelDecls
           checkEvents modelEvents
-
-    -- "Incorrect" but safe enough
-    exprs :: Map Text Expr
-    exprs = Map.singleton "time" (LitD 0)
-
-    types :: Map Text Type
-    types = Map.singleton "time" Double
 
 -- | Scope- and type-check model declarations
 checkDecls :: [Decl] -> Check ()
