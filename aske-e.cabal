@@ -76,3 +76,15 @@ executable deca
   default-language:    Haskell2010
   ghc-options:         -Wall
 
+
+test-suite test-model-validity
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             ModelValidity.hs
+  build-depends:       base
+                     , aske-e
+                     , containers
+                     , HUnit
+                     , mtl
+  default-language:    Haskell2010
+  ghc-options:         -main-is ModelValidity
