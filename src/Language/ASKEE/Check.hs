@@ -71,7 +71,7 @@ checkDecls = mapM_ checkDecl
       case d of
         Let v e -> bindCheck letRepr v e
         State v e -> bindCheck stateRepr v e
-        Assert e -> exprCheck assertRepr e
+        Assert e -> exprCheck assertRepr Boolean e
 
 -- Scope- and type-check model events
 checkEvents :: [Event] -> Check ()
@@ -108,11 +108,11 @@ bindCheck thing var expr =
       put $ ExprInfo exprs' types'
 
 -- | Scope- and type-check a naked expression
-exprCheck :: String -> Expr -> Check ()
-exprCheck thing expr =
+exprCheck :: String -> Type -> Expr -> Check ()
+exprCheck thing expected expr =
   do  scopeCheck thing Nothing expr
-      _ <- typeCheck expr
-      pure ()
+      ty <- typeCheck expr
+      lift $ expect Nothing expr expected ty
 
 -- | Scope-check an expression
 scopeCheck :: String -> Maybe Text -> Expr -> Check ()
