@@ -2,7 +2,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.Check where
 
-import           Control.Monad.State
+import           Control.Monad (unless, forM_, mapM_)
+import           Control.Monad.State (StateT, evalStateT, get, put, lift)
 import           Control.Monad.Writer (Writer, execWriter, tell)
 
 import           Data.Map (Map)
