@@ -1,0 +1,6 @@
+before_script:
+  - docker build -t aske .
+  
+test_model_validity:
+  script:
+    - docker run aske -- :test-model-validity
