@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module ModelValidity where
+module ModelCheck where
 
 import Control.Monad (when)
 import Control.Monad.State (evalStateT)

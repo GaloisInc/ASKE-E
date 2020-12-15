@@ -77,14 +77,14 @@ executable deca
   ghc-options:         -Wall
 
 
-test-suite test-model-validity
+test-suite test-model-check
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             ModelValidity.hs
+  main-is:             ModelCheck.hs
   build-depends:       base
                      , aske-e
                      , containers
                      , HUnit
                      , mtl
   default-language:    Haskell2010
-  ghc-options:         -main-is ModelValidity
+  ghc-options:         -main-is ModelCheck

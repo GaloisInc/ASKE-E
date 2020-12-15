@@ -13,5 +13,3 @@ RUN cabal v2-build --only-dependencies
 
 COPY . .
 RUN cabal v2-build
-
-ENTRYPOINT cabal v2-test
