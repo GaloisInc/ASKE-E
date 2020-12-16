@@ -80,7 +80,7 @@ options = OptSpec
 
       , Option [] ["fit-scale"]
         "Scaling when fitting this variable"
-        $ ReqArg "VNAME:SCALE"
+        $ ReqArg "VNAME/SCALE"
           \a s -> do (x,d) <- parseScale a
                      let newCmd = case command s of
                                     FitModel ps mp ->
