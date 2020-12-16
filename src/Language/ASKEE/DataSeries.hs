@@ -62,7 +62,6 @@ zipAlignedWithTimeAndLabel f ds1 ds2 =
                                       (values ds1) (values ds2) }
 
 
-
 zipAlignedWithTime ::
   (Double -> a -> b -> c) ->
   DataSeries a -> DataSeries b -> DataSeries c
@@ -123,7 +122,7 @@ parseDataSeries bs =
      keys <- case mapM decodeUtf8' (Vector.toList hdr) of
                Left _ -> Left "Malformed filed names"
                Right a -> pure a
-     pure $ foldr addPoint (emptyDataSeries keys)
+     pure $ foldr addPoint (emptyDataSeries (filter (/= "time") keys))
           $ sortBy (compare `on` ptTime)
           $ Vector.toList pts
 
