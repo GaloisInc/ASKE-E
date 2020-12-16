@@ -68,7 +68,7 @@ computeErrorPerVar errs = foldDataSeries (+) startErr errs
   startErr = const 0 <$> values errs
 
 
-
+{-
 residualChange ::
   (Ident -> Double -> Double -> Double) ->
   DiffEqs ->
@@ -79,7 +79,23 @@ residualChange err eqs ds ps = LinAlg.fromColumns (map change (deqParams eqs))
   paramMap = paramsFromVector (deqParams eqs) ps
   mkErr    = dsToVector . modelErrorWith err eqs ds
   here     = mkErr paramMap
-  change p = (mkErr (Map.adjust (+1) p paramMap) - here)
+  change p = mkErr (Map.adjust (+1) p paramMap) - here
+-}
+
+
+modelChange ::
+  DiffEqs ->
+  [Double] ->
+  LinAlg.Vector Double -> LinAlg.Matrix Double
+modelChange eqs ts ps = LinAlg.fromColumns (map change (deqParams eqs))
+  where
+  paramMap = paramsFromVector (deqParams eqs) ps
+  here     = simulate eqs paramMap ts
+  change p = dsToVector
+           $ zipAligned (-) (simulate eqs (Map.adjust (+1) p paramMap) ts)
+                            here
+
+
 
 -- | Create a computation environment from a vector of parameters.
 paramsFromVector :: [Ident] -> LinAlg.Vector Double -> Map Ident Double
@@ -90,7 +106,8 @@ paramsToVector ps vs = LinAlg.fromList [ vs Map.! p | p <- ps ]
 
 -- | Joins together all values for all variables.
 -- For example { x := [1,2,3], y := [5,6,7] } results in [1,2,3,5,6,7]
--- This is used to estimate residuals
+-- This is used to estimate residuals, for example if each entry indicates
+-- how far off we are for that variable at that time.
 dsToVector :: DataSeries Double -> LinAlg.Vector Double
 dsToVector = LinAlg.fromList . concat . Map.elems . values
 
@@ -106,7 +123,7 @@ fitModel eqs ds scaled start =
     extract
   $ FIT.nlFitting method 1e-4 1e-4 20
       residual
-      (residualChange err eqs ds)
+      (modelChange eqs (times ds))
       (paramsToVector ps start)
 
   where
@@ -114,7 +131,9 @@ fitModel eqs ds scaled start =
       | Map.null scaled = (FIT.LevenbergMarquardt, errNoScale)
       | otherwise       = (FIT.LevenbergMarquardtScaled, errScale)
 
+  residual :: LinAlg.Vector Double -> LinAlg.Vector Double
   residual = dsToVector . modelErrorWith err eqs ds . paramsFromVector ps
+
   ps       = deqParams eqs
   extract (ans,work) = ( paramsFromVector ps ans
                        , map (paramsFromVector ps) (LinAlg.toColumns work)
