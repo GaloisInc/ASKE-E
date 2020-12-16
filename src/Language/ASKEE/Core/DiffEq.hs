@@ -48,33 +48,10 @@ eventTerm sv event =
 
 
 ppDiffEqs :: DiffEqs -> Doc
-ppDiffEqs DiffEqs{..} = vcat [params, lets, initials, states, lets]
+ppDiffEqs DiffEqs{..} = vcat [lets, initials, states]
   where
-    params = "Parameters:" PP.<+> vcat (punctuate "," (map (text . unpack) deqParams))
-    initials = 
-      "Initial conditions:" PP.<+> 
-        vcat 
-          (map (\(i, e) -> text (unpack i) PP.<> ": " PP.<> ppDiffEqExpr e) (Map.toList deqInitial))
-    states = 
-      "State equations:" PP.<+> 
-        vcat 
-          (map (\(i, e) -> text (unpack i) PP.<> " = " PP.<> ppDiffEqExpr e) (Map.toList deqState))
-    lets = 
-      "Let bindings:" PP.<+> 
-        vcat 
-          (map (\(i, e) -> text (unpack i) PP.<> " = " PP.<> ppDiffEqExpr e) (Map.toList deqLet))
+    initials = vcat $ map (binding "state") (Map.toList deqInitial)
+    states   = vcat $ map (binding "rate") (Map.toList deqState)
+    lets     = vcat $ map (binding "let") (Map.toList deqLet)
 
-
-ppDiffEqExpr :: Expr -> Doc
-ppDiffEqExpr e =
-  case simplifyExpr e of
-    NumLit d -> double d
-    Op1 Neg e' -> "-" PP.<> ppDiffEqExpr e'
-    e1 :+: e2 -> hcat $ punctuate "+" [ppDiffEqExpr e1, ppDiffEqExpr e2]
-    e1 :-: e2 -> hcat $ punctuate "-" [ppDiffEqExpr e1, ppDiffEqExpr e2]
-    e1 :*: e2 -> hcat $ punctuate "*" [ppDiffEqExpr e1, ppDiffEqExpr e2]
-    Op2 Div e1 e2 -> hcat $ punctuate "/" [ppDiffEqExpr e1, ppDiffEqExpr e2]
-    Var i -> text $ unpack i
-    _ -> error $ "printing not yet supported for "Prelude.<>show e
-
-
+    binding decl (i,e) = hsep [decl, text (unpack i), "=", ppExpr e]

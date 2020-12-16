@@ -166,15 +166,15 @@ ppExpr expr =
     BoolLit b -> if b then "true" else "false"
     Op1 Neg e' -> "-"PP.<>PP.parens (pp e')
     Op1 Not e' -> "not"PP.<+>PP.parens (pp e')
-    e1 :+: e2 -> sepWith "+" [pp e1, pp e2]
-    e1 :-: e2 -> sepWith "-" [pp e1, pp e2]
-    e1 :*: e2 -> sepWith "*" [pp e1, pp e2]
-    e1 :/: e2 -> sepWith "/" [pp e1, pp e2]
-    e1 :<: e2 -> sepWith "<" [pp e1, pp e2]
-    e1 :<=: e2 -> sepWith "<=" [pp e1, pp e2]
-    e1 :==: e2 -> sepWith "==" [pp e1, pp e2]
-    e1 :&&: e2 -> sepWith "and" [pp e1, pp e2]
-    e1 :||: e2 -> sepWith "or" [pp e1, pp e2]
+    e1 :+: e2 -> PP.hsep [pp e1, "+", pp e2]
+    e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
+    e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
+    e1 :/: e2 -> PP.hsep [pp e1, "/", pp e2]
+    e1 :<: e2 -> PP.hsep [pp e1, "<", pp e2]
+    e1 :<=: e2 -> PP.hsep [pp e1, "<=", pp e2]
+    e1 :==: e2 -> PP.hsep [pp e1, "==", pp e2]
+    e1 :&&: e2 -> PP.hsep [pp e1, "and", pp e2]
+    e1 :||: e2 -> PP.hsep [pp e1, "or", pp e2]
     Var v -> PP.text $ Text.unpack v
     If e1 e2 e3 -> PP.hsep ["if", pp e1, "then", pp e2, "else", pp e3]
     Fail s -> error s -- XXX
@@ -189,8 +189,6 @@ ppExpr expr =
       if prec e > prec expr
         then PP.parens (ppExpr e)
         else            ppExpr e
-
-    sepWith op = PP.hsep . PP.punctuate op
 
     prec :: Expr -> Int
     prec e =
