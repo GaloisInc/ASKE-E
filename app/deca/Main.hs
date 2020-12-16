@@ -68,11 +68,20 @@ main =
                                           (Map.fromList (zip ps (repeat 0)))
                      see n xs =
                        do putStrLn n
-                          forM_ (Map.toList xs) \(x,y) ->
+                          forM_ (Map.toList xs) \(x,(y,e)) ->
                               putStrLn ("let " ++ Text.unpack x ++
-                                              " = " ++ showFFloat (Just 4) y "")
+                                        " = " ++
+                                        showFFloat (Just 4) y
+                                           (" # error = " ++ showFFloat (Just 4) e "")
+                                       )
                  forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
-                     see ("-- Step " ++ show n ++ " --") ys
+                       do putStrLn ("-- Step " ++ show n ++ " --")
+                          forM_ (Map.toList ys) \(x,y) ->
+                              putStrLn ("let " ++ Text.unpack x ++
+                                        " = " ++
+                                        showFFloat (Just 4) y "")
+ 
+
 
                  see "Result:" res
 
