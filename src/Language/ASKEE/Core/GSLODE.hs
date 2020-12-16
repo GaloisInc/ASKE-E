@@ -68,21 +68,9 @@ computeErrorPerVar errs = foldDataSeries (+) startErr errs
   startErr = const 0 <$> values errs
 
 
-{-
-residualChange ::
-  (Ident -> Double -> Double -> Double) ->
-  DiffEqs ->
-  DataSeries Double ->
-  LinAlg.Vector Double -> LinAlg.Matrix Double
-residualChange err eqs ds ps = LinAlg.fromColumns (map change (deqParams eqs))
-  where
-  paramMap = paramsFromVector (deqParams eqs) ps
-  mkErr    = dsToVector . modelErrorWith err eqs ds
-  here     = mkErr paramMap
-  change p = mkErr (Map.adjust (+1) p paramMap) - here
--}
-
-
+-- | Compute derivates with respect to parameters.
+-- Note that since the datapoints do not change, this is very related to
+-- the change in residual, which is what we need for fitting.
 modelChange ::
   DiffEqs ->
   [Double] ->
@@ -139,7 +127,7 @@ fitModel eqs ds scaled start =
                        , map (paramsFromVector ps) (LinAlg.toColumns work)
                        )
   errNoScale = \_ a b -> a - b
-  errScale   = \v a b -> (a - b) / Map.findWithDefault 1 v scaled
+  errScale   = \v a b -> (a - b) * Map.findWithDefault 1 v scaled
 
 
 

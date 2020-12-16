@@ -80,7 +80,7 @@ options = OptSpec
 
       , Option [] ["fit-scale"]
         "Scaling when fitting this variable"
-        $ ReqArg "VNAME/SCALE"
+        $ ReqArg "VNAME*SCALE"
           \a s -> do (x,d) <- parseScale a
                      let newCmd = case command s of
                                     FitModel ps mp ->
@@ -131,7 +131,7 @@ parseODETimes xs =
 
 parseScale :: String -> Either String (Text,Double)
 parseScale xs =
-  case break (=='/') xs of
+  case break (=='*') xs of
     (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
     _ -> Left "Invalid value for scale-fit"
 

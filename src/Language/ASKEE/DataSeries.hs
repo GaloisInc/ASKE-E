@@ -35,6 +35,8 @@ import Control.Exception(Exception,throwIO)
 import qualified Data.Csv as CSV
 import Language.ASKEE.Panic(panic)
 
+-- XXX: We could use a representation that allows for easier access to
+-- particular data points.
 data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
