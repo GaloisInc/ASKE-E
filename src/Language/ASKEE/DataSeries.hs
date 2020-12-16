@@ -42,6 +42,9 @@ data DataSeries a = DataSeries
   , values :: Map Text [a]
   }
 
+instance Functor DataSeries where
+  fmap f ds = ds { values = fmap f <$> values ds }
+
 emptyDataSeries :: [Text] -> DataSeries a
 emptyDataSeries keys = DataSeries
   { times  = []
@@ -88,6 +91,8 @@ foldDataSeriesWithTime f start ds = Map.mapWithKey doFold (values ds)
 foldDataSeries ::
   (a -> b -> b) -> Map Text b -> DataSeries a -> Map Text b
 foldDataSeries f = foldDataSeriesWithTime (\_ -> f)
+
+
 
 dsLookup :: DataSeries a -> Double -> Map Text a
 dsLookup ds t = getVal <$> values ds
