@@ -3,6 +3,7 @@ module Language.ASKEE.Core.GSLODE where
 
 import Data.Map(Map)
 import qualified Data.Map as Map
+import Data.List(transpose)
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE as ODE
@@ -68,86 +69,44 @@ computeErrorPerVar errs = foldDataSeries (+) startErr errs
   startErr = const 0 <$> values errs
 
 
--- | Compute derivates with respect to parameters.
--- Note that since the datapoints do not change, this is very related to
--- the change in residual, which is what we need for fitting.
-modelChange ::
-  DiffEqs ->
-  [Double] ->
-  LinAlg.Vector Double -> LinAlg.Matrix Double
-modelChange eqs ts ps = LinAlg.fromColumns (map change (deqParams eqs))
-  where
-  paramMap = paramsFromVector (deqParams eqs) ps
-  here     = simulate eqs paramMap ts
-  change p = dsToVector
-           $ zipAligned (-) (simulate eqs (Map.adjust (+1) p paramMap) ts)
-                            here
-
-
-
--- | Create a computation environment from a vector of parameters.
-paramsFromVector :: [Ident] -> LinAlg.Vector Double -> Map Ident Double
-paramsFromVector ps vs = Map.fromList (ps `zip` LinAlg.toList vs)
-
-paramsToVector :: [Ident] -> Map Ident Double -> LinAlg.Vector Double
-paramsToVector ps vs = LinAlg.fromList [ vs Map.! p | p <- ps ]
-
--- | Joins together all values for all variables.
--- For example { x := [1,2,3], y := [5,6,7] } results in [1,2,3,5,6,7]
--- This is used to estimate residuals, for example if each entry indicates
--- how far off we are for that variable at that time.
-dsToVector :: DataSeries Double -> LinAlg.Vector Double
-dsToVector = LinAlg.fromList . concat . Map.elems . values
-
-
 fitModel ::
   DiffEqs           {- ^ Model to optimize -} ->
   DataSeries Double {- ^ Data to fit -} ->
   Map Ident Double  {- ^ Scaling for resudals, assumed to be 1 if missing -} ->
   Map Ident Double  {- ^ Initial parameter values -} ->
-  (Map Ident Double, [ Map Ident Double ])
-  {- ^ Optimized parameters, and how we got there -}
+  (Map Ident (Double,Double), [ Map Ident Double ])
+  -- ^ Returns (result, search path)
+  -- where result is the computed value for each parameter,
+  -- and the corresponding errror
 fitModel eqs ds scaled start =
-    extract
-  $ FIT.nlFitting method 1e-4 1e-4 20
-      residual
-      (modelChange eqs (times ds))
-      (paramsToVector ps start)
-
+  ( psFromVec slns
+  , map (psFromVec . LinAlg.toList) (LinAlg.toColumns path)
+  )
   where
-  (method,err)
-      | Map.null scaled = (FIT.LevenbergMarquardt, errNoScale)
-      | otherwise       = (FIT.LevenbergMarquardtScaled, errScale)
+  (slns,path)   = FIT.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
+  ps            = deqParams eqs
+  initParams    = psToVec start
+  psToVec vs    = [ vs Map.! p | p <- ps ]
+  psFromVec vs  = Map.fromList (ps `zip` vs)
 
-  residual :: LinAlg.Vector Double -> LinAlg.Vector Double
-  residual = dsToVector . modelErrorWith err eqs ds . paramsFromVector ps
+  dt            = [ (x,(vs,s))
+                  | (x,vs) <- Map.toList (values ds)
+                  , let s = case Map.lookup x scaled of
+                              Nothing -> 1
+                              Just m  -> 1 / m
+                  ]
 
-  ps       = deqParams eqs
-  extract (ans,work) = ( paramsFromVector ps ans
-                       , map (paramsFromVector ps) (LinAlg.toColumns work)
-                       )
-  errNoScale = \_ a b -> a - b
-  errScale   = \v a b -> (a - b) * Map.findWithDefault 1 v scaled
+  simWith vs = simulate eqs vs (times ds)
 
+  model pvec = let ans = simWith (psFromVec pvec)
+               in \x -> values ans Map.! x
 
-
-test :: DiffEqs
-test = DiffEqs
-  { deqParams  = ["c","d"]
-  , deqInitial = Map.singleton "x" (Var "c")
-  , deqState   = Map.singleton "x" (Var "d" :*: Var "time")
-  , deqLet     = Map.empty
-  }
-
-example :: Map Ident Double
-example =
-  fst $
-  fitModel
-    test
-    (dataSeries ["x"] [ (t,[7+t*t]) | t <- [ 2 .. 100 ] ])
-    Map.empty
-    (Map.fromList [ ("c",0),("d",0) ])
-
-
-
+  deriv vs =
+    let pmap     = psFromVec vs
+        here     = simWith pmap
+        delta    = 1e-6
+        change p = fmap (/delta)
+                 $ zipAligned (-) (simWith (Map.adjust (+delta) p pmap)) here
+        changes  = map change ps
+    in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
