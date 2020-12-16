@@ -22,6 +22,7 @@ import           Language.ASKEE.Expr
 
 %name parseModel Model
 %name parseDEQs  DEQs
+
 %tokentype {Located Lexer.Token}
 %error {parseError}
 %monad {Either String}
@@ -87,7 +88,7 @@ DEQDecls                              :: { [(String, Ident, Expr)] }
   | DEQDecls1                            { reverse $1 }
 
 DEQDecls1                             :: { [(String, Ident, Expr)] }
-  :                                      { [] }
+  : DEQDecl                              { [$1] }
   | DEQDecls1 DEQDecl                    { $2 : $1 }
 
 DEQDecl                               :: { (String, Ident, Expr) }
@@ -212,7 +213,7 @@ mkDiffEqs decls =
   let deqLet     = Map.fromList $ mapMaybe (match "let")   decls
       deqInitial = Map.fromList $ mapMaybe (match "state") decls
       deqState   = Map.fromList $ mapMaybe (match "rate")  decls
-      deqParams  = map fst      $ mapMaybe (match "param") decls
+      deqParams  = []
   in  DiffEqs{..}
 
   where
