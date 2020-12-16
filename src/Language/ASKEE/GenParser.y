@@ -1,10 +1,16 @@
 {
+{-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.GenParser where
 
 import Prelude hiding (Ordering(..))
 import Data.Text(Text)
 import Data.Either(partitionEithers)
+import Data.Maybe (mapMaybe)
+import qualified Data.Map as Map
 
+import           Language.ASKEE.Core (Ident, substExpr)
+import           Language.ASKEE.Core.DiffEq
+import           Language.ASKEE.Core.ImportASKEE (expAsCore)
 import qualified Language.ASKEE.GenLexer as Lexer
 import           Language.ASKEE.Lexer(Located(..))
 import qualified Language.ASKEE.Lexer as Lexer
@@ -14,7 +20,8 @@ import           Language.ASKEE.Expr
 
 }
 
-%name parse
+%name parseModel Model
+%name parseDEQs  DEQs
 %tokentype {Located Lexer.Token}
 %error {parseError}
 %monad {Either String}
@@ -71,6 +78,22 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 %left '*' '/'
 
 %%
+
+DEQs                                  :: { DiffEqs }
+  : DEQDecls                             { mkDiffEqs $1 }
+
+DEQDecls                              :: { [(String, Ident, Expr)] }
+  :                                      { [] }
+  | DEQDecls1                            { reverse $1 }
+
+DEQDecls1                             :: { [(String, Ident, Expr)] }
+  :                                      { [] }
+  | DEQDecls1 DEQDecl                    { $2 : $1 }
+
+DEQDecl                               :: { (String, Ident, Expr) }
+  : 'let' SYM '=' Exp                    { ("let",   $2, $4) }
+  | 'state' SYM '=' Exp                  { ("state", $2, $4) }
+  | 'rate' SYM '=' Exp                   { ("rate",  $2, $4) }
 
 Model                                 :: { Model }
   : 'model' SYM ':'
@@ -183,6 +206,17 @@ mkModel nm ps = Model { modelName = nm
                       , modelEvents = es
                       }
   where (ds,es) = partitionEithers ps
+
+mkDiffEqs :: [(String, Ident, Expr)] -> DiffEqs
+mkDiffEqs decls =
+  let deqLet     = Map.fromList $ mapMaybe (match "let")   decls
+      deqInitial = Map.fromList $ mapMaybe (match "state") decls
+      deqState   = Map.fromList $ mapMaybe (match "rate")  decls
+      deqParams  = map fst      $ mapMaybe (match "param") decls
+  in  DiffEqs{..}
+
+  where
+    match s (s',i,e) = if s == s' then Just (i,expAsCore e) else Nothing
 
 
 }

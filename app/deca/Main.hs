@@ -45,6 +45,17 @@ main =
               writeFile (replaceExtension ofile "gnuplot")
                 $ gnuPlotScript res ofile
 
+       SimulateODEDEQ x y z ->
+         do res <- simODEDEQ opts x y z
+            let bs    = DS.encodeDataSeries res
+                ofile = outFile opts
+            if null ofile
+              then LBS.putStrLn bs
+              else LBS.writeFile (outFile opts) bs
+            when (gnuplot opts && not (null ofile)) $
+              writeFile (replaceExtension ofile "gnuplot")
+                $ gnuPlotScript res ofile
+
        ComputeError ->
           forM_ (modelFiles opts) \m ->
             do putStrLn ("model: " ++ show m)
@@ -88,6 +99,37 @@ main =
            _ -> throwIO (GetOptException
                            ["Fitting needs 1 model and 1 data file. (for now)"])
 
+       FitDiffEqs ps scale ->
+          case (deqFiles opts, dataFiles opts) of
+            ([deqF],[dataF]) ->
+              do  checkEqs <- either fail pure <$> loadEquations deqF ps
+                  eqs <- checkEqs
+                  ds  <- DS.parseDataSeriesFromFile dataF
+                  let (res,work) = 
+                        ODE.fitModel 
+                          eqs ds scale (Map.fromList (zip ps (repeat 0)))
+                      see n xs =
+                        do putStrLn n
+                           forM_ (Map.toList xs) \(x,(y,e)) ->
+                               putStrLn ("let " ++ Text.unpack x ++
+                                         " = " ++
+                                         showFFloat (Just 4) y
+                                            (" # error = " ++ showFFloat (Just 4) e "")
+                                        )
+                  forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
+                        do putStrLn ("-- Step " ++ show n ++ " --")
+                           forM_ (Map.toList ys) \(x,y) ->
+                               putStrLn ("let " ++ Text.unpack x ++
+                                         " = " ++
+                                         showFFloat (Just 4) y "")
+
+                  see "Result:" res
+
+            _ -> 
+              throwIO $
+                GetOptException
+                  ["Fitting needs 1 model and 1 data file. (for now)"]
+
   `catches`
   [ Handler  \(GetOptException errs) ->
       case errs of
@@ -107,6 +149,13 @@ simODE opts start step end =
      let times = takeWhile (<= end) (iterate (+ step) start)
      pure (ODE.simulate m Map.empty times)
 
+simODEDEQ :: Options -> Double -> Double -> Double -> IO (DS.DataSeries Double)
+simODEDEQ opts start step end =
+  do  let file = head (deqFiles opts)
+      checkEqs <- either fail pure <$> loadEquations file []
+      eqs <- checkEqs
+      let times = takeWhile (<= end) (iterate (+ step) start)
+      pure (ODE.simulate eqs Map.empty times)
 
 gnuPlotScript :: DS.DataSeries Double -> FilePath -> String
 gnuPlotScript ds f =

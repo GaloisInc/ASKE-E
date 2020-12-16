@@ -17,6 +17,7 @@ import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.Core.ImportASKEE(modelAsCore)
+import           Language.ASKEE.Core.DiffEq (DiffEqs)
 
 
 testLexModel :: FilePath -> IO [Located Token]
@@ -29,7 +30,7 @@ testLexModel fp =
 testParseModel :: FilePath -> IO Model
 testParseModel fp = 
   do  toks <- testLexModel fp
-      case AP.parse toks of
+      case AP.parseModel toks of
         Right m -> pure m
         Left e -> error e
 
@@ -39,6 +40,13 @@ coreModel fp ps =
      case mb of
        Right a  -> pure a
        Left err -> fail err
+
+testParseDiffEqs :: FilePath -> IO DiffEqs
+testParseDiffEqs fp =
+  do  toks <- testLexModel fp
+      case AP.parseDEQs toks of
+        Right deqs -> pure deqs
+        Left err -> error err
 
 dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
 dump ~(Right m) fp = writeFile fp $ show $ Map.toList m 

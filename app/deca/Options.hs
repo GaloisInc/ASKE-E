@@ -22,13 +22,16 @@ data Command =
   | OnlyCheck
   | DumpCPP
   | SimulateODE Double Double Double
+  | SimulateODEDEQ Double Double Double
   | FitModel [Text] (Map Text Double)
+  | FitDiffEqs [Text] (Map Text Double)
   | ComputeError
 
 data Options = Options
   { command :: Command
   , modelFiles :: [FilePath]
   , dataFiles :: [FilePath]
+  , deqFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , onlyShowHelp :: Bool
@@ -41,6 +44,7 @@ options = OptSpec
         { command = DumpCPP
         , modelFiles = []
         , dataFiles = []
+        , deqFiles = []
         , onlyShowHelp = False
         , gnuplot = False
         , outFile = ""
@@ -64,10 +68,16 @@ options = OptSpec
         $ NoArg \s -> Right s { command = DumpCPP }
 
       , Option [] ["sim-ode"]
-        "Solve using GSL's ODE solver"
+        "Solve a model using GSL's ODE solver"
         $ ReqArg "START:STEP:END"
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
+
+      , Option [] ["sim-ode-deq"]
+        "Solve a system of differential equations using GSL's ODE solver"
+        $ ReqArg "START:STEP:END"
+          \a s -> do (start,step,end) <- parseODETimes a
+                     Right s { command = SimulateODEDEQ start step end }
 
       , Option [] ["fit"]
         "Fit model parameters with optional residual scaling"
@@ -88,6 +98,15 @@ options = OptSpec
                                     _ -> FitModel [] (Map.singleton x d)
                      Right s { command = newCmd }
 
+      , Option [] ["fit-deq"]
+        "Fit diffeq parameters with optional residual scaling"
+        $ ReqArg "PNAME"
+          \a s -> let newCommand = 
+                        case command s of
+                          FitDiffEqs ps mp -> FitDiffEqs (Text.pack a:ps) mp
+                          _ ->                FitDiffEqs [Text.pack a] Map.empty
+                  in  Right s { command = newCommand }
+
       , Option [] ["error-ode"]
         "Compute difference between model and data"
         $ NoArg \s -> Right s { command = ComputeError }
@@ -103,6 +122,10 @@ options = OptSpec
       , Option ['d'] ["data"]
         "Use this data series"
         $ ReqArg "FILE" \a s -> Right s { dataFiles = a : dataFiles s }
+
+      , Option ['q'] ["diffeq"]
+        "Use this DiffEq set"
+        $ ReqArg "FILE" \a s -> Right s { deqFiles = a : deqFiles s}
 
       , Option ['o'] ["output"]
         "Use this output file"
