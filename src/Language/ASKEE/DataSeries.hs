@@ -18,6 +18,7 @@ module Language.ASKEE.DataSeries
   , dsColumns
   , foldDataSeries
   , foldDataSeriesWithTime
+  , dsLookup
   ) where
 
 import Data.Text(Text)
@@ -86,7 +87,11 @@ foldDataSeries ::
   (a -> b -> b) -> Map Text b -> DataSeries a -> Map Text b
 foldDataSeries f = foldDataSeriesWithTime (\_ -> f)
 
-
+dsLookup :: DataSeries a -> Double -> Map Text a
+dsLookup ds t = getVal <$> values ds
+  where getVal vs = case [ v | (t',v) <- zip (times ds) vs, t' >= t ] of
+                      v : _ -> v
+                      []    -> last vs
 
 
 
