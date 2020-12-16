@@ -1,10 +1,17 @@
 {-# Language PatternSynonyms, ApplicativeDo, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Core where
 
 import Data.Text(Text)
+import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Functor.Identity(runIdentity)
+
+import Language.ASKEE.Panic (panic)
+
+import qualified Text.PrettyPrint as PP
+import Text.Printf (printf)
 
 type Ident = Text
 
@@ -63,6 +70,24 @@ pattern (:-:) e1 e2 = Op2 Sub e1 e2
 
 pattern (:*:) :: Expr -> Expr -> Expr
 pattern (:*:) e1 e2 = Op2 Mul e1 e2
+
+pattern (:/:) :: Expr -> Expr -> Expr
+pattern (:/:) e1 e2 = Op2 Div e1 e2
+
+pattern (:<:) :: Expr -> Expr -> Expr
+pattern (:<:) e1 e2 = Op2 Lt e1 e2
+
+pattern (:<=:) :: Expr -> Expr -> Expr
+pattern (:<=:) e1 e2 = Op2 Leq e1 e2
+
+pattern (:==:) :: Expr -> Expr -> Expr
+pattern (:==:) e1 e2 = Op2 Eq e1 e2
+
+pattern (:&&:) :: Expr -> Expr -> Expr
+pattern (:&&:) e1 e2 = Op2 And e1 e2
+
+pattern (:||:) :: Expr -> Expr -> Expr
+pattern (:||:) e1 e2 = Op2 Or e1 e2
 
 pattern BoolLit :: Bool -> Expr
 pattern BoolLit x = Literal (Bool x)
@@ -133,3 +158,60 @@ substExpr su expr =
     Var x | Just e <- Map.lookup x su -> e
     _ -> mapExprs (substExpr su) expr
 
+
+ppExpr :: Expr -> PP.Doc
+ppExpr expr =
+  case expr of
+    NumLit d -> PP.text $ printf "%f" d
+    BoolLit b -> if b then "true" else "false"
+    Op1 Neg e' -> "-"PP.<>PP.parens (pp e')
+    Op1 Not e' -> "not"PP.<+>PP.parens (pp e')
+    e1 :+: e2 -> sepWith "+" [pp e1, pp e2]
+    e1 :-: e2 -> sepWith "-" [pp e1, pp e2]
+    e1 :*: e2 -> sepWith "*" [pp e1, pp e2]
+    e1 :/: e2 -> sepWith "/" [pp e1, pp e2]
+    e1 :<: e2 -> sepWith "<" [pp e1, pp e2]
+    e1 :<=: e2 -> sepWith "<=" [pp e1, pp e2]
+    e1 :==: e2 -> sepWith "==" [pp e1, pp e2]
+    e1 :&&: e2 -> sepWith "and" [pp e1, pp e2]
+    e1 :||: e2 -> sepWith "or" [pp e1, pp e2]
+    Var v -> PP.text $ Text.unpack v
+    If e1 e2 e3 -> PP.hsep ["if", pp e1, "then", pp e2, "else", pp e3]
+    Fail s -> error s -- XXX
+    _ -> 
+      panic 
+        "encountered unknown Core expression when pretty-printing" 
+        [ show expr ]
+
+  where
+    pp :: Expr -> PP.Doc
+    pp e = 
+      if prec e > prec expr
+        then PP.parens (ppExpr e)
+        else            ppExpr e
+
+    sepWith op = PP.hsep . PP.punctuate op
+
+    prec :: Expr -> Int
+    prec e =
+      case e of
+        NumLit  _ -> 0
+        BoolLit _ -> 0
+        Op1 Neg _ -> 10
+        Op1 Not _ -> 10
+        _ :+:   _ -> 6
+        _ :-:   _ -> 6
+        _ :*:   _ -> 7
+        _ :/:   _ -> 7
+        _ :<:   _ -> 4
+        _ :<=:  _ -> 4
+        _ :==:  _ -> 4
+        _ :&&:  _ -> 3
+        _ :||:  _ -> 3
+        Var     _ -> 0
+        If     {} -> 1
+        Fail s    -> error s -- XXX
+        _ -> 
+          panic 
+            "encountered unknown Core expression when pretty-printing" 
+            [ "while determining precedence", show e ]
