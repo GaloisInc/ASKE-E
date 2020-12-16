@@ -2,6 +2,7 @@
 module Main(main) where
 
 import qualified Data.Map as Map
+import Data.Text(Text)
 import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..),throwIO)
 import Control.Monad(when,forM_,(>=>))
@@ -11,7 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showFFloat)
 
 import Language.ASKEE
-import Language.ASKEE.Core.DiffEq(asEquationSystem)
+import Language.ASKEE.Core.DiffEq(asEquationSystem,DiffEqs)
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
 
@@ -35,18 +36,8 @@ main =
             genCppRunner
 
        SimulateODE x y z ->
-         do res <- simODE opts x y z
-            let bs    = DS.encodeDataSeries res
-                ofile = outFile opts
-            if null ofile
-              then LBS.putStrLn bs
-              else LBS.writeFile (outFile opts) bs
-            when (gnuplot opts && not (null ofile)) $
-              writeFile (replaceExtension ofile "gnuplot")
-                $ gnuPlotScript res ofile
-
-       SimulateODEDEQ x y z ->
-         do res <- simODEDEQ opts x y z
+         do m <- exactlyOne "model" =<< loadDiffEqs opts []
+            let res = simODE m x y z
             let bs    = DS.encodeDataSeries res
                 ofile = outFile opts
             if null ofile
@@ -57,23 +48,20 @@ main =
                 $ gnuPlotScript res ofile
 
        ComputeError ->
-          forM_ (modelFiles opts) \m ->
-            do putStrLn ("model: " ++ show m)
-               model <- either fail pure <$> genCoreModel m []
-               eqs <- asEquationSystem <$> model
-               forM_ (dataFiles opts) \d ->
-                 do putStrLn ("  data: " ++ show d)
-                    ds <- DS.parseDataSeriesFromFile d
-                    let errs = ODE.computeErrorPerVar
-                             $ ODE.modelSquareError eqs ds Map.empty
-                    forM_ (Map.toList errs) \(x,e) ->
-                      putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
+         do eqss <- loadDiffEqs opts []
+            forM_ eqss \eqs ->
+              forM_ (dataFiles opts) \d ->
+                do putStrLn ("  data: " ++ show d)
+                   ds <- DS.parseDataSeriesFromFile d
+                   let errs = ODE.computeErrorPerVar
+                            $ ODE.modelSquareError eqs ds Map.empty
+                   forM_ (Map.toList errs) \(x,e) ->
+                     putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
 
        FitModel ps scale ->
-         case (modelFiles opts, dataFiles opts) of
-           ([mf],[df]) ->
-              do model <- either fail pure <$> genCoreModel mf ps
-                 eqs <- asEquationSystem <$> model
+         case dataFiles opts of
+           [df] ->
+              do eqs <- exactlyOne "model" =<< loadDiffEqs opts ps
                  ds  <- DS.parseDataSeriesFromFile df
                  let (res,work) = ODE.fitModel eqs ds scale
                                           (Map.fromList (zip ps (repeat 0)))
@@ -99,36 +87,6 @@ main =
            _ -> throwIO (GetOptException
                            ["Fitting needs 1 model and 1 data file. (for now)"])
 
-       FitDiffEqs ps scale ->
-          case (deqFiles opts, dataFiles opts) of
-            ([deqF],[dataF]) ->
-              do  checkEqs <- either fail pure <$> loadEquations deqF ps
-                  eqs <- checkEqs
-                  ds  <- DS.parseDataSeriesFromFile dataF
-                  let (res,work) = 
-                        ODE.fitModel 
-                          eqs ds scale (Map.fromList (zip ps (repeat 0)))
-                      see n xs =
-                        do putStrLn n
-                           forM_ (Map.toList xs) \(x,(y,e)) ->
-                               putStrLn ("let " ++ Text.unpack x ++
-                                         " = " ++
-                                         showFFloat (Just 4) y
-                                            (" # error = " ++ showFFloat (Just 4) e "")
-                                        )
-                  forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
-                        do putStrLn ("-- Step " ++ show n ++ " --")
-                           forM_ (Map.toList ys) \(x,y) ->
-                               putStrLn ("let " ++ Text.unpack x ++
-                                         " = " ++
-                                         showFFloat (Just 4) y "")
-
-                  see "Result:" res
-
-            _ -> 
-              throwIO $
-                GetOptException
-                  ["Fitting needs 1 model and 1 data file. (for now)"]
 
   `catches`
   [ Handler  \(GetOptException errs) ->
@@ -139,23 +97,27 @@ main =
                  exitFailure
   ]
 
+exactlyOne :: String -> [a] -> IO a
+exactlyOne thing xs =
+  case xs of
+    [a] -> pure a
+    _   -> throwIO (GetOptException [ "Expected exactly 1 " ++ thing ])
 
 
-simODE :: Options -> Double -> Double -> Double -> IO (DS.DataSeries Double)
-simODE opts start step end =
-  do let file = head (modelFiles opts)
-     model <- either fail pure <$> genCoreModel file []
-     m <- asEquationSystem <$> model
-     let times = takeWhile (<= end) (iterate (+ step) start)
-     pure (ODE.simulate m Map.empty times)
+loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
+loadDiffEqs opts params =
+  do ms1 <- mapM fromDiffEq (deqFiles opts)
+     ms2 <- mapM fromModel  (modelFiles opts)
+     pure (ms1 ++ ms2)
 
-simODEDEQ :: Options -> Double -> Double -> Double -> IO (DS.DataSeries Double)
-simODEDEQ opts start step end =
-  do  let file = head (deqFiles opts)
-      checkEqs <- either fail pure <$> loadEquations file []
-      eqs <- checkEqs
-      let times = takeWhile (<= end) (iterate (+ step) start)
-      pure (ODE.simulate eqs Map.empty times)
+  where
+  fromDiffEq file = either fail pure =<< loadEquations file params
+  fromModel file  = either fail (pure . asEquationSystem) =<<
+                                                      genCoreModel file params
+
+simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
+simODE m start step end = ODE.simulate m Map.empty times
+  where times = takeWhile (<= end) (iterate (+ step) start)
 
 gnuPlotScript :: DS.DataSeries Double -> FilePath -> String
 gnuPlotScript ds f =

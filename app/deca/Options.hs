@@ -12,7 +12,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
 import Control.Exception(throwIO)
-import Control.Monad(when,unless)
+import Control.Monad(when)
 
 import SimpleGetOpt
 
@@ -22,9 +22,7 @@ data Command =
   | OnlyCheck
   | DumpCPP
   | SimulateODE Double Double Double
-  | SimulateODEDEQ Double Double Double
   | FitModel [Text] (Map Text Double)
-  | FitDiffEqs [Text] (Map Text Double)
   | ComputeError
 
 data Options = Options
@@ -73,12 +71,6 @@ options = OptSpec
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
 
-      , Option [] ["sim-ode-deq"]
-        "Solve a system of differential equations using GSL's ODE solver"
-        $ ReqArg "START:STEP:END"
-          \a s -> do (start,step,end) <- parseODETimes a
-                     Right s { command = SimulateODEDEQ start step end }
-
       , Option [] ["fit"]
         "Fit model parameters with optional residual scaling"
         $ ReqArg "PNAME"
@@ -97,15 +89,6 @@ options = OptSpec
                                          FitModel ps (Map.insert x d mp)
                                     _ -> FitModel [] (Map.singleton x d)
                      Right s { command = newCmd }
-
-      , Option [] ["fit-deq"]
-        "Fit diffeq parameters with optional residual scaling"
-        $ ReqArg "PNAME"
-          \a s -> let newCommand = 
-                        case command s of
-                          FitDiffEqs ps mp -> FitDiffEqs (Text.pack a:ps) mp
-                          _ ->                FitDiffEqs [Text.pack a] Map.empty
-                  in  Right s { command = newCommand }
 
       , Option [] ["error-ode"]
         "Compute difference between model and data"
@@ -165,13 +148,6 @@ getOptions =
      when (onlyShowHelp opts)
        do showHelp
           throwIO (GetOptException [])
-
-     case command opts of
-       SimulateODE {} ->
-         unless (length (modelFiles opts) == 1)
-            $ throwIO
-            $ GetOptException ["Simulation expects a single model file"]
-       _ -> pure ()
 
      when (gnuplot opts && null (outFile opts))
        $ throwIO (GetOptException ["gnuplot requires an output file"])
