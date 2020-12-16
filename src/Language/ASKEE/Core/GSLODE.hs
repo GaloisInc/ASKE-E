@@ -45,7 +45,8 @@ simulate eqs paramVs ts =
   rows = LinAlg.toList <$> LinAlg.toColumns resMatrix
 
 
--- | Compute the square of the difference between the model and the data.
+-- | Compute the difference between the model and the data, using
+-- the provided functions.
 modelErrorWith ::
   (Ident -> Double -> Double -> Double) {- ^ how to compute difference -} ->
   DiffEqs -> DataSeries Double -> Map Ident Double -> DataSeries Double
@@ -80,13 +81,16 @@ residualChange err eqs ds ps = LinAlg.fromColumns (map change (deqParams eqs))
   here     = mkErr paramMap
   change p = (mkErr (Map.adjust (+1) p paramMap) - here)
 
--- | Create an computation environment from a vector of parameters.
+-- | Create a computation environment from a vector of parameters.
 paramsFromVector :: [Ident] -> LinAlg.Vector Double -> Map Ident Double
 paramsFromVector ps vs = Map.fromList (ps `zip` LinAlg.toList vs)
 
 paramsToVector :: [Ident] -> Map Ident Double -> LinAlg.Vector Double
 paramsToVector ps vs = LinAlg.fromList [ vs Map.! p | p <- ps ]
 
+-- | Joins together all values for all variables.
+-- For example { x := [1,2,3], y := [5,6,7] } results in [1,2,3,5,6,7]
+-- This is used to estimate residuals
 dsToVector :: DataSeries Double -> LinAlg.Vector Double
 dsToVector = LinAlg.fromList . concat . Map.elems . values
 
