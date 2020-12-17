@@ -9,7 +9,7 @@ import Control.Monad(when,forM_,(>=>))
 import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
-import Numeric(showFFloat)
+import Numeric(showGFloat)
 
 import Language.ASKEE
 import Language.ASKEE.Core.DiffEq(asEquationSystem,DiffEqs)
@@ -63,24 +63,22 @@ main =
            [df] ->
               do eqs <- exactlyOne "model" =<< loadDiffEqs opts ps
                  ds  <- DS.parseDataSeriesFromFile df
+                 let showF f = showGFloat Nothing f ""
                  let (res,work) = ODE.fitModel eqs ds scale
                                           (Map.fromList (zip ps (repeat 0)))
                      see n xs =
                        do putStrLn n
                           forM_ (Map.toList xs) \(x,(y,e)) ->
                               putStrLn ("let " ++ Text.unpack x ++
-                                        " = " ++
-                                        showFFloat (Just 4) y
-                                           (" # error = " ++ showFFloat (Just 4) e "")
+                                        " = " ++ showF y ++
+                                        " # error = " ++ showF e
                                        )
                  forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
                        do putStrLn ("-- Step " ++ show n ++ " --")
                           forM_ (Map.toList ys) \(x,y) ->
                               putStrLn ("let " ++ Text.unpack x ++
-                                        " = " ++
-                                        showFFloat (Just 4) y "")
+                                        " = " ++ showF y)
  
-
 
                  see "Result:" res
 
