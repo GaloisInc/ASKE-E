@@ -64,9 +64,11 @@ modelSquareError =
 
 -- | Add up all the errors for each veriable
 computeErrorPerVar :: DataSeries Double -> Map Ident Double
-computeErrorPerVar errs = foldDataSeries (+) startErr errs
+computeErrorPerVar errs = postProc <$> foldDataSeries (+) startErr errs
   where
   startErr = const 0 <$> values errs
+  numPts   = fromIntegral (length (times errs))
+  postProc = (/numPts) . sqrt
 
 
 fitModel ::
@@ -104,8 +106,8 @@ fitModel eqs ds scaled start =
   deriv vs =
     let pmap     = psFromVec vs
         here     = simWith pmap
-        delta    = 1e-6
-        change p = fmap (/delta)
+        delta    = 1e-4
+        change p = fmap (/ delta)
                  $ zipAligned (-) (simWith (Map.adjust (+delta) p pmap)) here
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]

@@ -78,9 +78,13 @@ main =
                           forM_ (Map.toList ys) \(x,y) ->
                               putStrLn ("let " ++ Text.unpack x ++
                                         " = " ++ showF y)
- 
 
                  see "Result:" res
+                 let totalErr = ODE.computeErrorPerVar
+                              $ ODE.modelSquareError eqs ds (fst <$> res)
+                 forM_ (Map.toList totalErr) \(x,e) ->
+                    putStrLn $ "# error in " ++ Text.unpack x ++
+                                                        " = " ++ showF e
 
            _ -> throwIO (GetOptException
                            ["Fitting needs 1 model and 1 data file. (for now)"])
