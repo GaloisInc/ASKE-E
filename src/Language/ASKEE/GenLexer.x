@@ -19,7 +19,8 @@ $lower = [a-z]
 $digit = [0-9]
 $ws    = [\ ]
 
-@real    = $digit+ (\. $digit+)?
+@exp     = e [\+\-]? $digit+
+@real    = $digit+ (\. $digit+)? @exp?
 @ident   = [A-Za-z0-9_]
 @lowerID = $lower @ident*
 @upperID = $upper @ident*
