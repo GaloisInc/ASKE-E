@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# OPTOINS_GHC -Wno-name-shadowing #-}
 -- | Convert a core model to a system of differentila equations
 module Language.ASKEE.Core.DiffEq where
 
 import Data.Map(Map)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Maybe(mapMaybe)
 import Data.Text (unpack)
 
@@ -23,6 +26,13 @@ data DiffEqs = DiffEqs
   }
   deriving Show
 
+instance TraverseExprs DiffEqs where
+  traverseExprs f DiffEqs { .. } =
+    do deqInitial <- traverse f deqInitial
+       deqState   <- traverse f deqState
+       deqLet     <- traverse f deqLet
+       pure DiffEqs { .. }
+
 asEquationSystem :: Model -> DiffEqs
 asEquationSystem mdl =
   DiffEqs { deqParams  = modelParams mdl
@@ -35,6 +45,17 @@ asEquationSystem mdl =
                $ foldr (:+:) (NumLit 0)
                $ mapMaybe (eventTerm sv)
                $ modelEvents mdl
+
+
+-- | Instantiate some of the model parameters
+applyParams :: Map Ident Expr -> DiffEqs -> DiffEqs
+applyParams su = dropParams . mapExprs (substExpr su)
+  where
+  dropParams m = m { deqParams = [ x | x <- deqParams m
+                                 , not (x `Set.member` pSet) ] }
+  pSet = Map.keysSet su
+
+
 
 
 -- Eventually we may want to consider approaches to try to make guard

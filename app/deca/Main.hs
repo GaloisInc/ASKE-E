@@ -5,14 +5,16 @@ import qualified Data.Map as Map
 import Data.Text(Text)
 import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..),throwIO)
-import Control.Monad(when,forM_,(>=>))
+import Control.Monad(when,forM_)
 import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
 import Language.ASKEE
-import Language.ASKEE.Core.DiffEq(asEquationSystem,DiffEqs)
+import qualified Language.ASKEE.Core as Core
+import Language.ASKEE.Core.DiffEq(DiffEqs)
+import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
 
@@ -23,22 +25,20 @@ main =
   do opts <- getOptions
      case command opts of
        OnlyLex -> 
-          forM_ (modelFiles opts) $ 
-            lexModel >=> either fail print
+          forM_ (modelFiles opts) lexModel
        OnlyParse -> 
-          forM_ (modelFiles opts) $ 
-            parseModel >=> either fail print
+          forM_ (modelFiles opts) parseModel
        OnlyCheck ->
-          forM_ (modelFiles opts)
-            checkModel
+          forM_ (modelFiles opts) loadModel
        DumpCPP -> 
           forM_ (modelFiles opts) 
             genCppRunner
 
        SimulateODE x y z ->
-         do m <- exactlyOne "model" =<< loadDiffEqs opts []
-            let res = simODE m x y z
-            let bs    = DS.encodeDataSeries res
+         do m0 <- exactlyOne "model" =<< loadDiffEqs opts []
+            let m     = DiffEq.applyParams (Core.NumLit <$> overwrite opts) m0
+                res   = simODE m x y z
+                bs    = DS.encodeDataSeries res
                 ofile = outFile opts
             if null ofile
               then LBS.putStrLn bs
@@ -107,15 +107,16 @@ exactlyOne thing xs =
 
 
 loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
-loadDiffEqs opts params =
-  do ms1 <- mapM fromDiffEq (deqFiles opts)
-     ms2 <- mapM fromModel  (modelFiles opts)
+loadDiffEqs opts ps0 =
+  do ms1 <- mapM (`loadEquations` params) (deqFiles opts)
+     ms2 <- mapM fromModel                (modelFiles opts)
      pure (ms1 ++ ms2)
-
   where
-  fromDiffEq file = either fail pure =<< loadEquations file params
-  fromModel file  = either fail (pure . asEquationSystem) =<<
-                                                      genCoreModel file params
+  params = Map.keys (overwrite opts) ++ ps0
+
+  fromModel file =
+    do m <- loadCoreModel file params
+       pure (DiffEq.asEquationSystem m)
 
 simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
 simODE m start step end = ODE.simulate m Map.empty times

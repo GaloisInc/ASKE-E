@@ -32,6 +32,7 @@ data Options = Options
   , deqFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
+  , overwrite :: Map Text Double
   , onlyShowHelp :: Bool
   }
 
@@ -45,6 +46,7 @@ options = OptSpec
         , deqFiles = []
         , onlyShowHelp = False
         , gnuplot = False
+        , overwrite = Map.empty
         , outFile = ""
         }
 
@@ -89,6 +91,12 @@ options = OptSpec
                                          FitModel ps (Map.insert x d mp)
                                     _ -> FitModel [] (Map.singleton x d)
                      Right s { command = newCmd }
+
+      , Option [] ["let"]
+        "Overwrite the value of a constant in the model."
+        $ ReqArg "VNAME:DOUBLE"
+        \a s -> do (x,d) <- parseOverwrite a
+                   Right s { overwrite = Map.insert x d (overwrite s) }
 
       , Option [] ["error-ode"]
         "Compute difference between model and data"
@@ -140,6 +148,12 @@ parseScale xs =
   case break (=='*') xs of
     (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
     _ -> Left "Invalid value for scale-fit"
+
+parseOverwrite :: String -> Either String (Text,Double)
+parseOverwrite xs =
+  case break (==':') xs of
+    (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
+    _ -> Left "Invalid overwite, format is NAME:DOUBLE"
 
 
 getOptions :: IO Options

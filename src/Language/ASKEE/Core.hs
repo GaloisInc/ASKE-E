@@ -6,6 +6,7 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.Functor.Identity(runIdentity)
 
 import Language.ASKEE.Panic (panic)
@@ -149,6 +150,14 @@ inlineLets model = model { modelEvents = map substEvent (modelEvents model)
   su         = substExpr su <$> modelLets model
   substEvent = mapExprs (substExpr su)
 
+
+-- | Instantiate some of the model parameters
+applyParams :: Map Ident Expr -> Model -> Model
+applyParams su = dropParams . mapExprs (substExpr su)
+  where
+  dropParams m = m { modelParams = [ x | x <- modelParams m
+                                       , not (x `Set.member` pSet) ] }
+  pSet = Map.keysSet su
 
 
 -- | Replace variable with expressions as specified by the map.

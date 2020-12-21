@@ -1,14 +1,15 @@
 {-# Language OverloadedStrings #-}
 
-module Language.ASKEE ( lexModel
-                      , parseModel
-                      , loadModel
-                      , loadEquations
-                      , checkModel
-                      , genCppRunner
-                      , genCoreModel ) where
-  
-import           Control.Monad ((>=>))
+module Language.ASKEE
+  ( lexModel
+  , parseModel
+  , loadModel
+  , loadCoreModel
+  , loadEquations
+  , genCppRunner
+  ) where
+
+import           Control.Exception(Exception(..),throwIO)
 
 import qualified Data.Map as Map
 import           Data.Text (Text)
@@ -25,62 +26,62 @@ import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 
+data ParseError      = ParseError String deriving Show
+data ValidationError = ValidationError String deriving Show
+
+instance Exception ParseError
+instance Exception ValidationError
+
 -- | Just lex
-lexModel :: FilePath -> IO (Either String [Located Token])
-lexModel = readFile >=> pure . AL.lexModel
+lexModel :: FilePath -> IO [Located Token]
+lexModel file =
+  do txt <- readFile file
+     case AL.lexModel txt of
+       Left err -> throwIO (ParseError err)
+       Right a  -> pure a
 
---  Just lex and parse
-parseModel :: FilePath -> IO (Either String Syntax.Model)
-parseModel file = 
+--  | Just lex and parse, throws `ParseErrror`
+parseModel :: FilePath -> IO Syntax.Model
+parseModel file =
   do  toks <- lexModel file
-      pure $ AP.parseModel =<< toks
+      case AP.parseModel toks of
+        Left err -> throwIO (ParseError err)
+        Right a  -> pure a
 
--- | Don't bother failing gracefully on lex or parse errors
-unsafeparseModel :: FilePath -> IO Syntax.Model
-unsafeparseModel file =
-  do  Right toks <- lexModel file
-      let Right model = AP.parseModel toks
-      pure model
-
--- | Just lex, parse, and check
-checkModel :: FilePath -> IO ()
-checkModel file = 
-  do  result <- loadModel file
-      either putStrLn (const (putStrLn $ "no issues found in "<>file<>"!")) result
-
--- | The intended entrypoint for fetching a model
-loadModel :: FilePath -> IO (Either String Syntax.Model)
+-- | Lex, parse, and validate a model.
+loadModel :: FilePath -> IO Syntax.Model
 loadModel file =
-  do  model <- parseModel file
-      pure $ Check.checkModel =<< model
+  do  m <- parseModel file
+      case Check.checkModel m of
+        Left err -> throwIO (ValidationError err)
+        Right m1 -> pure m1
+
+-- | Load a model and translate it to core.
+loadCoreModel :: FilePath -> [Text] -> IO Core.Model
+loadCoreModel file ps =
+  do  model <- loadModel file
+      case modelAsCore ps model of
+        Left err -> throwIO (ValidationError err)
+        Right a  -> pure a
+
 
 -- | The intended entrypoint for fetching a system of differential equations
--- `params` are used to determine which `let`s to inline, for fitting purposes
-loadEquations :: FilePath -> [Text] -> IO (Either String DiffEqs)
+-- `params` are the names of `lets` that should be treated as parameters
+-- (i.e., their definitions are ignored)
+loadEquations :: FilePath -> [Text] -> IO DiffEqs
 loadEquations file params =
-  do  toksE <- lexModel file
-      let deqs = do toks <- toksE
-                    eqs <- AP.parseDEQs toks
-                    -- Inline all `let`s that we haven't designated as parameters
-                    let lets = foldr Map.delete (deqLet eqs) params
-                        inlineLets = Core.substExpr lets
-                        eqs' = eqs { deqInitial = Map.map inlineLets (deqInitial eqs)
-                                   , deqState   = Map.map inlineLets (deqState eqs) 
-                                   , deqParams  = params
-                                   }
-                    pure eqs'
-      pure deqs
-
-genCoreModel :: FilePath -> [Text] -> IO (Either String Core.Model)
-genCoreModel file ps =
-  do  modelE <- loadModel file
-      pure $ modelAsCore ps =<< modelE
+  do  toks <- lexModel file
+      eqs <- case AP.parseDEQs toks of
+               Left err -> throwIO (ParseError err)
+               Right a  -> pure a
+      let lets = foldr Map.delete (deqLet eqs) params
+          inlineLets = Core.substExpr lets
+      pure (Core.mapExprs inlineLets eqs)
 
 genCppRunner :: FilePath -> IO ()
 genCppRunner fp =
-  do  compiledE <- genCoreModel fp []
-      compiled <- either fail pure compiledE
-      print $ MG.genSimulationRunnerCpp compiled 100.0 m4
+  do compiled <- loadCoreModel fp []
+     print $ MG.genSimulationRunnerCpp compiled 100.0 m4
   where
     m1 :: M.Measure
     m1 = M.EventBased
@@ -108,8 +109,7 @@ genCppRunner fp =
 
 dumpCppModel :: FilePath -> FilePath -> IO ()
 dumpCppModel file output =
-  do  compiledE <- genCoreModel file []
-      compiled <- either fail pure compiledE
+  do  compiled <- loadCoreModel file []
       let rendered = show (SG.genModel compiled)
       writeFile output rendered
       putStrLn "compiled!"
