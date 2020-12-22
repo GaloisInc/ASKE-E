@@ -76,6 +76,16 @@ executable deca
   default-language:    Haskell2010
   ghc-options:         -Wall
 
+executable donu
+  hs-source-dirs:      app/donu
+  main-is:             Main.hs
+  build-depends:       base, containers, snap-server, snap-core, aske-e,
+                       text, bytestring, aeson
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+
+
 
 test-suite test-model-check
   type:                exitcode-stdio-1.0
