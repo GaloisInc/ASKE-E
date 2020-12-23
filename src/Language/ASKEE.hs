@@ -7,12 +7,14 @@ module Language.ASKEE
   , loadCoreModel
   , loadEquations
   , genCppRunner
+  , DataSource(..)
   ) where
 
 import           Control.Exception(Exception(..),throwIO)
 
 import qualified Data.Map as Map
 import           Data.Text (Text)
+import qualified Data.Text as Text
 
 import qualified Language.ASKEE.Check as Check
 import qualified Language.ASKEE.Core as Core
@@ -32,16 +34,27 @@ data ValidationError = ValidationError String deriving Show
 instance Exception ParseError
 instance Exception ValidationError
 
+data DataSource =
+    FromFile FilePath
+  | Inline Text
+    deriving Show
+
+loadString :: DataSource -> IO String
+loadString source =
+  case source of
+    FromFile file -> readFile file
+    Inline txt    -> pure (Text.unpack txt)
+
 -- | Just lex
-lexModel :: FilePath -> IO [Located Token]
+lexModel :: DataSource -> IO [Located Token]
 lexModel file =
-  do txt <- readFile file
+  do txt <- loadString file
      case AL.lexModel txt of
        Left err -> throwIO (ParseError err)
        Right a  -> pure a
 
 --  | Just lex and parse, throws `ParseErrror`
-parseModel :: FilePath -> IO Syntax.Model
+parseModel :: DataSource -> IO Syntax.Model
 parseModel file =
   do  toks <- lexModel file
       case AP.parseModel toks of
@@ -49,7 +62,7 @@ parseModel file =
         Right a  -> pure a
 
 -- | Lex, parse, and validate a model.
-loadModel :: FilePath -> IO Syntax.Model
+loadModel :: DataSource -> IO Syntax.Model
 loadModel file =
   do  m <- parseModel file
       case Check.checkModel m of
@@ -57,7 +70,7 @@ loadModel file =
         Right m1 -> pure m1
 
 -- | Load a model and translate it to core.
-loadCoreModel :: FilePath -> [Text] -> IO Core.Model
+loadCoreModel :: DataSource -> [Text] -> IO Core.Model
 loadCoreModel file ps =
   do  model <- loadModel file
       case modelAsCore ps model of
@@ -68,7 +81,7 @@ loadCoreModel file ps =
 -- | The intended entrypoint for fetching a system of differential equations
 -- `params` are the names of `lets` that should be treated as parameters
 -- (i.e., their definitions are ignored)
-loadEquations :: FilePath -> [Text] -> IO DiffEqs
+loadEquations :: DataSource -> [Text] -> IO DiffEqs
 loadEquations file params =
   do  toks <- lexModel file
       eqs <- case AP.parseDEQs toks of
@@ -78,7 +91,7 @@ loadEquations file params =
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
 
-genCppRunner :: FilePath -> IO ()
+genCppRunner :: DataSource -> IO ()
 genCppRunner fp =
   do compiled <- loadCoreModel fp []
      print $ MG.genSimulationRunnerCpp compiled 100.0 m4
@@ -107,7 +120,7 @@ genCppRunner fp =
        $ M.Do
        $ M.TraceExpr "i_trace" (Core.Var "time")
 
-dumpCppModel :: FilePath -> FilePath -> IO ()
+dumpCppModel :: DataSource -> FilePath -> IO ()
 dumpCppModel file output =
   do  compiled <- loadCoreModel file []
       let rendered = show (SG.genModel compiled)

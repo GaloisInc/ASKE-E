@@ -6,6 +6,8 @@ module SchemaGeneric
   ) where
 
 import Data.Text(Text)
+import Data.Set(Set)
+import qualified Data.Set as Set
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Control.Monad(liftM,ap)
@@ -63,11 +65,12 @@ data DocFormat d = DocFormat
 -- | Generate documentation for a value spec,
 -- using the given generation format.
 generateDocs :: DocFormat d -> ValueSpec a -> d
-generateDocs r v = docTopDoc r doc (map doDef (Map.toList defs))
+generateDocs r v = docTopDoc r doc (map doDef ordered)
   where
-  DocBuilder m = valueDocs v
-  (doc,defs)   = m r Map.empty
-  doDef (x,d)  = docDef r x d
+  DocBuilder m  = valueDocs v
+  (doc,(_,defs))= m (r,0) (Set.empty,Map.empty)
+  doDef (x,d)   = docDef r x d
+  ordered       = concat (Map.elems defs)
 
 valueDocs :: ValueSpec a -> DocBuilder d (DocAlts d)
 valueDocs = sequenceA . runValueSpec_ (fmap pure primValueDocs)
@@ -123,8 +126,8 @@ primValueDocs value =
 --------------------------------------------------------------------------------
 -- Doc Builders
 
-type R d                = DocFormat d
-type S d                = Map Text (DocAlts d)
+type R d                = (DocFormat d,Int) -- (format, depth)
+type S d                = (Set Text, Map Int [ (Text,DocAlts d) ])
 newtype DocBuilder d a  = DocBuilder (R d -> S d -> (a,S d))
 
 instance Functor (DocBuilder d) where
@@ -146,16 +149,17 @@ emitDoc ::
   Text           {- ^ section name     -} ->
   DocBuilder d (DocAlts d) {- ^ section body     -} ->
   DocBuilder d d {- ^ section name doc -}
-emitDoc l (DocBuilder sub) = DocBuilder \r s ->
-  let s1 = if Map.member l s
-              then s
-              else let (v,s2) = sub r (Map.insert l v s)
-                   in s2
-  in (docLabel r l, s1)
+emitDoc l (DocBuilder sub) = DocBuilder \(f,d) (done,mp) ->
+  let s1 = if Set.member l done
+              then (done,mp)
+              else let d1 = d + 1
+                       (v,(done1,mp1)) = sub (f,d1) (Set.insert l done,mp)
+                   in (done1,Map.insertWith (++) d1 [(l,v)] mp1)
+  in (docLabel f l, s1)
 
 -- | Access one of the document constructors
 format :: (DocFormat d -> a) -> DocBuilder d a
-format f = DocBuilder \r s -> (f r, s)
+format f = DocBuilder \(r,_) s -> (f r, s)
 
 
 

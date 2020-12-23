@@ -1,0 +1,13 @@
+#!/bin/bash
+
+CMD=$(cat <<JSON
+  { "command": "simulate"
+  , "model": "askee"
+  , "definition": { "file": "examples/askee/sir.askee" }
+  , "start": 0
+  , "end": 100
+  }
+JSON
+)
+
+curl localhost:8000/ --data "$CMD"

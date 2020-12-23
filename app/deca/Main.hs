@@ -25,14 +25,14 @@ main =
   do opts <- getOptions
      case command opts of
        OnlyLex -> 
-          forM_ (modelFiles opts) lexModel
+          forM_ (modelFiles opts) (lexModel . FromFile)
        OnlyParse -> 
-          forM_ (modelFiles opts) parseModel
+          forM_ (modelFiles opts) (parseModel . FromFile)
        OnlyCheck ->
-          forM_ (modelFiles opts) loadModel
+          forM_ (modelFiles opts) (loadModel . FromFile)
        DumpCPP -> 
           forM_ (modelFiles opts) 
-            genCppRunner
+            (genCppRunner . FromFile)
 
        SimulateODE x y z ->
          do m0 <- exactlyOne "model" =<< loadDiffEqs opts []
@@ -108,8 +108,8 @@ exactlyOne thing xs =
 
 loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
 loadDiffEqs opts ps0 =
-  do ms1 <- mapM (`loadEquations` params) (deqFiles opts)
-     ms2 <- mapM fromModel                (modelFiles opts)
+  do ms1 <- mapM (`loadEquations` params) (map FromFile (deqFiles opts))
+     ms2 <- mapM fromModel                (map FromFile (modelFiles opts))
      pure (ms1 ++ ms2)
   where
   params = Map.keys (overwrite opts) ++ ps0
