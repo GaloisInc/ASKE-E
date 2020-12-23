@@ -6,6 +6,10 @@ import Snap.Core(Snap)
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
+import qualified Data.ByteString.Char8 as BS8
+
+import Schema
+
 main :: IO ()
 main = quickHttpServe
   $ Snap.method Snap.GET
@@ -34,10 +38,11 @@ instance JS.ToJSON Output where
 
 
 showHelp :: Snap ()
-showHelp =
-  do Snap.writeBS ("show some help")
+showHelp = Snap.writeBS (BS8.pack $ generateDocsJS demoSpec)
 
 --------------------------------------------------------------------------------
 
 handleRequest :: Input -> Output
 handleRequest r = XXXout
+
+

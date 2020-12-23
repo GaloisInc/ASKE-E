@@ -79,8 +79,10 @@ executable deca
 executable donu
   hs-source-dirs:      app/donu
   main-is:             Main.hs
+  other-modules:       SchemaJS, SchemaGeneric, Schema
   build-depends:       base, containers, snap-server, snap-core, aske-e,
-                       text, bytestring, aeson
+                       text, bytestring, aeson, config-value, config-schema,
+                       scientific, pretty, vector
   default-language:    Haskell2010
   ghc-options:         -Wall
 
