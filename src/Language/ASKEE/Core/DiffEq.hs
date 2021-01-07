@@ -9,36 +9,19 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Maybe(mapMaybe)
-import Data.Text (unpack)
 
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Simplify(simplifyExpr)
+import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 
-import Text.PrettyPrint as PP
 
--- | A sysmte of differential equations.
--- The `let` equations are already inlined
-data DiffEqs = DiffEqs
-  { deqParams  :: [Ident]
-  , deqInitial :: Map Ident Expr
-  , deqState   :: Map Ident Expr      -- ^ These are the diff. eqns.
-  , deqLet     :: Map Ident Expr
-  }
-  deriving Show
-
-instance TraverseExprs DiffEqs where
-  traverseExprs f DiffEqs { .. } =
-    do deqInitial <- traverse f deqInitial
-       deqState   <- traverse f deqState
-       deqLet     <- traverse f deqLet
-       pure DiffEqs { .. }
 
 asEquationSystem :: Model -> DiffEqs
 asEquationSystem mdl =
   DiffEqs { deqParams  = modelParams mdl
           , deqInitial = modelInitState mdl
-          , deqState   = Map.mapWithKey stateEq (modelInitState mdl)
-          , deqLet     = modelLets mdl
+          , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
+          , deqLets    = modelLets mdl
           }
   where
   stateEq sv _ = simplifyExpr
@@ -67,12 +50,3 @@ eventTerm sv event =
               (eventRate event :*: (stExp :-: Var sv))
               (NumLit 0))
 
-
-ppDiffEqs :: DiffEqs -> Doc
-ppDiffEqs DiffEqs{..} = vcat [lets, initials, states]
-  where
-    initials = vcat $ map (binding "state") (Map.toList deqInitial)
-    states   = vcat $ map (binding "rate") (Map.toList deqState)
-    lets     = vcat $ map (binding "let") (Map.toList deqLet)
-
-    binding decl (i,e) = hsep [decl, text (unpack i), "=", ppExpr e]

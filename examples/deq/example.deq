@@ -5,12 +5,12 @@ let s_initial = 997
 let i_initial = 3
 let r_initial = 0
 
-state S = s_initial
-state I = i_initial
-state R = r_initial
+var S = s_initial
+var I = i_initial
+var R = r_initial
 
 let total_population = S + I + R
 
-rate S = -(beta * S * I / total_population)              
-rate I =  (beta * S * I / total_population) - (gamma * I)
-rate R =                                       gamma * I 
+d/dt S = -(beta * S * I / total_population)              
+d/dt I =  (beta * S * I / total_population) - (gamma * I)
+d/dt R =                                       gamma * I 

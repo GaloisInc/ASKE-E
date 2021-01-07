@@ -5,6 +5,8 @@ module Language.ASKEE
   , parseModel
   , loadModel
   , loadCoreModel
+  , lexEquations
+  , parseEquations
   , loadEquations
   , genCppRunner
   , DataSource(..)
@@ -18,7 +20,9 @@ import qualified Data.Text as Text
 
 import qualified Language.ASKEE.Check as Check
 import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.Core.DiffEq (DiffEqs(..))
+import qualified Language.ASKEE.DEQ.GenLexer as DL
+import qualified Language.ASKEE.DEQ.GenParser as DP
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
 import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
@@ -77,17 +81,32 @@ loadCoreModel file ps =
         Left err -> throwIO (ValidationError err)
         Right a  -> pure a
 
+-- | Lex a set of differential equations, throwing `ParseError` on error
+lexEquations :: DataSource -> IO [Located DL.Token]
+lexEquations file =
+  do  txt <- loadString file
+      case DL.lexDEQs txt of
+        Right toks -> pure toks
+        Left err -> throwIO (ParseError err)
+
+-- | Lex and parse a set of differential equations, throwing `ParseError` on error
+parseEquations :: DataSource -> IO DiffEqs
+parseEquations file =
+  do  toks <- lexEquations file
+      case DP.parseDEQs toks of
+        Right deqs -> pure deqs
+        Left err -> throwIO (ParseError err)
 
 -- | The intended entrypoint for fetching a system of differential equations
 -- `params` are the names of `lets` that should be treated as parameters
 -- (i.e., their definitions are ignored)
 loadEquations :: DataSource -> [Text] -> IO DiffEqs
 loadEquations file params =
-  do  toks <- lexModel file
-      eqs <- case AP.parseDEQs toks of
+  do  toks <- lexEquations file
+      eqs <- case DP.parseDEQs toks of
                Left err -> throwIO (ParseError err)
                Right a  -> pure a
-      let lets = foldr Map.delete (deqLet eqs) params
+      let lets = foldr Map.delete (deqLets eqs) params
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
 

@@ -14,7 +14,8 @@ import Snap.Http.Server (quickHttpServe)
 
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
-import Language.ASKEE.Core.DiffEq(DiffEqs)
+-- import Language.ASKEE.Core.DiffEq(DiffEqs)
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import Schema
@@ -71,7 +72,7 @@ loadDiffEqs ::
 loadDiffEqs mt src ps0 overwrite =
   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
   case mt of
-    DiffEqs    -> loadEquations src allParams
+    Schema.DiffEqs    -> loadEquations src allParams
     AskeeModel -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
   where
   allParams = Map.keys overwrite ++ ps0

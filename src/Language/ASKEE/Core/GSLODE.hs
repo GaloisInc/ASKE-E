@@ -11,7 +11,7 @@ import qualified Numeric.GSL.Fitting as FIT
 
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Eval(evalDouble)
-import Language.ASKEE.Core.DiffEq
+import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import Language.ASKEE.DataSeries
 
 
@@ -30,7 +30,7 @@ simulate eqs paramVs ts =
   -- XXX: evalute lets also?
 
   where
-  (xs,es) = unzip (Map.toList (deqState eqs))
+  (xs,es) = unzip (Map.toList (deqRates eqs))
   initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs) ]
 
   resMatrix = ODE.odeSolve (evalDiffEqs xs es paramVs)

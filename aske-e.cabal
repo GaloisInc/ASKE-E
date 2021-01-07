@@ -30,6 +30,11 @@ library
                      , Language.ASKEE.DiffEq.GenParser
                      , Language.ASKEE.DiffEq.DiffEq
                      , Language.ASKEE.DiffEq.DiffEqC
+                     , Language.ASKEE.DEQ.GenLexer
+                     , Language.ASKEE.DEQ.GenParser
+                     , Language.ASKEE.DEQ.Lexer
+                     , Language.ASKEE.DEQ.Syntax
+                     , Language.ASKEE.DEQ.Print
                      , Language.ASKEE.Reaction
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform

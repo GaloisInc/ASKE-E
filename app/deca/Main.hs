@@ -13,7 +13,7 @@ import Numeric(showGFloat)
 
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
-import Language.ASKEE.Core.DiffEq(DiffEqs)
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS

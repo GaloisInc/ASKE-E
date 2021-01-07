@@ -5,9 +5,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Text (Text)
 
-import qualified Language.ASKEE.DiffEq.GenLexer as DL
-import qualified Language.ASKEE.DiffEq.GenParser as DP
-import           Language.ASKEE.DiffEq.DiffEq (DiffEq, EqGen)
+import qualified Language.ASKEE.DEQ.GenLexer as DL
+import qualified Language.ASKEE.DEQ.GenParser as DP
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+
 import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
 import           Language.ASKEE.Lexer (Token, Located)
@@ -17,7 +18,6 @@ import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.Core.ImportASKEE(modelAsCore)
-import           Language.ASKEE.Core.DiffEq (DiffEqs)
 
 
 testLexModel :: FilePath -> IO [Located Token]
@@ -41,14 +41,21 @@ coreModel fp ps =
        Right a  -> pure a
        Left err -> fail err
 
+testLexDiffEqs :: FilePath -> IO [Located DL.Token]
+testLexDiffEqs fp =
+  do  txt <- readFile fp
+      case DL.lexDEQs txt of
+        Right toks -> pure toks
+        Left err -> fail err
+
 testParseDiffEqs :: FilePath -> IO DiffEqs
 testParseDiffEqs fp =
-  do  toks <- testLexModel fp
-      case AP.parseDEQs toks of
+  do  toks <- testLexDiffEqs fp
+      case DP.parseDEQs toks of
         Right deqs -> pure deqs
-        Left err -> error err
+        Left err -> fail err
 
-dump :: EqGen (Map Text [Double]) -> FilePath -> IO ()
+dump :: Either String (Map Text [Double]) -> FilePath -> IO ()
 dump ~(Right m) fp = writeFile fp $ show $ Map.toList m 
 
 sir, sirs, sirVD :: [Char]
@@ -56,8 +63,6 @@ sir = "examples/askee/sir.askee"
 sirs = "examples/askee/sirs.askee"
 sirVD = "examples/askee/sir-vd.askee"
 
-p :: String -> [DiffEq]
-p = DP.parse . DL.alexScanTokens
 
 genCppModel :: FilePath -> FilePath -> IO ()
 genCppModel fp output =
