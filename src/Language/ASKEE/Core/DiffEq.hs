@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# OPTOINS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 -- | Convert a core model to a system of differentila equations
 module Language.ASKEE.Core.DiffEq where
 
