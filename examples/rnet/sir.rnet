@@ -1,5 +1,5 @@
-let alpha = .1/1000
-let beta = .01
+let alpha = 0.1/1000.0
+let beta = 0.01
 
 alpha, S + I --> 2I
 beta,  I     --> R

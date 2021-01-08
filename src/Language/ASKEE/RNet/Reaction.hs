@@ -1,4 +1,4 @@
-module Language.ASKEE.Reaction where
+module Language.ASKEE.RNet.Reaction where
 
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -6,6 +6,7 @@ import Data.Text(Text)
 import Language.ASKEE.Expr ( Expr(..) )
 import qualified Data.Set as Set
 import qualified Language.ASKEE.Syntax as Syntax
+import Language.ASKEE.RNet.Syntax
 import qualified Data.List as List
 
 -- [1] https://catalyst.sciml.ai/stable/tutorials/basics/
@@ -23,17 +24,6 @@ guarded:
 
 -- for a surface syntax, we may also want to support the "multiple reactions in one line" from [1]
 -- TODO: fixed actions instead of mass actions
-data Reaction =
-  Reaction { reactionRate       :: Expr
-           , reactionType       :: ReactionRate
-           , reactionEnabled    :: Maybe Expr
-           , reactionSubstrates :: ReactionExp
-           , reactionProducts   :: ReactionExp 
-           } 
-
-data ReactionExp = Nil | ReactionTerms [ReactionTerm]
-data ReactionTerm = ReactionTerm Int Text
-data ReactionRate = MassAction | FixedRate
 
 reactionEffects :: ReactionExp -> ReactionExp -> Map Text Expr
 reactionEffects substrates products =

@@ -8,6 +8,8 @@ module Language.ASKEE
   , lexEquations
   , parseEquations
   , loadEquations
+  , lexReactions
+  , parseReactions
   , genCppRunner
   , DataSource(..)
   ) where
@@ -29,6 +31,9 @@ import qualified Language.ASKEE.GenParser as AP
 import           Language.ASKEE.Lexer (Token, Located)
 import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
+import qualified Language.ASKEE.RNet.GenLexer as RL
+import qualified Language.ASKEE.RNet.GenParser as RP
+import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 
@@ -109,6 +114,20 @@ loadEquations file params =
       let lets = foldr Map.delete (deqLets eqs) params
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
+
+lexReactions :: DataSource -> IO [Located RL.Token]
+lexReactions file = 
+  do  txt <- loadString file
+      case RL.lexRNet txt of
+        Right toks -> pure toks
+        Left err -> throwIO (ParseError err) 
+
+parseReactions :: DataSource -> IO ReactionNet
+parseReactions file =
+  do  toks <- lexReactions file
+      case RP.parseRNet toks of
+        Right deqs -> pure deqs
+        Left err -> throwIO (ParseError err)
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =

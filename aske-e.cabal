@@ -25,17 +25,25 @@ library
                      , Language.ASKEE.Print
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
+
                      , Language.ASKEE.DiffEq.Lexer
                      , Language.ASKEE.DiffEq.GenLexer
                      , Language.ASKEE.DiffEq.GenParser
                      , Language.ASKEE.DiffEq.DiffEq
                      , Language.ASKEE.DiffEq.DiffEqC
+
                      , Language.ASKEE.DEQ.GenLexer
                      , Language.ASKEE.DEQ.GenParser
                      , Language.ASKEE.DEQ.Lexer
                      , Language.ASKEE.DEQ.Syntax
                      , Language.ASKEE.DEQ.Print
-                     , Language.ASKEE.Reaction
+
+                     , Language.ASKEE.RNet.Reaction
+                     , Language.ASKEE.RNet.GenLexer
+                     , Language.ASKEE.RNet.GenParser
+                     , Language.ASKEE.RNet.Lexer
+                     , Language.ASKEE.RNet.Syntax
+
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
