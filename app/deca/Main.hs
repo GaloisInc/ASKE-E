@@ -17,6 +17,9 @@ import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
+import qualified Language.ASKEE.Print as PP
+import Language.ASKEE.RNet.Syntax (ReactionNet(..))
+import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
 
@@ -110,13 +113,23 @@ loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
 loadDiffEqs opts ps0 =
   do ms1 <- mapM (`loadEquations` params) (map FromFile (deqFiles opts))
      ms2 <- mapM fromModel                (map FromFile (modelFiles opts))
-     pure (ms1 ++ ms2)
+     ms3 <- mapM fromRNet                 (map FromFile (rnetFiles opts))
+     pure (ms1 ++ ms2 ++ ms3)
   where
   params = Map.keys (overwrite opts) ++ ps0
 
   fromModel file =
     do m <- loadCoreModel file params
        pure (DiffEq.asEquationSystem m)
+
+  fromRNet file =
+    do  ReactionNet bindings reactions <- loadReactions file
+        m <- case reactionsAsModel "foo" bindings reactions of
+          Right model -> pure model
+          Left err -> fail err
+        print (PP.printModel m)
+        m' <- loadCoreModel (Inline (Text.pack $ show $ PP.printModel m)) []
+        pure (DiffEq.asEquationSystem m')
 
 simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
 simODE m start step end = ODE.simulate m Map.empty times

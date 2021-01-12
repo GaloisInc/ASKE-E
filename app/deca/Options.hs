@@ -24,17 +24,20 @@ data Command =
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
+  deriving Show
 
 data Options = Options
   { command :: Command
   , modelFiles :: [FilePath]
   , dataFiles :: [FilePath]
   , deqFiles :: [FilePath]
+  , rnetFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
   , onlyShowHelp :: Bool
   }
+  deriving Show
 
 options :: OptSpec Options
 options = OptSpec
@@ -44,6 +47,7 @@ options = OptSpec
         , modelFiles = []
         , dataFiles = []
         , deqFiles = []
+        , rnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
         , overwrite = Map.empty
@@ -117,6 +121,10 @@ options = OptSpec
       , Option ['q'] ["diffeq"]
         "Use this DiffEq set"
         $ ReqArg "FILE" \a s -> Right s { deqFiles = a : deqFiles s}
+
+      , Option ['r'] ["rnet"]
+        "Use this reaction network"
+        $ ReqArg "FILE" \a s -> Right s { rnetFiles = a : rnetFiles s}
 
       , Option ['o'] ["output"]
         "Use this output file"

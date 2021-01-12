@@ -2,7 +2,7 @@ module Language.ASKEE.RNet.Reaction where
 
 import Data.Map(Map)
 import qualified Data.Map as Map
-import Data.Text(Text)
+import Data.Text(Text, pack)
 import Language.ASKEE.Expr ( Expr(..) )
 import qualified Data.Set as Set
 import qualified Language.ASKEE.Syntax as Syntax
@@ -53,14 +53,14 @@ reactionRateExp r =
     MassAction ->
       case reactionSubstrates r of
         Nil -> reactionRate r -- TODO: is this right?
-        ReactionTerms ts -> sumTerms $ rterm <$> ts
+        ReactionTerms ts -> Mul (reactionRate r) (mulTerms $ rterm <$> ts)
   where
     rterm (ReactionTerm scaling v) = pow (Var v) scaling
     pow x y = (iterate (Mul x) x) !! (y - 1)
-    sumTerms terms =
+    mulTerms terms =
       case terms of
-        [] -> LitD 0
-        t0:ts -> foldr Add t0 ts
+        [] -> LitD 1
+        t0:ts -> foldr Mul t0 ts
 
 
 reactionAsEvent :: Text -> Reaction -> Syntax.Event
@@ -88,29 +88,53 @@ tsort dependsOn elts =
     noDeps e = not $ any (e `dependsOn`) elts 
 
 -- make a model with automatically generated names
-reactionsAsModel :: Text -> Map Text (Expr) -> [Reaction] -> Either String Syntax.Model 
-reactionsAsModel mname env rs = undefined
+reactionsAsModel :: Text -> Map Text Expr -> [Reaction] -> Either String Syntax.Model 
+reactionsAsModel mname env rs = 
+  do  stDecls <- stateDecls
+      Right $ Syntax.Model mname (stDecls ++ letDecls) (map (uncurry reactionAsEvent) namedReactions) 
+      
   where
+    reactionVar :: ReactionTerm -> Text
     reactionVar (ReactionTerm _ v) = v
+
+    reactionVars :: ReactionExp -> [Text]
     reactionVars Nil = []
     reactionVars (ReactionTerms ts) = reactionVar <$> ts
     
+    reactionStateVars :: Reaction -> [Text]
     reactionStateVars r = reactionVars (reactionSubstrates r) 
                        <> reactionVars (reactionProducts r)
 
-    stateVars = rs >>= reactionStateVars
+    stateVars :: [Text]
+    stateVars = Set.toList $ Set.fromList $ rs >>= reactionStateVars
 
+    mkStateDecl :: Text -> Maybe Syntax.Decl
     mkStateDecl v =
       do e <- Map.lookup v env
          return (Syntax.State v e)
 
+    stateDecls :: Either String [Syntax.Decl]
     stateDecls =
       case mkStateDecl `traverse` stateVars of
         -- TODO: which?
         Nothing -> Left "some state vars do not have initial conditions"
         Just decls -> Right decls
 
-    letDecls = Map.withoutKeys env (Set.fromList stateVars)
+    letDecls :: [Syntax.Decl]
+    letDecls = map (uncurry Syntax.Let) $ Map.toList $ Map.withoutKeys env (Set.fromList stateVars)
+
+    namedReactions :: [(Text, Reaction)]
+    namedReactions = zip names rs
+      where
+        -- names = map chrToTxt ['a'..'z']
+        -- chrToTxt = pack . (:[])
+
+        ltrs = map (pack . (:[])) ['a'..'z']
+        ids = map (pack . show) [1..]
+        names = concatMap (\id -> map (<> id) ltrs) ids
+        -- names = map (\i -> show (i+1) ++ [letters !! (i `mod` 26)]) [0..]
+        -- idx i xs = xs !! 
+
          
 
 

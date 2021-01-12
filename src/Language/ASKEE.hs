@@ -10,6 +10,7 @@ module Language.ASKEE
   , loadEquations
   , lexReactions
   , parseReactions
+  , loadReactions
   , genCppRunner
   , DataSource(..)
   ) where
@@ -115,19 +116,24 @@ loadEquations file params =
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
 
+-- | Lex a set of reactions, throwing `ParseError` on error
 lexReactions :: DataSource -> IO [Located RL.Token]
 lexReactions file = 
   do  txt <- loadString file
       case RL.lexRNet txt of
         Right toks -> pure toks
-        Left err -> throwIO (ParseError err) 
+        Left err -> throwIO (ParseError $ "lexReactions: "<>err) 
 
+-- | Lex and parse a set of reactions, throwing `ParseError` on error
 parseReactions :: DataSource -> IO ReactionNet
 parseReactions file =
   do  toks <- lexReactions file
       case RP.parseRNet toks of
         Right deqs -> pure deqs
-        Left err -> throwIO (ParseError err)
+        Left err -> throwIO (ParseError $ "parseReactions: "<>err)
+
+loadReactions :: DataSource -> IO ReactionNet
+loadReactions = parseReactions
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =

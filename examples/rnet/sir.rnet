@@ -1,7 +1,14 @@
-let alpha = 0.1/1000.0
-let beta = 0.01
+let S = 997.0
+let I = 3.0
+let R = 0.0
 
-alpha, S + I --> 2I
-beta,  I     --> R
+let N = S + I + R
+
+let beta = 0.4/N
+let gamma = 0.04
+
+
+beta,  S + I --> 2I
+gamma, I     --> R
 
 
