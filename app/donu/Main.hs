@@ -7,7 +7,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
 import Control.Monad.IO.Class(liftIO)
-import Control.Exception(try,SomeException)
+import Control.Exception(throwIO, try,SomeException)
 import Snap.Core(Snap)
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
@@ -18,6 +18,7 @@ import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
+import qualified Language.ASKEE.DataSeries as DS
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -61,6 +62,25 @@ handleRequest r =
                    $ simStart info
              res = ODE.simulate eqs Map.empty times
          pure (OutputData res)
+    Fit info ->
+      do  eqs <- loadDiffEqs (fitModelType info)
+                             (fitModel info)
+                             (fitParams info)
+                             Map.empty
+          print eqs
+          rawData <- pack (fitData info)
+          dataSeries <- case DS.parseDataSeries rawData of
+            Right d -> pure d
+            Left err -> throwIO (DS.MalformedDataSeries err)
+          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
+          pure (FitResult res)
+          
+  where
+    pack :: DataSource -> IO BS8.ByteString
+    pack ds = 
+      case ds of
+        FromFile fp -> BS8.pack <$> readFile fp
+        Inline s -> pure $ BS8.pack $ Text.unpack s
 
 
 loadDiffEqs ::
