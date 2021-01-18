@@ -111,7 +111,7 @@ loadEquations file params =
   do  toks <- lexEquations file
       eqs <- case DP.parseDEQs toks of
                Left err -> throwIO (ParseError err)
-               Right a  -> pure a
+               Right a  -> pure a { deqParams = params }
       let lets = foldr Map.delete (deqLets eqs) params
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
