@@ -29,6 +29,7 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ.GenLexer as DL
 import qualified Language.ASKEE.DEQ.GenParser as DP
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
 import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
 import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
