@@ -2,6 +2,7 @@
 module Main(main) where
 
 import Data.Text(Text)
+import qualified Text.PrettyPrint as PP
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -15,7 +16,7 @@ import Snap.Http.Server (quickHttpServe)
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
 -- import Language.ASKEE.Core.DiffEq(DiffEqs)
-import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..), ppDiffEqs )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import Schema
@@ -46,7 +47,6 @@ main = quickHttpServe
 showHelp :: Snap ()
 showHelp = Snap.writeLBS helpHTML
 
-
 handleRequest :: Input -> IO Output
 handleRequest r =
   print r >>
@@ -62,6 +62,22 @@ handleRequest r =
              res = ODE.simulate eqs Map.empty times
          pure (OutputData res)
 
+    CheckModel cmd ->
+      do  checkResult <- checkModel (checkModelModelType cmd) (checkModelModel cmd)
+          case checkResult of
+            Nothing  -> pure $ OutputResult (SuccessResult ())
+            Just err -> pure $ OutputResult (FailureResult (Text.pack err))
+
+    ConvertModel cmd ->
+      do  eConverted <- convertModel (convertModelSourceType cmd)
+                                     (convertModelModel cmd)
+                                     (convertModelDestType cmd)
+
+          pure $ OutputResult (asResult eConverted)
+
+    Fit _ -> error "not implemented"
+
+
 
 loadDiffEqs ::
   ModelType       {- ^ input file format -} ->
@@ -76,6 +92,29 @@ loadDiffEqs mt src ps0 overwrite =
     AskeeModel -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
   where
   allParams = Map.keys overwrite ++ ps0
+
+checkModel :: ModelType -> DataSource -> IO (Maybe String)
+checkModel mt src =
+  case mt of
+    Schema.DiffEqs    -> checkUsing parseEquations src
+    Schema.AskeeModel -> checkUsing parseModel src
+  where
+    checkUsing parser ds =
+      do  mbMdl <- try (parser ds)
+          case mbMdl of
+            Left (ParseError err) -> pure $ Just err
+            Right _               -> pure Nothing
+
+
+convertModel :: ModelType -> DataSource -> ModelType -> IO (Either Text Text)
+convertModel inputType source outputType =
+  case (inputType, outputType) of
+    (_, Schema.DiffEqs) ->
+      do  eq <- loadDiffEqs inputType source [] Map.empty
+          pure $ Right (Text.pack . PP.render . ppDiffEqs $ eq)
+
+    (_, _) ->
+      pure $ Left "Conversion is not implemented"
 
 
 

@@ -13,6 +13,8 @@ module Language.ASKEE
   , loadReactions
   , genCppRunner
   , DataSource(..)
+  , ParseError(..)
+  , ValidationError(..)
   ) where
 
 import           Control.Exception(Exception(..),throwIO)
