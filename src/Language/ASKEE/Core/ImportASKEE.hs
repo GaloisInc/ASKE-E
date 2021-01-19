@@ -64,6 +64,7 @@ expAsCore e =
     Src.LitB b        -> BoolLit b
     Src.If tst e1 e2  -> If (expAsCore tst) (expAsCore e1) (expAsCore e2)
     Src.Cond bs oth   -> condAsCore bs oth
+    Src.Paren e'      -> unop Paren e'
   where
   cmp op e1 e2   = Op2 op (expAsCore e1) (expAsCore e2)
   binop op e1 e2 = Op2 op (expAsCore e1) (expAsCore e2)

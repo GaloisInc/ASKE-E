@@ -16,7 +16,7 @@ import SchemaJS
 
 import Language.ASKEE(DataSource(..))
 import Language.ASKEE.DataSeries
-
+import Language.ASKEE.Core ( Ident )
 
 
 data Input =
@@ -28,9 +28,9 @@ data Input =
 
 instance HasSpec Input where
   anySpec =   (Simulate <$> anySpec)
-          <!> (CheckModel <$> anySpec)
-          <!> (ConvertModel <$> anySpec)
-         -- <!>  (Fit      <$> anySpec)
+         <!> (CheckModel <$> anySpec)
+         <!> (ConvertModel <$> anySpec)
+         <!>  (Fit      <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -42,6 +42,8 @@ instance JS.FromJSON Input where
 data FitCommand = FitCommand
   { fitModelType :: ModelType
   , fitModel     :: DataSource
+  , fitData      :: DataSource
+  , fitParams    :: [Text]
   } deriving Show
 
 
@@ -79,6 +81,24 @@ instance HasSpec SimulateCommand where
 
        pure SimulateCommand { .. }
 
+instance HasSpec FitCommand where
+  anySpec =
+    sectionsSpec "fit-command"
+    do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
+        fitModelType  <- reqSection "model" 
+                         "Type of model to simulate"
+         
+        fitModel      <- reqSection' "definition" dataSource
+                         "Specification of the model"
+         
+        fitData       <- reqSection' "data" dataSource
+                         "Data to which to fit the model"
+ 
+        fitParams     <- reqSection' "parameters" (listSpec textSpec)
+                         "Parameters to use in model fitting"
+
+        pure FitCommand {..}
+
 data ModelType = AskeeModel | DiffEqs
   deriving Show
 
@@ -103,11 +123,15 @@ helpHTML = docsJSON (anySpec :: ValueSpec Input)
 data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
+  | FitResult (Map Ident (Double, Double))
+
+
 instance JS.ToJSON Output where
   toJSON out =
     case out of
       OutputData d -> dsToJSON d
       OutputResult result -> JS.toJSON result
+      FitResult r -> pointsToJSON r
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -189,3 +213,7 @@ instance HasSpec ConvertModelCommand where
 
         pure ConvertModelCommand { .. }
 
+pointsToJSON :: Map Ident (Double, Double) -> JS.Value
+pointsToJSON ps = JS.object
+  [ point .= JS.object ["value" .= value, "error" .= err] 
+  | (point, (value, err)) <- Map.toList ps]

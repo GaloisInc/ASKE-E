@@ -40,6 +40,7 @@ tokens :-
 @ident   { ident         }
 
 $white+  ;
+"#".*    ;
 
 {
 {-

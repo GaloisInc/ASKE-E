@@ -9,7 +9,7 @@ maintainer:          james.lamar@galois.com
 extra-source-files:  CHANGELOG.md, README.md
 
 library
-  exposed-modules:     Language.ASKEE.Experiments
+  exposed-modules:     Language.ASKEE
                      , Language.ASKEE.Syntax
                      , Language.ASKEE.Expr
                      , Language.ASKEE.GenLexer
@@ -26,11 +26,11 @@ library
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
 
-                     , Language.ASKEE.DiffEq.Lexer
-                     , Language.ASKEE.DiffEq.GenLexer
-                     , Language.ASKEE.DiffEq.GenParser
-                     , Language.ASKEE.DiffEq.DiffEq
-                     , Language.ASKEE.DiffEq.DiffEqC
+                    --  , Language.ASKEE.DiffEq.Lexer
+                    --  , Language.ASKEE.DiffEq.GenLexer
+                    --  , Language.ASKEE.DiffEq.GenParser
+                    --  , Language.ASKEE.DiffEq.DiffEq
+                    --  , Language.ASKEE.DiffEq.DiffEqC
 
                      , Language.ASKEE.DEQ.GenLexer
                      , Language.ASKEE.DEQ.GenParser
@@ -44,6 +44,11 @@ library
                      , Language.ASKEE.RNet.Lexer
                      , Language.ASKEE.RNet.Syntax
 
+                     , Language.ASKEE.Latex.GenLexer
+                     , Language.ASKEE.Latex.GenParser
+                     , Language.ASKEE.Latex.Lexer
+                     , Language.ASKEE.Latex.Print
+
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
@@ -51,7 +56,9 @@ library
                      , Language.ASKEE.C
                      , Language.ASKEE.Panic
                      , Language.ASKEE.Check
-                     , Language.ASKEE
+                     , Language.ASKEE.Translate
+                    --  , Language.ASKEE.Graph
+                     , Language.ASKEE.Experiments
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,

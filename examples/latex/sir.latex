@@ -1,0 +1,14 @@
+\begin{eqnarray}
+S(0) = 997
+I(0) = 3
+R(0) = 0
+
+total = S(t) + I(t) + R(t)
+
+\gamma = 0.04
+\beta = 0.4 / total
+
+\frac{dS}{dt} & = & - \beta S(t) I(t) \\
+\frac{dI}{dt} & = & \beta S(t) I(t) - \gamma I(t) \\
+\frac{dR}{dt} & = & \gamma I(t)
+\end{eqnarray}

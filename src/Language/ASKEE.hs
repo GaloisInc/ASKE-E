@@ -10,6 +10,9 @@ module Language.ASKEE
   , loadEquations
   , lexReactions
   , parseReactions
+  , lexLatex
+  , parseLatex
+  , loadLatex
   , loadReactions
   , genCppRunner
   , DataSource(..)
@@ -28,9 +31,12 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ.GenLexer as DL
 import qualified Language.ASKEE.DEQ.GenParser as DP
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
 import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
 import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
+import qualified Language.ASKEE.Latex.GenLexer as LL
+import qualified Language.ASKEE.Latex.GenParser as LP
 import           Language.ASKEE.Lexer (Token, Located)
 import qualified Language.ASKEE.Measure as M
 import qualified Language.ASKEE.MeasureToCPP as MG
@@ -113,7 +119,7 @@ loadEquations file params =
   do  toks <- lexEquations file
       eqs <- case DP.parseDEQs toks of
                Left err -> throwIO (ParseError err)
-               Right a  -> pure a
+               Right a  -> pure a { deqParams = params }
       let lets = foldr Map.delete (deqLets eqs) params
           inlineLets = Core.substExpr lets
       pure (Core.mapExprs inlineLets eqs)
@@ -136,6 +142,23 @@ parseReactions file =
 
 loadReactions :: DataSource -> IO ReactionNet
 loadReactions = parseReactions
+
+lexLatex :: DataSource -> IO [Located LL.Token] 
+lexLatex file =
+  do  txt <- loadString file
+      case LL.lexLatex txt of
+        Right toks -> pure toks
+        Left err -> throwIO (ParseError $ "lexLatex: "<>err)
+
+parseLatex :: DataSource -> IO DiffEqs
+parseLatex file =
+  do  toks <- lexLatex file
+      case LP.parseLatex toks of
+        Right deqs -> pure deqs
+        Left err -> throwIO (ParseError $ "parseLatex: "<>err)
+
+loadLatex :: DataSource -> IO DiffEqs 
+loadLatex = parseLatex
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =
