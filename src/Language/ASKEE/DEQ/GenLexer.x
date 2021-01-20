@@ -7,6 +7,8 @@ import Data.Text ( pack )
 
 import Language.ASKEE.Lexer      ( Located(..) )
 import Language.ASKEE.DEQ.Lexer  ( Token(..) )
+
+import Prelude hiding (LT, EQ, GT)
 }
 
 %wrapper "monad"
@@ -27,15 +29,28 @@ $digit = [0-9]
 tokens :-
 
 "let"    { atomic Let }
-"var"    { atomic Var }
+-- "var"    { atomic Var }
 "d/dt"   { atomic DDt }
 "+"      { atomic Plus }
 "-"      { atomic Minus }
 "*"      { atomic Times }
 "/"      { atomic Divide }
 "="      { atomic Assign }
+"<="     { atomic LTE }
+">="     { atomic GTE }
+"<"      { atomic LT }
+">"      { atomic GT }
+"=="     { atomic EQ }
 "("      { atomic OpenP }
 ")"      { atomic CloseP }
+"not"    { atomic Not }
+"and"    { atomic And }
+"or"     { atomic Or }
+"if"     { atomic If }
+"then"   { atomic Then }
+"else"   { atomic Else }
+"true"   { bool True }
+"false"  { bool False }
 @real    { real          }
 @ident   { ident         }
 
@@ -56,10 +71,13 @@ real (AlexPn offset lin col) str = (Located lin col . Lit . read @Double) str
 type Action = AlexInput -> Int -> Alex Token
 
 real :: Action
-real (_,_,_,s) len = (pure . Lit . read . take len) s
+real (_,_,_,s) len = (pure . LitD . read . take len) s
 
 ident :: Action
 ident (_,_,_,s) len = (pure . Sym . pack . take len) s
+
+bool :: Bool -> Action
+bool b _ _ = pure $ LitB b
 
 atomic :: Token -> Action
 atomic tok = \_ _ -> pure tok

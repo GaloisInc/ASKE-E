@@ -5,9 +5,9 @@ let s_initial = 997
 let i_initial = 3
 let r_initial = 0
 
-var S = s_initial
-var I = i_initial
-var R = r_initial
+S(0) = s_initial
+I(0) = i_initial
+R(0) = r_initial
 
 let total_population = S + I + R
 
