@@ -499,7 +499,7 @@ class ASKEECommandInterpreter:
             self.outputString(value.source, output)
         elif isinstance(value, ValueRNetModel):
             self.outputString(value.source, output)
-        elif isinstance(value, ValueLatexEqnArrayModel, output):
+        elif isinstance(value, ValueLatexEqnArrayModel):
             output.append({"text/latex": value.source, "text/plain":value.source})
 
     def evalExpr(self, expr:Expr, output: List[Dict]) -> Value:
