@@ -196,18 +196,18 @@ ppExpr expr =
   where
     pp :: Expr -> PP.Doc
     pp e = 
-      if prec e > prec expr
+      if prec e < prec expr
         then PP.parens (ppExpr e)
         else            ppExpr e
 
     prec :: Expr -> Int
     prec e =
       case e of
-        NumLit  _ -> 0
-        BoolLit _ -> 0
-        Op1 Neg _ -> 10
-        Op1 Not _ -> 10
-        Op1 Paren _ -> 0
+        NumLit  _ -> 10
+        BoolLit _ -> 10
+        Op1 Neg _ -> 0
+        Op1 Not _ -> 0
+        Op1 Paren _ -> 10
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7
@@ -217,8 +217,8 @@ ppExpr expr =
         _ :==:  _ -> 4
         _ :&&:  _ -> 3
         _ :||:  _ -> 3
-        Var     _ -> 0
-        If     {} -> 1
+        Var     _ -> 10
+        If     {} -> 0
         Fail s    -> error s -- XXX
         _ -> 
           panic 
