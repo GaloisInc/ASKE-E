@@ -13,6 +13,9 @@ data Token = EOF
   | CloseBrace
   | OpenParen
   | CloseParen
+  | Newline
   | Sym Text
+  | SymTime Text
+  | SymInit Text
   | Lit Double
-  deriving Show
+  deriving (Show, Eq)
