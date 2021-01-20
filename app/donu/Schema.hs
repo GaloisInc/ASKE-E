@@ -101,12 +101,14 @@ instance HasSpec FitCommand where
 
         pure FitCommand {..}
 
-data ModelType = AskeeModel | DiffEqs
+data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
   deriving Show
 
 instance HasSpec ModelType where
   anySpec =  (jsAtom "askee"    $> AskeeModel)
          <!> (jsAtom "diff-eqs" $> DiffEqs)
+         <!> (jsAtom "reaction-net" $> ReactionNet)
+         <!> (jsAtom "latex-eqnarray" $> LatexEqnarray)
 
 
 dataSource :: ValueSpec DataSource

@@ -16,6 +16,7 @@ module Language.ASKEE
   , loadReactions
   , genCppRunner
   , renderCppModel
+  , loadString
   , DataSource(..)
   , ParseError(..)
   , ValidationError(..)

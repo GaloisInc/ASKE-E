@@ -8,7 +8,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
 import Control.Monad.IO.Class(liftIO)
-import Control.Exception(throwIO, try,SomeException)
+import Control.Exception(throwIO, try,SomeException, Exception(..))
 import Snap.Core(Snap)
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
@@ -20,6 +20,7 @@ import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..), ppDiffEqs )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
+import qualified Language.ASKEE.Translate as Translate
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -44,6 +45,13 @@ main = quickHttpServe
             showHelp
 
 --------------------------------------------------------------------------------
+
+newtype ServerError = NotImplemented String
+  deriving Show
+
+instance Exception ServerError
+notImplemented :: String -> IO a
+notImplemented what = throwIO (NotImplemented what)
 
 showHelp :: Snap ()
 showHelp = Snap.writeLBS helpHTML
@@ -109,15 +117,19 @@ loadDiffEqs mt src ps0 overwrite =
   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
   case mt of
     Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
+    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
+    ReactionNet       -> notImplemented "Reaction net simulation"
+    LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
   where
   allParams = Map.keys overwrite ++ ps0
 
 checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel mt src =
   case mt of
-    Schema.DiffEqs    -> checkUsing parseEquations src
-    Schema.AskeeModel -> checkUsing parseModel src
+    Schema.DiffEqs     -> checkUsing parseEquations src
+    Schema.AskeeModel  -> checkUsing parseModel src
+    Schema.ReactionNet -> checkUsing parseReactions src
+    Schema.LatexEqnarray -> checkUsing parseLatex src
   where
     checkUsing parser ds =
       do  mbMdl <- try (parser ds)
@@ -126,15 +138,26 @@ checkModel mt src =
             Right _               -> pure Nothing
 
 
-convertModel :: ModelType -> DataSource -> ModelType -> IO (Either Text Text)
+convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
   case (inputType, outputType) of
     (_, Schema.DiffEqs) ->
-      do  eq <- loadDiffEqs inputType source [] Map.empty
-          pure $ Right (Text.pack . PP.render . ppDiffEqs $ eq)
+      do  src <- loadString source
+          pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
+
+    (_, Schema.AskeeModel) ->
+      do  src <- loadString source
+          pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
 
     (_, _) ->
       pure $ Left "Conversion is not implemented"
+  where
+    translateSyntax t =
+      case t of
+        Schema.ReactionNet -> Translate.RNet
+        Schema.AskeeModel -> Translate.ASKEE
+        Schema.DiffEqs -> Translate.DiffEq
+        Schema.LatexEqnarray -> Translate.Latex
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP ty src =
@@ -142,9 +165,12 @@ generateCPP ty src =
     Schema.AskeeModel ->
       do  mdl <- renderCppModel src
           pure $ Right (Text.pack mdl)
+    Schema.ReactionNet ->
+      pure $ Left "Rendering reaction networks to C++ is not implemented"
     Schema.DiffEqs ->
       pure $ Left "Rendering diff-eq to C++ is not implemented"
+    Schema.LatexEqnarray ->
+      pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
-
-
+-------------------------------------------------------------------------
 

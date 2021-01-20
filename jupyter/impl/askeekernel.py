@@ -133,12 +133,20 @@ class Donu:
         self.address = addr
 
     @staticmethod
+    def modelTypeRNet():
+        return "reaction-net"
+
+    @staticmethod
     def modelTypeESL():
         return "askee"
 
     @staticmethod
     def modelTypeDEQ():
         return "diff-eqs"
+
+    @staticmethod
+    def modelTypeLEQArr():
+        return "latex-eqnarray"
 
     def request(self, req):
         response = requests.post(self.address, json.dumps(req))
@@ -227,13 +235,39 @@ class ValueDataSeries(Value):
     def __init__(self, data:Dict[str, List[float]]):
         self.data = data
 
-class ValueDiffeqModel(Value):
+class ValueModel(Value):
+    pass
+class ValueDiffeqModel(ValueModel):
     def __init__(self, eqns:str):
         self.source = eqns
 
-class ValueESLModel(Value):
+    @staticmethod
+    def getDonuType():
+        return Donu.modelTypeDEQ()
+
+class ValueESLModel(ValueModel):
     def __init__(self, source:str):
         self.source = source
+
+    @staticmethod
+    def getDonuType():
+        return Donu.modelTypeESL()
+
+class ValueRNetModel(ValueModel):
+    def __init__(self, source:str):
+        self.source = source
+
+    @staticmethod
+    def getDonuType():
+        return Donu.modelTypeRNet()
+
+class ValueLatexEqnArrayModel(ValueModel):
+    def __init__(self, source:str):
+        self.source = source
+
+    @staticmethod
+    def getDonuType():
+        return Donu.modelTypeLEQArr()
 
 class ASKEECommandInterpreter:
     def __init__(self):
@@ -247,9 +281,13 @@ class ASKEECommandInterpreter:
             "plot": self.plot,
             "simulate": self.simulate,
             "loadESL": self.loadESL,
+            "loadLatexEqnArray": self.loadLatexEqnArray,
+            "loadReactionNet": self.loadReactionNet,
             "asEquationSystem": self.asEquationSystem,
+            "asESL": self.asESL,
             "generateSimulator": self.generateSimulator
         }
+
 
     def loadDiffEq(self, call:ExprCall, output:List[Dict]) -> Value:
         [path] = self.evalArgs(call, [ValueString], output)
@@ -257,7 +295,7 @@ class ASKEECommandInterpreter:
             return ValueDiffeqModel(f.read())
 
     def simulate(self, call:ExprCall, output:List[Dict]) -> Value:
-        [model, start, end, by] = self.evalArgs(call, [Value, ValueNumber, ValueNumber, ValueNumber], output)
+        [model, start, end, by] = self.evalArgs(call, [ValueModel, ValueNumber, ValueNumber, ValueNumber], output)
         # XXX: overloading!
         if isinstance(model, ValueESLModel):
             return self.donu.deqSimulate(model.source, Donu.modelTypeESL(), start.value, end.value, by.value)
@@ -273,13 +311,46 @@ class ASKEECommandInterpreter:
         [filename] = self.evalArgs(call, [ValueString], output)
         return self.loadESLModelFromFile(filename.value, call)
 
+    def loadReactionNet(self, call:ExprCall, output:List[Dict]) -> Value:
+        [filename] = self.evalArgs(call, [ValueString], output)
+        return self.loadReactionNetFromFile(filename.value, call)
+
+    def loadLatexEqnArray(self, call:ExprCall, output:List[Dict]) -> Value:
+        [filename] = self.evalArgs(call, [ValueString], output)
+        with open(filename.value) as handle:
+            source = handle.read()
+            self.donu.checkModel(source, Donu.modelTypeLEQArr(), call)
+            return source
+
     def asEquationSystem(self, call:ExprCall, output:List[Dict]) -> Value:
-        [model] = self.evalArgs(call, [Value], output)
+        [model] = self.evalArgs(call, [ValueModel], output)
         if isinstance(model, ValueESLModel):
             result = self.donu.convertModel(model.source, Donu.modelTypeESL(), Donu.modelTypeDEQ(), call)
             return ValueDiffeqModel(result)
 
+        if isinstance(model, ValueLatexEqnArrayModel):
+            result = self.donu.convertModel(model.source, Donu.modelTypeLEQArr(), Donu.modelTypeDEQ(), call)
+            return ValueDiffeqModel(result)
+
+        elif isinstance(model, ValueESLModel):
+            return model
+
+        # TODO: a bit of a hack
+        elif isinstance(model, ValueRNetModel):
+            resultESL = self.donu.convertModel(model.source, Donu.modelTypeRNet(), Donu.modelTypeESL(), call)
+            result = self.donu.convertModel(resultESL, Donu.modelTypeESL(), Donu.modelTypeDEQ(), call)
+            return ValueDiffeqModel(result)
+
         self.fail("Conversion not implemented", call)
+
+    def asESL(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model] = self.evalArgs(call, [Value], output)
+        if isinstance(model, ValueRNetModel):
+            result = self.donu.convertModel(model.source, Donu.modelTypeRNet(), Donu.modelTypeESL(), call)
+            return ValueESLModel(result)
+
+        elif isinstance(model, ValueESLModel):
+            return model
 
     def generateSimulator(self, call:ExprCall, output:List[Dict]) -> Value:
         [model] = self.evalArgs(call, [ValueESLModel], output)
@@ -396,6 +467,12 @@ class ASKEECommandInterpreter:
             self.donu.checkModel(source, Donu.modelTypeESL(), why)
             return ValueESLModel(source)
 
+    def loadReactionNetFromFile(self, filename:str, why:AST) -> Value:
+        with open(filename, newline='') as f:
+            source = f.read()
+            self.donu.checkModel(source, Donu.modelTypeRNet(), why)
+            return ValueRNetModel(source)
+
     def callFn(self, call:ExprCall, output:List[Dict]) -> Value:
         if call.functionName in self.builtins:
             return self.builtins[call.functionName](call, output)
@@ -417,10 +494,13 @@ class ASKEECommandInterpreter:
             rows = self.transpose(value.data.values())
             output.append(self.mkTable(headers, rows))
         elif isinstance(value, ValueDiffeqModel):
-            # output.append({"text/latex": value.source, "text/plain":value.source})
             self.outputString(value.source, output)
         elif isinstance(value, ValueESLModel):
             self.outputString(value.source, output)
+        elif isinstance(value, ValueRNetModel):
+            self.outputString(value.source, output)
+        elif isinstance(value, ValueLatexEqnArrayModel, output):
+            output.append({"text/latex": value.source, "text/plain":value.source})
 
     def evalExpr(self, expr:Expr, output: List[Dict]) -> Value:
         if isinstance(expr, ExprNumber):
