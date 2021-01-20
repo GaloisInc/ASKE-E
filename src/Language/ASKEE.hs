@@ -15,6 +15,7 @@ module Language.ASKEE
   , loadLatex
   , loadReactions
   , genCppRunner
+  , renderCppModel
   , DataSource(..)
   , ParseError(..)
   , ValidationError(..)
@@ -195,3 +196,9 @@ dumpCppModel file output =
       let rendered = show (SG.genModel compiled)
       writeFile output rendered
       putStrLn "compiled!"
+
+renderCppModel :: DataSource -> IO String
+renderCppModel file =
+  do  compiled <- loadCoreModel file []
+      pure $ show (SG.genModel compiled)
+

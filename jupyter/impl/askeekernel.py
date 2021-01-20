@@ -171,14 +171,14 @@ class Donu:
         vals["time"] = data["times"]
         return ValueDataSeries(vals)
 
-    def checkModel(self, model: str, modelType: str, why: AST) -> Optional[str]:
+    def checkModel(self, model: str, modelType: str, why: AST):
         req = {
             "command": "check-model",
             "model": modelType,
             "definition": model
         }
 
-        return self.decodeResponse(self.request(req), why)
+        self.decodeResponse(self.request(req), why)
 
     def convertModel(self, model:str, srcType:str, dstType:str, why: AST) -> List[str]:
         req = {
@@ -186,6 +186,15 @@ class Donu:
             "model": srcType,
             "definition": model,
             "dest-model": dstType
+        }
+
+        return self.decodeResponse(self.request(req), why)
+
+    def genCpp(self, model:str, srcType:str, why: AST) -> str:
+        req = {
+            "command": "generate-cpp",
+            "model": srcType,
+            "definition": model,
         }
 
         return self.decodeResponse(self.request(req), why)
@@ -239,6 +248,7 @@ class ASKEECommandInterpreter:
             "simulate": self.simulate,
             "loadESL": self.loadESL,
             "asEquationSystem": self.asEquationSystem,
+            "generateSimulator": self.generateSimulator
         }
 
     def loadDiffEq(self, call:ExprCall, output:List[Dict]) -> Value:
@@ -270,6 +280,13 @@ class ASKEECommandInterpreter:
             return ValueDiffeqModel(result)
 
         self.fail("Conversion not implemented", call)
+
+    def generateSimulator(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model] = self.evalArgs(call, [ValueESLModel], output)
+        sim = self.donu.genCpp(model.source, Donu.modelTypeESL(), call)
+        aug_sim = "```C++\n" + sim + "\n```\n"
+        output.append({"text/markdown": aug_sim, "text/plain": sim})
+        return self.unit
 
     def plot(self, call:ExprCall, output:List[Dict]):
         [series, xaxis] = self.evalArgs(call, [ValueDataSeries, ValueString], output)

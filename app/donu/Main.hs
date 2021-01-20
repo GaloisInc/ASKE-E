@@ -88,6 +88,9 @@ handleRequest r =
             Left err -> throwIO (DS.MalformedDataSeries err)
           let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
           pure (FitResult res)
+
+    GenerateCPP cmd ->
+      OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
           
   where
     pack :: DataSource -> IO BS8.ByteString
@@ -132,6 +135,16 @@ convertModel inputType source outputType =
 
     (_, _) ->
       pure $ Left "Conversion is not implemented"
+
+generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
+generateCPP ty src =
+  case ty of
+    Schema.AskeeModel ->
+      do  mdl <- renderCppModel src
+          pure $ Right (Text.pack mdl)
+    Schema.DiffEqs ->
+      pure $ Left "Rendering diff-eq to C++ is not implemented"
+
 
 
 

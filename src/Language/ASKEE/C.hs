@@ -2,6 +2,7 @@
 module Language.ASKEE.C where
 
 import Data.Text(Text)
+import Data.List(intersperse)
 
 import Prettyprinter
           ( emptyDoc
@@ -195,7 +196,7 @@ returnWith e = stmt ("return" <+> e)
 x -= y = stmt (x <+> "-=" <+> y)
 
 struct :: Doc -> [Doc] -> Doc
-struct x ys = stmt (block ("struct" <+> x) ys)
+struct x ys = stmt (block ("struct" <+> x) (spacedOut ys))
 
 nop :: Doc
 nop = emptyDoc
@@ -206,3 +207,5 @@ scope ds = vcat [ "{", nested ds, "}" ]
 block :: Doc -> [Doc] -> Doc
 block pref ds = vcat [ pref <+> "{", nested ds, "}" ]
 
+spacedOut :: [Doc] -> [Doc]
+spacedOut = intersperse ""

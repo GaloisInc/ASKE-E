@@ -24,13 +24,15 @@ data Input =
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
+  | GenerateCPP GenerateCPPCommand
     deriving Show
 
 instance HasSpec Input where
   anySpec =   (Simulate <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
-         <!>  (Fit      <$> anySpec)
+         <!> (Fit      <$> anySpec)
+         <!> (GenerateCPP <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -217,3 +219,22 @@ pointsToJSON :: Map Ident (Double, Double) -> JS.Value
 pointsToJSON ps = JS.object
   [ point .= JS.object ["value" .= value, "error" .= err] 
   | (point, (value, err)) <- Map.toList ps]
+
+
+-------------------------------------------------------------------------------
+
+-- TODO: maybe delete after demo?
+data GenerateCPPCommand = GenerateCPPCommand
+  { generateCPPModelType :: ModelType
+  , generateCPPModel     :: DataSource
+  } deriving Show
+
+instance HasSpec GenerateCPPCommand where
+  anySpec =
+    sectionsSpec "generate-cpp"
+    do  reqSection' "command" (jsAtom "generate-cpp") "Render a model as C++ program implementing a simulator"
+        generateCPPModelType <- reqSection "model" "Type of model to render"
+        generateCPPModel <- reqSection' "definition" dataSource
+                            "Specification of the model to render"
+
+        pure GenerateCPPCommand { .. }
