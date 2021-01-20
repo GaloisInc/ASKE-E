@@ -320,7 +320,7 @@ class ASKEECommandInterpreter:
         with open(filename.value) as handle:
             source = handle.read()
             self.donu.checkModel(source, Donu.modelTypeLEQArr(), call)
-            return source
+            return ValueLatexEqnArrayModel(source)
 
     def asEquationSystem(self, call:ExprCall, output:List[Dict]) -> Value:
         [model] = self.evalArgs(call, [ValueModel], output)
