@@ -47,4 +47,4 @@ simplifyExpr expr =
     Op2 Or (BoolLit True) _       -> BoolLit True
     Op2 Or _ (BoolLit True)       -> BoolLit True
 
-    _                             -> expr
+    e                             -> e
