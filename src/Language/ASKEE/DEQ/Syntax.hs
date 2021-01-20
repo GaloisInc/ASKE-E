@@ -5,13 +5,9 @@
 
 module Language.ASKEE.DEQ.Syntax where
 
-import           Data.Text  ( unpack )
-import           Data.Map   ( Map )
-import qualified Data.Map   as Map
+import Data.Map ( Map )
 
-import Language.ASKEE.Core (TraverseExprs, traverseExprs, Ident, Expr(..), ppExpr)
-
-import Text.PrettyPrint ( Doc, hsep, text, vcat )
+import Language.ASKEE.Core (TraverseExprs, traverseExprs, Ident, Expr(..))
 
 -- | A system of differential equations.
 data DiffEqs = DiffEqs
@@ -28,12 +24,3 @@ instance TraverseExprs DiffEqs where
        deqRates   <- traverse f deqRates
        deqLets     <- traverse f deqLets
        pure DiffEqs { .. }
-
-ppDiffEqs :: DiffEqs -> Doc
-ppDiffEqs DiffEqs{..} = vcat [lets, initials, rates]
-  where
-    lets     = vcat $ map (binding "let") (Map.toList deqLets)
-    initials = vcat $ map (binding "var") (Map.toList deqInitial)
-    rates    = vcat $ map (binding "d/dt") (Map.toList deqRates)
-
-    binding decl (i,e) = hsep [decl, text (unpack i), "=", ppExpr e]

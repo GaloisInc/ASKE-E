@@ -2,6 +2,8 @@ module Language.ASKEE.DEQ.Lexer where
 
 import Data.Text ( Text )
 
+import Prelude hiding ( LT, EQ, GT )
+
 data Token = EOF
   | Plus
   | Minus
@@ -11,8 +13,19 @@ data Token = EOF
   | OpenP
   | CloseP
   | Let
-  | Var
   | DDt
+  | If
+  | Then
+  | Else
+  | GT 
+  | GTE
+  | EQ 
+  | LTE
+  | LT 
+  | Not
+  | And
+  | Or
+  | LitB Bool
+  | LitD Double
   | Sym Text
-  | Lit Double
   deriving Show
