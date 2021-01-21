@@ -48,3 +48,22 @@ simplifyExpr expr =
     Op2 Or _ (BoolLit True)       -> BoolLit True
 
     e                             -> e
+
+
+-- | Return the list of terms of a linear expression, negating them if they are subtracted
+exprToTermList :: Expr -> [Expr]
+exprToTermList e =
+  case e of
+    Op2 Add e1 e2 -> exprToTermList e1 ++ exprToTermList e2
+    Op2 Sub e1 e2 -> exprToTermList e1 ++ (simplifyExpr . Op1 Neg <$> exprToTermList e2)
+    _ -> [e]
+
+-- | turn a term list back into a linear expression
+termListToExpr :: [Expr] -> Expr
+termListToExpr = foldr mkTerm (NumLit 0.0)
+  where
+    mkTerm e1 (Op1 Neg e2) = Op2 Sub e1 e2
+    mkTerm e1 e2 = Op2 Add e1 e2
+
+
+

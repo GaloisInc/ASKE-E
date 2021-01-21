@@ -227,6 +227,11 @@ class ValueString(Value):
     def __init__(self, value:str):
         self.value = value
 
+class ValueCode(ValueString):
+    def __init__(self, value:str, language:str):
+        self.value = value
+        self.language = language
+
 class ValueNumber(Value):
     def __init__(self, value:float):
         self.value = value
@@ -285,9 +290,20 @@ class ASKEECommandInterpreter:
             "loadReactionNet": self.loadReactionNet,
             "asEquationSystem": self.asEquationSystem,
             "asESL": self.asESL,
-            "generateSimulator": self.generateSimulator
+            "generateSimulator": self.generateSimulator,
+            "save": self.saveAsFile
         }
 
+    # TODO: this should check that paths don't escape the jupyter env
+    def saveAsFile(self, call:ExprCall, output:List[Dict]) -> Value:
+        [path, value] = self.evalArgs(call, [ValueString, Value], output)
+        if isinstance(value, ValueString):
+            with open(path.value, "w") as handle:
+                handle.write(value.value)
+
+            return self.unit
+
+        self.fail("saving not implemented for this value -- yet", call)
 
     def loadDiffEq(self, call:ExprCall, output:List[Dict]) -> Value:
         [path] = self.evalArgs(call, [ValueString], output)
@@ -355,9 +371,7 @@ class ASKEECommandInterpreter:
     def generateSimulator(self, call:ExprCall, output:List[Dict]) -> Value:
         [model] = self.evalArgs(call, [ValueESLModel], output)
         sim = self.donu.genCpp(model.source, Donu.modelTypeESL(), call)
-        aug_sim = "```C++\n" + sim + "\n```\n"
-        output.append({"text/markdown": aug_sim, "text/plain": sim})
-        return self.unit
+        return ValueCode(sim, "C++")
 
     def plot(self, call:ExprCall, output:List[Dict]):
         [series, xaxis] = self.evalArgs(call, [ValueDataSeries, ValueString], output)
@@ -486,7 +500,11 @@ class ASKEECommandInterpreter:
         if value is ValueUnit:
             return
         elif isinstance(value, ValueString):
-            self.outputString(value.value, output)
+            if isinstance(value, ValueCode):
+                aug_sim = "```C++\n" + value.value + "\n```\n"
+                output.append({"text/markdown": aug_sim, "text/plain": value.value })
+            else:
+                self.outputString(value.value, output)
         elif isinstance(value, ValueNumber):
             self.outputString(str(value.value), output)
         elif isinstance(value, ValueDataSeries):
