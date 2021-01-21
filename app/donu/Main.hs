@@ -68,6 +68,8 @@ handleRequest r =
                    $ iterate (+ simStep info)
                    $ simStart info
              res = ODE.simulate eqs Map.empty times
+
+         print eqs
          pure (OutputData res)
 
     CheckModel cmd ->

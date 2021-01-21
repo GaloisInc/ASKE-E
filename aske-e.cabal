@@ -80,7 +80,8 @@ library
                        statistics,
                        Chart,
                        cassava,
-                       unordered-containers
+                       unordered-containers,
+
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010
