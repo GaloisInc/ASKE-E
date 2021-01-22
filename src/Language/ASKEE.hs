@@ -205,5 +205,5 @@ askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @D
 
 -- $allConverters
 
--- diffEqStringToLatexString :: String -> Either String String
--- diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
+diffEqStringToLatexString :: String -> Either String String
+diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))

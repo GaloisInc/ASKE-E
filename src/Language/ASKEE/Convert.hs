@@ -124,7 +124,7 @@ vertexFromKey :: ModelType -> Maybe Vertex
     nodes = [ mkNode eslCTranslators   ESL_C   [ESL_A]
             , mkNode eslATranslators   ESL_A   [DEQ_A, ESL_C]
             , mkNode deqCTranslators   DEQ_C   [DEQ_A]
-            , mkNode deqATranslators   DEQ_A   [DEQ_C]
+            , mkNode deqATranslators   DEQ_A   [DEQ_C, LATEX_C]
             , mkNode latexCTranslators LATEX_C [DEQ_A]
             , mkNode rnetCTranslators  RNET_C  [RNET_A]
             , mkNode rnetATranslators  RNET_A  []
@@ -134,7 +134,8 @@ vertexFromKey :: ModelType -> Maybe Vertex
     eslATranslators =   Map.fromList [ (DEQ_A,  [e| fmap asEquationSystem . modelAsCore [] |])
                                      , (ESL_C,  [e| Right . show . APr.printModel |]) ]
     deqCTranslators =   Map.fromList [ (DEQ_A,  [e| DL.lexDEQs >=> DP.parseDEQs |]) ]
-    deqATranslators =   Map.fromList [ (DEQ_C,  [e| Right . show . DPr.ppDiffEqs |]) ]
+    deqATranslators =   Map.fromList [ (DEQ_C,  [e| Right . show . DPr.ppDiffEqs |])
+                                     , (LATEX_C, [e| Right . show . LPr.printLatex |]) ]
     latexCTranslators = Map.fromList [ (DEQ_A,  [e| LL.lexLatex >=> LP.parseLatex |]) ]
     rnetCTranslators =  Map.fromList [ (RNET_A, [e| RL.lexRNet >=> RP.parseRNet |] ) ]
     rnetATranslators =  Map.empty
