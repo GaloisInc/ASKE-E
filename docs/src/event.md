@@ -1,4 +1,4 @@
-#` event`s
+# `event`s
 
 ```askee
   event Infect:
