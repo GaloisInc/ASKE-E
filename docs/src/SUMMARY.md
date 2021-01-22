@@ -10,3 +10,4 @@
   - [`rate`](./rate.md)
   - [`effect`](./effect.md)
 - [Example](./example.md)
+- [Milestones](./milestones.md)
