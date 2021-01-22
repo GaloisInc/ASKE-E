@@ -1,6 +1,6 @@
 #` event`s
 
-```
+```askee
   event Infect:
   ...
 ```

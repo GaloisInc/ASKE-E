@@ -1,6 +1,6 @@
 # `rate`
 
-```
+```askee
     rate:
       beta * (1 - contact_rate) * Susceptible * Infected / total_pop
 ```

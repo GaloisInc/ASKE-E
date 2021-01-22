@@ -1,6 +1,6 @@
 # `when`
 
-```
+```askee
     when:
       Susceptible > 0.0 and Infected > 0.0
 ```
