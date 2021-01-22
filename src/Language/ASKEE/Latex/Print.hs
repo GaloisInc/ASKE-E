@@ -17,11 +17,12 @@ printLatex :: DiffEqs -> Doc
 printLatex DiffEqs {..} = vcat [lets, initials, rates]
   where
     lets = vcat $ map binding (Map.toList deqLets)
-    initials = vcat $ map binding (Map.toList deqInitial)
+    initials = vcat $ map initBinding (Map.toList deqInitial)
     rates = vcat $ map ddtBinding (Map.toList deqRates)
 
     binding (ident, expr) = hsep [text (unpack ident), "=", printExpr expr]
     ddtBinding (ident, expr) = hcat ["\\frac{d ", text (unpack ident), "}{dt} = ", printExpr expr]
+    initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", printExpr e]
 
   
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core
