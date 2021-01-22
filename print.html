@@ -47,6 +47,9 @@
         
 
         
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
     </head>
     <body>
         <!-- Provide site root to javascript -->
@@ -204,7 +207,7 @@ variables cannot be modified in an <code>event</code>'s <code>effect</code> sect
 in that they may be modified in an <code>event</code>'s <code>effect</code> block. These variables may
 be used to represent what the <code>model</code> is actually modeling - that is, they may
 be the output of an execution/simulation of a model (though they needn't be).</p>
-<p>#<code> event</code>s</p>
+<h1><a class="header" href="#events" id="events"><code>event</code>s</a></h1>
 <pre><code class="language-askee">  event Infect:
   ...
 </code></pre>
@@ -360,7 +363,9 @@ order, that may change the value of some or all of the <code>state</code> variab
         
         <script type="text/javascript">
         window.addEventListener('load', function() {
-            window.setTimeout(window.print, 100);
+            MathJax.Hub.Register.StartupHook('End', function() {
+                window.setTimeout(window.print, 100);
+            });
         });
         </script>
         
