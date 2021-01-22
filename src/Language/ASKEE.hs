@@ -1,4 +1,6 @@
 {-# Language OverloadedStrings #-}
+{-# Language TemplateHaskell #-}
+{-# Language TypeApplications #-}
 
 module Language.ASKEE
   ( lexModel
@@ -25,6 +27,7 @@ import           Data.Text (Text)
 import qualified Data.Text as Text
 
 import qualified Language.ASKEE.Check as Check
+import           Language.ASKEE.Convert
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ.GenLexer as DL
 import qualified Language.ASKEE.DEQ.GenParser as DP
@@ -193,3 +196,14 @@ dumpCppModel file output =
       let rendered = show (SG.genModel compiled)
       writeFile output rendered
       putStrLn "compiled!"
+
+askeeStringToDiffEqAST :: String -> Either String DiffEqs
+askeeStringToDiffEqAST = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Abstract))
+
+askeeStringToDiffEqString :: String -> Either String String
+askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Concrete))
+
+-- $allConverters
+
+-- diffEqStringToLatexString :: String -> Either String String
+-- diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))

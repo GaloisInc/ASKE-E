@@ -57,7 +57,8 @@ library
                      , Language.ASKEE.Panic
                      , Language.ASKEE.Check
                      , Language.ASKEE.Translate
-                    --  , Language.ASKEE.Graph
+                     , Language.ASKEE.Graph
+                     , Language.ASKEE.Convert
                      , Language.ASKEE.Experiments
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
