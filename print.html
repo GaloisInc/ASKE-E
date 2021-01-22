@@ -1,0 +1,354 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ASKE-E Documentation</title>
+        
+        <meta name="robots" content="noindex" />
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="about.html">About</a></li><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.</strong> models</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.1.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.2.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.3.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.4.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.5.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.6.</strong> effect</a></li></ol></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">2.</strong> Example</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">ASKE-E Documentation</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#about" id="about">About</a></h1>
+<p>ASKEE is a modeling language, able to represent compartmental and other
+scientific models in a concise, human- and machine-readable way. It builds off
+Galois's experience with the AMIDOL IR, and is intended to supplant it in the
+long term. It, like the AMIDOL IR, is meant to represent stochastic Petri nets
+with a form of inhibitor arcs.</p>
+<p>What follows is an explanation of this language's format and features by
+example, the example being an adapted, subset version of the CHIME
+epidemiological model from UPenn.</p>
+<h1><a class="header" href="#models" id="models"><code>model</code>s</a></h1>
+<p>A <code>model</code> is a named entity (<code>CHIME</code> in the <a href="./example.html">example</a>), followed by a set of
+declarations of state and other variables, followed by a set of declarations of
+events that may depend on or modify these variables, modulo some rules.</p>
+<p><code>model</code>s are constructed blockwise in a whitespace-sensitive way that should be
+familiar to users of YAML and other similar languages.</p>
+<h1><a class="header" href="#let-declared-variables" id="let-declared-variables"><code>let</code>-Declared Variables</a></h1>
+<pre><code class="language-askee">  let s_Initial = 999.0
+  ...
+  let beta =
+    cond:
+      gamma              if time &lt;= policy_days0
+      gamma + 0.1486983  if time &lt;= policy_days1
+      gamma + 0.0717734  otherwise
+</code></pre>
+<p>Variables declared with <code>let</code> may represent a constant (in the case of
+<code>s_Initial</code>) or an expression (in the case of <code>beta</code>). During model
+simulation/execution, at use sites, <code>let</code> variable right-hand sides are
+inlined. It follows that the value of a <code>let</code> variable might not remain the same
+throughout a model (indeed, <code>beta</code> does not). It is also the case that <code>let</code>
+variables cannot be modified in an <code>event</code>'s <code>effect</code> section.</p>
+<h1><a class="header" href="#state-declared-variables" id="state-declared-variables"><code>state</code>-Declared Variables</a></h1>
+<pre><code class="language-askee">  state Susceptible = s_Initial
+  state Infected    = i_Initial
+  state Recovered   = r_Initial
+</code></pre>
+<p>Variables declared with <code>state</code> differ internally from <code>let</code>-declared variables
+in that they may be modified in an <code>event</code>'s <code>effect</code> block. These variables may
+be used to represent what the <code>model</code> is actually modeling - that is, they may
+be the output of an execution/simulation of a model (though they needn't be).</p>
+<p>#<code> event</code>s</p>
+<pre><code class="language-askee">  event Infect:
+  ...
+</code></pre>
+<p>An <code>event</code> consists of an enabling predicate (a <code>when</code> block), a <code>rate</code> (how
+likely this event is to &quot;fire&quot;), and an <code>effect</code>, which describes what happens
+when the event fires (an &quot;output predicate&quot;, in some previous Galois
+literature).</p>
+<h1><a class="header" href="#when" id="when"><code>when</code></a></h1>
+<pre><code class="language-askee">    when:
+      Susceptible &gt; 0.0 and Infected &gt; 0.0
+</code></pre>
+<p>An expression defined on <code>let</code> variables and <code>state</code> variables, evaluating to a
+Boolean, which determines whether or not an event is able to fire. An event must
+have a true <code>when</code> <em>and</em> be chosen stochastically based on its rate in order to
+fire.</p>
+<h1><a class="header" href="#rate" id="rate"><code>rate</code></a></h1>
+<pre><code class="language-askee">    rate:
+      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+</code></pre>
+<p>An expression defined on <code>let</code> variables and <code>state</code> variables, evaluating to a
+real, which represents the frequency with which an event fires. In simulation,
+events would be chosen stochastically based on this value - a rate of <code>0.8</code>
+means at any given time step an event would have an 80% chance of firing.</p>
+<h1><a class="header" href="#effect" id="effect"><code>effect</code></a></h1>
+<pre><code class="language-askee">    effect:
+      Susceptible -= 1.0
+      Infected    = Infected + 1.0
+</code></pre>
+<p>What happens when the model fires. This is a series of assignments, executed in
+order, that may change the value of some or all of the <code>state</code> variables in the
+<code>model</code>.</p>
+<h1><a class="header" href="#example" id="example">Example</a></h1>
+<pre><code class="language-askee">model CHIME_GTRI_IR:
+  let  s_Initial = 999.0
+  let  i_Initial = 10.0
+  let  r_Initial = 0.0
+
+  state Susceptible = s_Initial
+  state Infected    = i_Initial
+  state Recovered   = r_Initial
+
+  let gamma = 1.0 / 14.0
+  let policy_days0 = 37.0
+  let policy_days1 = 77.0
+  let contact_rate = 0.05
+
+  let total_pop = Susceptible + Infected + Recovered
+  let beta =
+    cond:
+      gamma              if time &lt;= policy_days0
+      gamma + 0.1486983  if time &lt;= policy_days1
+      gamma + 0.0717734  otherwise
+
+  # or
+  let beta =
+    if time &lt;= policy_days0
+      then gamma
+    else if time &lt;= policy_days1
+      then gamma + 0.1486983
+    else
+      gamma + 0.0717734
+
+  event Infect:
+    when:
+      Susceptible &gt; 0.0 and Infected &gt; 0.0
+
+    rate: 
+      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+
+    effect:
+      Susceptible = Susceptible - 1.0
+      Infected    = Infected + 1.0
+
+  event Cure:
+    when:
+      Infected &gt; 0.0
+
+    rate:
+      gamma * Infected
+
+    effect:
+      Infected  = Infected - 1.0
+      Recovered = Recovered + 1.0
+
+          
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
+        
+
+    </body>
+</html>
