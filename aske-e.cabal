@@ -60,6 +60,7 @@ library
                      , Language.ASKEE.Graph
                      , Language.ASKEE.Convert
                      , Language.ASKEE.Experiments
+                     , Language.ASKEE.ModelStratify.Syntax
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
