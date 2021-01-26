@@ -4,7 +4,7 @@
 
 ### Galois
 
-**TBD:** link to Initial Platform Integration Plans
+[Initial integration plan](https://owncloud.galois.com/index.php/f/672223)
 
 ### Uncharted
 
@@ -14,7 +14,7 @@
 
 ### Galois
 
-**TBD:** link to Initial Report of AMIDOL as a Service with ASKE ecosystem
+[Initial Report of AMIDOL as a Service with ASKE ecosystem](https://owncloud.galois.com/index.php/f/672224)
 
 ### Uncharted
 
