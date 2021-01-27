@@ -31,6 +31,8 @@ data Flow =
                       }
   deriving Show
 
+-- I == flow from state to transition
+-- O == flow from transition to state
 data FlowType = I | O
 
 instance FromJSON Net where
@@ -94,7 +96,7 @@ instance ToJSON Net where
       flowAsObj O TransitionToState{..} = object  [ "os" .= flowState 
                                                   , "ot" .= flowTransition
                                                   ]
-      flowAsObj I TransitionToState{} = error "tried to serialize a transitionToState with the wrong tag (I)"
-      flowAsObj O StateToTransition{} = error "tried to serialize a stateToTransition with the wrong tag (O)"
+      flowAsObj I TransitionToState{} = error "tried to serialize a transitionToState with the wrong tag (I) - this JSON may be improperly constructed"
+      flowAsObj O StateToTransition{} = error "tried to serialize a stateToTransition with the wrong tag (O) - this JSON may be improperly constructed"
 
 
