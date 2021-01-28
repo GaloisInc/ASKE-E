@@ -17,7 +17,11 @@ module Language.ASKEE
   , loadLatex
   , loadReactions
   , genCppRunner
+  , renderCppModel
+  , loadString
   , DataSource(..)
+  , ParseError(..)
+  , ValidationError(..)
   ) where
 
 import           Control.Exception(Exception(..),throwIO)
@@ -207,3 +211,8 @@ askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @D
 
 diffEqStringToLatexString :: String -> Either String String
 diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
+renderCppModel :: DataSource -> IO String
+renderCppModel file =
+  do  compiled <- loadCoreModel file []
+      pure $ show (SG.genModel compiled)
+

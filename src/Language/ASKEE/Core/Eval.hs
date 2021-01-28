@@ -5,11 +5,15 @@ import qualified Data.Map as Map
 
 import Language.ASKEE.Panic(panic)
 import Language.ASKEE.Core
+import Data.Text(unpack)
 
 evalDouble :: Expr -> Map Ident Double -> Double
 evalDouble expr env =
   case expr of
-    Var x -> env Map.! x
+    Var x -> --env Map.! x
+      case Map.lookup x env of
+        Just v -> v
+        Nothing -> panic "evalDouble" ["could not find '" ++ unpack x ++ "' in env:" ++ show (Map.toList env)]
 
     Literal l ->
       case l of

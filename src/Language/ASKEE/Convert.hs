@@ -21,6 +21,7 @@ import qualified Language.ASKEE.GenLexer         as AL
 import qualified Language.ASKEE.GenParser        as AP
 import qualified Language.ASKEE.Latex.GenLexer   as LL
 import qualified Language.ASKEE.Latex.GenParser  as LP
+import qualified Language.ASKEE.Latex.Print      as LPr
 import           Language.ASKEE.Panic            ( panic )
 import qualified Language.ASKEE.Print            as APr
 import qualified Language.ASKEE.RNet.GenLexer    as RL 

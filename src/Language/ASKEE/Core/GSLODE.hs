@@ -30,8 +30,8 @@ simulate eqs paramVs ts =
   -- XXX: evalute lets also?
 
   where
-  (xs,es) = unzip (Map.toList (deqRates eqs))
-  initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs) ]
+  (xs,es) = unzip (Map.toList (deqRates eqs'))
+  initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs') ]
 
   resMatrix = ODE.odeSolve (evalDiffEqs xs es paramVs)
                            initS
@@ -44,6 +44,10 @@ simulate eqs paramVs ts =
                 _           -> (id,ts)
 
   rows = LinAlg.toList <$> LinAlg.toColumns resMatrix
+  eqs' = mapExprs inlineEqLets eqs
+  lets = foldr Map.delete (deqLets eqs') (Map.keys paramVs)
+  inlineEqLets = substExpr lets
+
 
 
 -- | Compute the difference between the model and the data, using
