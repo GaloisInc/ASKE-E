@@ -1,0 +1,3 @@
+[submodule "ASKE-E-Simulation-WG"]
+	path = ASKE-E-Simulation-WG
+	url = git@github.com:samcowger/ASKE-E-Simulation-WG.git

@@ -61,6 +61,7 @@ library
                      , Language.ASKEE.Convert
                      , Language.ASKEE.Experiments
                      , Language.ASKEE.ModelStratify.Syntax
+                     , Language.ASKEE.ModelStratify.Topology
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
@@ -83,7 +84,9 @@ library
                        Chart,
                        cassava,
                        unordered-containers,
-
+                       process,
+                       directory,
+                       temporary
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010

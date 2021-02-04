@@ -14,9 +14,11 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE(DataSource(..))
+import Language.ASKEE(DataSource(..), StratificationType(..))
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
+import Language.ASKEE.Syntax ( Model(..) )
+import Language.ASKEE.Print (printModel)
 
 
 data Input =
@@ -25,6 +27,7 @@ data Input =
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
+  | Stratify StratifyCommand
     deriving Show
 
 instance HasSpec Input where
@@ -33,6 +36,7 @@ instance HasSpec Input where
          <!> (ConvertModel <$> anySpec)
          <!> (Fit      <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
+         <!>  (Stratify <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -58,6 +62,30 @@ data SimulateCommand = SimulateCommand
   , simEnd       :: Double
   , simOverwrite :: Map Text Double
   } deriving Show
+
+data StratifyCommand = StratifyCommand
+  { stratModel       :: DataSource
+  , stratConnections :: DataSource
+  , stratStates      :: Maybe DataSource
+  , stratType        :: StratificationType
+  }
+  deriving Show
+
+instance HasSpec StratifyCommand where
+  anySpec =
+    sectionsSpec "stratify-command"
+    do  stratModel       <- reqSection' "definition" dataSource
+                            "specification of the model"
+
+        stratConnections <- reqSection' "connection-graph" dataSource
+                            "JSON connection graph specifying stratification pattern"
+
+        stratStates      <- optSection' "state-metadata" dataSource 
+                            "JSON metadata describing infectious states ??? document more"
+
+        stratType        <- reqSection' "stratification-type" stratTypeSpec 
+                            "type of stratification to perform"
+        pure StratifyCommand {..}
 
 instance HasSpec SimulateCommand where
   anySpec =
@@ -120,6 +148,9 @@ dataSource =
   <!>
     Inline <$> anySpec
 
+stratTypeSpec :: ValueSpec StratificationType 
+stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
+             <!> (jsAtom "demographic" $> Demographic)
 
 helpHTML :: Lazy.ByteString
 helpHTML = docsJSON (anySpec :: ValueSpec Input)
@@ -128,6 +159,7 @@ data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
   | FitResult (Map Ident (Double, Double))
+  | StratificationResult Model [Text]
 
 
 instance JS.ToJSON Output where
@@ -136,6 +168,7 @@ instance JS.ToJSON Output where
       OutputData d -> dsToJSON d
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
+      StratificationResult model params -> stratResultToJSON model params
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -240,3 +273,6 @@ instance HasSpec GenerateCPPCommand where
                             "Specification of the model to render"
 
         pure GenerateCPPCommand { .. }
+stratResultToJSON :: Model -> [Text] -> JS.Value 
+stratResultToJSON m ps =
+  JS.object [ "model" .= show (printModel m), "parameters" .= ps ]
