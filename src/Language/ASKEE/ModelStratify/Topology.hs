@@ -1,28 +1,31 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ModelStratify.Topology where
 
+import Control.Monad.RWS
+
 import qualified Data.Map as Map
+import           Data.Maybe ( mapMaybe )
 import           Data.Text ( Text, pack )
 
 import qualified Language.ASKEE.Core as Core
-import Language.ASKEE.Syntax
-import Language.ASKEE.ModelStratify.Syntax
-import Language.ASKEE.Expr
-import Data.Maybe (mapMaybe)
-import Language.ASKEE.Core.ImportASKEE (modelAsCore)
-import Control.Monad.Writer (Writer, runWriter)
-import Control.Monad.RWS
+import           Language.ASKEE.Core.ImportASKEE ( modelAsCore )
+import           Language.ASKEE.Expr ( Expr(..) )
+import           Language.ASKEE.ModelStratify.Syntax
+import           Language.ASKEE.Syntax
 
--- | Inherently lossy
+-- | Lossy conversion from rich model to purely structural topology 
 modelAsTopology :: Model -> Net
 modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutputs
   where
     states = Map.fromAscList (zipWith (\idx (txt, expr) -> (idx, txt)) [1..] (stateDecls modelDecls))
-    states' = (Map.fromList . map swap) (Map.toList states)
-
     transitions = Map.fromAscList (zip [1..] (map eventName modelEvents))
-    transitions' = (Map.fromList . map swap) (Map.toList transitions)
+
+    -- Inverse mappings
+    states' = (Map.fromList . map swap . Map.toList) states
+    transitions' = (Map.fromList . map swap . Map.toList) transitions
+    swap (x, y) = (y, x)
 
     stateOutputs = concatMap (flowFromStatement I) modelEvents
     transitionOutputs = concatMap (flowFromStatement O) modelEvents
@@ -47,8 +50,8 @@ modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutput
         isIntegral :: RealFrac a => a -> Bool
         isIntegral d = d == fromInteger (round d)
 
-    swap (x, y) = (y, x)
-
+-- | Lift the topology into a proper model, inserting undefined expressions
+-- where necessary - rates and initial variable values, namely
 topologyAsModel :: Net -> Model
 topologyAsModel Net{..} = Model "foo" decls events
   where
@@ -66,19 +69,22 @@ topologyAsModel Net{..} = Model "foo" decls events
           case f of
             StateToTransition s t | t == tid ->
               let st = netStates Map.! s
-                  -- tt = netTransitions Map.! t
               in  Just (st, Var st `Sub` LitD 1)
             TransitionToState s t | t == tid -> 
               let st = netStates Map.! s
-                  -- tt = netTransitions Map.! t
               in  Just (st, Var st `Add` LitD 1)
             _ -> Nothing
 
-topologyAsCoreModel :: Net -> Either String Core.Model
-topologyAsCoreModel n = modelAsCore params mdl
+-- | Produce both the parameterized model and the core model
+topologyAsCoreModel :: Net -> Either String (Model, Core.Model)
+topologyAsCoreModel n = (mdl,) <$> modelAsCore params mdl
   where
-    (mdl, params) = evalRWS (parameterize (topologyAsModel n)) () 0 
+    (mdl, params) = topologyAsParameterizedModel n
 
+-- | Produce the model with newly-created holes and a list of those holes' names
+topologyAsParameterizedModel :: Net -> (Model, [Text])
+topologyAsParameterizedModel n = evalRWS (parameterize (topologyAsModel n)) () 0
+  where
     parameterize :: Model -> RWS () [Text] Int Model
     parameterize Model{..} = Model "foo" <$> newDecls <*> newEvents
       where
@@ -106,11 +112,10 @@ topologyAsCoreModel n = modelAsCore params mdl
           | e /= undef = pure e
           | otherwise =
             do  counter <- get
-                put $ counter + 1
-                let freshVar = pack $ "a"++show counter
+                modify (+ 1)
+                let freshVar = pack $ "hole"++show counter
                 tell [freshVar]
                 pure (Var freshVar)
-
 
 undef :: Expr
 undef = LitD 1 `Div` LitD 0
