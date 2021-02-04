@@ -7,10 +7,10 @@ module Language.ASKEE where
 import           Control.Exception(Exception(..),throwIO)
 
 import qualified Data.Map as Map
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Aeson ( encode, decode )
+import Data.Aeson ( encode, decode, object, (.=) )
 
 import qualified Language.ASKEE.Check as Check
 import           Language.ASKEE.Convert
@@ -42,6 +42,7 @@ import System.IO.Temp ( withSystemTempFile, writeSystemTempFile )
 import System.Random ( randomIO )
 import Language.ASKEE.ModelStratify.Topology (modelAsTopology, topologyAsParameterizedModel)
 import System.IO (hPutStr, hSeek, SeekMode (AbsoluteSeek))
+import Data.List (intercalate)
 
 data ParseError      = ParseError String deriving Show
 data ValidationError = ValidationError String deriving Show
@@ -160,31 +161,20 @@ loadLatex = parseLatex
 data StratificationType = Demographic | Spatial
   deriving Show
 
-stratifyModel' :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO (Syntax.Model, [Text])
-stratifyModel' mod connections states strat =
+stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO (Syntax.Model, [Text])
+stratifyModel mod connections states strat =
   do  topology <- modelAsTopology <$> loadModel mod
-      onDisk (B.unpack $ encode @MS.Net topology) $ \top ->
-        asFile connections $ \conn ->
-          asFileM states $ \stM ->
-            do  result <- withCurrentDirectory "ASKE-E-Simulation-WG/AlgebraicPetri-Stratification" $ 
-                  case (stM, strat) of
-                    (Nothing, Demographic) -> error "need 'states' JSON to perform demographic stratification"
-                    (Just st, Demographic) ->
-                      readProcess "julia" [ "-JSysImage.so"
-                                          , "--project"
-                                          , "cli.jl"
-                                          , "--conn", conn
-                                          , "--states", st
-                                          , top
-                                          , "-d"
-                                          ] ""
-                    (_, Spatial) -> 
-                      readProcess "julia" [ "-JSysImage.so"
-                                          , "--project"
-                                          , "cli.jl"
-                                          , "--conn", conn
-                                          , top
-                                          , "-s"
+      onDisk (B.unpack $ encode @MS.Net topology) $ \topFile ->
+        asFile connections $ \connFile ->
+          asFileM states $ \stFileM ->
+            do  
+                result <- withCurrentDirectory "ASKE-E-Simulation-WG/AlgebraicPetri-Stratification" $
+                  let params =  [ "top="<>topFile
+                                , "conn="<>connFile
+                                , "type="<>case strat of Demographic -> "dem"; Spatial -> "spat"
+                                ] ++ case stFileM of {Nothing -> []; Just stFile -> ["states="<>stFile]}
+                  in  readProcess "curl"  [ "-X", "GET"
+                                          , "localhost:8001/?"++intercalate "&" params
                                           ] ""
                 topology' <- case decode @MS.Net (B.pack result) of
                   Just t -> pure t
@@ -192,26 +182,20 @@ stratifyModel' mod connections states strat =
                 pure $ topologyAsParameterizedModel topology'
 
   where
-    onDisk :: Show a => a -> (FilePath -> IO b) -> IO b
+    onDisk :: String -> (FilePath -> IO b) -> IO b
     onDisk thing = onDisk' thing id
 
-    onDisk' :: Show a => a -> (FilePath -> b) -> (b -> IO c) -> IO c
+    onDisk' :: String -> (FilePath -> b) -> (b -> IO c) -> IO c
     onDisk' thing translatePath action =
-      do  file <- writeSystemTempFile "foo.whatever" (show thing)
+      do  file <- writeSystemTempFile "foo.whatever" thing
           result <- action $ translatePath file
           removeFile file
           pure result
-      -- writeSystemTempFile "foo.txt" (show thing) >>= action . translatePath
-      -- withSystemTempFile "foo.txt" $ \fp h ->
-      --   -- do  writeFile fp (show thing)
-      --   do  hPutStr h (show thing)
-      --       hSeek h AbsoluteSeek 0
-      --       action (translatePath fp)
 
     asFile :: DataSource -> (FilePath -> IO a) -> IO a
     asFile d action =
       case d of
-        Inline t -> onDisk t action
+        Inline t -> onDisk (unpack t) action
         FromFile f -> makeAbsolute f >>= action
 
     asFileM :: Maybe DataSource -> (Maybe FilePath -> IO a) -> IO a
@@ -221,7 +205,15 @@ stratifyModel' mod connections states strat =
         Just d ->
           case d of
             FromFile f -> makeAbsolute f >>= action . Just
-            Inline t -> onDisk' t Just action
+            Inline t -> onDisk' (unpack t) Just action
+
+    mkJSON :: FilePath -> FilePath -> Maybe FilePath -> String
+    mkJSON topFile connFile stFileM =
+      B.unpack $ encode $ object [ "top" .= topFile
+                                 , "conn" .= connFile
+                                 , "states" .= stFileM
+                                 , "type" .= (case strat of { Demographic -> "dem"; Spatial -> "spat" } :: String)
+                                 ]
               
 
 genCppRunner :: DataSource -> IO ()
