@@ -7,7 +7,7 @@ module Language.ASKEE where
 import           Control.Exception(Exception(..),throwIO)
 
 import qualified Data.Map as Map
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Aeson ( encode, decode )
@@ -192,10 +192,10 @@ stratifyModel' mod connections states strat =
                 pure $ topologyAsParameterizedModel topology'
 
   where
-    onDisk :: Show a => a -> (FilePath -> IO b) -> IO b
+    onDisk :: String -> (FilePath -> IO b) -> IO b
     onDisk thing = onDisk' thing id
 
-    onDisk' :: Show a => a -> (FilePath -> b) -> (b -> IO c) -> IO c
+    onDisk' :: String -> (FilePath -> b) -> (b -> IO c) -> IO c
     onDisk' thing translatePath action =
       do  file <- writeSystemTempFile "foo.whatever" (show thing)
           result <- action $ translatePath file
@@ -211,7 +211,7 @@ stratifyModel' mod connections states strat =
     asFile :: DataSource -> (FilePath -> IO a) -> IO a
     asFile d action =
       case d of
-        Inline t -> onDisk t action
+        Inline t -> onDisk (unpack t) action
         FromFile f -> makeAbsolute f >>= action
 
     asFileM :: Maybe DataSource -> (Maybe FilePath -> IO a) -> IO a
@@ -221,7 +221,7 @@ stratifyModel' mod connections states strat =
         Just d ->
           case d of
             FromFile f -> makeAbsolute f >>= action . Just
-            Inline t -> onDisk' t Just action
+            Inline t -> onDisk' (unpack t) Just action
               
 
 genCppRunner :: DataSource -> IO ()
