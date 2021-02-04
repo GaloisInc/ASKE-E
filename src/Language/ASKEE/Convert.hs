@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
@@ -6,6 +7,8 @@ module Language.ASKEE.Convert where
 
 import Control.Monad ( (>=>) )
 
+import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.Map   ( Map )
 import qualified Data.Map   as Map
 import           Data.Graph ( graphFromEdges, Edge, Graph, Vertex )
@@ -21,12 +24,15 @@ import qualified Language.ASKEE.GenLexer         as AL
 import qualified Language.ASKEE.GenParser        as AP
 import qualified Language.ASKEE.Latex.GenLexer   as LL
 import qualified Language.ASKEE.Latex.GenParser  as LP
+import qualified Language.ASKEE.Latex.Print      as LPr
 import           Language.ASKEE.Panic            ( panic )
 import qualified Language.ASKEE.Print            as APr
 import qualified Language.ASKEE.RNet.GenLexer    as RL 
 import qualified Language.ASKEE.RNet.GenParser   as RP
 import qualified Language.ASKEE.RNet.Syntax      as RNet
 import qualified Language.ASKEE.Syntax           as ESL
+import  Language.ASKEE.ModelStratify.Syntax ( Net(..) )
+import  Language.ASKEE.ModelStratify.Topology ( modelAsTopology )
 
 import Language.Haskell.TH
 import Data.Maybe ( mapMaybe )
@@ -38,6 +44,8 @@ data ModelType =
   | DEQ_A
   | RNET_C
   | RNET_A
+  | TOPO_C
+  | TOPO_A
   | LATEX_C
   deriving (Enum, Eq, Ord)
 
@@ -48,6 +56,8 @@ instance Show ModelType where
   show DEQ_A = "differential equation abstract syntax"
   show RNET_C = "reaction network concrete syntax"
   show RNET_A = "reaction network abstract syntax"
+  show TOPO_A = "topology abstract syntax"
+  show TOPO_C = "topology concrete syntax"
   show LATEX_C = "latex concrete syntax"
 
 data Repr = Abstract | Concrete
@@ -74,10 +84,14 @@ instance Tagged Latex where
   tagOf Concrete = LATEX_C
   tagOf Abstract = error "no latex abstract syntax exists"
 
+instance Tagged Net where
+  tagOf Abstract = TOPO_A
+  tagOf Concrete = TOPO_C
+
 converter :: ModelType -> ModelType -> Q Exp 
 converter from to = 
   case pairToVertices (from, to) >>= uncurry sp of
-    Just p -> functionFromPath $ deepRev p
+    Just p -> functionFromPath p
     Nothing -> fail $ "No path from "++show from++" to "++show to
 
   where
@@ -112,8 +126,6 @@ converter from to =
         (Nothing, Just _) -> Nothing
         (Just fromV, Just toV) -> Just (fromV, toV)
 
-    deepRev :: [(a, b)] -> [(b, a)]
-    deepRev = map (\(x, y) -> (y, x)) . reverse
 
 
 graph :: Graph
@@ -122,28 +134,33 @@ vertexFromKey :: ModelType -> Maybe Vertex
 (graph, nodeFromVertex, vertexFromKey) = graphFromEdges nodes
   where
     nodes = [ mkNode eslCTranslators   ESL_C   [ESL_A]
-            , mkNode eslATranslators   ESL_A   [DEQ_A, ESL_C]
+            , mkNode eslATranslators   ESL_A   [DEQ_A, ESL_C, TOPO_A]
             , mkNode deqCTranslators   DEQ_C   [DEQ_A]
             , mkNode deqATranslators   DEQ_A   [DEQ_C, LATEX_C]
             , mkNode latexCTranslators LATEX_C [DEQ_A]
             , mkNode rnetCTranslators  RNET_C  [RNET_A]
             , mkNode rnetATranslators  RNET_A  []
+            , mkNode topoCTranslators  TOPO_C  [TOPO_A]
+            , mkNode topoATranslators  TOPO_A  [TOPO_C]
             ]
 
-    eslCTranslators =   Map.fromList [ (ESL_A,  [e| AL.lexModel >=> AP.parseModel |]) ]
-    eslATranslators =   Map.fromList [ (DEQ_A,  [e| fmap asEquationSystem . modelAsCore [] |])
-                                     , (ESL_C,  [e| Right . show . APr.printModel |]) ]
-    deqCTranslators =   Map.fromList [ (DEQ_A,  [e| DL.lexDEQs >=> DP.parseDEQs |]) ]
-    deqATranslators =   Map.fromList [ (DEQ_C,  [e| Right . show . DPr.ppDiffEqs |])
+    eslCTranslators =   Map.fromList [ (ESL_A,   [e| AL.lexModel >=> AP.parseModel |]) ]
+    eslATranslators =   Map.fromList [ (DEQ_A,   [e| fmap asEquationSystem . modelAsCore [] |])
+                                     , (ESL_C,   [e| Right . show . APr.printModel |])
+                                     , (TOPO_A,  [e| Right . modelAsTopology |]) ]
+    deqCTranslators =   Map.fromList [ (DEQ_A,   [e| DL.lexDEQs >=> DP.parseDEQs |]) ]
+    deqATranslators =   Map.fromList [ (DEQ_C,   [e| Right . show . DPr.ppDiffEqs |])
                                      , (LATEX_C, [e| Right . show . LPr.printLatex |]) ]
-    latexCTranslators = Map.fromList [ (DEQ_A,  [e| LL.lexLatex >=> LP.parseLatex |]) ]
-    rnetCTranslators =  Map.fromList [ (RNET_A, [e| RL.lexRNet >=> RP.parseRNet |] ) ]
+    latexCTranslators = Map.fromList [ (DEQ_A,   [e| LL.lexLatex >=> LP.parseLatex |]) ]
+    rnetCTranslators =  Map.fromList [ (RNET_A,  [e| RL.lexRNet >=> RP.parseRNet |] ) ]
     rnetATranslators =  Map.empty
+    topoCTranslators =  Map.fromList [ (TOPO_A,  [e| Aeson.eitherDecode @Net |]) ]
+    topoATranslators =  Map.fromList [ (TOPO_C,  [e| Right . B.unpack . Aeson.encode @Net |]) ]
 
     mkNode :: Map ModelType (Q Exp) -> ModelType -> [ModelType] -> (Map ModelType (Q Exp), ModelType, [ModelType])
     mkNode translators model links
       | and [Map.member link translators | link <- links] = (translators, model, links)
-      | otherwise = panic "Error in format graph construction" [ "When creating node:", show (Map.keys translators), show model, show links]
+      | otherwise = panic "Error in format graph construction" [ "When creating node representing "++show model, "with links to "++show links ]
 
 
 -- | For testing - synthesize all possible model-to-model journeys and, for all

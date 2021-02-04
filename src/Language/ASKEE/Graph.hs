@@ -4,11 +4,13 @@ import Control.Monad.State
 
 -- import           Data.Array ( Array )
 import qualified Data.Array as Array
-import           Data.Graph ( vertices, Edge, Graph, Vertex )
+import           Data.Graph (graphFromEdges,  vertices, Edge, Graph, Vertex )
 import           Data.Set ( Set )
 import qualified Data.Set as Set
 import           Data.Map ( Map )
 import qualified Data.Map as Map
+
+import Debug.Trace
 
 data Distance = N Int | Infinity
   deriving (Show, Eq)
@@ -56,7 +58,7 @@ data Info = Info
 type M = State Info
 
 shortestPath :: Graph -> Vertex -> Vertex -> Maybe [Edge]
-shortestPath g start end = buildPath paths start' end'
+shortestPath g start end = deepRev <$> buildPath (stripMarkings paths) (value start') (value end')
   where
     paths = evalState (driver start' end') info
     info = Info uv g Map.empty ms undefined
@@ -65,11 +67,15 @@ shortestPath g start end = buildPath paths start' end'
     unmarked = Set.fromList (vertices g)
     start' = mark start
     end' = mark end
+    stripMarkings = Map.mapKeys value . Map.map value
 
     mark :: Vertex -> Marked Vertex
     mark v
       | v == start = Marked (N 0) v
       | otherwise = Marked Infinity v
+    
+    deepRev :: [(a, b)] -> [(b, a)]
+    deepRev = map (\(x, y) -> (y, x)) . reverse
 
 driver :: Marked Vertex -> Marked Vertex -> M (Map (Marked Vertex) (Marked Vertex))
 driver current goal =
@@ -108,23 +114,38 @@ markedNeighbors v =
     neighbors :: Graph -> Vertex -> [Vertex]
     neighbors = (Array.!)
 
-buildPath :: Map (Marked Vertex) (Marked Vertex) -> Marked Vertex -> Marked Vertex -> Maybe [Edge]
+buildPath :: Map Vertex Vertex -> Vertex -> Vertex -> Maybe [Edge]
 buildPath ps start end 
   | start == end = pure []
   | otherwise = 
     do  predecessor <- ps Map.!? end
-        (fmap . (:)) (value end, value predecessor) (buildPath ps start predecessor)
+        (fmap . (:)) (end, predecessor) (buildPath ps start predecessor)
 
--- testGraph :: Graph
+testGraph :: Graph
 -- nodeFromVertex :: Vertex -> (Int, Int, [Int])
 -- vertexFromKey :: Int -> Maybe Vertex
--- (testGraph, nodeFromVertex, vertexFromKey) = graphFromEdges nodes 
---   where
---     nodes = 
---       [ (0, 0, [1])
---       , (1, 1, [0, 2, 3, 4])
---       , (2, 2, [3])
---       , (3, 3, [])
---       , (4, 4, [5])
---       , (5, 5, [3])
---       ]
+(testGraph, nodeFromVertex, vertexFromKey) = graphFromEdges nodes 
+  where
+    nodes = [ mkNode  ESL_C   [ESL_A]
+            , mkNode  ESL_A   [DEQ_A, ESL_C, TOPO_A]
+            , mkNode  DEQ_C   [DEQ_A]
+            , mkNode  DEQ_A   [DEQ_C, LATEX_C]
+            , mkNode  LATEX_C [DEQ_A]
+            , mkNode  RNET_C  [RNET_A]
+            , mkNode  RNET_A  []
+            , mkNode  TOPO_C  [TOPO_A]
+            , mkNode  TOPO_A  [TOPO_C]
+            ]
+    mkNode x ys = (x,x,ys)
+
+data ModelType =
+    ESL_C
+  | ESL_A
+  | DEQ_C
+  | DEQ_A
+  | RNET_C
+  | RNET_A
+  | TOPO_C
+  | TOPO_A
+  | LATEX_C
+  deriving (Enum, Eq, Ord)
