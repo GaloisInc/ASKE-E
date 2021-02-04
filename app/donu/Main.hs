@@ -74,6 +74,13 @@ handleRequest r =
             Left err -> throwIO (DS.MalformedDataSeries err)
           let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
           pure (FitResult res)
+    Stratify info ->
+      do  (model, params) <- stratifyModel'  (stratModel info)
+                                    (stratConnections info)
+                                    (stratStates info)
+                                    (stratType info)
+          pure $ StratificationResult model params
+
           
   where
     pack :: DataSource -> IO BS8.ByteString
