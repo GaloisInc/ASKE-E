@@ -74,7 +74,8 @@ data StratifyCommand = StratifyCommand
 instance HasSpec StratifyCommand where
   anySpec =
     sectionsSpec "stratify-command"
-    do  stratModel       <- reqSection' "definition" dataSource
+    do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
+        stratModel       <- reqSection' "definition" dataSource
                             "specification of the model"
 
         stratConnections <- reqSection' "connection-graph" dataSource

@@ -39,5 +39,10 @@ class ASKEECommandVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
 
+    # Visit a parse tree produced by ASKEECommandParser#ExprList.
+    def visitExprList(self, ctx:ASKEECommandParser.ExprListContext):
+        return self.visitChildren(ctx)
+
+
 
 del ASKEECommandParser
