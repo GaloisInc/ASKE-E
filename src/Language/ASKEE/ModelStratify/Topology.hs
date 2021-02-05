@@ -184,48 +184,5 @@ nameHoles names Model{..} = Model modelName renamedDecls renamedEvents
     updateText' = updateText Nothing
     updateExpr' = updateExpr Nothing
 
--- topologyAsParameterizedModel :: Map Int Text -> Net -> (Model, [Text])
--- topologyAsParameterizedModel m n = evalRWS (parameterize (topologyAsModel n)) () 0
---   where
---     parameterize :: Model -> RWS () [Text] Int Model
---     parameterize Model{..} = Model "foo" <$> newDecls <*> newEvents
---       where
---         newDecls :: RWS () [Text] Int [Decl]
---         newDecls = forM modelDecls $ \d ->
---           do  case d of
---                 Let t e -> Let t <$> maybeFreshen (Just $ t<>"_initial") e
---                 State t e -> State t <$> maybeFreshen (Just $ t<>"_initial") e
---                 Assert e -> Assert <$> maybeFreshen Nothing e
-
---         newEvents :: RWS () [Text] Int [Event]
---         newEvents = forM modelEvents $ \Event{..} ->
---           do  let eventName' = eventName
---               eventWhen' <-
---                 case eventWhen of
---                   Just e -> Just <$> maybeFreshen (Just $ eventName'<>"_when") e
---                   Nothing -> pure Nothing
---               eventRate' <- maybeFreshen (Just $ eventName'<>"_rate") eventRate
---               eventEffect' <- forM eventEffect $ \(t, e) ->
---                 do  e' <- maybeFreshen (Just $ eventName'<>"_effect") e
---                     let t' = t
---                     pure (t', e')
---               pure $ Event eventName' eventWhen' eventRate' eventEffect' eventMetadata
-        
---         -- Not sure we really need to freshen these names...
---         maybeFreshen :: Maybe Text -> Expr -> RWS () [Text] Int Expr
---         maybeFreshen t e
---           | e /= undef = pure e
---           | otherwise =
---             do  counter <- get
---                 modify (+ 1)
---                 let howMany = (counter `div` 26) + 1
---                     chars = replicate howMany $ toEnum @Char ((counter `mod` 26) + fromEnum 'A')
---                     freshVar = 
---                       case t of
---                         Just t' -> t'<>"_"<>pack chars
---                         Nothing -> "hole"<>"_"<>pack chars
---                 tell [freshVar]
---                 pure (Var freshVar)
-
 undef :: Expr
 undef = LitD 1 `Div` LitD 0
