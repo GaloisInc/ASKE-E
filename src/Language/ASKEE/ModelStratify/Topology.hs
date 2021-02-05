@@ -5,15 +5,22 @@ module Language.ASKEE.ModelStratify.Topology where
 
 import Control.Monad.RWS
 
+import           Data.Char ( isDigit )
 import qualified Data.Map as Map
 import           Data.Maybe ( mapMaybe )
 import           Data.Text ( Text, pack )
+import qualified Data.Text as Text
 
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.Core.ImportASKEE ( modelAsCore )
 import           Language.ASKEE.Expr ( Expr(..) )
 import           Language.ASKEE.ModelStratify.Syntax
 import           Language.ASKEE.Syntax
+import Data.Map (Map)
+import Data.Either (fromRight)
+import Data.Text.Read (decimal)
+import Language.ASKEE.ExprTransform (transformExpr)
+import Control.Monad.Identity
 
 -- | Lossy conversion from rich model to purely structural topology 
 modelAsTopology :: Model -> Net
@@ -76,14 +83,13 @@ topologyAsModel Net{..} = Model "foo" decls events
             _ -> Nothing
 
 -- | Produce both the parameterized model and the core model
-topologyAsCoreModel :: Net -> Either String (Model, Core.Model)
-topologyAsCoreModel n = (mdl,) <$> modelAsCore params mdl
+topologyAsCoreModel :: Map Int Text -> Net -> Either String (Model, Core.Model)
+topologyAsCoreModel m n = (mdl,) <$> modelAsCore params mdl
   where
-    (mdl, params) = topologyAsParameterizedModel n
+    (mdl, params) = topologyAsParameterizedModel m n
 
--- | Produce the model with newly-created holes and a list of those holes' names
-topologyAsParameterizedModel :: Net -> (Model, [Text])
-topologyAsParameterizedModel n = evalRWS (parameterize (topologyAsModel n)) () 0
+topologyAsParameterizedModel :: Map Int Text -> Net -> (Model, [Text])
+topologyAsParameterizedModel m n = evalRWS (parameterize (topologyAsModel n)) () 0
   where
     parameterize :: Model -> RWS () [Text] Int Model
     parameterize Model{..} = Model "foo" <$> newDecls <*> newEvents
@@ -91,31 +97,52 @@ topologyAsParameterizedModel n = evalRWS (parameterize (topologyAsModel n)) () 0
         newDecls :: RWS () [Text] Int [Decl]
         newDecls = forM modelDecls $ \d ->
           do  case d of
-                Let t e -> Let t <$> maybeFreshen e
-                State t e -> State t <$> maybeFreshen e
-                Assert e -> Assert <$> maybeFreshen e
+                Let t e -> Let t <$> maybeFreshen (Just $ t<>"_initial") e
+                State t e -> State (updateText t) <$> maybeFreshen (Just $ updateText t<>"_initial") e
+                Assert e -> Assert <$> maybeFreshen Nothing e
 
         newEvents :: RWS () [Text] Int [Event]
         newEvents = forM modelEvents $ \Event{..} ->
-          do  eventWhen' <-
+          do  let eventName' = updateText eventName
+              eventWhen' <-
                 case eventWhen of
-                  Just e -> Just <$> maybeFreshen e
+                  Just e -> Just <$> maybeFreshen (Just $ eventName'<>"_when") e
                   Nothing -> pure Nothing
-              eventRate' <- maybeFreshen eventRate
+              eventRate' <- maybeFreshen (Just $ eventName'<>"_rate") eventRate
               eventEffect' <- forM eventEffect $ \(t, e) ->
-                do  e' <- maybeFreshen e
-                    pure (t, e')
-              pure $ Event eventName eventWhen' eventRate' eventEffect' eventMetadata
+                do  e' <- updateExpr <$> maybeFreshen (Just $ eventName'<>"_effect") e
+                    let t' = updateText t
+                    pure (t', e')
+              pure $ Event eventName' eventWhen' eventRate' eventEffect' eventMetadata
             
-        maybeFreshen :: Expr -> RWS () [Text] Int Expr
-        maybeFreshen e
+        maybeFreshen :: Maybe Text -> Expr -> RWS () [Text] Int Expr
+        maybeFreshen t e
           | e /= undef = pure e
           | otherwise =
             do  counter <- get
                 modify (+ 1)
-                let freshVar = pack $ "hole"++show counter
+                let freshVar = 
+                      case t of
+                        Just t' -> t'<>"_"<>pack (show counter)
+                        Nothing -> "hole"<>"_"<>pack (show counter)
                 tell [freshVar]
                 pure (Var freshVar)
+
+        updateExpr :: Expr -> Expr
+        updateExpr = runIdentity . transformExpr go
+          where
+            go :: Expr -> Identity Expr
+            go e =
+              case e of
+                Var v -> pure $ Var $ updateText v
+                _ -> pure e
+
+        updateText :: Text -> Text
+        updateText t =
+          let numbersIn = filter (Text.all isDigit) $ Text.splitOn "_" t
+              irrefutableTextAsNumber = fst . fromRight (error "Language.ASKEE.ModelStratify.Topology: internal error: not a number") . decimal
+          in  foldr (\num res -> Text.replace num (m Map.! irrefutableTextAsNumber num) res) t numbersIn
+
 
 undef :: Expr
 undef = LitD 1 `Div` LitD 0
