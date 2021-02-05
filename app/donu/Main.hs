@@ -14,12 +14,14 @@ import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
 import Language.ASKEE
+import qualified Language.ASKEE.Print as Print
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
+import Language.ASKEE.ExprTransform(setValues)
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -101,6 +103,7 @@ handleRequest r =
 
     GenerateCPP cmd ->
       OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
+
     Stratify info ->
       do  (model, params) <- stratifyModel'  (stratModel info)
                                     (stratConnections info)
@@ -108,7 +111,14 @@ handleRequest r =
                                     (stratType info)
           pure $ StratificationResult model params
 
-          
+    SetParams sp ->
+      do  model <- parseModel (setParamsModel sp)
+          let model' = setValues (setParamsParams sp) model
+              ppModel = PP.render (Print.printModel model')
+          pure $ OutputResult (SuccessResult ppModel)
+
+
+
   where
     pack :: DataSource -> IO BS8.ByteString
     pack ds = 
@@ -180,6 +190,8 @@ generateCPP ty src =
       pure $ Left "Rendering diff-eq to C++ is not implemented"
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
+
+
 
 -------------------------------------------------------------------------
 

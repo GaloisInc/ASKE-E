@@ -7,6 +7,7 @@ import requests
 from typing import List, Set, Dict, Tuple, Optional, Generator
 
 import antlr4
+from traitlets.traitlets import Instance
 from antlrgen.ASKEECommandVisitor import ASKEECommandVisitor
 from antlrgen.ASKEECommandParser import ASKEECommandParser
 from antlrgen.ASKEECommandLexer import ASKEECommandLexer
@@ -53,6 +54,11 @@ class ExprList(Expr):
     def __init__(self, elts:List[Expr]):
         self.elts = elts
 
+class ExprMap(Expr):
+    def __init__(self, elts:List[Tuple[str, Expr]]):
+        self.elts = elts
+
+
 class Stmt(AST):
     pass
 
@@ -95,6 +101,11 @@ class ASKEECommandASTVisitor(ASKEECommandVisitor):
         name = self.identifier(ctx.IDENTIFIER())
         exprs = list([self.visit(expr) for expr in ctx.args])
         return ExprCall(name, exprs)
+
+    def visitExprMap(self, ctx:ASKEECommandParser.ExprMapContext) -> Expr:
+        values = [self.visit(expr) for expr in ctx.values]
+        keys = [ident.text for ident in ctx.keys]
+        return ExprMap(zip(keys, values))
 
     def visitExprVar(self, ctx:ASKEECommandParser.ExprVarContext) -> Expr:
         return ExprVar(self.identifier(ctx.IDENTIFIER()))
@@ -176,6 +187,15 @@ class Donu:
             raise IntepreterError(why, resp['error'])
 
         raise IntepreterError(why, f"[BUG] unexpected response status from Donu {resp['status']}")
+
+    def setParams(self, model: str, paramMap: Dict[str, float], why: AST):
+        req = {
+            "command":"setparams-command",
+            "definition":model,
+            "parameters":paramMap
+        }
+
+        return self.decodeResponse(self.request(req), why)
 
 
     def deqSimulate(self, model: str, type: str, start: float, end: float, interval: float):
@@ -298,6 +318,11 @@ class ValueLatexEqnArrayModel(ValueModel):
     def getDonuType():
         return Donu.modelTypeLEQArr()
 
+class ValueMap(Value):
+    def __init__(self, value:Dict[str,Value]):
+        self.value = value
+
+
 class ASKEECommandInterpreter:
     def __init__(self):
         self.env = {}
@@ -318,7 +343,18 @@ class ASKEECommandInterpreter:
             "save": self.saveAsFile,
             "scatter":self.scatterPlot,
             "stratifySpatial":self.stratifySpatial,
+            "setParams":self.setParams,
         }
+
+    def setParams(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model, mp] = self.evalArgs(call, [ValueESLModel, ValueMap], output)
+        if(any([not isinstance(v, ValueNumber) for v in mp.value.values()])):
+            self.fail("All map values must be numeric for 'setParams'", call)
+
+        imp = dict([(k,v.value) for (k,v) in mp.value.items()])
+
+        result = self.donu.setParams(model.source, imp, call)
+        return ValueESLModel(result)
 
     def stratifySpatial(self, call:ExprCall, output:List[Dict]) -> Value:
         [model, cgraph] = self.evalArgs(call, [ValueESLModel, ValueString], output)
@@ -587,6 +623,10 @@ class ASKEECommandInterpreter:
             return self.getVar(expr.name, expr)
         elif isinstance(expr, ExprCall):
             return self.callFn(expr, output)
+        elif isinstance(expr, ExprMap):
+            entries = [(k, self.evalExpr(subExpr, output)) for (k, subExpr) in expr.elts]
+            return ValueMap(dict(entries))
+
         else:
             self.fail("Expression form not implemented", expr)
 

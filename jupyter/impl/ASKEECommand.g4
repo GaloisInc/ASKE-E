@@ -11,6 +11,8 @@ expr
   | STRING                                              #ExprString
   | NUMBER                                              #ExprNumber
   | '[' expr* ']'                                       #ExprList
+  | '{' ((keys+=IDENTIFIER '=' values+=expr)
+         (',' keys+=IDENTIFIER '=' values+=expr)*)? '}'               #ExprMap
   ;
 
 NUMBER: ([0-9]+ ('.' [0-9]+)?) | ('.' [0-9]+) ;

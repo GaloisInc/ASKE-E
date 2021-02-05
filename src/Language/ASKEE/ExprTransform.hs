@@ -1,9 +1,13 @@
-{-# Language PatternSynonyms #-}
 module Language.ASKEE.ExprTransform where
 
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.Expr as Expr
-
+import qualified Control.Monad.Writer as Writer
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Data.Set(Set)
+import Data.Text(Text)
+import Data.Map(Map)
 
 transformExpr ::
   Monad m =>
@@ -31,9 +35,10 @@ transformExpr exprT e =
     Expr.If test thn els ->
       (Expr.If <$> expr test <*> expr thn <*> expr els) >>= exprT
     Expr.Cond choices other ->
-      do  choices <- condChoice `traverse` choices
+      do  chs <- condChoice `traverse` choices
           oth <- expr `traverse` other
-          exprT $ Expr.Cond choices oth
+          exprT $ Expr.Cond chs oth
+    Expr.Paren e1 -> (Expr.Paren <$> expr e1) >>= exprT
   where
     cmp op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
     expr = transformExpr exprT
@@ -70,4 +75,32 @@ transformModelExprs exprT mdl =
 
 
 
+setValues :: Map Text Double -> Syntax.Model -> Syntax.Model
+setValues binds mdl =
+    foldl setVal mdl (Map.toList binds)
+  where
+    setVal m (n,v) =
+      m { Syntax.modelDecls = updateDecls n v (Syntax.modelDecls m) }
 
+    updateDecls n v decls =
+      case decls of
+        [] -> [Syntax.Let n (Expr.LitD v)]
+        decl:ds ->
+          case decl of
+            Syntax.Let ln _   | ln == n -> Syntax.Let ln (Expr.LitD v) : ds
+            Syntax.State sn _ | sn == n -> Syntax.State sn (Expr.LitD v) : ds
+            _ -> decl:updateDecls n v ds
+
+
+getSymbols :: Syntax.Model -> Set Text
+getSymbols mdl = syms
+  where
+    (_, syms) = Writer.runWriter traversal
+    traversal = transformModelExprs sym mdl
+    sym :: Expr.Expr -> Writer.Writer (Set Text) Expr.Expr
+    sym e =
+      case e of
+        Expr.Var v ->
+          do  Writer.tell (Set.singleton v)
+              pure e
+        _ -> pure e

@@ -28,6 +28,7 @@ data Input =
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
   | Stratify StratifyCommand
+  | SetParams SetParametersCommand
     deriving Show
 
 instance HasSpec Input where
@@ -36,7 +37,8 @@ instance HasSpec Input where
          <!> (ConvertModel <$> anySpec)
          <!> (Fit      <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
-         <!>  (Stratify <$> anySpec)
+         <!> (Stratify <$> anySpec)
+         <!> (SetParams <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -70,6 +72,28 @@ data StratifyCommand = StratifyCommand
   , stratType        :: StratificationType
   }
   deriving Show
+
+data SetParametersCommand =
+    SetParametersCommand
+    { setParamsModel :: DataSource
+    , setParamsParams :: Map Text Double
+    }
+    deriving Show
+
+instance HasSpec SetParametersCommand where
+  anySpec =
+    sectionsSpec "setparams-command"
+    do  reqSection' "command" (jsAtom "setparams-command") "Set model parameters"
+        setParamsModel       <- reqSection' "definition" dataSource
+                                "specification of the model"
+        setParamsParams <- reqSection' "parameters" doubleMapSpec
+                           "parameters to set"
+
+        pure SetParametersCommand {..}
+
+      where
+        doubleMapSpec :: ValueSpec (Map Text Double)
+        doubleMapSpec =  Map.fromList <$> assocSpec fractionalSpec
 
 instance HasSpec StratifyCommand where
   anySpec =
