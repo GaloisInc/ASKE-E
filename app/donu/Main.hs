@@ -102,11 +102,11 @@ handleRequest r =
     GenerateCPP cmd ->
       OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
     Stratify info ->
-      do  (model, params) <- stratifyModel'  (stratModel info)
-                                    (stratConnections info)
-                                    (stratStates info)
-                                    (stratType info)
-          pure $ StratificationResult model params
+      do  modelInfo <- stratifyModel  (stratModel info)
+                                      (stratConnections info)
+                                      (stratStates info)
+                                      (stratType info)
+          pure $ StratificationResult modelInfo
 
           
   where
@@ -182,4 +182,3 @@ generateCPP ty src =
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
 -------------------------------------------------------------------------
-
