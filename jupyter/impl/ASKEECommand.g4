@@ -10,6 +10,7 @@ expr
   | IDENTIFIER                                          #ExprVar
   | STRING                                              #ExprString
   | NUMBER                                              #ExprNumber
+  | '[' expr* ']'                                       #ExprList
   ;
 
 NUMBER: ([0-9]+ ('.' [0-9]+)?) | ('.' [0-9]+) ;

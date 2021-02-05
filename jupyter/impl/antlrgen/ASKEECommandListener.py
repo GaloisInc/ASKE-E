@@ -62,5 +62,14 @@ class ASKEECommandListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by ASKEECommandParser#ExprList.
+    def enterExprList(self, ctx:ASKEECommandParser.ExprListContext):
+        pass
+
+    # Exit a parse tree produced by ASKEECommandParser#ExprList.
+    def exitExprList(self, ctx:ASKEECommandParser.ExprListContext):
+        pass
+
+
 
 del ASKEECommandParser

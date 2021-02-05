@@ -28,8 +28,8 @@ main :: IO ()
 main = quickHttpServe
   do let limit = 8 * 1024 * 1024    -- 8 megs
      body <- Snap.readRequestBody limit
-     case JS.decode' body of
-       Just a ->
+     case JS.eitherDecode body of
+       Right a ->
          do r <- liftIO $ try $ handleRequest a
             case r of
               Right ok ->
@@ -39,9 +39,10 @@ main = quickHttpServe
                 do Snap.modifyResponse
                               (Snap.setResponseStatus 400 "Bad request")
                    Snap.writeText $ Text.pack $ show (err :: SomeException)
-       Nothing ->
-         do Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-            showHelp
+       Left err ->
+         do Snap.writeText $ Text.pack err
+            Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
+            -- showHelp
 
 --------------------------------------------------------------------------------
 

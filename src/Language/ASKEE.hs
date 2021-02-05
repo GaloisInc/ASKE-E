@@ -6,11 +6,13 @@ module Language.ASKEE where
 
 import           Control.Exception(Exception(..),throwIO)
 
+import           Data.Map ( Map )
 import qualified Data.Map as Map
 import           Data.Text (Text, unpack)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Aeson ( encode, decode, object, (.=) )
+import Data.Aeson ( encode, decode, Value(..) )
 
 import qualified Language.ASKEE.Check as Check
 import           Language.ASKEE.Convert
@@ -33,6 +35,7 @@ import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.ModelStratify.Syntax as MS
+import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import Data.Word (Word8)
 
 
@@ -162,13 +165,13 @@ data StratificationType = Demographic | Spatial
   deriving Show
 
 stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO (Syntax.Model, [Text])
-stratifyModel mod connections states strat =
-  do  topology <- modelAsTopology <$> loadModel mod
-      onDisk (B.unpack $ encode @MS.Net topology) $ \topFile ->
-        asFile connections $ \connFile ->
+stratifyModel model connections states strat =
+  do  topology <- modelAsTopology <$> loadModel model
+      (gtriConnections, vertexMap) <- loadConnectionGraph connections
+      onDisk (B.unpack $ encode topology) $ \topFile ->
+        onDisk (B.unpack $ encode gtriConnections) $ \connFile ->
           asFileM states $ \stFileM ->
-            do  
-                result <- withCurrentDirectory "ASKE-E-Simulation-WG/AlgebraicPetri-Stratification" $
+            do  result <- withCurrentDirectory "ASKE-E-Simulation-WG/AlgebraicPetri-Stratification" $
                   let params =  [ "top="<>topFile
                                 , "conn="<>connFile
                                 , "type="<>case strat of Demographic -> "dem"; Spatial -> "spat"
@@ -176,10 +179,10 @@ stratifyModel mod connections states strat =
                   in  readProcess "curl"  [ "-X", "GET"
                                           , "localhost:8001/?"++intercalate "&" params
                                           ] ""
-                topology' <- case decode @MS.Net (B.pack result) of
+                topology' <- case decode (B.pack result) of
                   Just t -> pure t
                   Nothing -> error $ "failed to parse JSON of returned topology "++result
-                pure $ topologyAsParameterizedModel topology'
+                pure $ topologyAsParameterizedModel vertexMap topology'
 
   where
     onDisk :: String -> (FilePath -> IO b) -> IO b
@@ -207,14 +210,21 @@ stratifyModel mod connections states strat =
             FromFile f -> makeAbsolute f >>= action . Just
             Inline t -> onDisk' (unpack t) Just action
 
-    mkJSON :: FilePath -> FilePath -> Maybe FilePath -> String
-    mkJSON topFile connFile stFileM =
-      B.unpack $ encode $ object [ "top" .= topFile
-                                 , "conn" .= connFile
-                                 , "states" .= stFileM
-                                 , "type" .= (case strat of { Demographic -> "dem"; Spatial -> "spat" } :: String)
-                                 ]
-              
+loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
+loadConnectionGraph d =
+  case d of
+    Inline t -> resultFromText t
+    FromFile f -> TextIO.readFile f >>= resultFromText
+
+  where
+    resultFromText t =
+      do  let result' = GG.parseGeoGraph (unpack t)
+          result <- case result' of
+            Right res -> pure res
+            Left err -> throwIO $ ParseError err
+          let (vertices, edges, mapping) = GG.intGraph result
+              mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+          pure (GG.gtriJSON vertices edges, mapping')
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =

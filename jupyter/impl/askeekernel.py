@@ -49,6 +49,10 @@ class ExprVar(Expr):
     def __init__(self, name:str):
         self.name = name
 
+class ExprList(Expr):
+    def __init__(self, elts:List[Expr]):
+        self.elts = elts
+
 class Stmt(AST):
     pass
 
@@ -102,6 +106,10 @@ class ASKEECommandASTVisitor(ASKEECommandVisitor):
     def visitExprNumber(self, ctx:ASKEECommandParser.ExprNumberContext) -> Expr:
         return ExprNumber(self.number(ctx.NUMBER()))
 
+    def visitExprList(self, ctx: ASKEECommandParser.ExprListContext):
+        exprs = list([self.visit(expr) for expr in ctx.args])
+        return ExprList(exprs)
+
 class ErrorCollector(antlr4.error.ErrorListener.ErrorListener):
     def __init__(self):
         self.syntaxErrors = []
@@ -147,6 +155,12 @@ class Donu:
     @staticmethod
     def modelTypeLEQArr():
         return "latex-eqnarray"
+
+    @staticmethod
+    def fileSource(fileName:str):
+        return {
+            "file": os.path.abspath(fileName)
+        }
 
     def request(self, req):
         response = requests.post(self.address, json.dumps(req))
@@ -198,7 +212,7 @@ class Donu:
 
         return self.decodeResponse(self.request(req), why)
 
-    def genCpp(self, model:str, srcType:str, why: AST) -> str:
+    def genCpp(self, model:str, srcType:str, why:AST) -> str:
         req = {
             "command": "generate-cpp",
             "model": srcType,
@@ -206,6 +220,16 @@ class Donu:
         }
 
         return self.decodeResponse(self.request(req), why)
+
+    def stratifySpatial(self, model:str, connectionGraph:str, why:AST):
+        req = {
+            "command": "stratify-command",
+            "definition": model,
+            "connection-graph": Donu.fileSource(connectionGraph),
+            "stratification-type": "spatial",
+        }
+
+        return self.request(req)['model']
 
 
 # -----------------------------------------------------------------------------
@@ -292,8 +316,16 @@ class ASKEECommandInterpreter:
             "asESL": self.asESL,
             "generateSimulator": self.generateSimulator,
             "save": self.saveAsFile,
-            "scatter":self.scatterPlot
+            "scatter":self.scatterPlot,
+            "stratifySpatial":self.stratifySpatial,
         }
+
+    def stratifySpatial(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model, cgraph] = self.evalArgs(call, [ValueESLModel, ValueString], output)
+        stratResult = self.donu.stratifySpatial(model.source, cgraph.value, call)
+        return ValueString(stratResult)
+        # return ValueString(stratResult)
+
 
     def scatterPlot(self, call:ExprCall, output:List[Dict]) -> Value:
         [data, xaxisVal, yaxisVal] = self.evalArgs(call, [ValueDataSeries, ValueString, ValueString], output)

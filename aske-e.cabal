@@ -62,6 +62,7 @@ library
                      , Language.ASKEE.Experiments
                      , Language.ASKEE.ModelStratify.Syntax
                      , Language.ASKEE.ModelStratify.Topology
+                     , Language.ASKEE.ModelStratify.GeoGraph
                      , PetriNet
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,

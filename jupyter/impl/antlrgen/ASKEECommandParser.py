@@ -11,20 +11,22 @@ else:
 
 def serializedATN():
     with StringIO() as buf:
-        buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\n")
-        buf.write("$\4\2\t\2\4\3\t\3\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\5\2")
+        buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\f")
+        buf.write(",\4\2\t\2\4\3\t\3\3\2\3\2\3\2\3\2\3\2\3\2\3\2\3\2\5\2")
         buf.write("\17\n\2\3\3\3\3\3\3\3\3\3\3\7\3\26\n\3\f\3\16\3\31\13")
-        buf.write("\3\3\3\5\3\34\n\3\3\3\3\3\3\3\3\3\5\3\"\n\3\3\3\2\2\4")
-        buf.write("\2\4\2\2\2\'\2\16\3\2\2\2\4!\3\2\2\2\6\7\7\t\2\2\7\b\7")
-        buf.write("\3\2\2\b\t\5\4\3\2\t\n\7\2\2\3\n\17\3\2\2\2\13\f\5\4\3")
-        buf.write("\2\f\r\7\2\2\3\r\17\3\2\2\2\16\6\3\2\2\2\16\13\3\2\2\2")
-        buf.write("\17\3\3\2\2\2\20\21\7\t\2\2\21\33\7\4\2\2\22\23\5\4\3")
-        buf.write("\2\23\24\7\5\2\2\24\26\3\2\2\2\25\22\3\2\2\2\26\31\3\2")
-        buf.write("\2\2\27\25\3\2\2\2\27\30\3\2\2\2\30\32\3\2\2\2\31\27\3")
-        buf.write("\2\2\2\32\34\5\4\3\2\33\27\3\2\2\2\33\34\3\2\2\2\34\35")
-        buf.write("\3\2\2\2\35\"\7\6\2\2\36\"\7\t\2\2\37\"\7\b\2\2 \"\7\7")
-        buf.write("\2\2!\20\3\2\2\2!\36\3\2\2\2!\37\3\2\2\2! \3\2\2\2\"\5")
-        buf.write("\3\2\2\2\6\16\27\33!")
+        buf.write("\3\3\3\5\3\34\n\3\3\3\3\3\3\3\3\3\3\3\3\3\7\3$\n\3\f\3")
+        buf.write("\16\3\'\13\3\3\3\5\3*\n\3\3\3\2\2\4\2\4\2\2\2\61\2\16")
+        buf.write("\3\2\2\2\4)\3\2\2\2\6\7\7\13\2\2\7\b\7\3\2\2\b\t\5\4\3")
+        buf.write("\2\t\n\7\2\2\3\n\17\3\2\2\2\13\f\5\4\3\2\f\r\7\2\2\3\r")
+        buf.write("\17\3\2\2\2\16\6\3\2\2\2\16\13\3\2\2\2\17\3\3\2\2\2\20")
+        buf.write("\21\7\13\2\2\21\33\7\4\2\2\22\23\5\4\3\2\23\24\7\5\2\2")
+        buf.write("\24\26\3\2\2\2\25\22\3\2\2\2\26\31\3\2\2\2\27\25\3\2\2")
+        buf.write("\2\27\30\3\2\2\2\30\32\3\2\2\2\31\27\3\2\2\2\32\34\5\4")
+        buf.write("\3\2\33\27\3\2\2\2\33\34\3\2\2\2\34\35\3\2\2\2\35*\7\6")
+        buf.write("\2\2\36*\7\13\2\2\37*\7\n\2\2 *\7\t\2\2!%\7\7\2\2\"$\5")
+        buf.write("\4\3\2#\"\3\2\2\2$\'\3\2\2\2%#\3\2\2\2%&\3\2\2\2&(\3\2")
+        buf.write("\2\2\'%\3\2\2\2(*\7\b\2\2)\20\3\2\2\2)\36\3\2\2\2)\37")
+        buf.write("\3\2\2\2) \3\2\2\2)!\3\2\2\2*\5\3\2\2\2\7\16\27\33%)")
         return buf.getvalue()
 
 
@@ -38,10 +40,11 @@ class ASKEECommandParser ( Parser ):
 
     sharedContextCache = PredictionContextCache()
 
-    literalNames = [ "<INVALID>", "'='", "'('", "','", "')'" ]
+    literalNames = [ "<INVALID>", "'='", "'('", "','", "')'", "'['", "']'" ]
 
     symbolicNames = [ "<INVALID>", "<INVALID>", "<INVALID>", "<INVALID>", 
-                      "<INVALID>", "NUMBER", "STRING", "IDENTIFIER", "WS" ]
+                      "<INVALID>", "<INVALID>", "<INVALID>", "NUMBER", "STRING", 
+                      "IDENTIFIER", "WS" ]
 
     RULE_stmt = 0
     RULE_expr = 1
@@ -53,10 +56,12 @@ class ASKEECommandParser ( Parser ):
     T__1=2
     T__2=3
     T__3=4
-    NUMBER=5
-    STRING=6
-    IDENTIFIER=7
-    WS=8
+    T__4=5
+    T__5=6
+    NUMBER=7
+    STRING=8
+    IDENTIFIER=9
+    WS=10
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
@@ -276,6 +281,34 @@ class ASKEECommandParser ( Parser ):
                 return visitor.visitChildren(self)
 
 
+    class ExprListContext(ExprContext):
+
+        def __init__(self, parser, ctx:ParserRuleContext): # actually a ASKEECommandParser.ExprContext
+            super().__init__(parser)
+            self.copyFrom(ctx)
+
+        def expr(self, i:int=None):
+            if i is None:
+                return self.getTypedRuleContexts(ASKEECommandParser.ExprContext)
+            else:
+                return self.getTypedRuleContext(ASKEECommandParser.ExprContext,i)
+
+
+        def enterRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "enterExprList" ):
+                listener.enterExprList(self)
+
+        def exitRule(self, listener:ParseTreeListener):
+            if hasattr( listener, "exitExprList" ):
+                listener.exitExprList(self)
+
+        def accept(self, visitor:ParseTreeVisitor):
+            if hasattr( visitor, "visitExprList" ):
+                return visitor.visitExprList(self)
+            else:
+                return visitor.visitChildren(self)
+
+
     class ExprNumberContext(ExprContext):
 
         def __init__(self, parser, ctx:ParserRuleContext): # actually a ASKEECommandParser.ExprContext
@@ -307,9 +340,9 @@ class ASKEECommandParser ( Parser ):
         self.enterRule(localctx, 2, self.RULE_expr)
         self._la = 0 # Token type
         try:
-            self.state = 31
+            self.state = 39
             self._errHandler.sync(self)
-            la_ = self._interp.adaptivePredict(self._input,3,self._ctx)
+            la_ = self._interp.adaptivePredict(self._input,4,self._ctx)
             if la_ == 1:
                 localctx = ASKEECommandParser.ExprCallContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
@@ -320,7 +353,7 @@ class ASKEECommandParser ( Parser ):
                 self.state = 25
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << ASKEECommandParser.NUMBER) | (1 << ASKEECommandParser.STRING) | (1 << ASKEECommandParser.IDENTIFIER))) != 0):
+                if (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << ASKEECommandParser.T__4) | (1 << ASKEECommandParser.NUMBER) | (1 << ASKEECommandParser.STRING) | (1 << ASKEECommandParser.IDENTIFIER))) != 0):
                     self.state = 21
                     self._errHandler.sync(self)
                     _alt = self._interp.adaptivePredict(self._input,1,self._ctx)
@@ -363,6 +396,25 @@ class ASKEECommandParser ( Parser ):
                 self.enterOuterAlt(localctx, 4)
                 self.state = 30
                 self.match(ASKEECommandParser.NUMBER)
+                pass
+
+            elif la_ == 5:
+                localctx = ASKEECommandParser.ExprListContext(self, localctx)
+                self.enterOuterAlt(localctx, 5)
+                self.state = 31
+                self.match(ASKEECommandParser.T__4)
+                self.state = 35
+                self._errHandler.sync(self)
+                _la = self._input.LA(1)
+                while (((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << ASKEECommandParser.T__4) | (1 << ASKEECommandParser.NUMBER) | (1 << ASKEECommandParser.STRING) | (1 << ASKEECommandParser.IDENTIFIER))) != 0):
+                    self.state = 32
+                    self.expr()
+                    self.state = 37
+                    self._errHandler.sync(self)
+                    _la = self._input.LA(1)
+
+                self.state = 38
+                self.match(ASKEECommandParser.T__5)
                 pass
 
 
