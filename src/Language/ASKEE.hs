@@ -1,54 +1,60 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# Language OverloadedStrings #-}
 {-# Language TemplateHaskell #-}
 {-# Language TypeApplications #-}
 
 module Language.ASKEE where
 
-import           Control.Exception(Exception(..),throwIO)
+import Control.Exception ( Exception(..)
+                         , throwIO )
 
-import           Data.Map ( Map )
-import qualified Data.Map as Map
-import           Data.Text (Text, unpack)
-import qualified Data.Text as Text
-import qualified Data.Text.IO as TextIO
+import           Data.Aeson                 ( encode
+                                            , decode
+                                            , Value(..) )
+import           Data.List                  ( intercalate )
+import           Data.Map                   ( Map )
+import qualified Data.Map                   as Map
+import           Data.Text                  ( Text
+                                            , unpack )
+import qualified Data.Text                  as Text
+import qualified Data.Text.IO               as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Aeson ( encode, decode, Value(..) )
 
-import qualified Language.ASKEE.Check as Check
+import qualified Language.ASKEE.Check                  as Check
 import           Language.ASKEE.Convert
-import qualified Language.ASKEE.Core as Core
-import qualified Language.ASKEE.DEQ.GenLexer as DL
-import qualified Language.ASKEE.DEQ.GenParser as DP
-import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
-import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
-import qualified Language.ASKEE.GenLexer as AL
-import qualified Language.ASKEE.GenParser as AP
-import qualified Language.ASKEE.Latex.GenLexer as LL
-import qualified Language.ASKEE.Latex.GenParser as LP
-import           Language.ASKEE.Lexer (Token, Located)
-import qualified Language.ASKEE.Measure as M
-import qualified Language.ASKEE.MeasureToCPP as MG
-import qualified Language.ASKEE.RNet.GenLexer as RL
-import qualified Language.ASKEE.RNet.GenParser as RP
-import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
-import qualified Language.ASKEE.SimulatorGen as SG
-import qualified Language.ASKEE.Syntax as Syntax
-import qualified Language.ASKEE.ModelStratify.Syntax as MS
+import qualified Language.ASKEE.Core                   as Core
+import qualified Language.ASKEE.DEQ.GenLexer           as DL
+import qualified Language.ASKEE.DEQ.GenParser          as DP
+import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
+import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
+import qualified Language.ASKEE.GenLexer               as AL
+import qualified Language.ASKEE.GenParser              as AP
+import qualified Language.ASKEE.Latex.GenLexer         as LL
+import qualified Language.ASKEE.Latex.GenParser        as LP
+import           Language.ASKEE.Lexer                  ( Token
+                                                       , Located )
+import qualified Language.ASKEE.Measure                as M
+import qualified Language.ASKEE.MeasureToCPP           as MG
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import Data.Word (Word8)
+import qualified Language.ASKEE.ModelStratify.Syntax   as MS
+import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+                                                       , topologyAsModel
+                                                       , insertHoles
+                                                       , nameHoles )
+import qualified Language.ASKEE.RNet.GenLexer          as RL
+import qualified Language.ASKEE.RNet.GenParser         as RP
+import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
+import qualified Language.ASKEE.SimulatorGen           as SG
+import qualified Language.ASKEE.Syntax                 as Syntax
 
+import System.Directory ( withCurrentDirectory
+                        , makeAbsolute
+                        , removeFile )
+import System.IO.Temp   ( writeSystemTempFile )
+import System.Process   ( readProcess )
 
-import System.Directory ( withCurrentDirectory, makeAbsolute, removeFile )
-import System.Process ( readProcess )
-import System.IO.Temp ( withSystemTempFile, writeSystemTempFile )
-import System.Random ( randomIO )
-import Language.ASKEE.ModelStratify.Topology (modelAsTopology, topologyAsParameterizedModel)
-import System.IO (hPutStr, hSeek, SeekMode (AbsoluteSeek))
-import Data.List (intercalate)
-
-data ParseError      = ParseError String deriving Show
-data ValidationError = ValidationError String deriving Show
+newtype ParseError      = ParseError String deriving Show
+newtype ValidationError = ValidationError String deriving Show
 
 instance Exception ParseError
 instance Exception ValidationError
@@ -161,13 +167,24 @@ parseLatex file =
 loadLatex :: DataSource -> IO DiffEqs 
 loadLatex = parseLatex
 
+-------------------------------------------------------------------------------
+
 data StratificationType = Demographic | Spatial
   deriving Show
 
-stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO (Syntax.Model, [Text])
+data StratificationInfo = StratificationInfo
+  { rawModel    :: Syntax.Model
+  , prettyModel :: Syntax.Model
+  , rawTopology :: MS.Net 
+  , params      :: [Text]
+  , vertices    :: Map Int Text
+  }
+  deriving Show
+
+stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
 stratifyModel model connections states strat =
   do  topology <- modelAsTopology <$> loadModel model
-      (gtriConnections, vertexMap) <- loadConnectionGraph connections
+      (gtriConnections, vertices) <- loadConnectionGraph connections
       onDisk (B.unpack $ encode topology) $ \topFile ->
         onDisk (B.unpack $ encode gtriConnections) $ \connFile ->
           asFileM states $ \stFileM ->
@@ -179,10 +196,12 @@ stratifyModel model connections states strat =
                   in  readProcess "curl"  [ "-X", "GET"
                                           , "localhost:8001/?"++intercalate "&" params
                                           ] ""
-                topology' <- case decode (B.pack result) of
+                rawTopology <- case decode (B.pack result) of
                   Just t -> pure t
                   Nothing -> error $ "failed to parse JSON of returned topology "++result
-                pure $ topologyAsParameterizedModel vertexMap topology'
+                let (rawModel, params) = insertHoles $ topologyAsModel rawTopology
+                    prettyModel = nameHoles vertices rawModel
+                pure $ StratificationInfo{..}
 
   where
     onDisk :: String -> (FilePath -> IO b) -> IO b
@@ -195,11 +214,11 @@ stratifyModel model connections states strat =
           removeFile file
           pure result
 
-    asFile :: DataSource -> (FilePath -> IO a) -> IO a
-    asFile d action =
-      case d of
-        Inline t -> onDisk (unpack t) action
-        FromFile f -> makeAbsolute f >>= action
+    -- asFile :: DataSource -> (FilePath -> IO a) -> IO a
+    -- asFile d action =
+    --   case d of
+    --     Inline t -> onDisk (unpack t) action
+    --     FromFile f -> makeAbsolute f >>= action
 
     asFileM :: Maybe DataSource -> (Maybe FilePath -> IO a) -> IO a
     asFileM dm action =
@@ -231,21 +250,21 @@ genCppRunner fp =
   do compiled <- loadCoreModel fp []
      print $ MG.genSimulationRunnerCpp compiled 100.0 m4
   where
-    m1 :: M.Measure
-    m1 = M.EventBased
+    _m1 :: M.Measure
+    _m1 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.Accumulate "m_sum" 1.0
        $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
 
-    m2 :: M.Measure
-    m2 = M.EventBased
+    _m2 :: M.Measure
+    _m2 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.TraceExpr "i_trace" (Core.Var "I")
 
-    m3 :: M.Measure
-    m3 = M.EventBased
+    _m3 :: M.Measure
+    _m3 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.TraceExpr "i_trace" (Core.Var "time")

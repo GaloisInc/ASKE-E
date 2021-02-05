@@ -1,32 +1,44 @@
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ModelStratify.Topology where
 
-import Control.Monad.RWS
+import Control.Monad          ( forM )
+import Control.Monad.RWS      ( modify
+                              , evalRWS
+                              , get
+                              , tell
+                              , RWS )
+import Control.Monad.Identity ( Identity(..) )
 
-import           Data.Char ( isDigit )
-import qualified Data.Map as Map
-import           Data.Maybe ( mapMaybe )
-import           Data.Text ( Text, pack )
-import qualified Data.Text as Text
+import           Data.Char      ( isDigit )
+import           Data.Either    ( fromRight )
+import           Data.Map       ( Map )
+import qualified Data.Map       as Map
+import           Data.Maybe     ( mapMaybe )
+import           Data.Text      ( Text, pack )
+import qualified Data.Text      as Text
+import           Data.Text.Read ( decimal )
 
-import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.Core.ImportASKEE ( modelAsCore )
-import           Language.ASKEE.Expr ( Expr(..) )
-import           Language.ASKEE.ModelStratify.Syntax
-import           Language.ASKEE.Syntax
-import Data.Map (Map)
-import Data.Either (fromRight)
-import Data.Text.Read (decimal)
-import Language.ASKEE.ExprTransform (transformExpr)
-import Control.Monad.Identity
+import Language.ASKEE.Expr                 ( Expr(..) )
+import Language.ASKEE.ExprTransform        ( transformExpr )
+import Language.ASKEE.ModelStratify.Syntax ( Flow(..)
+                                           , FlowType(..)
+                                           , Net(..)
+                                           , TransitionID ) 
+import Language.ASKEE.Syntax               ( stateDecls
+                                           , Decl(..)
+                                           , Event(..)
+                                           , Model(..)
+                                           , Statement )
 
 -- | Lossy conversion from rich model to purely structural topology 
 modelAsTopology :: Model -> Net
 modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutputs
   where
-    states = Map.fromAscList (zipWith (\idx (txt, expr) -> (idx, txt)) [1..] (stateDecls modelDecls))
+    states = Map.fromAscList (zipWith (\idx (txt, _) -> (idx, txt)) [1..] (stateDecls modelDecls))
     transitions = Map.fromAscList (zip [1..] (map eventName modelEvents))
 
     -- Inverse mappings
@@ -82,67 +94,138 @@ topologyAsModel Net{..} = Model "foo" decls events
               in  Just (st, Var st `Add` LitD 1)
             _ -> Nothing
 
--- | Produce both the parameterized model and the core model
-topologyAsCoreModel :: Map Int Text -> Net -> Either String (Model, Core.Model)
-topologyAsCoreModel m n = (mdl,) <$> modelAsCore params mdl
-  where
-    (mdl, params) = topologyAsParameterizedModel m n
+hole :: Text 
+hole = "hole_"
 
-topologyAsParameterizedModel :: Map Int Text -> Net -> (Model, [Text])
-topologyAsParameterizedModel m n = evalRWS (parameterize (topologyAsModel n)) () 0
+isHole :: Text -> Bool
+isHole t = Text.take 5 t == "hole_"
+
+insertHoles :: Model -> (Model, [Text])
+insertHoles Model{..} = evalRWS fill () 0
   where
-    parameterize :: Model -> RWS () [Text] Int Model
-    parameterize Model{..} = Model "foo" <$> newDecls <*> newEvents
+    fill :: RWS () [Text] Int Model
+    fill = Model "foo" <$> newDecls <*> newEvents
+
+    newDecls :: RWS () [Text] Int [Decl]
+    newDecls = forM modelDecls $ \case
+      Let t e -> Let t <$> maybeFreshen e
+      State t e -> State t <$> maybeFreshen e
+      Assert e -> Assert <$> maybeFreshen e
+
+    newEvents :: RWS () [Text] Int [Event]
+    newEvents = forM modelEvents $ \Event{..} ->
+      do  eventWhen' <-
+            case eventWhen of
+              Just e -> Just <$> maybeFreshen e
+              Nothing -> pure Nothing
+          eventRate' <- maybeFreshen eventRate
+          eventEffect' <- forM eventEffect $ \(t, e) ->
+            do  e' <- maybeFreshen e
+                let t' = t
+                pure (t', e')
+          pure $ Event eventName eventWhen' eventRate' eventEffect' eventMetadata
+        
+    maybeFreshen :: Expr -> RWS () [Text] Int Expr
+    maybeFreshen e
+      | e /= undef = pure e
+      | otherwise =
+        do  counter <- get
+            modify (+ 1)
+            let howMany = (counter `div` 26) + 1
+                chars = replicate howMany $ toEnum ((counter `mod` 26) + fromEnum 'A')
+                var = hole<>pack chars
+            tell [var]
+            pure (Var var)
+
+nameHoles :: Map Int Text -> Model -> Model
+nameHoles names Model{..} = Model modelName renamedDecls renamedEvents
+  where
+    renamedDecls :: [Decl]
+    renamedDecls = flip map modelDecls $ \case
+      Let t e -> Let (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
+      State t e -> State (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
+      Assert e -> Assert (updateExpr' e)
+    
+    renamedEvents :: [Event]
+    renamedEvents = flip map modelEvents $ \Event{..} ->
+      let eventName' = updateText' eventName
+          eventWhen' = updateExpr (Just $ eventName'<>"_when") <$> eventWhen
+          eventRate' = updateExpr (Just $ eventName'<>"_rate") eventRate
+          eventEffect' = flip map eventEffect $ \(t, e) ->
+            let t' = updateText' t
+                e' = updateExpr' e
+            in  (t', e')
+      in  Event eventName' eventWhen' eventRate' eventEffect' eventMetadata
+
+    updateExpr :: Maybe Text -> Expr -> Expr
+    updateExpr replacementM = runIdentity . transformExpr go
       where
-        newDecls :: RWS () [Text] Int [Decl]
-        newDecls = forM modelDecls $ \d ->
-          do  case d of
-                Let t e -> Let t <$> maybeFreshen (Just $ t<>"_initial") e
-                State t e -> State (updateText t) <$> maybeFreshen (Just $ updateText t<>"_initial") e
-                Assert e -> Assert <$> maybeFreshen Nothing e
+        go :: Expr -> Identity Expr
+        go e =
+          case e of
+            Var v -> pure $ Var $ updateText replacementM v
+            _ -> pure e
 
-        newEvents :: RWS () [Text] Int [Event]
-        newEvents = forM modelEvents $ \Event{..} ->
-          do  let eventName' = updateText eventName
-              eventWhen' <-
-                case eventWhen of
-                  Just e -> Just <$> maybeFreshen (Just $ eventName'<>"_when") e
-                  Nothing -> pure Nothing
-              eventRate' <- maybeFreshen (Just $ eventName'<>"_rate") eventRate
-              eventEffect' <- forM eventEffect $ \(t, e) ->
-                do  e' <- updateExpr <$> maybeFreshen (Just $ eventName'<>"_effect") e
-                    let t' = updateText t
-                    pure (t', e')
-              pure $ Event eventName' eventWhen' eventRate' eventEffect' eventMetadata
-            
-        maybeFreshen :: Maybe Text -> Expr -> RWS () [Text] Int Expr
-        maybeFreshen t e
-          | e /= undef = pure e
-          | otherwise =
-            do  counter <- get
-                modify (+ 1)
-                let freshVar = 
-                      case t of
-                        Just t' -> t'<>"_"<>pack (show counter)
-                        Nothing -> "hole"<>"_"<>pack (show counter)
-                tell [freshVar]
-                pure (Var freshVar)
+    -- Find Ints bracketed by underscores in the given variable name
+    -- and replace them with their value in the given name mapping.
+    -- Then, check if the resulting variable is a hole, and if so, give
+    -- it a more descriptive name, if possible
+    updateText :: Maybe Text -> Text -> Text
+    updateText replacementM t =
+      let numbersIn = filter (Text.all isDigit) $ Text.splitOn "_" t
+          textAsNumber = 
+            fst . fromRight (error "Topology: internal error: not a number") . decimal
+          replace num res = Text.replace num (names Map.! textAsNumber num) res
+          withNames = foldr replace t numbersIn
+      in  case replacementM of
+            Just replacement -> if isHole withNames then replacement else withNames
+            Nothing -> withNames
 
-        updateExpr :: Expr -> Expr
-        updateExpr = runIdentity . transformExpr go
-          where
-            go :: Expr -> Identity Expr
-            go e =
-              case e of
-                Var v -> pure $ Var $ updateText v
-                _ -> pure e
+    updateText' = updateText Nothing
+    updateExpr' = updateExpr Nothing
 
-        updateText :: Text -> Text
-        updateText t =
-          let numbersIn = filter (Text.all isDigit) $ Text.splitOn "_" t
-              irrefutableTextAsNumber = fst . fromRight (error "Language.ASKEE.ModelStratify.Topology: internal error: not a number") . decimal
-          in  foldr (\num res -> Text.replace num (m Map.! irrefutableTextAsNumber num) res) t numbersIn
+-- topologyAsParameterizedModel :: Map Int Text -> Net -> (Model, [Text])
+-- topologyAsParameterizedModel m n = evalRWS (parameterize (topologyAsModel n)) () 0
+--   where
+--     parameterize :: Model -> RWS () [Text] Int Model
+--     parameterize Model{..} = Model "foo" <$> newDecls <*> newEvents
+--       where
+--         newDecls :: RWS () [Text] Int [Decl]
+--         newDecls = forM modelDecls $ \d ->
+--           do  case d of
+--                 Let t e -> Let t <$> maybeFreshen (Just $ t<>"_initial") e
+--                 State t e -> State t <$> maybeFreshen (Just $ t<>"_initial") e
+--                 Assert e -> Assert <$> maybeFreshen Nothing e
 
+--         newEvents :: RWS () [Text] Int [Event]
+--         newEvents = forM modelEvents $ \Event{..} ->
+--           do  let eventName' = eventName
+--               eventWhen' <-
+--                 case eventWhen of
+--                   Just e -> Just <$> maybeFreshen (Just $ eventName'<>"_when") e
+--                   Nothing -> pure Nothing
+--               eventRate' <- maybeFreshen (Just $ eventName'<>"_rate") eventRate
+--               eventEffect' <- forM eventEffect $ \(t, e) ->
+--                 do  e' <- maybeFreshen (Just $ eventName'<>"_effect") e
+--                     let t' = t
+--                     pure (t', e')
+--               pure $ Event eventName' eventWhen' eventRate' eventEffect' eventMetadata
+        
+--         -- Not sure we really need to freshen these names...
+--         maybeFreshen :: Maybe Text -> Expr -> RWS () [Text] Int Expr
+--         maybeFreshen t e
+--           | e /= undef = pure e
+--           | otherwise =
+--             do  counter <- get
+--                 modify (+ 1)
+--                 let howMany = (counter `div` 26) + 1
+--                     chars = replicate howMany $ toEnum @Char ((counter `mod` 26) + fromEnum 'A')
+--                     freshVar = 
+--                       case t of
+--                         Just t' -> t'<>"_"<>pack chars
+--                         Nothing -> "hole"<>"_"<>pack chars
+--                 tell [freshVar]
+--                 pure (Var freshVar)
 
 undef :: Expr
 undef = LitD 1 `Div` LitD 0
