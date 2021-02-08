@@ -46,18 +46,18 @@ data Expr =
   | Var Ident
   | If Expr Expr Expr
   | Fail String
-    deriving (Show,Eq)
+    deriving (Show,Eq, Ord)
 
 data Op1 = Not | Neg | Paren
-  deriving (Show,Eq)
+  deriving (Show,Eq,Ord)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
-  deriving (Show,Eq)
+  deriving (Show,Eq,Ord)
 
 data Literal =
     Num Double
   | Bool Bool
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 
 --------------------------------------------------------------------------------
