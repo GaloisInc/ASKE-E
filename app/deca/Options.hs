@@ -21,6 +21,7 @@ data Command =
   | OnlyParse
   | OnlyCheck
   | DumpCPP
+  | DumpDEQs
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
@@ -70,6 +71,10 @@ options = OptSpec
       , Option [] ["dbg-dump-cpp"]
         "Dump some c++ code"
         $ NoArg \s -> Right s { command = DumpCPP }
+
+      , Option [] ["to-deq"]
+        "Convert to differental equations"
+        $ NoArg \s -> Right s { command = DumpDEQs }
 
       , Option [] ["sim-ode"]
         "Solve a model using GSL's ODE solver"
