@@ -52,7 +52,6 @@ printExpr e =
       in  nest 2 decl $$ nest 4 branches' 
     LitB True -> text "true"
     LitB False -> text "false"
-    Paren e -> text "(" <> printExpr e <> text ")"
   
   where
     binop = expBinop printExpr

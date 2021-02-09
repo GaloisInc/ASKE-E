@@ -27,7 +27,6 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
-  | Paren Expr
   deriving (Eq, Show, Ord)
 
 
@@ -62,7 +61,6 @@ eval vars e = ev e
         Nothing -> fail $ "unbound variable "<>unpack t
     ev (LitD d) = pure d
     ev (LitB b) = pure $ double b
-    ev (Paren e1) = ev e1
 
     evB :: Expr -> Either String Bool
     evB e = bool <$> ev e

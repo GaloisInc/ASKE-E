@@ -74,8 +74,8 @@ Exp                                       :: { Expr }
   | '-' Exp       %prec NEGPREC              { Expr.Neg $2 }
   | WSMultiply                                     { $1 }
   | SYMI                                     { Expr.Mul (Expr.Var $1) (Expr.LitD 0) }
-  | '(' Exp ')'                              { Expr.Paren $2 }
-  | frac '{' Exp '}' '{' Exp '}'             { Expr.Div (Expr.Paren $3) (Expr.Paren $6) }
+  | '(' Exp ')'                              { $2 }
+  | frac '{' Exp '}' '{' Exp '}'             { Expr.Div $3 $6 }
 
 WSMultiply                                        :: { Expr }
   : Sym                                        { Expr.Var $1 }
