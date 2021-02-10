@@ -14,10 +14,9 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE(DataSource(..), StratificationType(..))
+import Language.ASKEE(DataSource(..), StratificationType(..), StratificationInfo(..))
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
-import Language.ASKEE.Syntax ( Model(..) )
 import Language.ASKEE.Print (printModel)
 
 
@@ -160,7 +159,7 @@ data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
   | FitResult (Map Ident (Double, Double))
-  | StratificationResult Model [Text]
+  | StratificationResult StratificationInfo
 
 
 instance JS.ToJSON Output where
@@ -169,7 +168,7 @@ instance JS.ToJSON Output where
       OutputData d -> dsToJSON d
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
-      StratificationResult model params -> stratResultToJSON model params
+      StratificationResult info -> stratResultToJSON info
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -274,6 +273,13 @@ instance HasSpec GenerateCPPCommand where
                             "Specification of the model to render"
 
         pure GenerateCPPCommand { .. }
-stratResultToJSON :: Model -> [Text] -> JS.Value 
-stratResultToJSON m ps =
-  JS.object [ "model" .= show (printModel m), "parameters" .= ps ]
+
+
+stratResultToJSON :: StratificationInfo -> JS.Value 
+stratResultToJSON StratificationInfo{..} =
+  JS.object [ "raw-model" .= show (printModel rawModel)
+            , "pretty-model" .= show (printModel prettyModel)
+            , "topology" .= rawTopology
+            , "parameters" .= params
+            , "vertices" .= vertices
+            ]
