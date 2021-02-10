@@ -44,17 +44,17 @@ printExpr expr =
   where
     pp :: Expr -> Doc
     pp e = 
-      if prec e > prec expr
+      if prec e < prec expr
         then parens (printExpr e)
-        else            printExpr e
+        else         printExpr e
 
     prec :: Expr -> Int
     prec e =
       case e of
-        NumLit  _ -> 0
-        BoolLit _ -> 0
-        Op1 Neg _ -> 10
-        Op1 Not _ -> 10
+        NumLit  _ -> 10
+        BoolLit _ -> 10
+        Op1 Neg _ -> 0
+        Op1 Not _ -> 0
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7
@@ -64,7 +64,7 @@ printExpr expr =
         _ :==:  _ -> 4
         _ :&&:  _ -> 3
         _ :||:  _ -> 3
-        Var     _ -> 0
+        Var     _ -> 10
         If     {} -> 1
         Fail s    -> error s -- XXX
         _ -> 
