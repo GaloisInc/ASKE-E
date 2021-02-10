@@ -171,7 +171,7 @@ data StratificationInfo = StratificationInfo
   { rawModel    :: Syntax.Model
   , prettyModel :: Syntax.Model
   , rawTopology :: MS.Net 
-  , params      :: [Text]
+  , holes       :: [Text]
   , vertices    :: Map Int Text
   }
   deriving Show
@@ -206,7 +206,7 @@ stratifyModel model connections statesM strat =
       rawTopology <- case decode (B.pack result) of
         Just t -> pure t
         Nothing -> error $ "failed to parse JSON of returned topology "++result
-      let (rawModel, params) = insertHoles $ topologyAsModel rawTopology
+      let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
           prettyModel = nameHoles vertices rawModel
       pure $ StratificationInfo{..}
 

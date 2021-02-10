@@ -280,6 +280,6 @@ stratResultToJSON StratificationInfo{..} =
   JS.object [ "raw-model" .= show (printModel rawModel)
             , "pretty-model" .= show (printModel prettyModel)
             , "topology" .= rawTopology
-            , "parameters" .= params
+            , "parameters" .= holes
             , "vertices" .= vertices
             ]
