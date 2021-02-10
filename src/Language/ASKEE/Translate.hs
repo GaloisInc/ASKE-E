@@ -3,9 +3,13 @@
 module Language.ASKEE.Translate where
 
 import Control.Monad                    ( (>=>) )
+import qualified Data.Map as Map
+
 
 import Language.ASKEE.Core.DiffEq       ( asEquationSystem )
 import Language.ASKEE.Core.ImportASKEE  ( modelAsCore )
+import Language.ASKEE.Core as Core
+
 
 import Language.ASKEE.DEQ.Print         ( ppDiffEqs )
 
@@ -14,6 +18,7 @@ import Language.ASKEE.GenParser         ( parseModel )
 
 import Language.ASKEE.Latex.GenLexer    ( lexLatex )
 import Language.ASKEE.Latex.GenParser   ( parseLatex )
+import Language.ASKEE.Latex.Print       ( printLatex )
 
 import Language.ASKEE.Print             ( printModel )
 
@@ -98,7 +103,16 @@ instance AsRNet ModelSyntax where
 instance AsLatex ModelSyntax where
   asLatexConcrete syntax s =
     case syntax of
-      ASKEE -> undefined
+      ASKEE ->
+        do  model <- lexParse lexModel parseModel
+            coreModel <- modelAsCore [] model
+            let eqs = asEquationSystem (coreModel { modelLets = Map.empty })
+            pure . show $ printLatex eqs
+
       DiffEq -> undefined
       RNet -> undefined
       Latex -> Right s
+
+    where
+      lexParse :: (String -> Either String [a]) -> ([a] -> Either String b) -> Either String b
+      lexParse l p = (l >=> p) s

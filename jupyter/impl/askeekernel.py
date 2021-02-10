@@ -333,7 +333,7 @@ class ASKEECommandInterpreter:
             "loadCSV": self.loadCSV,
             "loadDiffEq": self.loadDiffEq,
             "plot": self.plot,
-            "simulate": self.simulate,
+            "simulateODE": self.simulate,
             "loadESL": self.loadESL,
             "loadLatexEqnArray": self.loadLatexEqnArray,
             "loadReactionNet": self.loadReactionNet,
@@ -344,6 +344,7 @@ class ASKEECommandInterpreter:
             "scatter":self.scatterPlot,
             "stratifySpatial":self.stratifySpatial,
             "setParams":self.setParams,
+            "asEqnArray":self.asEqnArray,
         }
 
     def setParams(self, call:ExprCall, output:List[Dict]) -> Value:
@@ -427,6 +428,14 @@ class ASKEECommandInterpreter:
             source = handle.read()
             self.donu.checkModel(source, Donu.modelTypeLEQArr(), call)
             return ValueLatexEqnArrayModel(source)
+
+    def asEqnArray(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model] = self.evalArgs(call, [ValueModel], output)
+        if isinstance(model, ValueLatexEqnArrayModel):
+            return model
+
+        model = self.donu.convertModel(model.source, model.getDonuType(), Donu.modelTypeLEQArr(), call)
+        return ValueLatexEqnArrayModel(model)
 
     def asEquationSystem(self, call:ExprCall, output:List[Dict]) -> Value:
         [model] = self.evalArgs(call, [ValueModel], output)

@@ -174,8 +174,7 @@ stratifyModel' mod connections states strat =
                   case (stM, strat) of
                     (Nothing, Demographic) -> error "need 'states' JSON to perform demographic stratification"
                     (Just st, Demographic) ->
-                      readProcess "julia" [ "-JSysImage.so"
-                                          , "--project"
+                      readProcess "julia" [ "--project"
                                           , "cli.jl"
                                           , "--conn", conn
                                           , "--states", st
@@ -183,8 +182,7 @@ stratifyModel' mod connections states strat =
                                           , "-d"
                                           ] ""
                     (_, Spatial) -> 
-                      readProcess "julia" [ "-JSysImage.so"
-                                          , "--project"
+                      readProcess "julia" [ "--project"
                                           , "cli.jl"
                                           , "--conn", conn
                                           , top

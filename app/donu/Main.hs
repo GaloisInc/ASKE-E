@@ -159,17 +159,19 @@ checkModel mt src =
 
 convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
-  case (inputType, outputType) of
-    (_, Schema.DiffEqs) ->
-      do  src <- loadString source
-          pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
+  do  src <- loadString source
+      case (inputType, outputType) of
+        (_, Schema.DiffEqs) ->
+              pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
 
-    (_, Schema.AskeeModel) ->
-      do  src <- loadString source
-          pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
+        (_, Schema.AskeeModel) ->
+              pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
 
-    (_, _) ->
-      pure $ Left "Conversion is not implemented"
+        (_, Schema.LatexEqnarray) ->
+              pure $ Translate.asLatexConcrete (translateSyntax inputType) src
+
+        (_, _) ->
+          pure $ Left "Conversion is not implemented"
   where
     translateSyntax t =
       case t of

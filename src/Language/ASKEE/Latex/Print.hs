@@ -14,16 +14,24 @@ import Text.PrettyPrint as PP
 import Text.Printf ( printf )
 
 printLatex :: DiffEqs -> Doc
-printLatex DiffEqs {..} = vcat [lets, initials, rates]
+printLatex DiffEqs {..} = inArray . vcat . terminate . concat $ [lets, initials, rates]
   where
-    lets = vcat $ map binding (Map.toList deqLets)
-    initials = vcat $ map initBinding (Map.toList deqInitial)
-    rates = vcat $ map ddtBinding (Map.toList deqRates)
+    terminate lst = PP.punctuate "\\\\" lst
+    inArray bdy = vcat ["\\begin{eqnarray}", bdy, "\\end{eqnarray}" ]
+    lets = map binding (Map.toList deqLets)
+    initials = map initBinding (Map.toList deqInitial)
+    rates = map ddtBinding (Map.toList deqRates)
 
-    binding (ident, expr) = hsep [text (unpack ident), "=", printExpr expr]
-    ddtBinding (ident, expr) = hcat ["\\frac{d ", text (unpack ident), "}{dt} = ", printExpr expr]
-    initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", printExpr e]
+    binding (ident, expr) = hsep [ppIdent (unpack ident), " & = & ", printExpr expr]
+    ddtBinding (ident, expr) = hcat ["\\frac{d ", ppIdent (unpack ident), "}{dt} & = & ", printExpr expr]
+    initBinding (i,e) = hsep [hcat [ppIdent (unpack i),parens (int 0)], " & = & ", printExpr e]
 
+-- TODO: we need a better solution for identifiers
+ppIdent :: String -> Doc
+ppIdent s =
+  if '_' `elem` s
+    then text $ "\\verb|" ++ s ++ "|"
+    else text s
   
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core
 printExpr :: Expr -> Doc
@@ -35,8 +43,8 @@ printExpr expr =
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> hsep [pp e1, "*", pp e2]
-    e1 :/: e2 -> hcat ["\\frac{", pp e1, "}{", pp e2, "}"]
-    Var v -> text $ unpack v
+    e1 :/: e2 -> hcat ["\\frac{", printExpr e1, "}{", printExpr e2, "}"]
+    Var v -> ppIdent (unpack v)
     _ -> 
       panic 
         "encountered unknown Core expression when pretty-printing latex" 
