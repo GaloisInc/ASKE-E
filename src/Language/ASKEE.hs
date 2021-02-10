@@ -113,12 +113,9 @@ parseEquations file =
 loadEquations :: DataSource -> [Text] -> IO DiffEqs
 loadEquations file params =
   do  toks <- lexEquations file
-      eqs <- case DP.parseDEQs toks of
-               Left err -> throwIO (ParseError err)
-               Right a  -> pure a { deqParams = params }
-      let lets = foldr Map.delete (deqLets eqs) params
-          inlineLets = Core.substExpr lets
-      pure eqs --(Core.mapExprs inlineLets eqs)
+      case DP.parseDEQs toks of
+        Left err -> throwIO (ParseError err)
+        Right a  -> pure a { deqParams = params }
 
 -- | Lex a set of reactions, throwing `ParseError` on error
 lexReactions :: DataSource -> IO [Located RL.Token]
