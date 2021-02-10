@@ -93,18 +93,18 @@ data EqnType = Let | Init | Rate
 fromDiff :: Text -> Either String Text
 fromDiff t
   | Text.length t > 1 && Text.head t == 'd' = pure $ Text.dropWhile isSpace $ Text.tail t
-  | otherwise = fail $ "numerator "<>Text.unpack t<>" is not a differential"
+  | otherwise = Left $ "numerator "<>Text.unpack t<>" is not a differential"
 
 mkInit :: Double -> Ident -> Expr -> Either String (EqnType, Ident, Expr)
 mkInit d i t
   | d == 0 = pure (Init, i, t) 
-  | otherwise = fail "only initial values at time = 0 are supported"
+  | otherwise = Left "only initial values at time = 0 are supported"
 
 parseError :: [Located Token] -> Either String a
 parseError [] = 
-  fail $ "parse error at end of file"
+  Left $ "parse error at end of file"
 parseError ((Located lin col t):ts) = 
-  fail $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
+  Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
 mkDiffEqs :: [(EqnType, Ident, Expr)] -> DiffEqs
 mkDiffEqs decls =

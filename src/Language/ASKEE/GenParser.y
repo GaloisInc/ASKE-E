@@ -178,8 +178,8 @@ CondChoice                            :: { (Expr,Expr) }
 
 {
 parseError :: [Located Lexer.Token] -> Either String a
-parseError []     = fail $ "parse error at end of file"
-parseError (t:ts) = fail $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
+parseError []     = Left $ "parse error at end of file"
+parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
 mkModel :: Text -> [ Either Decl Event ] -> Model

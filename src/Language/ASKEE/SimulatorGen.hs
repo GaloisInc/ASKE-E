@@ -1,4 +1,6 @@
-{-# Language LambdaCase, OverloadedStrings, BlockArguments #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Language.ASKEE.SimulatorGen where
 
 import qualified Language.ASKEE.Core as Core
@@ -189,6 +191,7 @@ genExpr' vf e0 =
     Core.If test thn els -> C.cond (subExpr test) (subExpr thn) (subExpr els)
     Core.Literal l       -> lit l
     Core.Var n           -> vf n
+    Core.Fail _          -> undefined
 
   where
   op1 op = case op of
@@ -227,6 +230,7 @@ genExprSub f e =
     Core.If {}      -> paren
     Core.Literal {} -> noparen
     Core.Var {}     -> noparen
+    Core.Fail _     -> undefined
   where
   paren   = C.parens (genExpr' f e)
   noparen = genExpr' f e

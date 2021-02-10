@@ -99,14 +99,14 @@ data EqnType = Let | Init | Rate
 
 parseError :: [Located Lexer.Token] -> Either String a
 parseError [] = 
-  fail $ "parse error at end of file"
+  Left $ "parse error at end of file"
 parseError ((Located lin col t):ts) = 
-  fail $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
+  Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
 mkVar :: Ident -> Double -> Expr -> Either String (EqnType, Ident, Expr)
 mkVar i d e
   | d == 0 = pure (Init, i, e)
-  | otherwise = fail $ "initial value for "++i'++" not declared as "++i'++"(0)"
+  | otherwise = Left $ "initial value for "++i'++" not declared as "++i'++"(0)"
   
   where
     i' = T.unpack i

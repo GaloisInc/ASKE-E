@@ -10,8 +10,6 @@ import qualified Data.Set as Set
 import           Data.Map ( Map )
 import qualified Data.Map as Map
 
-import Debug.Trace
-
 data Distance = N Int | Infinity
   deriving (Show, Eq)
 
@@ -28,6 +26,11 @@ instance Num Distance where
   Infinity + Infinity = Infinity
 
   fromInteger = N . fromIntegral
+
+  _ * _ = undefined
+  abs _ = undefined
+  signum _ = undefined
+  negate _ = undefined
 
 data Marked a = Marked
   { distance :: Distance
@@ -122,8 +125,8 @@ buildPath ps start end
         (fmap . (:)) (end, predecessor) (buildPath ps start predecessor)
 
 testGraph :: Graph
--- nodeFromVertex :: Vertex -> (Int, Int, [Int])
--- vertexFromKey :: Int -> Maybe Vertex
+nodeFromVertex :: Vertex -> (ModelType, ModelType, [ModelType])
+vertexFromKey :: ModelType -> Maybe Vertex
 (testGraph, nodeFromVertex, vertexFromKey) = graphFromEdges nodes 
   where
     nodes = [ mkNode  ESL_C   [ESL_A]

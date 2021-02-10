@@ -2,14 +2,12 @@
 module Main(main) where
 
 import Data.Text(Text)
-import qualified Text.PrettyPrint as PP
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
 import Control.Monad.IO.Class(liftIO)
 import Control.Exception(throwIO, try,SomeException, Exception(..))
-import Snap.Core(Snap)
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
@@ -42,7 +40,7 @@ main = quickHttpServe
        Left err ->
          do Snap.writeText $ Text.pack err
             Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-            -- showHelp
+            -- Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
 
@@ -52,9 +50,6 @@ newtype ServerError = NotImplemented String
 instance Exception ServerError
 notImplemented :: String -> IO a
 notImplemented what = throwIO (NotImplemented what)
-
-showHelp :: Snap ()
-showHelp = Snap.writeLBS helpHTML
 
 handleRequest :: Input -> IO Output
 handleRequest r =

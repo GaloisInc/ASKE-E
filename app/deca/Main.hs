@@ -128,8 +128,8 @@ loadDiffEqs opts ps0 =
        pure (DiffEq.asEquationSystem m)
 
   fromRNet file =
-    do  ReactionNet bindings reactions <- loadReactions file
-        m <- case reactionsAsModel "foo" bindings reactions of
+    do  ReactionNet bs rs <- loadReactions file
+        m <- case reactionsAsModel "foo" bs rs of
           Right model -> pure model
           Left err -> fail err
         print (PP.printModel m)

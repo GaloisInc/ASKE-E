@@ -20,7 +20,6 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ.GenLexer as DL
 import qualified Language.ASKEE.DEQ.GenParser as DP
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
 import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
 import qualified Language.ASKEE.GenLexer as AL
 import qualified Language.ASKEE.GenParser as AP
@@ -36,15 +35,12 @@ import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.ModelStratify.Syntax as MS
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import Data.Word (Word8)
 
 
 import System.Directory ( withCurrentDirectory, makeAbsolute, removeFile )
 import System.Process ( readProcess )
-import System.IO.Temp ( withSystemTempFile, writeSystemTempFile )
-import System.Random ( randomIO )
+import System.IO.Temp ( writeSystemTempFile )
 import Language.ASKEE.ModelStratify.Topology (modelAsTopology, topologyAsParameterizedModel)
-import System.IO (hPutStr, hSeek, SeekMode (AbsoluteSeek))
 
 data ParseError      = ParseError String deriving Show
 data ValidationError = ValidationError String deriving Show
@@ -164,8 +160,8 @@ data StratificationType = Demographic | Spatial
   deriving Show
 
 stratifyModel' :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO (Syntax.Model, [Text])
-stratifyModel' mod connections states strat =
-  do  topology <- modelAsTopology <$> loadModel mod
+stratifyModel' model connections states strat =
+  do  topology <- modelAsTopology <$> loadModel model
       (gtriConnections, vertexMap) <- loadConnectionGraph connections
       onDisk (B.unpack $ encode topology) $ \top ->
         onDisk (B.unpack $ encode gtriConnections) $ \conn ->
@@ -205,18 +201,12 @@ stratifyModel' mod connections states strat =
           result <- action $ translatePath file
           removeFile file
           pure result
-      -- writeSystemTempFile "foo.txt" (show thing) >>= action . translatePath
-      -- withSystemTempFile "foo.txt" $ \fp h ->
-      --   -- do  writeFile fp (show thing)
-      --   do  hPutStr h (show thing)
-      --       hSeek h AbsoluteSeek 0
-      --       action (translatePath fp)
 
-    asFile :: DataSource -> (FilePath -> IO a) -> IO a
-    asFile d action =
-      case d of
-        Inline t -> onDisk (unpack t) action
-        FromFile f -> makeAbsolute f >>= action
+    -- asFile :: DataSource -> (FilePath -> IO a) -> IO a
+    -- asFile d action =
+    --   case d of
+    --     Inline t -> onDisk (unpack t) action
+    --     FromFile f -> makeAbsolute f >>= action
 
     asFileM :: Maybe DataSource -> (Maybe FilePath -> IO a) -> IO a
     asFileM dm action =
@@ -249,21 +239,21 @@ genCppRunner fp =
   do compiled <- loadCoreModel fp []
      print $ MG.genSimulationRunnerCpp compiled 100.0 m4
   where
-    m1 :: M.Measure
-    m1 = M.EventBased
+    _m1 :: M.Measure
+    _m1 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.Accumulate "m_sum" 1.0
        $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
 
-    m2 :: M.Measure
-    m2 = M.EventBased
+    _m2 :: M.Measure
+    _m2 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.TraceExpr "i_trace" (Core.Var "I")
 
-    m3 :: M.Measure
-    m3 = M.EventBased
+    _m3 :: M.Measure
+    _m3 = M.EventBased
        $ M.When (M.TimeLT 120.0)
        $ M.Do
        $ M.TraceExpr "i_trace" (Core.Var "time")

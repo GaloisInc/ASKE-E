@@ -26,7 +26,7 @@ import Control.Monad.Identity
 modelAsTopology :: Model -> Net
 modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutputs
   where
-    states = Map.fromAscList (zipWith (\idx (txt, expr) -> (idx, txt)) [1..] (stateDecls modelDecls))
+    states = Map.fromAscList (zipWith (\idx (txt, _) -> (idx, txt)) [1..] (stateDecls modelDecls))
     transitions = Map.fromAscList (zip [1..] (map eventName modelEvents))
 
     -- Inverse mappings

@@ -45,10 +45,10 @@ printExpr e =
                       , printExpr e3
                       ]
     Cond branches other ->
-      let decl = text ("cond:")
+      let decl = text "cond:"
           branches' = vcat $ case other of
-            Just e  -> (map (uncurry condBranch) branches) ++ [condOther e]
-            Nothing -> (map (uncurry condBranch) branches)
+            Just e'  -> map (uncurry condBranch) branches ++ [condOther e']
+            Nothing -> map (uncurry condBranch) branches
       in  nest 2 decl $$ nest 4 branches' 
     LitB True -> text "true"
     LitB False -> text "false"
@@ -70,14 +70,14 @@ condOther e =
   text "otherwise"
 
 expBinop :: (a -> Doc) -> a -> String -> a -> Doc
-expBinop print e1 op e2 = 
-  (parens . hsep) [ print e1
+expBinop pr e1 op e2 = 
+  (parens . hsep) [ pr e1
                   , text op
-                  , print e2
+                  , pr e2
                   ]
 
 printEvent :: Event -> Doc
-printEvent (Event {..}) = decl $+$ nest 2 body
+printEvent Event{..} = decl $+$ nest 2 body
   where
     decl :: Doc
     decl = text "event" <+>
@@ -102,14 +102,14 @@ printEvent (Event {..}) = decl $+$ nest 2 body
     statements = vcat $ map (uncurry printAssign) eventEffect
 
     printAssign :: Text -> Expr -> Doc
-    printAssign ident exp = 
+    printAssign ident e = 
       hsep [ text (unpack ident)
            , char '='
-           , printExpr exp]
+           , printExpr e]
 
 
 printModel :: Model -> Doc
-printModel (Model {..}) = decl $+$ nest 2 body
+printModel Model{..} = decl $+$ nest 2 body
   where
     decl :: Doc
     decl = text "model" <+>
@@ -138,7 +138,7 @@ printModel (Model {..}) = decl $+$ nest 2 body
            , char '='
            , printExpr val
            ]
-    printDecl (Assert exp) =
+    printDecl (Assert e) =
       fsep [ text "assert"
-           , printExpr exp
+           , printExpr e
            ]
