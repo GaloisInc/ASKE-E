@@ -1,6 +1,7 @@
 module Language.ASKEE.Core.Simplify where
 
-import Data.List(foldl')
+import Data.List(foldl',sortBy)
+import Data.Ord(comparing)
 import Data.Map(Map)
 import qualified Data.Map as Map
 
@@ -122,7 +123,7 @@ toSum expr =
 
 fromSum :: Sum -> Expr
 fromSum (Sum k0 xs) =
-  case reverse (Map.toList (Map.filter (/= 0) xs)) of
+  case reverse $ sortBy (comparing snd)(Map.toList (Map.filter (/= 0) xs)) of
     []       -> NumLit k0
     t0@(e,k) : rest ->
       case compare k0 0 of
