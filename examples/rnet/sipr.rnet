@@ -1,0 +1,16 @@
+let S = 788
+let I = 1
+let P = 4
+let R = 0
+let N = S + I + R + P
+
+let beta = 1.4850/N
+let b = 0.9315
+let nu1 = 0.9997
+let nu2 = 0.7294
+
+beta * b, 	S + I 	--> 2I
+beta * (1 - b), S + P 	--> 2P
+nu1, 		I 	--> R
+nu2, 		P 	--> R
+
