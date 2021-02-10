@@ -280,4 +280,3 @@ renderCppModel :: DataSource -> IO String
 renderCppModel file =
   do  compiled <- loadCoreModel file []
       pure $ show (SG.genModel compiled)
-

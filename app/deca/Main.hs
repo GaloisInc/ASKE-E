@@ -14,6 +14,7 @@ import Numeric(showGFloat)
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Print (ppDiffEqs)
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
@@ -36,6 +37,10 @@ main =
        DumpCPP -> 
           forM_ (modelFiles opts) 
             (genCppRunner . FromFile)
+
+       DumpDEQs ->
+         do ds <- exactlyOne "model" =<< loadDiffEqs opts []
+            print (ppDiffEqs ds)
 
        SimulateODE x y z ->
          do m0 <- exactlyOne "model" =<< loadDiffEqs opts []

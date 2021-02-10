@@ -182,4 +182,3 @@ generateCPP ty src =
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
 -------------------------------------------------------------------------
-
