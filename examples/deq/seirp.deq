@@ -1,0 +1,28 @@
+let r = 0.6929
+let rp = 0.4808
+let alpha = 0.3359
+let sigma = 0.2402
+let beta = 0.3015
+
+let s_initial = 6300000
+let i_initial = 50
+let ip_initial = 500000
+let e_initial = 100
+let r_initial = 0
+let rp_initial = 0
+
+S(0) = s_initial
+I(0) = i_initial
+R(0) = r_initial
+E(0) = e_initial
+Ip(0) = ip_initial
+Rp(0) = rp_initial
+
+let total_population = S + I + R + E + Ip + Rp
+
+d/dt S = -r * (S * I) / total_population - rp * (S * Ip) / total_population
+d/dt E = r * (S * I ) / total_population - beta * E
+d/dt I = beta * E - alpha * I
+d/dt R = alpha * I
+d/dt Ip = rp * (S * Ip) / total_population - sigma * Ip
+d/dt Rp = sigma * Ip
