@@ -141,7 +141,7 @@ fromSum (Sum k0 xs) =
   term t (e,k)
     | k == 1    = Op2 Add t e
     | k == (-1) = Op2 Add t (Op1 Neg e)
-    | k < 0     = Op2 Sub t e
+    | k < 0     = Op2 Sub t (Op2 Mul (NumLit (negate k)) e)
     | otherwise = Op2 Add t (Op2 Mul (NumLit k) e)
 
 
