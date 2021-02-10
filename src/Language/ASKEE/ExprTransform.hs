@@ -31,9 +31,9 @@ transformExpr exprT e =
     Expr.If test thn els ->
       (Expr.If <$> expr test <*> expr thn <*> expr els) >>= exprT
     Expr.Cond choices other ->
-      do  choices <- condChoice `traverse` choices
+      do  ch <- condChoice `traverse` choices
           oth <- expr `traverse` other
-          exprT $ Expr.Cond choices oth
+          exprT $ Expr.Cond ch oth
   where
     cmp op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
     expr = transformExpr exprT
@@ -46,8 +46,8 @@ transformModelExprs ::
   Syntax.Model ->
   m Syntax.Model
 transformModelExprs exprT mdl =
-  do  decls' <- transformDecl `traverse` (Syntax.modelDecls mdl)
-      events' <- transformEvent `traverse` (Syntax.modelEvents mdl)
+  do  decls' <- transformDecl `traverse` Syntax.modelDecls mdl
+      events' <- transformEvent `traverse` Syntax.modelEvents mdl
       pure $ mdl { Syntax.modelDecls = decls'
                  , Syntax.modelEvents = events'
                  }

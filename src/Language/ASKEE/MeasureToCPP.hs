@@ -7,13 +7,14 @@ import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.Measure
 import qualified Language.ASKEE.C as C
 import qualified Language.ASKEE.SimulatorGen as SG
+import Language.ASKEE.Panic (panic)
 
 
 --------------------------------------------------------------------------------
 -- API names
 
 runnerClassName :: Core.Model -> C.Doc
-runnerClassName model = "Runner" -- SG.modelClassName model <> "_Runner"
+runnerClassName _ = "Runner" -- SG.modelClassName model <> "_Runner"
 -- We just use a fixed name for the moment, which makes it easier to
 -- write generic wrapper code
 
@@ -51,7 +52,7 @@ genSimulationRunnerCpp model runUntil measure =
           C.declareInit C.double (C.ident name) (C.doubleLit initVal)
       TraceExpr name _ ->
         C.declare "std::vector<std::pair<double, double>>" (C.ident name)
-      TraceGlobal name initVal _ ->
+      TraceGlobal name _ _ ->
         C.declare "std::vector<std::pair<double, double>>" (C.ident name)
 
 
@@ -182,7 +183,7 @@ genStatement model env s =
 
 
 genObservation :: Core.Model -> SG.Env -> Observation -> C.Doc
-genObservation model env obs =
+genObservation _ env obs =
   case obs of
     TraceExpr x e    -> C.callStmt (C.member (C.ident x) "push_back")
                                  [ C.braces [ C.member modelVarName SG.timeName
@@ -190,6 +191,7 @@ genObservation model env obs =
                                             ]
                                  ]
     Accumulate x _ e -> C.assign (C.ident x) (SG.genExpr' env e)
+    TraceGlobal _ _ _ -> panic "genObservation: TraceGlobal unimplemented" []
 
 
 genSelector :: Core.Model -> SG.Env -> Selector -> C.Doc

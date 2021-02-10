@@ -86,9 +86,9 @@ Exp                                      :: { Expr }
 {
 parseError :: [Located Token] -> Either String a
 parseError [] = 
-  fail $ "parse error at end of file"
+  Left $ "parse error at end of file"
 parseError ((Located lin col t):ts) = 
-  fail $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
+  Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
 mkRTerm :: (Int, Text) -> ReactionTerm
 mkRTerm = uncurry ReactionTerm

@@ -7,6 +7,7 @@ import Data.Map  (Map, (!?))
 import Data.Text (Text, unpack)
 
 import Prelude hiding (LT, EQ, GT)
+import Data.List (find)
 
 data Expr =
     Add  Expr Expr
@@ -27,12 +28,7 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
-  | Paren Expr
   deriving (Eq, Show, Ord)
-
-
-instance MonadFail (Either String) where
-  fail = Left
 
 
 eval :: Map Text Expr -> Expr -> Either String Double
@@ -55,17 +51,24 @@ eval vars e = ev e
     ev (If e1 e2 e3) = do
       e1' <- evB e1
       if e1' then ev e2 else ev e3
-    ev (Cond es other) = undefined
+    ev (Cond branches other) = do
+      -- each of `es` is a tuple (e1, e2) :: (Expr, Expr) corresponding to "e1 if e2"
+      results <- mapM (evB . snd) branches
+      let choices = zip (map fst branches) results
+      choice <- case (find snd choices, other) of
+                  (Just res, _) -> Right $ fst res
+                  (Nothing, Just oth) -> Right oth
+                  (Nothing, Nothing) -> Left "no branch of 'cond' evaluated to True"
+      ev choice
     ev (Var t) =
       case vars !? t of
-        Just e -> ev e
-        Nothing -> fail $ "unbound variable "<>unpack t
+        Just e' -> ev e'
+        Nothing -> Left $ "unbound variable "<>unpack t
     ev (LitD d) = pure d
     ev (LitB b) = pure $ double b
-    ev (Paren e1) = ev e1
 
     evB :: Expr -> Either String Bool
-    evB e = bool <$> ev e
+    evB e' = bool <$> ev e'
 
     binop :: (Double -> Double -> Double) -> Expr -> Expr -> Either String Double
     binop op e1 e2 = op <$> ev e1 <*> ev e2

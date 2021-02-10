@@ -1,4 +1,6 @@
 {-# Language OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
+
 module Language.ASKEE.AMIDOLIR where
 
 import qualified Data.ByteString.Lazy as B
@@ -11,8 +13,6 @@ import           Data.Aeson ((.:))
 import qualified Data.Attoparsec.Text as Parse
 import qualified Data.Attoparsec.Combinator as Atto
 import           Control.Monad.Combinators.Expr as Expr
-import           Control.Monad.Fail(fail)
-import           Control.Monad(when)
 
 -- NOTES
 -- Is there a meaningful distinction between expressions and constants?
@@ -125,7 +125,7 @@ instance Aeson.FromJSON ModelExp where
   parseJSON = Aeson.withText "exp" $
     \t -> case Parse.parseOnly parseExp t of
             Left err -> fail err
-            Right exp -> pure exp
+            Right e -> pure e
 
 
 data ModelValue =
@@ -248,11 +248,11 @@ evalExp syms e0 =
     LessThan e1 e2 -> cmp e1 e2 (<)
     GreaterThan e1 e2 -> cmp e1 e2 (>)
     -- there are several questions i have about lists before implementing this
-    Idx lstExp idxExp -> undefined
+    Idx _ _ -> undefined
     Var nm ->
       case Map.lookup nm syms of
         Nothing -> Left ("Could not find symbol " ++ Text.unpack nm)
-        Just e0 -> evalExp syms e0
+        Just e' -> evalExp syms e'
 
   where
     logicalVal 0.0 = 0.0
@@ -274,12 +274,12 @@ evalExp syms e0 =
           v2 <- evalToDouble syms e2
           pure $ ValueDouble (op v1 v2)
 
-    evalToList le =
-      do  val <- evalExp syms le
-          case val of
-            ValueDouble _ ->
-              Left ("Expecting expression to produce a list, but got a double: " ++ show le)
-            ValueList l -> pure l 
+    -- evalToList le =
+    --   do  val <- evalExp syms le
+    --       case val of
+    --         ValueDouble _ ->
+    --           Left ("Expecting expression to produce a list, but got a double: " ++ show le)
+    --         ValueList l -> pure l 
    
 
 mkInitSymbolTable :: Model -> Map Ident ModelExp
@@ -293,12 +293,12 @@ mkInitSymbolTable mdl = Map.unions maps
 
 runEvent :: ModelEvent -> Map Ident ModelExp -> Either String (Map Ident ModelExp)
 runEvent ev sym =
-  do  deltaList <- computeDelta `traverse` (Map.toList $ outputTransitionFunction (eventOuput ev))
+  do  deltaList <- computeDelta `traverse` Map.toList (outputTransitionFunction (eventOuput ev))
       let deltas = Map.fromList deltaList
       pure (Map.union (LitNum <$> deltas) sym)
 
   where
-    computeDelta (name, exp) = ((,) name) <$> evalToDouble sym (Add (Var name) exp)
+    computeDelta (name, e) = (,) name <$> evalToDouble sym (Add (Var name) e)
     
 
 enabledEvents :: Model -> Map Ident ModelExp -> Either String (Map Ident ModelEvent)
@@ -312,6 +312,7 @@ enabledEvents mdl syms =
           pure $ if ise then Just evt else Nothing
     events = modelEvents mdl
 
+test :: IO ()
 test =
   do  Right m <- parseModelFile "models/CHIME-GTRI-IR.json"
       let table = mkInitSymbolTable m

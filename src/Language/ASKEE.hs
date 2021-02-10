@@ -122,12 +122,9 @@ parseEquations file =
 loadEquations :: DataSource -> [Text] -> IO DiffEqs
 loadEquations file params =
   do  toks <- lexEquations file
-      eqs <- case DP.parseDEQs toks of
-               Left err -> throwIO (ParseError err)
-               Right a  -> pure a { deqParams = params }
-      let lets = foldr Map.delete (deqLets eqs) params
-          inlineLets = Core.substExpr lets
-      pure eqs --(Core.mapExprs inlineLets eqs)
+      case DP.parseDEQs toks of
+        Left err -> throwIO (ParseError err)
+        Right a  -> pure a { deqParams = params }
 
 -- | Lex a set of reactions, throwing `ParseError` on error
 lexReactions :: DataSource -> IO [Located RL.Token]
@@ -174,7 +171,7 @@ data StratificationInfo = StratificationInfo
   { rawModel    :: Syntax.Model
   , prettyModel :: Syntax.Model
   , rawTopology :: MS.Net 
-  , params      :: [Text]
+  , holes       :: [Text]
   , vertices    :: Map Int Text
   }
   deriving Show
@@ -209,7 +206,7 @@ stratifyModel model connections statesM strat =
       rawTopology <- case decode (B.pack result) of
         Just t -> pure t
         Nothing -> error $ "failed to parse JSON of returned topology "++result
-      let (rawModel, params) = insertHoles $ topologyAsModel rawTopology
+      let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
           prettyModel = nameHoles vertices rawModel
       pure $ StratificationInfo{..}
 

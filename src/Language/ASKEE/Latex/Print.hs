@@ -31,7 +31,6 @@ printExpr expr =
   case expr of
     NumLit d -> text $ printf "%f" d
     Op1 Neg e' -> "-"PP.<>parens (pp e')
-    Op1 Paren e' -> parens (printExpr e')
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> hsep [pp e1, "*", pp e2]
@@ -56,7 +55,6 @@ printExpr expr =
         BoolLit _ -> 0
         Op1 Neg _ -> 10
         Op1 Not _ -> 10
-        Op1 Paren _ -> 0
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7

@@ -91,7 +91,7 @@ ident :: Action
 ident (_,_,_,s) len = (pure . Sym . Text.pack . take len) s
 
 bool :: Bool -> Action
-bool b (_,_,_,s) len = pure $ Boolean b
+bool b = \_ _ -> pure $ Boolean b
 
 isIdentChar c = c `elem` (['a'..'z']++['A'..'Z']++['0'..'9']++['_'])
 

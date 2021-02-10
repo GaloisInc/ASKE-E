@@ -86,10 +86,10 @@ lexLatex s = simplifyTimes <$> stripLeading Newline <$> stripTrailing Newline <$
 
   simplifyTimes :: [Located Token] -> [Located Token]
   simplifyTimes [] = []
-  simplifyTimes (Located l c (Sym s) : Located _ _ OpenParen : Located _ _ (Sym "t") : Located _ _ CloseParen : ts) =
-    Located l c (SymTime s) : simplifyTimes ts
-  simplifyTimes (Located l c (Sym s) : Located _ _ OpenParen : Located _ _ (Lit 0) : Located _ _ CloseParen : ts) =
-    Located l c (SymInit s) : simplifyTimes ts
+  simplifyTimes (Located l c (Sym sym) : Located _ _ OpenParen : Located _ _ (Sym "t") : Located _ _ CloseParen : ts) =
+    Located l c (SymTime sym) : simplifyTimes ts
+  simplifyTimes (Located l c (Sym sym) : Located _ _ OpenParen : Located _ _ (Lit 0) : Located _ _ CloseParen : ts) =
+    Located l c (SymInit sym) : simplifyTimes ts
   simplifyTimes (t:ts) = t : simplifyTimes ts
 
   stripLeading :: Token -> [Located Token] -> [Located Token]

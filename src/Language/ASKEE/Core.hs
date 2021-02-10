@@ -48,7 +48,7 @@ data Expr =
   | Fail String
     deriving (Show,Eq, Ord)
 
-data Op1 = Not | Neg | Paren
+data Op1 = Not | Neg
   deriving (Show,Eq,Ord)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
@@ -175,7 +175,6 @@ ppExpr expr =
     BoolLit b -> if b then "true" else "false"
     Op1 Neg e' -> "-"PP.<>PP.parens (pp e')
     Op1 Not e' -> "not"PP.<+>PP.parens (pp e')
-    Op1 Paren e' -> PP.parens (ppExpr e')
     e1 :+: e2 -> PP.hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
@@ -207,7 +206,6 @@ ppExpr expr =
         BoolLit _ -> 10
         Op1 Neg _ -> 0
         Op1 Not _ -> 0
-        Op1 Paren _ -> 10
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7
