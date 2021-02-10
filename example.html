@@ -189,13 +189,13 @@
       gamma + 0.0717734  otherwise
 
   # or
-  let beta =
-    if time &lt;= policy_days0
-      then gamma
-    else if time &lt;= policy_days1
-      then gamma + 0.1486983
-    else
-      gamma + 0.0717734
+  # let beta =
+  #   if time &lt;= policy_days0
+  #     then gamma
+  #   else if time &lt;= policy_days1
+  #     then gamma + 0.1486983
+  #   else
+  #     gamma + 0.0717734
 
   event Infect:
     when:
