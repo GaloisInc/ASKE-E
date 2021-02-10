@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
 module Language.ASKEE.RNet.Reaction where
 
@@ -89,8 +91,11 @@ tsort dependsOn elts =
     noDeps e = not $ any (e `dependsOn`) elts 
 
 -- make a model with automatically generated names
-reactionsAsModel :: Text -> Map Text Expr -> [Reaction] -> Either String Syntax.Model 
-reactionsAsModel mname env rs = 
+reactionsAsModel :: ReactionNet -> Either String Syntax.Model
+reactionsAsModel ReactionNet{..} = reactionsAsModel' "foo" bindings reactions
+
+reactionsAsModel' :: Text -> Map Text Expr -> [Reaction] -> Either String Syntax.Model 
+reactionsAsModel' mname env rs = 
   do  stDecls <- stateDecls
       Right $ Syntax.Model mname (stDecls ++ letDecls) (map (uncurry reactionAsEvent) namedReactions) 
       

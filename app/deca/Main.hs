@@ -19,7 +19,6 @@ import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Print as PP
-import Language.ASKEE.RNet.Syntax (ReactionNet(..))
 import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
@@ -128,8 +127,8 @@ loadDiffEqs opts ps0 =
        pure (DiffEq.asEquationSystem m)
 
   fromRNet file =
-    do  ReactionNet bs rs <- loadReactions file
-        m <- case reactionsAsModel "foo" bs rs of
+    do  rnet <- loadReactions file
+        m <- case reactionsAsModel rnet of
           Right model -> pure model
           Left err -> fail err
         print (PP.printModel m)

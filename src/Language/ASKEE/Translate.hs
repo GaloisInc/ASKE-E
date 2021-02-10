@@ -20,7 +20,6 @@ import Language.ASKEE.Print             ( printModel )
 import Language.ASKEE.RNet.GenLexer     ( lexRNet )
 import Language.ASKEE.RNet.GenParser    ( parseRNet )
 import Language.ASKEE.RNet.Reaction     ( reactionsAsModel )
-import Language.ASKEE.RNet.Syntax       ( ReactionNet(..) )
 
 
 {-
@@ -55,8 +54,8 @@ instance AsASKEE ModelSyntax where
       ASKEE -> Right s
       DiffEq -> undefined
       RNet ->
-        do  ReactionNet bs rs <- lexParse lexRNet parseRNet
-            model <- reactionsAsModel "foo" bs rs
+        do  rnet <- lexParse lexRNet parseRNet
+            model <- reactionsAsModel rnet
             pure $ show $ printModel model
       Latex -> undefined
 
@@ -74,8 +73,8 @@ instance AsDiffEq ModelSyntax where
             pure $ show $ ppDiffEqs eqs
       DiffEq -> Right s
       RNet -> 
-        do  ReactionNet bs rs <- lexParse lexRNet parseRNet
-            model <- reactionsAsModel "foo" bs rs
+        do  rnet <- lexParse lexRNet parseRNet
+            model <- reactionsAsModel rnet
             coreModel <- modelAsCore [] model 
             let eqs = asEquationSystem coreModel
             pure $ show $ ppDiffEqs eqs
