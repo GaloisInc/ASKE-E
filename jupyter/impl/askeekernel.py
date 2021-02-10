@@ -291,8 +291,30 @@ class ASKEECommandInterpreter:
             "asEquationSystem": self.asEquationSystem,
             "asESL": self.asESL,
             "generateSimulator": self.generateSimulator,
-            "save": self.saveAsFile
+            "save": self.saveAsFile,
+            "scatter":self.scatterPlot
         }
+
+    def scatterPlot(self, call:ExprCall, output:List[Dict]) -> Value:
+        [data, xaxisVal, yaxisVal] = self.evalArgs(call, [ValueDataSeries, ValueString, ValueString], output)
+        xaxis = xaxisVal.value
+        yaxis = yaxisVal.value
+        xs = data.data[xaxis]
+        ys = data.data[yaxis]
+        points = [{xaxis: xval, yaxis: yval} for (xval, yval) in zip(xs, ys) ]
+        chart = {
+            "$schema": vega_lite_schema,
+            "description": "",
+            "data": {"values": points},
+            "mark": "point",
+            "encoding": {
+                "x": {"field": xaxis, "type": "quantitative"},
+                "y": {"field": yaxis, "type": "quantitative"}
+            }
+        }
+
+        self.outputChart(chart, output)
+        return self.unit
 
     # TODO: this should check that paths don't escape the jupyter env
     def saveAsFile(self, call:ExprCall, output:List[Dict]) -> Value:
@@ -373,6 +395,15 @@ class ASKEECommandInterpreter:
         sim = self.donu.genCpp(model.source, Donu.modelTypeESL(), call)
         return ValueCode(sim, "C++")
 
+    def outputChart(self, chart, output):
+        msg = {
+            "application/vnd.vegalite.v4+json": chart,
+            "text/plain": "Plot could not be displayed"
+        }
+
+        output.append(msg)
+
+
     def plot(self, call:ExprCall, output:List[Dict]):
         [series, xaxis] = self.evalArgs(call, [ValueDataSeries, ValueString], output)
         points = self.seriesVs(series, xaxis.value, call)
@@ -390,12 +421,7 @@ class ASKEECommandInterpreter:
             }
         }
 
-        msg = {
-            "application/vnd.vegalite.v4+json": chart,
-            "text/plain": "Plot could not be displayed"
-        }
-
-        output.append(msg)
+        self.outputChart(chart, output)
 
         return self.unit
 
