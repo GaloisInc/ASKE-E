@@ -42,8 +42,8 @@ import System.Process ( readProcess )
 import System.IO.Temp ( writeSystemTempFile )
 import Language.ASKEE.ModelStratify.Topology (modelAsTopology, topologyAsParameterizedModel)
 
-data ParseError      = ParseError String deriving Show
-data ValidationError = ValidationError String deriving Show
+newtype ParseError      = ParseError String deriving Show
+newtype ValidationError = ValidationError String deriving Show
 
 instance Exception ParseError
 instance Exception ValidationError
