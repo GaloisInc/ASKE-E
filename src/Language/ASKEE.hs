@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# Language OverloadedStrings #-}
 {-# Language TemplateHaskell #-}
@@ -8,10 +9,10 @@ module Language.ASKEE where
 import Control.Exception ( Exception(..)
                          , throwIO )
 
+import qualified Data.Aeson                 as Aeson
 import           Data.Aeson                 ( encode
                                             , decode
-                                            , Value(..) )
-import           Data.List                  ( intercalate )
+                                            , Value(..), (.=), object )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text
@@ -47,11 +48,8 @@ import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen           as SG
 import qualified Language.ASKEE.Syntax                 as Syntax
 
-import System.Directory ( withCurrentDirectory
-                        , makeAbsolute
-                        , removeFile )
-import System.IO.Temp   ( writeSystemTempFile )
 import System.Process   ( readProcess )
+import GHC.Generics (Generic)
 
 newtype ParseError      = ParseError String deriving Show
 newtype ValidationError = ValidationError String deriving Show
@@ -181,53 +179,40 @@ data StratificationInfo = StratificationInfo
   }
   deriving Show
 
+-- This and its Aeson instances might ought to live somewhere else
+data States = States
+  { sus :: Text
+  , exp :: Text
+  , inf :: [Text]
+  }
+  deriving (Generic, Show)
+
+instance Aeson.FromJSON States
+instance Aeson.ToJSON States
+
 stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
-stratifyModel model connections states strat =
+stratifyModel model connections statesM strat =
   do  topology <- modelAsTopology <$> loadModel model
       (gtriConnections, vertices) <- loadConnectionGraph connections
-      onDisk (B.unpack $ encode topology) $ \topFile ->
-        onDisk (B.unpack $ encode gtriConnections) $ \connFile ->
-          asFileM states $ \stFileM ->
-            do  result <- withCurrentDirectory "ASKE-E-Simulation-WG/AlgebraicPetri-Stratification" $
-                  let params =  [ "top="<>topFile
-                                , "conn="<>connFile
-                                , "type="<>case strat of Demographic -> "dem"; Spatial -> "spat"
-                                ] ++ case stFileM of {Nothing -> []; Just stFile -> ["states="<>stFile]}
-                  in  readProcess "curl"  [ "-X", "GET"
-                                          , "localhost:8001/?"++intercalate "&" params
-                                          ] ""
-                rawTopology <- case decode (B.pack result) of
-                  Just t -> pure t
-                  Nothing -> error $ "failed to parse JSON of returned topology "++result
-                let (rawModel, params) = insertHoles $ topologyAsModel rawTopology
-                    prettyModel = nameHoles vertices rawModel
-                pure $ StratificationInfo{..}
+      states <- case statesM of 
+                  Just d -> Aeson.decode @States . B.pack <$> loadString d
+                  Nothing -> pure Nothing
+      let payload = object $  [ "top" .= topology 
+                              , "conn" .= gtriConnections
+                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
+                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
+      result <- readProcess "curl"  [ "-X", "POST"
+                                    , "-H", "Content-type: application/json"
+                                    , "-d", B.unpack $ encode payload
+                                    , "localhost:8001"
+                                    ] ""
+      rawTopology <- case decode (B.pack result) of
+        Just t -> pure t
+        Nothing -> error $ "failed to parse JSON of returned topology "++result
+      let (rawModel, params) = insertHoles $ topologyAsModel rawTopology
+          prettyModel = nameHoles vertices rawModel
+      pure $ StratificationInfo{..}
 
-  where
-    onDisk :: String -> (FilePath -> IO b) -> IO b
-    onDisk thing = onDisk' thing id
-
-    onDisk' :: String -> (FilePath -> b) -> (b -> IO c) -> IO c
-    onDisk' thing translatePath action =
-      do  file <- writeSystemTempFile "foo.whatever" thing
-          result <- action $ translatePath file
-          removeFile file
-          pure result
-
-    -- asFile :: DataSource -> (FilePath -> IO a) -> IO a
-    -- asFile d action =
-    --   case d of
-    --     Inline t -> onDisk (unpack t) action
-    --     FromFile f -> makeAbsolute f >>= action
-
-    asFileM :: Maybe DataSource -> (Maybe FilePath -> IO a) -> IO a
-    asFileM dm action =
-      case dm of
-        Nothing -> action Nothing
-        Just d ->
-          case d of
-            FromFile f -> makeAbsolute f >>= action . Just
-            Inline t -> onDisk' (unpack t) Just action
 
 loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
 loadConnectionGraph d =

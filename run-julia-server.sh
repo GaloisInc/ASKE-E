@@ -2,5 +2,9 @@
 
 set -e
 
-(cd ASKE-E-Simulation-WG/AlgebraicPetri-Stratification &&
-    julia --project server.jl)
+IMAGE=galois/modelstratify
+
+cd ASKE-E-Simulation-WG/AlgebraicPetri-Stratification &&
+    docker build -t $IMAGE . &&
+    docker run -p 8001:8001 -it $IMAGE &&
+    cd -
