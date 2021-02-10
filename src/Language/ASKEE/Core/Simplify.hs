@@ -34,6 +34,8 @@ simplifyExpr expr =
     Op2 Mul e (NumLit (-1))       -> simplifyExpr (Op1 Neg e)
     Op2 Mul (NumLit (-1)) e       -> simplifyExpr (Op1 Neg e)
     Op2 Mul (NumLit x) (NumLit y) -> NumLit (x * y)
+    Op2 Mul x (Op2 Div y z)       -> simplifyExpr (Op2 Div (Op2 Mul x y) z)
+    Op2 Mul (Op2 Div y z) x       -> simplifyExpr (Op2 Div (Op2 Mul y x) z)
 
     Op2 Div e (NumLit 1)          -> e
     Op2 Div (NumLit x) (NumLit y) -> NumLit (x / y)
