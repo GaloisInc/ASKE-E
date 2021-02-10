@@ -377,8 +377,8 @@ class ASKEECommandInterpreter:
             "data": {"values": points},
             "mark": "point",
             "encoding": {
-                "x": {"field": xaxis, "type": "quantitative"},
-                "y": {"field": yaxis, "type": "quantitative"}
+                "x": {"field": xaxis, "type": "quantitative", "scale": {"zero": False}},
+                "y": {"field": yaxis, "type": "quantitative", "scale": {"zero": False}}
             }
         }
 

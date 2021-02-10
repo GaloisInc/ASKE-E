@@ -35,6 +35,9 @@ simplifyExpr expr =
     Op2 Mul (NumLit (-1)) e       -> simplifyExpr (Op1 Neg e)
     Op2 Mul (NumLit x) (NumLit y) -> NumLit (x * y)
 
+    Op2 Mul x (Op2 Div y z)       -> simplifyExpr (Op2 Div (Op2 Mul x y) z)
+    Op2 Mul (Op2 Div y z) x       -> simplifyExpr (Op2 Div (Op2 Mul y x) z)
+
     Op2 Div e (NumLit 1)          -> e
     Op2 Div (NumLit x) (NumLit y) -> NumLit (x / y)
 
@@ -141,7 +144,7 @@ fromSum (Sum k0 xs) =
   term t (e,k)
     | k == 1    = Op2 Add t e
     | k == (-1) = Op2 Add t (Op1 Neg e)
-    | k < 0     = Op2 Sub t e
+    | k < 0     = Op2 Sub t (Op2 Mul (NumLit (negate k)) e)
     | otherwise = Op2 Add t (Op2 Mul (NumLit k) e)
 
 
