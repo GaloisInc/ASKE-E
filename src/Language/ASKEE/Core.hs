@@ -173,8 +173,8 @@ ppExpr expr =
   case expr of
     NumLit d -> PP.text $ printf "%f" d
     BoolLit b -> if b then "true" else "false"
-    Op1 Neg e' -> "-"PP.<>PP.parens (pp e')
-    Op1 Not e' -> "not"PP.<+>PP.parens (pp e')
+    Op1 Neg e' -> "-"PP.<>pp e'
+    Op1 Not e' -> "not"PP.<+>pp e'
     e1 :+: e2 -> PP.hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
@@ -204,8 +204,8 @@ ppExpr expr =
       case e of
         NumLit  _ -> 10
         BoolLit _ -> 10
-        Op1 Neg _ -> 0
-        Op1 Not _ -> 0
+        Op1 Neg _ -> 10
+        Op1 Not _ -> 10
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7
