@@ -85,7 +85,7 @@ printEvent Event{..} = decl $+$ nest 2 body
            char ':'
 
     body :: Doc
-    body = vcat [rate, when, effect]
+    body = vcat [when, rate, effect]
 
     rate :: Doc
     rate = text "rate:" $+$ nest 2 (printExpr eventRate)
