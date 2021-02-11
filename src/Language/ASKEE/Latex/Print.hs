@@ -26,12 +26,24 @@ printLatex DiffEqs {..} = inArray . vcat . terminate . concat $ [lets, initials,
     ddtBinding (ident, expr) = hcat ["\\frac{d ", ppIdent (unpack ident), "}{dt} & = & ", printExpr expr]
     initBinding (i,e) = hsep [hcat [ppIdent (unpack i),parens (int 0)], " & = & ", printExpr e]
 
+
+greekSyms :: Map.Map String String
+greekSyms =
+  Map.fromList $
+    withBs <$> ["alpha", "beta", "gamma", "nu", "mu", "theta"]
+  where
+    withBs a = (a, '\\':a)
+
+
 -- TODO: we need a better solution for identifiers
 ppIdent :: String -> Doc
 ppIdent s =
-  if '_' `elem` s
-    then text $ "\\verb|" ++ s ++ "|"
-    else text s
+  case Map.lookup s greekSyms of
+    Just r -> text r
+    Nothing ->
+      if '_' `elem` s
+        then text $ "\\verb|" ++ s ++ "|"
+        else text s
   
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core
 printExpr :: Expr -> Doc
@@ -42,7 +54,7 @@ printExpr expr =
     Op1 Paren e' -> parens (printExpr e')
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
-    e1 :*: e2 -> hsep [pp e1, "*", pp e2]
+    e1 :*: e2 -> hsep [pp e1, " ", pp e2]
     e1 :/: e2 -> hcat ["\\frac{", printExpr e1, "}{", printExpr e2, "}"]
     Var v -> ppIdent (unpack v)
     _ -> 

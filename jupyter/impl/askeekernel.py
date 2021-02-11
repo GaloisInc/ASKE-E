@@ -373,6 +373,8 @@ class ASKEECommandInterpreter:
         points = [{xaxis: xval, yaxis: yval} for (xval, yval) in zip(xs, ys) ]
         chart = {
             "$schema": vega_lite_schema,
+            "width": 800,
+            "height":600,
             "description": "",
             "data": {"values": points},
             "mark": "point",
@@ -491,6 +493,8 @@ class ASKEECommandInterpreter:
             "description": "Plot [TODO: real description]",
             "data": {"values": list(xyc)},
             "mark": "line",
+            "width": 800,
+            "height":600,
             "encoding": {
                 "x": {"field": "x", "type": "quantitative"},
                 "y": {"field": "y", "type": "quantitative"},

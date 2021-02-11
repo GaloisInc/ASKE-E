@@ -290,6 +290,6 @@ diffEqStringToLatexString :: String -> Either String String
 diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
 renderCppModel :: DataSource -> IO String
 renderCppModel file =
-  do  compiled <- loadCoreModel file []
+  do  compiled <- Core.inlineLets <$> loadCoreModel file []
       pure $ show (SG.genModel compiled)
 

@@ -18,7 +18,7 @@ modelAsCore params mdl =
 
   modelNoInit =
     mapExprs simplifyExpr $
-    inlineLets
+ --   inlineLets
     Model { modelName      = Src.modelName mdl
           , modelParams    = params
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)

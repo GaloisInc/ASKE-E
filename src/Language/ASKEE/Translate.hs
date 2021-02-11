@@ -106,7 +106,7 @@ instance AsLatex ModelSyntax where
       ASKEE ->
         do  model <- lexParse lexModel parseModel
             coreModel <- modelAsCore [] model
-            let eqs = asEquationSystem (coreModel { modelLets = Map.empty })
+            let eqs = asEquationSystem coreModel -- ({ modelLets = Map.empty })
             pure . show $ printLatex eqs
 
       DiffEq -> undefined
