@@ -30,23 +30,43 @@ apramToModel APRAM{..} = Model "foo" [] (concatMap modToEvents apramMods)
         Pass -> Nothing
 
     mkEvent :: (String, [Action], Expr.Expr, State) -> Event
-    mkEvent (nm, actions, prob, state) = Event (pack name<>"___"<>pack nm) when rate effect Nothing
+    mkEvent (modname, actions, prob, state) = Event (pack name<>"___"<>pack modname) when rate effect Nothing
       where
-        name = intercalate "_AND_" $ map (\a -> show a <> "_" <> stateName state) actions
+        name = intercalate "_AND_" $ map (\a -> show a <> "_" <> stateName) actions
         when = Just $ stateVar `Expr.GT` Expr.LitD 0
         rate = prob `Expr.Mul` scale
-        effect =  [ (pack $ stateName state, stateVar `Expr.Sub` Expr.LitD 1)
-                  -- , ()
-                  ]
+        effect = concatMap actionsFromEffect actions
+        
+        actionsFromEffect :: Action -> [Statement]
+        actionsFromEffect act =
+          let newName = mkStateName $ newState act state
+              newVar = Expr.Var $ pack newName
+          in  [ (pack stateName, stateVar `Expr.Sub` Expr.LitD 1)
+              , (pack newName, newVar `Expr.Add` Expr.LitD 1)
+              ]
 
         scale = stateVar `Expr.Div` Expr.LitD (fromIntegral apramAgents)
-        stateVar = Expr.Var (pack $ stateName state)
+
+        stateName = mkStateName state
+        stateVar = Expr.Var $ pack stateName
 
 
 type State = Set Status
 
-stateName :: State -> String
-stateName s = intercalate "_" (map show $ Set.toList s)
+newState :: Action -> State -> State
+newState (Assign column (Status column' newTag)) = 
+  if column == column'
+    then Set.map change
+    else id
+  where
+    change :: Status -> Status
+    change s@(Status col oldTag) = 
+      if col == column 
+        then Status col newTag
+        else s
+
+mkStateName :: State -> String
+mkStateName s = intercalate "_" (map show $ Set.toList s)
 
 allStates :: [State]
 allStates = [ Set.fromList [q, h] 
