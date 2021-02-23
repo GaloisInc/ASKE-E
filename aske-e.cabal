@@ -25,6 +25,9 @@ library
                      , Language.ASKEE.Print
                      , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
+                     , Language.ASKEE.APRAM.Syntax
+                     , Language.ASKEE.APRAM.Translate
+                     , Language.ASKEE.APRAM.Sample
 
                     --  , Language.ASKEE.DiffEq.Lexer
                     --  , Language.ASKEE.DiffEq.GenLexer
