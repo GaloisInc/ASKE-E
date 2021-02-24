@@ -3,7 +3,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.APRAM.Translate where
 
-import           Data.List (intercalate)
+
+import           Data.List (intercalate, nub)
 import           Data.Maybe (mapMaybe)
 import qualified Data.Set  as Set
 import           Data.Set  ( Set )
@@ -15,12 +16,17 @@ import           Language.ASKEE.Syntax as ESLSyntax
 import qualified Language.ASKEE.Expr as Expr
 
 apramToModel :: APRAM -> Model 
-apramToModel APRAM{..} = Model "foo" [] (concatMap modToEvents apramMods)
+apramToModel APRAM{..} = Model "foo" (nub $ concatMap cohortToStates apramCohorts) (concatMap modToEvents apramMods)
   where
+    cohortToStates :: Cohort -> [Decl]
+    cohortToStates c = [ State (pack $ mkStateName s) (Expr.Var "???")
+                       | s <- Set.elems $ relevantStates c]
+
+
     modToEvents :: Mod -> [Event]
     modToEvents Mod{..} = [ mkEvent (modName, actions, probs, state) 
                           | (actions, probs) <- mapMaybe filterPass modActions
-                          , state <- Set.toList $ relevantStates modCohort
+                          , state <- Set.toAscList $ relevantStates modCohort
                           ]
 
     filterPass :: (ActionSequence, Expr.Expr) -> Maybe ([Action], Expr.Expr)
@@ -51,8 +57,15 @@ apramToModel APRAM{..} = Model "foo" [] (concatMap modToEvents apramMods)
         stateVar = Expr.Var $ pack stateName
 
 
+-- In this formalism, an ESL State is a unique set of one status
+-- from each APRAM column - e.g. fromList [infectedStatus, quarantinedStatus]
+-- or fromList [susceptibleStatus, notQuarantinedStatus] but not fromList
+-- [susceptibleStatus, exposedStatus] because the two, both being members of
+-- the "health" column, are mutually exclusive
 type State = Set Status
 
+-- | Given an action and a state, make the changes the action describes
+-- to the state, if they apply
 newState :: Action -> State -> State
 newState (Assign column (Status column' newTag)) = 
   if column == column'
@@ -60,20 +73,25 @@ newState (Assign column (Status column' newTag)) =
     else id
   where
     change :: Status -> Status
-    change s@(Status col oldTag) = 
+    change s@(Status col _) = 
       if col == column 
         then Status col newTag
         else s
 
+-- Deterministic naming of States
 mkStateName :: State -> String
-mkStateName s = intercalate "_" (map show $ Set.toList s)
+mkStateName s = intercalate "_" (map show $ Set.toAscList s)
 
+-- Testing
 allStates :: [State]
 allStates = [ Set.fromList [q, h] 
             | q <- quarantineStatuses
             , h <- healthStatuses
             ]
 
+-- | A cohort composed of logical operators on statuses, which are themselves
+-- trivial cohorts, admits a definition of the States (in ESL lingo) that 
+-- cohort touches
 relevantStates :: Cohort -> Set State
 relevantStates c = go (Set.fromList allStates)
   where
