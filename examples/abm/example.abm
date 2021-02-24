@@ -77,7 +77,7 @@ model SIR:
 
     event EnterQuarantine:
         on:   F
-        do:   quarantined = quarantine
+        do:   quarantinee = quarantined
         rate: once_in_a_blue_moon
 
     event LeaveQuarantine:
