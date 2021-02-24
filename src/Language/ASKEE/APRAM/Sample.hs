@@ -2,54 +2,50 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.APRAM.Sample where
 
+import qualified Data.Map as Map
+import           Data.Map ( Map )
+
 import Language.ASKEE.APRAM.Syntax as APRAM
 import Language.ASKEE.Expr
+
+statuses :: Map Column [Status]
+statuses = Map.fromList 
+  [ (healthColumn,      [ susceptibleStatus
+                        , exposedStatus
+                        , infectedStatus
+                        , recoveredStatus
+                        , deadStatus
+                        ])
+  , (quarantineColumn,  [ notQuarantinedStatus
+                        , quarantinedStatus
+                        ])
+  ]
 
 healthColumn :: Column
 healthColumn = "health"
 
 susceptibleStatus, exposedStatus, infectedStatus, recoveredStatus, deadStatus :: Status
-susceptibleStatus = Status healthColumn "sus"
-exposedStatus     = Status healthColumn "exp"
-infectedStatus    = Status healthColumn "inf"
-recoveredStatus   = Status healthColumn "rec"
-deadStatus        = Status healthColumn "dead"
-
-healthStatuses :: [Status]
-healthStatuses = [susceptibleStatus, exposedStatus, infectedStatus, recoveredStatus, deadStatus]
-
+susceptibleStatus = "susceptible"
+exposedStatus     = "exposed"
+infectedStatus    = "infected"
+recoveredStatus   = "recovered"
+deadStatus        = "dead"
 
 quarantineColumn :: Column
 quarantineColumn = "quarantine"
 
 notQuarantinedStatus, quarantinedStatus :: Status
-notQuarantinedStatus = Status quarantineColumn "not_quarantined"
-quarantinedStatus    = Status quarantineColumn "quarantined"
-
-quarantineStatuses :: [Status]
-quarantineStatuses = [quarantinedStatus, notQuarantinedStatus]
-
-
--- everExposedColumn :: Column 
--- everExposedColumn = "ever_exposed"
-
--- neverExposedStatus, everExposedStatus :: Status
--- neverExposedStatus = Status everExposedColumn "never_exposed"
--- everExposedStatus = Status everExposedColumn "ever_exposed"
-
--- everExposedStatuses :: [Status]
--- everExposedStatuses = [neverExposedStatus, everExposedStatus]
-
+notQuarantinedStatus = "not_quarantined"
+quarantinedStatus    = "quarantined"
 
 susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort :: Cohort
-susCohort         = Is susceptibleStatus
-expCohort         = Is exposedStatus
-infCohort         = Is infectedStatus
-recCohort         = Is recoveredStatus
-deadCohort        = Is deadStatus
-infectiousCohort  = APRAM.Not quarantinedStatus `APRAM.And` (Is exposedStatus `APRAM.Or` Is infectedStatus)
-quarantinedCohort = Is quarantinedStatus
--- everExposedCohort = Is everExposedStatus
+susCohort         = Is healthColumn susceptibleStatus
+expCohort         = Is healthColumn exposedStatus
+infCohort         = Is healthColumn infectedStatus
+recCohort         = Is healthColumn recoveredStatus
+deadCohort        = Is healthColumn deadStatus
+infectiousCohort  = APRAM.Not quarantineColumn quarantinedStatus `APRAM.And` (Is healthColumn exposedStatus `APRAM.Or` Is healthColumn infectedStatus)
+quarantinedCohort = Is quarantineColumn quarantinedStatus
 
 quarantineMod :: Mod
 quarantineMod = Mod{..}
@@ -143,7 +139,7 @@ sampleAPRAM :: APRAM
 sampleAPRAM = APRAM{..}
   where
     apramAgents = 100000
-    apramColumns = [healthColumn, quarantineColumn]
+    apramStatuses = statuses
     apramCohorts = [susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort]
     apramMods = [ exposeMod
                 , takeIllMod
