@@ -82,7 +82,9 @@ newState (Assign column (Status column' newTag)) =
 mkStateName :: State -> String
 mkStateName s = intercalate "_" (map show $ Set.toAscList s)
 
--- Testing
+-- Testing - specifically, enumerating `quarantineStatuses` and `healthStatuses`
+-- is a crutch that needs to be dealt with, perhaps by minor extensions to
+-- APRAM's python syntax
 allStates :: [State]
 allStates = [ Set.fromList [q, h] 
             | q <- quarantineStatuses
