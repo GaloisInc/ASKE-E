@@ -17,13 +17,13 @@ import Text.PrettyPrint
 
 
 printExpr :: Expr -> Doc
-printExpr e = 
-  case e of
+printExpr expr = 
+  case expr of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    (Neg e1) -> parens (char '-' <> printExpr e1)
+    (Neg e1) -> char '-' <> pp e1
     (LitD d) -> double d
     (Var i) -> text (unpack i)
     (GT e1 e2)  -> aBinop e1 ">"   e2
@@ -34,16 +34,16 @@ printExpr e =
     (And e1 e2) -> lBinop e1 "and" e2
     (Or e1 e2)  -> lBinop e1 "or"  e2
     (Not e1) -> 
-      (parens . hsep) [ text "not"
-                      , printExpr e1]
+      hsep  [ text "not"
+            , pp e1]
     If e1 e2 e3 -> 
-      (parens . hsep) [ text "if"
-                      , printExpr e1
-                      , text "then"
-                      , printExpr e2 
-                      , text "else"
-                      , printExpr e3
-                      ]
+      hsep  [ text "if"
+            , pp e1
+            , text "then"
+            , pp e2 
+            , text "else"
+            , pp e3
+            ]
     Cond branches other ->
       let decl = text "cond:"
           branches' = vcat $ case other of
@@ -54,9 +54,37 @@ printExpr e =
     LitB False -> text "false"
   
   where
-    binop = expBinop printExpr
-    aBinop = expBinop printExpr
-    lBinop = expBinop printExpr
+    binop = expBinop pp
+    aBinop = expBinop pp
+    lBinop = expBinop pp
+
+    pp :: Expr -> Doc
+    pp e = 
+      if prec e < prec expr
+        then parens (printExpr e)
+        else         printExpr e
+        
+    prec :: Expr -> Int
+    prec e =
+      case e of
+        LitD _ -> 10
+        LitB _ -> 10
+        Neg _ -> 0
+        Not _ -> 0
+        Add _ _ -> 6
+        Sub _ _ -> 6
+        Mul _ _ -> 7
+        Div _ _ -> 7
+        LT _ _ -> 4
+        LTE _ _ -> 4
+        EQ _ _ -> 4
+        GTE _ _ -> 4
+        GT _ _ -> 4
+        And _ _ -> 3
+        Or _ _ -> 3
+        Var _ -> 10
+        If {} -> 1
+        Cond {} -> 1
 
 condBranch :: Expr -> Expr -> Doc
 condBranch e1 e2 = 
@@ -71,10 +99,10 @@ condOther e =
 
 expBinop :: (a -> Doc) -> a -> String -> a -> Doc
 expBinop pr e1 op e2 = 
-  (parens . hsep) [ pr e1
-                  , text op
-                  , pr e2
-                  ]
+  hsep  [ pr e1
+        , text op
+        , pr e2
+        ]
 
 printEvent :: Event -> Doc
 printEvent Event{..} = decl $+$ nest 2 body
