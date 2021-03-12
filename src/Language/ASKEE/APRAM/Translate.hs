@@ -12,13 +12,77 @@ import qualified Data.Map   as Map
 import           Data.Maybe ( mapMaybe )
 import           Data.Set   ( Set )
 import qualified Data.Set   as Set
-import           Data.Text  ( Text, pack )
+import           Data.Text  ( Text, pack, unpack )
 import qualified Data.Text  as Text
 
 import           Language.ASKEE.APRAM.Syntax as APRAMSyntax
 import           Language.ASKEE.APRAM.Sample ()
 import           Language.ASKEE.Syntax as ESLSyntax
 import qualified Language.ASKEE.Expr as Expr
+import Language.ASKEE.ExprTransform (inlineLets)
+
+modelToAPRAM :: Model -> String -> APRAM
+modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
+  where
+    Model{..} = m
+
+    params = Map.fromList [ (unpack v, e) | (v, e) <- letDecls modelDecls ]
+
+    statuses = Map.singleton columnName stateNames
+
+    cohorts = pop:[ Cohort state (Is columnName state) | state <- stateNames ]
+    pop = Cohort "Population" (foldr1 Or (map (Is columnName) stateNames))
+    stateNames = [ unpack v | (v, _) <- stateDecls modelDecls ]
+
+    mods = initialize : eventsToMods columnName modelEvents
+    (totalPop, initialize) = initMod pop columnName modelDecls
+
+initMod :: Cohort -> String -> [Decl] -> (Double, Mod)
+initMod pop columnName decls = (totalPop, Mod "Initialize" pop actions "setup")
+  where
+    stateInitValues = [ (v, either (err v) id $ Expr.eval letBindings e) | (v, e) <- stateDecls decls ]
+    err v e = error $ "when evaluating "<>unpack v<>", encountered error: "<>e
+    letBindings = Map.fromList $ letDecls decls
+
+    actions = map mkAct stateInitValues
+    mkAct (v, d) = (Actions [Assign columnName (unpack v)], Expr.LitD d `Expr.Div` Expr.LitD totalPop)
+    totalPop = sum [ d | (_, d) <- stateInitValues]
+
+eventsToMods :: String -> [Event] -> [Mod]
+eventsToMods columnName events = map eventToMod events
+  where
+    eventToMod :: Event -> Mod
+    eventToMod Event{..} = Mod (unpack eventName) cohort [action, pass] "loop" 
+      where
+        cohort = Cohort oldStatus (Is columnName oldStatus)
+
+        oldStatus = 
+          case mapMaybe subtractOne eventEffect of
+            [status] -> status
+            _ -> error "this event did not subtract from exactly one state variable"
+
+        newStatus = 
+          case mapMaybe addOne eventEffect of
+            [status] -> status
+            _ -> error "this event did not add to exactly one state variable"
+
+
+        action = (Actions [Assign columnName newStatus], probability)
+        pass = (Pass, Expr.Sub (Expr.LitD 1) probability)
+
+        probability = Expr.Div eventRate (foldr (Expr.Add . ESLSyntax.eventRate) (Expr.LitD 0) events)
+
+    subtractOne :: Statement -> Maybe Status
+    subtractOne (v, e) =
+      case e of
+        Expr.Sub (Expr.Var v') (Expr.LitD 1) | v == v' -> Just (unpack v')
+        _ -> Nothing
+
+    addOne :: Statement -> Maybe Status
+    addOne (v, e) =
+      case e of
+        Expr.Add (Expr.Var v') (Expr.LitD 1) | v == v' -> Just (unpack v')
+        _ -> Nothing
 
 apramToModel :: APRAM -> Model
 apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
@@ -52,15 +116,15 @@ apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
     -- trivial cohorts, admits a definition of the States (in ESL lingo) that 
     -- cohort touches
     relevantStates :: Cohort -> Set State
-    relevantStates c = go allStates
+    relevantStates (Cohort _ cexpr) = go allStates
       where
         go :: Set State -> Set State
         go =
-          case c of
+          case cexpr of
             Is  column status -> Set.filter (\s -> s Map.! column == status) --Set.member    status)
             Not column status -> Set.filter (\s -> s Map.! column /= status) --Set.notMember status)
-            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [c1, c2]
-            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [c1, c2]
+            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
+            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
 
     modToEvents :: Mod -> [Event]
     modToEvents Mod{..} = [ mkEvent (modName, actions, probs, state) 
