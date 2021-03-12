@@ -39,13 +39,13 @@ notQuarantinedStatus = "not_quarantined"
 quarantinedStatus    = "quarantined"
 
 susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort :: Cohort
-susCohort         = Is healthColumn susceptibleStatus
-expCohort         = Is healthColumn exposedStatus
-infCohort         = Is healthColumn infectedStatus
-recCohort         = Is healthColumn recoveredStatus
-deadCohort        = Is healthColumn deadStatus
-infectiousCohort  = APRAM.Not quarantineColumn quarantinedStatus `APRAM.And` (Is healthColumn exposedStatus `APRAM.Or` Is healthColumn infectedStatus)
-quarantinedCohort = Is quarantineColumn quarantinedStatus
+susCohort         = Cohort "S" (Is healthColumn susceptibleStatus)
+expCohort         = Cohort "E" (Is healthColumn exposedStatus)
+infCohort         = Cohort "I" (Is healthColumn infectedStatus)
+recCohort         = Cohort "R" (Is healthColumn recoveredStatus)
+deadCohort        = Cohort "D" (Is healthColumn deadStatus)
+infectiousCohort  = Cohort "F" (APRAM.Not quarantineColumn quarantinedStatus `APRAM.And` (Is healthColumn exposedStatus `APRAM.Or` Is healthColumn infectedStatus))
+quarantinedCohort = Cohort "Q" (Is quarantineColumn quarantinedStatus)
 
 quarantineMod :: Mod
 quarantineMod = Mod{..}
@@ -139,15 +139,31 @@ sampleAPRAM :: APRAM
 sampleAPRAM = APRAM{..}
   where
     apramAgents = 100000
+    apramParams = Map.fromList 
+      [ ("alpha", LitD 0.1)
+      , ("beta", LitD 0.4)
+      , ("gamma", LitD 0.04)
+      , ("delta", LitD 0.3)
+      , ("epsilon", LitD 0.2)
+      ]
     apramStatuses = statuses
-    apramCohorts = [susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort]
-    apramMods = [ exposeMod
-                , takeIllMod
-                , remainBlissfullyUnawareMod
-                , recoverMod
-                , dieMod
-                , quarantineMod
-                , leaveQuarantineMod
-                -- , seedInfectionsMod
-                ]
+    apramCohorts = 
+      [ susCohort
+      , expCohort
+      , infCohort
+      , recCohort
+      , deadCohort
+      , infectiousCohort
+      , quarantinedCohort
+      ]
+    apramMods = 
+      [ exposeMod
+      , takeIllMod
+      , remainBlissfullyUnawareMod
+      , recoverMod
+      , dieMod
+      , quarantineMod
+      , leaveQuarantineMod
+      -- , seedInfectionsMod
+      ]
 

@@ -6,6 +6,7 @@ import Language.ASKEE.Expr ( Expr )
   
 data APRAM = APRAM
   { apramAgents   :: Int
+  , apramParams   :: Map String Expr
   , apramStatuses :: Map Column [Status]
   , apramCohorts  :: [Cohort]
   , apramMods     :: [Mod]
@@ -20,9 +21,15 @@ data Mod = Mod
   }
   deriving Show
 
-data Cohort = 
-    And Cohort Cohort
-  | Or  Cohort Cohort
+data Cohort = Cohort
+  { cohortName :: String 
+  , cohortExpr :: CohortExpr
+  }
+  deriving Show
+
+data CohortExpr =
+    And CohortExpr CohortExpr
+  | Or  CohortExpr CohortExpr
   | Is  Column Status
   | Not Column Status
   deriving Show
