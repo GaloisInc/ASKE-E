@@ -1,9 +1,19 @@
 {-# Language PatternSynonyms #-}
+{-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ExprTransform where
 
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.Expr as Expr
 
+import qualified Data.Map as Map
+import           Data.Map ( Map )
+import           Data.Maybe ( fromJust )
+import qualified Data.Set as Set
+import           Data.Set ( Set )
+import           Data.Text ( Text, unpack )
+
+import Control.Monad.Identity ( runIdentity, Identity )
+import Debug.Trace (trace)
 
 transformExpr ::
   Monad m =>
@@ -69,5 +79,44 @@ transformModelExprs exprT mdl =
     expr = transformExpr exprT
 
 
+inlineLets :: Syntax.Model -> [Text] -> Syntax.Model 
+inlineLets m except = 
+  let (lets, _) = canonicalLets m
+      lets' = foldr Map.delete lets except
+  in  inlineLets' lets' m
 
+inlineLets' :: Map Text Expr.Expr -> Syntax.Model -> Syntax.Model
+inlineLets' lets m = runIdentity (transformModelExprs go m)
+  where
+    go :: Expr.Expr -> Identity Expr.Expr
+    go e =
+      case e of
+        Expr.Var v ->
+          case lets Map.!? v of
+            Just e' -> go e'
+            Nothing -> pure e
+        _ -> pure e
 
+canonicalLets :: Syntax.Model -> (Map Text Expr.Expr, Set Text)
+canonicalLets Syntax.Model{..} = (lets, intermediates)
+  where
+    lets = Map.fromList [ (v, fromJust e) | (v, (_, e))  <- refMap ]
+    intermediates = Set.unions [ ts | (_, (ts, _)) <- refMap ]
+    refMap = [ (v, dereference letMap v) | (v, _) <- letList ]
+    letList = Syntax.letDecls modelDecls
+    letMap = Map.fromList letList
+
+-- Dereference chains of e.g. { let y = 3; let x = y; let z = x; }
+dereference :: Map Text Expr.Expr -> Text -> (Set Text, Maybe Expr.Expr)
+dereference letMap varName = go Set.empty
+  where
+    -- `curr` is an accumulation of intermediate `let`s in a reference chain
+    -- that can be safely removed
+    go :: Set Text -> (Set Text, Maybe Expr.Expr)
+    go curr = 
+      case letMap Map.!? varName of
+        Just (Expr.Var v) | v `Map.member` letMap -> 
+          let (new, result) = dereference letMap v
+          in  (Set.insert v (Set.unions [curr, new]), result)
+        Just e -> (curr, Just e)
+        Nothing -> (curr, Nothing)

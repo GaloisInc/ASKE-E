@@ -9,7 +9,7 @@ module Language.ASKEE.APRAM.Translate where
 import           Data.List  ( intercalate )
 import           Data.Map   ( Map )
 import qualified Data.Map   as Map
-import           Data.Maybe ( mapMaybe )
+import           Data.Maybe ( mapMaybe, isJust, isNothing )
 import           Data.Set   ( Set )
 import qualified Data.Set   as Set
 import           Data.Text  ( Text, pack, unpack )
@@ -19,14 +19,31 @@ import           Language.ASKEE.APRAM.Syntax as APRAMSyntax
 import           Language.ASKEE.APRAM.Sample ()
 import           Language.ASKEE.Syntax as ESLSyntax
 import qualified Language.ASKEE.Expr as Expr
-import Language.ASKEE.ExprTransform (inlineLets)
+import Language.ASKEE.ExprTransform
 
 modelToAPRAM :: Model -> String -> APRAM
 modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
   where
-    Model{..} = m
+    Model{..} = inlineLets m nonStatefulLets
 
-    params = Map.fromList [ (unpack v, e) | (v, e) <- letDecls modelDecls ]
+    params = Map.fromList 
+      [ (unpack v, e) 
+      | (v, e) <- letDecls (ESLSyntax.modelDecls m)
+      , v `elem` nonStatefulLets ]
+
+    nonStatefulLets =
+      [ v
+      | (v, e) <- letDecls (ESLSyntax.modelDecls m)
+      , not (involvesState e) ]
+
+    involvesState e = isNothing (transformExpr go e)
+      where
+        go e' =
+          case e' of
+            Expr.Var v -> case v `lookup` stateDecls modelDecls of
+              Just _ -> Nothing 
+              Nothing -> Just e'
+            _ -> Just e'
 
     statuses = Map.singleton columnName stateNames
 
