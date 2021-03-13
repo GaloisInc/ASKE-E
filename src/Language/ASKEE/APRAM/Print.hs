@@ -93,7 +93,7 @@ driver cohorts = vcat
   where
     names = [ n | Cohort n _ <- cohorts ]
     probes = "day,":[ "pop."<>text name<>".size," | name <- names ]
-    labels = "day,":[ text name<>"," | name <- names ]
+    labels = "\"day\",":[ doubleQuotes (text name)<>"," | name <- names ]
 
 printMods :: Map String Expr -> [Mod] -> Doc
 printMods params = vcat . map printMod
@@ -117,7 +117,7 @@ printMods params = vcat . map printMod
       printActionSequence Pass = empty
 
       printAction :: Action -> Doc
-      printAction (Assign column status) = "lambda: pop."<>text column<>".assign"<>parens (text status)
+      printAction (Assign column status) = "lambda **kwargs: pop."<>text column<>".assign"<>parens (text status<>", **kwargs")
 
       modProbabilities' = map (runIdentity . transformExpr qualify) probabilities
 
