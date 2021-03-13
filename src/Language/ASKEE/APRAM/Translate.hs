@@ -6,10 +6,11 @@
 module Language.ASKEE.APRAM.Translate where
 
 
+import           Data.Either ( isLeft )
 import           Data.List  ( intercalate )
 import           Data.Map   ( Map )
 import qualified Data.Map   as Map
-import           Data.Maybe ( mapMaybe, isJust, isNothing )
+import           Data.Maybe ( mapMaybe )
 import           Data.Set   ( Set )
 import qualified Data.Set   as Set
 import           Data.Text  ( Text, pack, unpack )
@@ -36,14 +37,14 @@ modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
       | (v, e) <- letDecls (ESLSyntax.modelDecls m)
       , not (involvesState e) ]
 
-    involvesState e = isNothing (transformExpr go e)
+    involvesState e = isLeft (transformExpr go e)
       where
         go e' =
           case e' of
             Expr.Var v -> case v `lookup` stateDecls modelDecls of
-              Just _ -> Nothing 
-              Nothing -> Just e'
-            _ -> Just e'
+              Just _ -> Left () 
+              Nothing -> Right e'
+            _ -> Right e'
 
     statuses = Map.singleton columnName stateNames
 
