@@ -38,7 +38,7 @@ notQuarantinedStatus, quarantinedStatus :: Status
 notQuarantinedStatus = "not_quarantined"
 quarantinedStatus    = "quarantined"
 
-susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort :: Cohort
+susCohort, expCohort, infCohort, recCohort, deadCohort, infectiousCohort, quarantinedCohort, allCohort :: Cohort
 susCohort         = Cohort "S" (Is healthColumn susceptibleStatus)
 expCohort         = Cohort "E" (Is healthColumn exposedStatus)
 infCohort         = Cohort "I" (Is healthColumn infectedStatus)
@@ -46,6 +46,7 @@ recCohort         = Cohort "R" (Is healthColumn recoveredStatus)
 deadCohort        = Cohort "D" (Is healthColumn deadStatus)
 infectiousCohort  = Cohort "F" (APRAM.Not quarantineColumn quarantinedStatus `APRAM.And` (Is healthColumn exposedStatus `APRAM.Or` Is healthColumn infectedStatus))
 quarantinedCohort = Cohort "Q" (Is quarantineColumn quarantinedStatus)
+allCohort         = Cohort "P" All -- XXX unused
 
 quarantineMod :: Mod
 quarantineMod = Mod{..}

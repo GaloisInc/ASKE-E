@@ -32,6 +32,7 @@ data CohortExpr =
   | Or  CohortExpr CohortExpr
   | Is  Column Status
   | Not Column Status
+  | All
   deriving Show
 
 data ActionSequence =

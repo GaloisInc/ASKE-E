@@ -40,6 +40,7 @@ printCohorts cs =
     printCohort (Or c1 c2) = "np.logical_or("<>printCohort c1<>","<>printCohort c2<>")"
     printCohort (Is col stat) = "pop."<>text col<>".eq("<>text stat<>")"
     printCohort (Not col stat) = "pop."<>text col<>".ne("<>text stat<>")"
+    printCohort All = "np.repeat(True, pop.size)"
 
 printStatuses :: Map Column [Status] -> Doc
 printStatuses = vcat . map printColumnWithStatuses . Map.toList

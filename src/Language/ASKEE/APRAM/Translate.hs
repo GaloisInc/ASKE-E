@@ -49,7 +49,7 @@ modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
     statuses = Map.singleton columnName stateNames
 
     cohorts = pop:[ Cohort state (Is columnName state) | state <- stateNames ]
-    pop = Cohort "Population" (foldr1 Or (map (Is columnName) stateNames))
+    pop = Cohort "Population" All
     stateNames = [ unpack v | (v, _) <- stateDecls modelDecls ]
 
     mods = initialize : eventsToMods columnName modelEvents
@@ -143,6 +143,7 @@ apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
             Not column status -> Set.filter (\s -> s Map.! column /= status) --Set.notMember status)
             And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
             Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
+            All -> const allStates
 
     modToEvents :: Mod -> [Event]
     modToEvents Mod{..} = [ mkEvent (modName, actions, probs, state) 
