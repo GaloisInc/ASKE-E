@@ -63,11 +63,11 @@ initMod pop columnName decls = (totalPop, Mod "Initialize" pop actions "setup")
     letBindings = Map.fromList $ letDecls decls
 
     actions = map mkAct stateInitValues
-    mkAct (v, d) = (Actions [Assign columnName (unpack v)], Expr.LitD d `Expr.Div` Expr.LitD totalPop)
+    mkAct (v, d) = (Actions [Assign columnName (unpack v)], Probability $ Expr.LitD d `Expr.Div` Expr.LitD totalPop)
     totalPop = sum [ d | (_, d) <- stateInitValues]
 
 eventsToMods :: String -> [Event] -> [Mod]
-eventsToMods columnName events = map eventToMod events
+eventsToMods columnName = map eventToMod
   where
     eventToMod :: Event -> Mod
     eventToMod Event{..} = Mod (unpack eventName) cohort [action, pass] "loop" 
@@ -84,11 +84,11 @@ eventsToMods columnName events = map eventToMod events
             [status] -> status
             _ -> error "this event did not add to exactly one state variable"
 
-
-        action = (Actions [Assign columnName newStatus], probability)
-        pass = (Pass, Expr.Sub (Expr.LitD 1) probability)
-
-        probability = Expr.Div eventRate (foldr (Expr.Add . ESLSyntax.eventRate) (Expr.LitD 0) events)
+        action =
+          case eventWhen of
+            Just w -> (Actions [Assign columnName newStatus], Rate (Expr.If w eventRate (Expr.LitD 0)))
+            Nothing -> (Actions [Assign columnName newStatus], Rate eventRate)
+        pass = (Pass, Unknown)
 
     subtractOne :: Statement -> Maybe Status
     subtractOne (v, e) =
@@ -146,16 +146,23 @@ apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
             All -> const allStates
 
     modToEvents :: Mod -> [Event]
-    modToEvents Mod{..} = [ mkEvent (modName, actions, probs, state) 
-                          | (actions, probs) <- mapMaybe filterPass modActions
+    modToEvents Mod{..} = [ mkEvent (modName, actions, asRate probs, state) 
+                          | (actions, probs) <- mapMaybe getActions modActions
                           , state <- Set.toAscList $ relevantStates modCohort
                           ]
 
-    filterPass :: (ActionSequence, Expr.Expr) -> Maybe ([Action], Expr.Expr)
-    filterPass (as, ps) =
+    getActions :: (ActionSequence, ProbSpec) -> Maybe ([Action], ProbSpec)
+    getActions (as, ps) =
       case as of
         Actions as' -> Just (as', ps)
         Pass -> Nothing
+
+    asRate :: ProbSpec -> Expr.Expr
+    asRate p =
+      case p of
+        Rate e -> e
+        Probability _ -> undefined 
+        Unknown -> undefined
 
     mkEvent :: (String, [Action], Expr.Expr, State) -> Event
     mkEvent (modname, actions, prob, state) = 
