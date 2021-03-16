@@ -1,8 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.APRAM.Print where
 
-import Control.Monad.Identity ( runIdentity )
+import Control.Monad.Identity ( runIdentity, Identity )
 
 import           Data.List ( intersperse )
 import qualified Data.Map  as Map
@@ -11,13 +12,14 @@ import           Data.Text ( Text, unpack )
 import qualified Data.Text as Text
 
 import Language.ASKEE.APRAM.Syntax
-import Language.ASKEE.Expr hiding ( And, Or, Not ) 
+import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
-import Language.ASKEE.Print ( printExpr )
+import Language.ASKEE.Print ( pyPrintExpr )
 
 import Text.PrettyPrint
 
 import Prelude hiding ((<>))
+import Data.Maybe (isJust, mapMaybe)
 
 printAPRAM :: APRAM -> Doc 
 printAPRAM APRAM{..} =
@@ -55,7 +57,7 @@ printStatuses = vcat . map printColumnWithStatuses . Map.toList
 printParams :: Map String Expr -> Doc 
 printParams params = vcat (map printParam (Map.toList params))
   where
-    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>printExpr e<>")"
+    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>pyPrintExpr e<>")"
 
 preamble :: Int -> Doc
 preamble apramAgents = vcat
@@ -68,12 +70,16 @@ preamble apramAgents = vcat
   , "from aPRAM_settings import pop, sim"
   , "from numpy.random import default_rng"
   , ""
+  , "from probabilities import exponential_CDF"
+  , ""
   , "rng = default_rng()"
   , ""
   , "pop.size = "<>int apramAgents
   , ""
   , "pop.reset()"
   , "sim.reset()"
+  , ""
+  , "delta = 1e-3"
   ]
 
 driver :: [Cohort] -> Doc 
@@ -83,13 +89,16 @@ driver cohorts = vcat
   , ""
   , "probe_labels = "<>brackets (hcat labels)
   , ""
-  , "sim.num_iterations = 100"
   , "sim.probe_labels   = probe_labels"
   , "sim.probe_fn       = probe_fn"
   , ""
-  , "sim.run_simulation()"
-  , ""
-  , "df = pd.DataFrame(sim.records,columns=probe_labels)"
+  , "def run(time_steps):"
+  , "    sim.num_iterations = int(time_steps / delta)"
+  , "    sim.run_simulation()"
+  , "    df = pd.DataFrame(sim.records,columns=probe_labels)"
+  , "    steps = [delta * day for day in df['time']]"
+  , "    df['time'] = steps"
+  , "    return df, steps"
   ]
   where
     names = [ n | Cohort n _ <- cohorts ]
@@ -107,7 +116,7 @@ printMods params = vcat . map printMod
     $+$ vcat (map (nest 8 . (<> comma) . brackets . printActionSequence) actions)
     $+$ nest 4 rbrack<>comma
     $+$ nest 4 ("prob_spec=lambda: "<>lbrack)
-    $+$ vcat (map (nest 8 . (<> comma) . printExpr) modProbabilities')
+    $+$ vcat (map (nest 8 . (<> comma)) probabilities)
     $+$ nest 4 rbrack<>comma
     $+$ nest 4 ("sim_phase="<>doubleQuotes (text modPhase)<>comma)
     $+$ rparen
@@ -120,15 +129,57 @@ printMods params = vcat . map printMod
       printAction :: Action -> Doc
       printAction (Assign column status) = "lambda **kwargs: pop."<>text column<>".assign"<>parens (text status<>", **kwargs")
 
-      modProbabilities' = map (runIdentity . transformExpr qualify) probabilities
+      probabilities
+        | all (isJust . fromProb) probSpecs = 
+          printProbabilities (mapMaybe fromProb probSpecs)
+        | all (isJust . asRateOrUnknown) probSpecs = 
+          printRates (mapMaybe asRateOrUnknown probSpecs) 
+        | otherwise = error $ "mixed probability specs in "++show probSpecs
 
-      (actions, probabilities) = unzip modActions
+      printProbabilities :: [Expr] -> [Doc]
+      printProbabilities = map (pyPrintExpr . qualify)
 
-      qualify (Var v) | unpack v `Map.member` params = 
+      -- printRates needs ProbSpecs because it needs to assign a probability to 
+      -- an `Unknown` rate, which would be created from a `Pass` action
+      printRates :: [ProbSpec] -> [Doc]
+      printRates rs = map printRate rs
+        where
+          rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) rs
+          rateSum = foldr1 Add rates
+          baseActProb = "exponential_CDF"<>parens ("delta, "<>pyPrintExpr rateSum)
+          baseActProbExpr = Text.pack $ show baseActProb
+          inaction = rateSum `Expr.EQ` LitD 0
+
+          printRate :: ProbSpec -> Doc
+          printRate r = 
+            pyPrintExpr $ 
+              case r of
+                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` Blob baseActProbExpr)
+                Rate rate -> If inaction (LitD 0) (Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
+                _ -> undefined
+
+      fromProb p =
+        case p of
+          Probability e -> Just e
+          _ -> Nothing
+
+      asRateOrUnknown p =
+        case p of
+          Rate e -> Just (Rate e)
+          Unknown -> Just Unknown
+          _ -> Nothing
+
+      (actions, probSpecs) = unzip modActions
+
+      qualify :: Expr -> Expr
+      qualify = runIdentity . transformExpr qualify'
+
+      qualify' :: Expr -> Identity Expr
+      qualify' (Var v) | unpack v `Map.member` params = -- it's a param
         pure $ Var $ "pop." `Text.append` v `Text.append` ".val"
-      qualify (Var v) = 
+      qualify' (Var v) = -- it's a cohort
         pure $ Var $ "pop." `Text.append` v `Text.append` ".size"
-      qualify e = pure e
+      qualify' e = pure e
 
 text' :: Text -> Doc 
 text' = text . Text.unpack
