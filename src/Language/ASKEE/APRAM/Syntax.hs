@@ -16,7 +16,7 @@ data APRAM = APRAM
 data Mod = Mod
   { modName    :: String 
   , modCohort  :: Cohort
-  , modActions :: [(ActionSequence, Expr)]
+  , modActions :: [(ActionSequence, ProbSpec)]
   , modPhase   :: String
   }
   deriving Show
@@ -43,6 +43,12 @@ data ActionSequence =
 data Action =
     Assign Column Status
   deriving Eq
+
+data ProbSpec =
+    Probability Expr
+  | Rate Expr
+  | Unknown
+  deriving Show
 
 type Column = String
 type Status = String

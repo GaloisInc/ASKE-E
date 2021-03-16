@@ -54,8 +54,8 @@ quarantineMod = Mod{..}
     modName = "quarantine"
     modCohort = infectiousCohort
     modActions =
-      [ (Actions [Assign quarantineColumn quarantinedStatus], LitD 0.1)
-      , (Pass,                                                LitD 0.9)
+      [ (Actions [Assign quarantineColumn quarantinedStatus], Probability $ LitD 0.1)
+      , (Pass,                                                Probability $ LitD 0.9)
       ]
     modPhase = "loop"
 
@@ -65,8 +65,8 @@ leaveQuarantineMod = Mod{..}
     modName = "leave_quarantine"
     modCohort = quarantinedCohort
     modActions =
-      [ (Actions [Assign quarantineColumn notQuarantinedStatus], LitD 0.5)
-      , (Pass,                                                   LitD 0.5)
+      [ (Actions [Assign quarantineColumn notQuarantinedStatus], Probability $ LitD 0.5)
+      , (Pass,                                                   Probability $ LitD 0.5)
       ]
     modPhase = "loop"
 
@@ -76,8 +76,8 @@ seedInfectionsMod = Mod{..}
     modName = "seed_infections"
     modCohort = susCohort
     modActions =
-      [ (Actions [Assign healthColumn exposedStatus], LitD 0.0001)
-      , (Pass,                                        LitD 0.9999)
+      [ (Actions [Assign healthColumn exposedStatus], Probability $ LitD 0.0001)
+      , (Pass,                                        Probability $ LitD 0.9999)
       ]
     modPhase= "setup"
 
@@ -87,8 +87,8 @@ exposeMod = Mod{..}
     modName = "expose"
     modCohort = susCohort
     modActions =
-      [ (Actions [Assign healthColumn exposedStatus], Var "alpha")
-      , (Pass,                                        LitD 1 `Sub` Var "alpha")
+      [ (Actions [Assign healthColumn exposedStatus], Probability $ Var "alpha")
+      , (Pass,                                        Probability $ LitD 1 `Sub` Var "alpha")
       ]
     modPhase= "loop"
 
@@ -98,8 +98,8 @@ takeIllMod = Mod{..}
     modName = "take_ill"
     modCohort = expCohort
     modActions =
-      [ (Actions [Assign healthColumn infectedStatus], Var "beta")
-      , (Pass,                                         LitD 1 `Sub` Var "beta")
+      [ (Actions [Assign healthColumn infectedStatus], Probability $ Var "beta")
+      , (Pass,                                         Probability $ LitD 1 `Sub` Var "beta")
       ]
     modPhase= "loop"
 
@@ -109,8 +109,8 @@ remainBlissfullyUnawareMod = Mod{..}
     modName = "remain_blissfully_unaware"
     modCohort = expCohort
     modActions =
-      [ (Actions [Assign healthColumn recoveredStatus], Var "gamma")
-      , (Pass,                                          LitD 1 `Sub` Var "gamma")
+      [ (Actions [Assign healthColumn recoveredStatus], Probability $ Var "gamma")
+      , (Pass,                                          Probability $ LitD 1 `Sub` Var "gamma")
       ]
     modPhase= "loop"
 
@@ -120,8 +120,8 @@ recoverMod = Mod{..}
     modName = "recover"
     modCohort = infCohort
     modActions =
-      [ (Actions [Assign healthColumn recoveredStatus], Var "delta")
-      , (Pass,                                          LitD 1 `Sub` Var "delta")
+      [ (Actions [Assign healthColumn recoveredStatus], Probability $ Var "delta")
+      , (Pass,                                          Probability $ LitD 1 `Sub` Var "delta")
       ]
     modPhase= "loop"
 
@@ -131,8 +131,8 @@ dieMod = Mod{..}
     modName = "die"
     modCohort = infCohort
     modActions =
-      [ (Actions [Assign healthColumn deadStatus], Var "epsilon")
-      , (Pass,                                     LitD 1 `Sub` Var "epsilon")
+      [ (Actions [Assign healthColumn deadStatus], Probability $ Var "epsilon")
+      , (Pass,                                     Probability $ LitD 1 `Sub` Var "epsilon")
       ]
     modPhase= "loop"
 
