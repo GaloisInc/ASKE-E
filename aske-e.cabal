@@ -23,7 +23,6 @@ library
                      , Language.ASKEE.Core.GSLODE
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
-                     , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
 
                     --  , Language.ASKEE.DiffEq.Lexer
@@ -49,6 +48,8 @@ library
                      , Language.ASKEE.Latex.Lexer
                      , Language.ASKEE.Latex.Print
 
+                     , Language.ASKEE.Experiment.Syntax
+
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
@@ -64,9 +65,12 @@ library
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
                      , PetriNet
+
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
+                       -- TODO: remove
                        attoparsec,
+                       megaparsec,
                        bytestring,
                        containers,
                        vector,
