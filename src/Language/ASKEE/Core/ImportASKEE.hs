@@ -50,6 +50,8 @@ expAsCore e =
     Src.Sub e1 e2     -> binop Sub e1 e2
     Src.Mul e1 e2     -> binop Mul e1 e2
     Src.Div e1 e2     -> binop Div e1 e2
+    Src.Exp e1        -> Op1 Exp (expAsCore e1)
+    Src.Log e1        -> Op1 Log (expAsCore e1)
     Src.Neg e1        -> Op1 Neg (expAsCore e1)
     Src.LitD d        -> NumLit d
     Src.Var t         -> Var t

@@ -62,6 +62,7 @@ printParams params = vcat (map printParam (Map.toList params))
 preamble :: Int -> Doc
 preamble apramAgents = vcat
   [ "import aPRAM_utils as utils"
+  , "import math"
   , "import matplotlib.pyplot as plt"
   , "import numpy as np"
   , "import pandas as pd "
@@ -96,9 +97,9 @@ driver cohorts = vcat
   , "    sim.num_iterations = int(time_steps / delta)"
   , "    sim.run_simulation()"
   , "    df = pd.DataFrame(sim.records,columns=probe_labels)"
-  , "    steps = [delta * day for day in df['time']]"
+  , "    steps = [delta * day for day in df['day']]"
   , "    df['time'] = steps"
-  , "    return df, steps"
+  , "    return df"
   ]
   where
     names = [ n | Cohort n _ <- cohorts ]
@@ -146,16 +147,15 @@ printMods params = vcat . map printMod
         where
           rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) rs
           rateSum = foldr1 Add rates
-          baseActProb = "exponential_CDF"<>parens ("delta, "<>pyPrintExpr rateSum)
-          baseActProbExpr = Text.pack $ show baseActProb
+          baseActProb = LitD 1 `Sub` Exp (Neg rateSum `Mul` Var deltaName)
           inaction = rateSum `Expr.EQ` LitD 0
 
           printRate :: ProbSpec -> Doc
           printRate r = 
-            pyPrintExpr $ 
+            pyPrintExpr $
               case r of
-                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` Blob baseActProbExpr)
-                Rate rate -> If inaction (LitD 0) (Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
+                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` baseActProb)
+                Rate rate -> If inaction (LitD 0) (baseActProb `Mul` (qualify rate `Div` rateSum))
                 _ -> undefined
 
       fromProb p =
@@ -177,9 +177,16 @@ printMods params = vcat . map printMod
       qualify' :: Expr -> Identity Expr
       qualify' (Var v) | unpack v `Map.member` params = -- it's a param
         pure $ Var $ "pop." `Text.append` v `Text.append` ".val"
+      qualify' (Var v) | v == deltaName =
+        pure (Var v)
       qualify' (Var v) = -- it's a cohort
         pure $ Var $ "pop." `Text.append` v `Text.append` ".size"
       qualify' e = pure e
 
 text' :: Text -> Doc 
 text' = text . Text.unpack
+
+-- The variable used in aPRAM-land to represent time delta between
+-- event firings
+deltaName :: Text 
+deltaName = "delta"

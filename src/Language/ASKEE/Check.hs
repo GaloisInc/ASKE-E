@@ -168,6 +168,8 @@ typeOf bindings orig = ty orig
         Mul e1 e2   -> arithTy e1 e2
         Div e1 e2   -> arithTy e1 e2
         Neg e1      -> ty e1 >>= expect' e1 Double >> pure Double
+        Exp e1      -> ty e1 >>= expect' e1 Double >> pure Double
+        Log e1      -> ty e1 >>= expect' e1 Double >> pure Double
         And e1 e2   -> logTy e1 e2
         Or e1 e2    -> logTy e1 e2
         Not e1      -> ty e1 >>= expect' e1 Boolean >> pure Boolean

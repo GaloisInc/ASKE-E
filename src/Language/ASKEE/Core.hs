@@ -48,7 +48,7 @@ data Expr =
   | Fail String
     deriving (Show,Eq, Ord)
 
-data Op1 = Not | Neg
+data Op1 = Not | Neg | Exp | Log
   deriving (Show,Eq,Ord)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or

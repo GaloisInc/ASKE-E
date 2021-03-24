@@ -25,7 +25,7 @@ data Cohort = Cohort
   { cohortName :: String 
   , cohortExpr :: CohortExpr
   }
-  deriving Show
+  deriving (Eq, Show)
 
 data CohortExpr =
     And CohortExpr CohortExpr
@@ -33,7 +33,7 @@ data CohortExpr =
   | Is  Column Status
   | Not Column Status
   | All
-  deriving Show
+  deriving (Eq, Show)
 
 data ActionSequence =
     Actions [Action]
