@@ -14,7 +14,7 @@ import qualified Data.Text as Text
 import Language.ASKEE.APRAM.Syntax
 import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
-import Language.ASKEE.Print ( printExpr )
+import Language.ASKEE.Print ( pyPrintExpr )
 
 import Text.PrettyPrint
 
@@ -57,7 +57,7 @@ printStatuses = vcat . map printColumnWithStatuses . Map.toList
 printParams :: Map String Expr -> Doc 
 printParams params = vcat (map printParam (Map.toList params))
   where
-    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>printExpr e<>")"
+    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>pyPrintExpr e<>")"
 
 preamble :: Int -> Doc
 preamble apramAgents = vcat
@@ -96,9 +96,9 @@ driver cohorts = vcat
   , "    sim.num_iterations = int(time_steps / delta)"
   , "    sim.run_simulation()"
   , "    df = pd.DataFrame(sim.records,columns=probe_labels)"
-  , "    steps = [delta * day for day in df['time']]"
+  , "    steps = [delta * day for day in df['day']]"
   , "    df['time'] = steps"
-  , "    return df, steps"
+  , "    return df"
   ]
   where
     names = [ n | Cohort n _ <- cohorts ]
@@ -137,7 +137,7 @@ printMods params = vcat . map printMod
         | otherwise = error $ "mixed probability specs in "++show probSpecs
 
       printProbabilities :: [Expr] -> [Doc]
-      printProbabilities = map (printExpr . qualify)
+      printProbabilities = map (pyPrintExpr . qualify)
 
       -- printRates needs ProbSpecs because it needs to assign a probability to 
       -- an `Unknown` rate, which would be created from a `Pass` action
@@ -152,7 +152,7 @@ printMods params = vcat . map printMod
 
           printRate :: ProbSpec -> Doc
           printRate r = 
-            printExpr $ 
+            pyPrintExpr $
               case r of
                 Unknown -> If inaction (LitD 1) (LitD 1 `Sub` Blob baseActProbExpr)
                 Rate rate -> If inaction (LitD 0) (Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
