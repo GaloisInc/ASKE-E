@@ -10,10 +10,9 @@ import           Data.Map ( Map )
 import           Data.Maybe ( fromJust )
 import qualified Data.Set as Set
 import           Data.Set ( Set )
-import           Data.Text ( Text, unpack )
+import           Data.Text ( Text )
 
 import Control.Monad.Identity ( runIdentity, Identity )
-import Debug.Trace (trace)
 
 transformExpr ::
   Monad m =>
@@ -27,6 +26,8 @@ transformExpr exprT e =
     Expr.Mul e1 e2 -> bin Expr.Mul e1 e2
     Expr.Div e1 e2 -> bin Expr.Div e1 e2
     Expr.Neg e1    -> (Expr.Neg <$> expr e1) >>= exprT
+    Expr.Exp e1    -> (Expr.Exp <$> expr e1) >>= exprT
+    Expr.Log e1    -> (Expr.Log <$> expr e1) >>= exprT
     Expr.And e1 e2 -> bin Expr.And e1 e2
     Expr.Or  e1 e2 -> bin Expr.Or e1 e2
     Expr.LT  e1 e2 -> cmp Expr.LT e1 e2

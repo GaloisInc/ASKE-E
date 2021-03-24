@@ -44,12 +44,7 @@ pyPrintExpr expr =
             , text "else"
             , pp e3
             ]
-    Cond branches other -> undefined
-      -- let decl = text "cond:"
-      --     branches' = vcat $ case other of
-      --       Just e'  -> map (uncurry condBranch) branches ++ [condOther e']
-      --       Nothing -> map (uncurry condBranch) branches
-      -- in  nest 2 decl $$ nest 4 branches' 
+    Cond _ _ -> undefined
     LitB True -> text "True"
     LitB False -> text "False"
   
@@ -87,17 +82,6 @@ pyPrintExpr expr =
         Var _ -> 10
         If {} -> 0
         Cond {} -> 0
-
-    condBranch :: Expr -> Expr -> Doc
-    condBranch e1 e2 = 
-      pyPrintExpr e1 <+>
-      text "if" <+>
-      pyPrintExpr e2
-
-    condOther :: Expr -> Doc
-    condOther e =
-      pyPrintExpr e <+>
-      text "otherwise"
 
 
 printExpr :: Expr -> Doc

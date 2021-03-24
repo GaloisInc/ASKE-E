@@ -60,6 +60,7 @@ genIncludes = C.stmts [ C.include i | i <- includes ]
   includes =
     [ "random"
     , "stdint.h"
+    , "math.h"
     ]
 
 eventNum :: [Core.Event]-> Core.Ident -> Int
@@ -197,6 +198,8 @@ genExpr' vf e0 =
   op1 op = case op of
              Core.Not -> "!"
              Core.Neg -> "-"
+             Core.Exp -> "exp"
+             Core.Log -> "log"
 
   op2 op = case op of
              Core.Add -> "+"
