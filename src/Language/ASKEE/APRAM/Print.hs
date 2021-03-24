@@ -84,7 +84,7 @@ preamble apramAgents = vcat
 
 driver :: [Cohort] -> Doc 
 driver cohorts = vcat
-  [ "def probe_fn(day):"
+  [ "def probe_fn(step):"
   , "    return "<>brackets (hcat probes)
   , ""
   , "probe_labels = "<>brackets (hcat labels)
@@ -96,14 +96,14 @@ driver cohorts = vcat
   , "    sim.num_iterations = int(time_steps / delta)"
   , "    sim.run_simulation()"
   , "    df = pd.DataFrame(sim.records,columns=probe_labels)"
-  , "    steps = [delta * day for day in df['time']]"
+  , "    steps = [delta * step for step in df['step']]"
   , "    df['time'] = steps"
-  , "    return df, steps"
+  , "    return df"
   ]
   where
     names = [ n | Cohort n _ <- cohorts ]
-    probes = "day,":[ "pop."<>text name<>".size," | name <- names ]
-    labels = "\"day\",":[ doubleQuotes (text name)<>"," | name <- names ]
+    probes = "step,":[ "pop."<>text name<>".size," | name <- names ]
+    labels = "\"step\",":[ doubleQuotes (text name)<>"," | name <- names ]
 
 printMods :: Map String Expr -> [Mod] -> Doc
 printMods params = vcat . map printMod

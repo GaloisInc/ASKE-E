@@ -28,6 +28,7 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
+  | Blob Text
   deriving (Eq, Show, Ord)
 
 
@@ -66,6 +67,7 @@ eval vars e = ev e
         Nothing -> Left $ "unbound variable "<>unpack t
     ev (LitD d) = pure d
     ev (LitB b) = pure $ double b
+    ev (Blob t) = Left $ "can't evaluate blob "<>unpack t
 
     evB :: Expr -> Either String Bool
     evB e' = bool <$> ev e'

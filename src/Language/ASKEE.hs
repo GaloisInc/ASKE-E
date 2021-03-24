@@ -6,6 +6,19 @@
 
 module Language.ASKEE where
 
+import Language.ASKEE.ABM.Sample
+import Language.ASKEE.ABM.Syntax
+import Language.ASKEE.ABM.Translate
+
+import Language.ASKEE.APRAM.Sample
+import Language.ASKEE.APRAM.Syntax
+import Language.ASKEE.APRAM.Translate
+import Language.ASKEE.APRAM.Print
+
+import qualified Language.ASKEE.Core.GSLODE as ODE
+import Language.ASKEE.Core
+import qualified Language.ASKEE.DataSeries as DS
+
 import Control.Exception ( Exception(..)
                          , throwIO )
 
@@ -277,3 +290,19 @@ renderCppModel :: DataSource -> IO String
 renderCppModel file =
   do  compiled <- loadCoreModel file []
       pure $ show (SG.genModel compiled)
+
+toAPRAM :: FilePath -> FilePath -> IO ()
+toAPRAM modelFile aPRAMFile =
+  do  m <- loadModel $ FromFile modelFile
+      let a = modelToAPRAM m "health"
+          a' = show $ printAPRAM a
+      writeFile aPRAMFile a'
+
+
+simODE m start step end = ODE.simulate m Map.empty times
+  where times = takeWhile (<= end) (iterate (+ step) start)
+
+test = 
+  let ds = DiffEqs [] (Map.singleton "x" (Literal $ Num 2)) (Map.singleton "x" (Op1 Exp (Op2 Div (Var "x") (Literal $ Num 10)))) Map.empty
+      res = simODE ds 1 1 8
+  in  DS.encodeDataSeries res
