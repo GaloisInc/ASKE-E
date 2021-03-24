@@ -14,7 +14,7 @@ import qualified Data.Text as Text
 import Language.ASKEE.APRAM.Syntax
 import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
-import Language.ASKEE.Print ( pyPrintExpr )
+import Language.ASKEE.Print ( printExpr )
 
 import Text.PrettyPrint
 
@@ -57,7 +57,7 @@ printStatuses = vcat . map printColumnWithStatuses . Map.toList
 printParams :: Map String Expr -> Doc 
 printParams params = vcat (map printParam (Map.toList params))
   where
-    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>pyPrintExpr e<>")"
+    printParam (v, e) = "pop.make_param("<>doubleQuotes (text v)<>", "<>printExpr e<>")"
 
 preamble :: Int -> Doc
 preamble apramAgents = vcat
@@ -137,7 +137,7 @@ printMods params = vcat . map printMod
         | otherwise = error $ "mixed probability specs in "++show probSpecs
 
       printProbabilities :: [Expr] -> [Doc]
-      printProbabilities = map (pyPrintExpr . qualify)
+      printProbabilities = map (printExpr . qualify)
 
       -- printRates needs ProbSpecs because it needs to assign a probability to 
       -- an `Unknown` rate, which would be created from a `Pass` action
@@ -146,13 +146,13 @@ printMods params = vcat . map printMod
         where
           rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) rs
           rateSum = foldr1 Add rates
-          baseActProb = "exponential_CDF"<>parens ("delta, "<>pyPrintExpr rateSum)
+          baseActProb = "exponential_CDF"<>parens ("delta, "<>printExpr rateSum)
           baseActProbExpr = Text.pack $ show baseActProb
           inaction = rateSum `Expr.EQ` LitD 0
 
           printRate :: ProbSpec -> Doc
           printRate r = 
-            pyPrintExpr $ 
+            printExpr $ 
               case r of
                 Unknown -> If inaction (LitD 1) (LitD 1 `Sub` Blob baseActProbExpr)
                 Rate rate -> If inaction (LitD 0) (Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
