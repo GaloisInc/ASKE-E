@@ -23,6 +23,8 @@ printExpr expr =
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
+    (Exp e1) -> text "exp" <> pp e1
+    (Log e1) -> text "log" <> pp e1
     (Neg e1) -> char '-' <> pp e1
     (LitD d) -> double d
     (Var i) -> text (unpack i)
@@ -69,8 +71,10 @@ printExpr expr =
       case e of
         LitD _ -> 10
         LitB _ -> 10
-        Neg _ -> 0
-        Not _ -> 0
+        Neg _ -> 1
+        Not _ -> 1
+        Exp _ -> 1
+        Log _ -> 1
         Add _ _ -> 6
         Sub _ _ -> 6
         Mul _ _ -> 7
@@ -83,8 +87,8 @@ printExpr expr =
         And _ _ -> 3
         Or _ _ -> 3
         Var _ -> 10
-        If {} -> 1
-        Cond {} -> 1
+        If {} -> 0
+        Cond {} -> 0
 
 condBranch :: Expr -> Expr -> Doc
 condBranch e1 e2 = 
