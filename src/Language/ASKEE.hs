@@ -21,6 +21,8 @@ import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
 
+import           Language.ASKEE.APRAM.Print            ( printAPRAM )
+import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
 import qualified Language.ASKEE.Check                  as Check
 import           Language.ASKEE.Convert
 import qualified Language.ASKEE.Core                   as Core
