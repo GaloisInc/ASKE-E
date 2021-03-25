@@ -11,7 +11,7 @@ import           Data.Map  ( Map )
 import           Data.Text ( Text, unpack )
 import qualified Data.Text as Text
 
-import Language.ASKEE.APRAM.Syntax
+import Language.ASKEE.APRAM.Syntax as APRAM
 import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
 import Language.ASKEE.Print ( pyPrintExpr )
@@ -106,7 +106,7 @@ driver cohorts = vcat
     labels = "\"step\",":[ doubleQuotes (text name)<>"," | name <- names ]
 
 printMods :: Map String Expr -> [Mod] -> Doc
-printMods params = vcat . map printMod
+printMods params mods = (vcat . map printMod) mods
   where
   printMod Mod{..} =
     "sim.make_mod"<>lparen 
@@ -144,18 +144,25 @@ printMods params = vcat . map printMod
       printRates :: [ProbSpec] -> [Doc]
       printRates rs = map printRate rs
         where
-          rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) rs
+          potentialRates = map snd $ concatMap APRAM.modActions $ filter (\m -> APRAM.modCohort m == modCohort) mods
+          rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) potentialRates
           rateSum = foldr1 Add rates
           baseActProb = "exponential_CDF"<>parens ("delta, "<>pyPrintExpr rateSum)
           baseActProbExpr = Text.pack $ show baseActProb
           inaction = rateSum `Expr.EQ` LitD 0
 
+          actProb :: Expr
+          actProb =
+            case filter (/= Unknown) rs of
+              [Rate rate] -> Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum)
+              _ -> error "there was more than one known rate associated with this event"
+
           printRate :: ProbSpec -> Doc
           printRate r = 
             pyPrintExpr $ 
               case r of
-                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` Blob baseActProbExpr)
-                Rate rate -> If inaction (LitD 0) (Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
+                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` actProb) --(LitD 1 `Sub` Blob baseActProbExpr)
+                Rate _  -> If inaction (LitD 0) actProb --(Blob baseActProbExpr `Mul` (qualify rate `Div` rateSum))
                 _ -> undefined
 
       fromProb p =

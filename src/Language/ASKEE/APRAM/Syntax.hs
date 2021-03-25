@@ -48,7 +48,7 @@ data ProbSpec =
     Probability Expr
   | Rate Expr
   | Unknown
-  deriving Show
+  deriving (Show, Eq)
 
 type Column = String
 type Status = String
