@@ -277,3 +277,10 @@ renderCppModel :: DataSource -> IO String
 renderCppModel file =
   do  compiled <- loadCoreModel file []
       pure $ show (SG.genModel compiled)
+
+toAPRAM :: FilePath -> FilePath -> IO ()
+toAPRAM modelFile aPRAMFile =
+  do  m <- loadModel $ FromFile modelFile
+      let a = modelToAPRAM m "health"
+          a' = show $ printAPRAM a
+      writeFile aPRAMFile a'

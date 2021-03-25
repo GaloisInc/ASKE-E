@@ -11,7 +11,7 @@ import           Data.Map  ( Map )
 import           Data.Text ( Text, unpack )
 import qualified Data.Text as Text
 
-import Language.ASKEE.APRAM.Syntax
+import Language.ASKEE.APRAM.Syntax as APRAM
 import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
 import Language.ASKEE.Print ( pyPrintExpr )
@@ -85,7 +85,7 @@ preamble apramAgents = vcat
 
 driver :: [Cohort] -> Doc 
 driver cohorts = vcat
-  [ "def probe_fn(day):"
+  [ "def probe_fn(step):"
   , "    return "<>brackets (hcat probes)
   , ""
   , "probe_labels = "<>brackets (hcat labels)
@@ -97,17 +97,17 @@ driver cohorts = vcat
   , "    sim.num_iterations = int(time_steps / delta)"
   , "    sim.run_simulation()"
   , "    df = pd.DataFrame(sim.records,columns=probe_labels)"
-  , "    steps = [delta * day for day in df['day']]"
+  , "    steps = [delta * step for step in df['step']]"
   , "    df['time'] = steps"
   , "    return df"
   ]
   where
     names = [ n | Cohort n _ <- cohorts ]
-    probes = "day,":[ "pop."<>text name<>".size," | name <- names ]
-    labels = "\"day\",":[ doubleQuotes (text name)<>"," | name <- names ]
+    probes = "step,":[ "pop."<>text name<>".size," | name <- names ]
+    labels = "\"step\",":[ doubleQuotes (text name)<>"," | name <- names ]
 
 printMods :: Map String Expr -> [Mod] -> Doc
-printMods params = vcat . map printMod
+printMods params mods = (vcat . map printMod) mods
   where
   printMod Mod{..} =
     "sim.make_mod"<>lparen 
@@ -145,17 +145,24 @@ printMods params = vcat . map printMod
       printRates :: [ProbSpec] -> [Doc]
       printRates rs = map printRate rs
         where
-          rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) rs
+          potentialRates = map snd $ concatMap APRAM.modActions $ filter (\m -> APRAM.modCohort m == modCohort) mods
+          rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) potentialRates
           rateSum = foldr1 Add rates
           baseActProb = LitD 1 `Sub` Exp (Neg rateSum `Mul` Var deltaName)
           inaction = rateSum `Expr.EQ` LitD 0
+
+          actProb :: Expr
+          actProb =
+            case filter (/= Unknown) rs of
+              [Rate rate] -> baseActProb `Mul` (qualify rate `Div` rateSum)
+              _ -> error "there was more than one known rate associated with this event"
 
           printRate :: ProbSpec -> Doc
           printRate r = 
             pyPrintExpr $
               case r of
-                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` baseActProb)
-                Rate rate -> If inaction (LitD 0) (baseActProb `Mul` (qualify rate `Div` rateSum))
+                Unknown -> If inaction (LitD 1) (LitD 1 `Sub` actProb)
+                Rate _  -> If inaction (LitD 0) actProb
                 _ -> undefined
 
       fromProb p =
