@@ -297,12 +297,3 @@ toAPRAM modelFile aPRAMFile =
       let a = modelToAPRAM m "health"
           a' = show $ printAPRAM a
       writeFile aPRAMFile a'
-
-
-simODE m start step end = ODE.simulate m Map.empty times
-  where times = takeWhile (<= end) (iterate (+ step) start)
-
-test = 
-  let ds = DiffEqs [] (Map.singleton "x" (Literal $ Num 2)) (Map.singleton "x" (Op1 Exp (Op2 Div (Var "x") (Literal $ Num 10)))) Map.empty
-      res = simODE ds 1 1 8
-  in  DS.encodeDataSeries res
