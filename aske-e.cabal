@@ -28,6 +28,7 @@ library
                      , Language.ASKEE.APRAM.Syntax
                      , Language.ASKEE.APRAM.Translate
                      , Language.ASKEE.APRAM.Sample
+                     , Language.ASKEE.APRAM.Print
 
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
