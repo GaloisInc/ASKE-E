@@ -102,8 +102,8 @@ eventsToMods columnName = map eventToMod
         Expr.Add (Expr.Var v') (Expr.LitD 1) | v == v' -> Just (unpack v')
         _ -> Nothing
 
-apramToModel :: APRAM -> Model
-apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
+apramToModel :: APRAM -> Double -> Model
+apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apramMods)
   where
     allStates :: Set State
     allStates = 
@@ -146,10 +146,16 @@ apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
             All -> const allStates
 
     modToEvents :: Mod -> [Event]
-    modToEvents Mod{..} = [ mkEvent (modName, actions, asRate probs, state) 
-                          | (actions, probs) <- mapMaybe getActions modActions
+    modToEvents Mod{..} = [ mkEvent (modName, thisAction, asRate thisProbSpec passProbSpec, state) 
+                          | (thisAction, thisProbSpec) <- mapMaybe getActions modActions
                           , state <- Set.toAscList $ relevantStates modCohort
                           ]
+      where
+        passProbSpec :: ProbSpec
+        passProbSpec =
+          case mapMaybe (\case (Pass, p) -> Just p; _ -> Nothing) modActions of
+            [p] -> p
+            _ -> error $ "in mod "<>modName<>", there was more than one specified inaction path"
 
     getActions :: (ActionSequence, ProbSpec) -> Maybe ([Action], ProbSpec)
     getActions (as, ps) =
@@ -157,12 +163,12 @@ apramToModel APRAM{..} = Model "foo" stateDecs (concatMap modToEvents apramMods)
         Actions as' -> Just (as', ps)
         Pass -> Nothing
 
-    asRate :: ProbSpec -> Expr.Expr
-    asRate p =
-      case p of
-        Rate e -> e
-        Probability _ -> undefined 
-        Unknown -> undefined
+    asRate :: ProbSpec -> ProbSpec -> Expr.Expr
+    asRate thisProbSpec passProbSpec =
+      case (thisProbSpec, passProbSpec) of
+        (Rate r, _) -> r
+        (Probability tp, Probability pp) -> Expr.Neg ((tp `Expr.Mul` Expr.Log pp) `Expr.Div` (Expr.LitD delta `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp)))
+        _ -> undefined
 
     mkEvent :: (String, [Action], Expr.Expr, State) -> Event
     mkEvent (modname, actions, prob, state) = 
