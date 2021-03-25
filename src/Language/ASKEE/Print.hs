@@ -91,8 +91,8 @@ printExpr expr =
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    (Exp e1) -> text "exp" <> pp e1
-    (Log e1) -> text "log" <> pp e1
+    (Exp e1) -> text "exp" <> parens (printExpr e1)
+    (Log e1) -> text "log" <> parens (printExpr e1)
     (Neg e1) -> char '-' <> pp e1
     (LitD d) -> double d
     (Var i) -> text (unpack i)
@@ -130,7 +130,7 @@ printExpr expr =
 
     pp :: Expr -> Doc
     pp e = 
-      if prec e < prec expr
+      if prec e <= prec expr
         then parens (printExpr e)
         else         printExpr e
         
