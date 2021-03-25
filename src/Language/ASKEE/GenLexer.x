@@ -67,6 +67,8 @@ tokens :-
 "assert"    { atomic Assert }
 "true"      { bool True }
 "false"     { bool False }
+"log"       { atomic Log }
+"exp"       { atomic Exp }
 
 @upperID    { ident }
 @lowerID    { ident }

@@ -26,6 +26,7 @@ data Token = EOF
   | Else
   | EQ
   | Event
+  | Exp
   | GT
   | GTE
   | If
@@ -35,6 +36,7 @@ data Token = EOF
   | LTE
   | Let
   | LetDerived
+  | Log
   | Metadata
   | Minus
   | MinusAssign
