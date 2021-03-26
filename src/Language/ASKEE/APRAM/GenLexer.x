@@ -48,7 +48,7 @@ tokens :-
 ":"                 { atomic Colon }
 ","                 { atomic Comma }
 
-"lambda" .* ":"     { atomic Lambda }
+"lambda"            { atomic Lambda }
 "not"               { atomic Not }
 "and"               { atomic And }
 "or"                { atomic Or }
@@ -83,7 +83,7 @@ tokens :-
 
 @string    { str }        
 
-@ident (\. @ident)*  { ident }
+@ident  { ident }
 
 ("from" .*)? "import" .* ("as" .*)? ;
 

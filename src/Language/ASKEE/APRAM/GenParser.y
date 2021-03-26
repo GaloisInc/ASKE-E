@@ -3,7 +3,7 @@ module Language.ASKEE.APRAM.GenParser where
 
 import Language.ASKEE.APRAM.GenLexer
 import Language.ASKEE.APRAM.Lexer as Lexer
-import Language.ASKEE.APRAM.Syntax
+import Language.ASKEE.APRAM.Syntax as Syntax
 
 import Language.ASKEE.Expr as Expr
 
@@ -14,13 +14,24 @@ import Data.Text ( pack )
 }
 
 %name        parseAPRAM APRAM
-%name        parseCohort Cohort
 %tokentype   { Located Token}
 %error       { parseError }
 %monad       { Either String }
 
 %token
 
+eq                  { Located _ _ (Sym "eq") }
+ne                  { Located _ _ (Sym "ne") }
+np                  { Located _ _ (Sym "np") }
+repeat              { Located _ _ (Sym "repeat") }
+bool                { Located _ _ (Sym "bool") }
+zeros               { Located _ _ (Sym "zeros") }
+ones                { Located _ _ (Sym "ones") }
+astype              { Located _ _ (Sym "astype") }
+
+
+true                { Located _ _ (Lexer.LitB True)  }
+false               { Located _ _ (Lexer.LitB False)  }
 BOOL                { Located _ _ (Lexer.LitB $$)  }
 REAL                { Located _ _ (Lexer.LitD $$)  }
 STRING              { Located _ _ (LitS $$)  }
@@ -45,7 +56,6 @@ SYM                 { Located _ _ (Sym $$)   }
 ','                 { Located _ _ Comma      }
 '.'                 { Located _ _ Dot        }
 
-ceq                 { Located _ _ (Sym "eq") }
 
 lambda              { Located _ _ Lambda     }
 not                 { Located _ _ Lexer.Not  }
@@ -77,16 +87,22 @@ make_cohort         { Located _ _ MakeCohort }
 
 %%
 
-APRAM                              :: { APRAM }
-  : size Columns Params Cohorts       { mkAPRAM $1 $2 $3 $4 undefined }
+APRAM                              
+  : Size Columns Params Cohorts       { ($1, $2, $3, $4) }
 
+Size                               :: { Double }
+  : size '=' REAL                     { $3 }
 
 Columns                            :: { Map String [(String, Double)] }
   : Column                            { uncurry Map.singleton $1 }
   | Columns Column                    { uncurry Map.insert $2 $1 }
 
 Column                             :: { (String, [(String, Double)]) }
-  : pop '.' make_column '(' STRING ',' Exp ')' Statuses { ($5, $9) }
+  : pop '.' make_column '(' 
+      STRING ',' np '.' zeros '(' 
+        size 
+      ')' 
+    ')' Statuses                      { ($5, $14) }
 
 
 Statuses                           :: { [(String, Double)] }
@@ -102,7 +118,9 @@ Params                             :: { Map String Expr }
   | Params Param                      { uncurry Map.insert $2 $1 }
   
 Param                              :: { (String, Expr) }
-  : make_param '(' STRING ',' Exp ')' { ($3, $5) }
+  : pop '.' make_param '(' 
+      STRING ',' Exp 
+    ')'                               { ($5, $7) }
 
 
 Cohorts                            :: { [Cohort] }
@@ -110,14 +128,38 @@ Cohorts                            :: { [Cohort] }
   | Cohorts Cohort                    { $2 : $1 }
 
 Cohort                             :: { Cohort }
-  : pop '.' make_cohort '(' STRING ',' lambda ':' pop '.' SYM '.' ceq '(' SYM ')' ')' { Cohort $5 (Is $11 $15) }
+  : pop '.' make_cohort '(' 
+      STRING ',' lambda ':' pop '.' SYM '.' eq '(' 
+        SYM 
+      ')' 
+    ')'                               { Cohort $5 (Is $11 $15) }
+  | pop '.' make_cohort '(' 
+      STRING ',' lambda ':' pop '.' SYM '.' ne '(' 
+        SYM 
+      ')' 
+    ')'                               { Cohort $5 (Syntax.Not $11 $15) }
+  | pop '.' make_cohort '(' 
+      STRING ',' lambda ':' np '.' repeat '(' 
+        true ',' size
+      ')' 
+    ')'                               { Cohort $5 All }
+  | pop '.' make_cohort '(' 
+      STRING ',' lambda ':' np '.' ones '(' 
+        size 
+      ')' '.' astype '(' 
+        bool 
+      ')' 
+    ')'                               { Cohort $5 All }
 
 
 Exp                                :: { Expr }
   : REAL                              { Expr.LitD $1 }
   | SYM                               { Expr.Var (pack $1) }
   | SYM '.' Exp                       { undefined }
-  | SYM '(' Exp ')'                   { undefined }
+  | size                              { undefined }
+  | SYM '(' 
+      Exp 
+    ')'                               { undefined }
 
 
 {
