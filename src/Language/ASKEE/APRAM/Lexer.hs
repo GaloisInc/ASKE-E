@@ -54,11 +54,13 @@ data Token = EOF
   | For
   | In
   | Return
-
-  deriving Show
+  | Star
+  | StarStar
+  | IGNORE
+  deriving (Eq, Show)
 
 data LogOp =
     Eq
   | Lt
   | Gt
-  deriving Show
+  deriving (Eq, Show)

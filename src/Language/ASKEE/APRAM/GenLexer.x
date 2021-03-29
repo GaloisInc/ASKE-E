@@ -49,6 +49,8 @@ tokens :-
 ","                 { atomic Comma }
 
 "lambda"            { atomic Lambda }
+"*"                 { atomic Star }
+"**"                { atomic StarStar }
 "not"               { atomic Not }
 "and"               { atomic And }
 "or"                { atomic Or }
@@ -63,7 +65,7 @@ tokens :-
 
 "math.log"          { atomic Log }
 "math.exp"          { atomic Exp }
-"pop.size"          { atomic Size }
+-- "pop.size"          { atomic Size }
 "pop.reset()"       ;
 "sim.reset()"       ;
 
@@ -76,16 +78,14 @@ tokens :-
 "."   { atomic Dot }
 "sim" { atomic Sim }
 
-"make_column"   { atomic MakeColumn }
-"make_param"    { atomic MakeParam }
-"make_cohort"   { atomic MakeCohort }
-"**" .* ")"     { atomic CloseP }
+"#".*               ;
 
 @string    { str }        
 
 @ident  { ident }
 
-("from" .*)? "import" .* ("as" .*)? ;
+("from" .*)? "import" .* ("as" .*)? { atomic IGNORE }
+"rng".*"=".*"default_rng()" { atomic IGNORE }
 
 $white+     ;
 
@@ -124,7 +124,7 @@ getState :: Alex AlexState
 getState = Alex (\s -> Right (s,s))
 
 lexAPRAM :: String -> Either String [Located Token]
-lexAPRAM s = runAlex s go
+lexAPRAM s = filter (\(Located _ _ t) -> t /= IGNORE) <$> runAlex s go
   where
   go :: Alex [Located Token]
   go =
