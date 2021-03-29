@@ -103,7 +103,7 @@ eventsToMods columnName = map eventToMod
         _ -> Nothing
 
 apramToModel :: APRAM -> Double -> Model
-apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apramMods)
+apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap modToEvents apramMods)
   where
     allStates :: Set State
     allStates = 
@@ -119,6 +119,13 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
       [ State (mkStateName s) (Expr.Var "???")
       | s <- Set.toAscList allStates
       ]
+
+    letDecs :: [Decl]
+    letDecs =
+      [ Let (pack t) e
+      | (t, e) <- Map.toList apramParams
+      ] ++
+      [ Let "delta" (Expr.LitD delta) ]
   
     -- Generate every possible combination, Cartesian-product style, of `b`s, 
     -- propagating their `a` tags
@@ -146,16 +153,18 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
             All -> const allStates
 
     modToEvents :: Mod -> [Event]
-    modToEvents Mod{..} = [ mkEvent (modName, thisAction, asRate thisProbSpec passProbSpec, state) 
-                          | (thisAction, thisProbSpec) <- mapMaybe getActions modActions
-                          , state <- Set.toAscList $ relevantStates modCohort
-                          ]
+    modToEvents Mod{..}
+      | modPhase == "setup" = []
+      | otherwise = [ mkEvent (modName, thisAction, asRate thisProbSpec passProbSpec, state) 
+                    | (thisAction, thisProbSpec) <- mapMaybe getActions modActions
+                    , state <- Set.toAscList $ relevantStates modCohort
+                    ]
       where
         passProbSpec :: ProbSpec
         passProbSpec =
           case mapMaybe (\case (Pass, p) -> Just p; _ -> Nothing) modActions of
             [p] -> p
-            _ -> error $ "in mod "<>modName<>", there was more than one specified inaction path"
+            x -> error $ "in mod "<>modName<>", there was not exactly one specified inaction path "<>show x
 
     getActions :: (ActionSequence, ProbSpec) -> Maybe ([Action], ProbSpec)
     getActions (as, ps) =
