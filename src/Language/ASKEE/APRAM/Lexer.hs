@@ -2,13 +2,6 @@ module Language.ASKEE.APRAM.Lexer where
 
 import Prelude hiding ( GT, EQ, LT )
 
-data Located a = Located
-  { locLine :: Int
-  , locCol :: Int
-  , locVal :: a
-  }
-  deriving Show
-
 data Token = EOF
   | Sym String
   | LitD Double

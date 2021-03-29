@@ -2,10 +2,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Language.ASKEE.APRAM.GenLexer where
+module Language.ASKEE.APRAM.GenLexer ( lexAPRAM, Token(..) ) where
 
 import Prelude hiding (LT,GT,EQ)
-import Language.ASKEE.APRAM.Lexer
+import Language.ASKEE.APRAM.Lexer  ( Token(..), LogOp(..) )
+import Language.ASKEE.Lexer        ( Located(..) )
 
 }
 
