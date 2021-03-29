@@ -6,6 +6,7 @@ import Language.ASKEE.APRAM.Lexer as Lexer
 import Language.ASKEE.APRAM.Syntax as Syntax
 
 import Language.ASKEE.Expr as Expr
+import Language.ASKEE.Lexer ( Located(..) )
 
 import qualified Data.Map as Map
 import Data.Map ( Map )
@@ -14,9 +15,6 @@ import Data.Text ( pack )
 }
 
 %name        parseAPRAM APRAM
-%name        parseMod Mod
-%name        parseActionSequence ActionSequence
-%name        parseAction Action
 %tokentype   { Located Token}
 %error       { parseError }
 %monad       { Either String }
@@ -42,7 +40,8 @@ prob_spec           { Located _ _ (Sym "prob_spec")    }
 sim_phase           { Located _ _ (Sym "sim_phase")    }
 assign              { Located _ _ (Sym "assign")       }
 delta               { Located _ _ (Sym "delta") }
-reset               { Located _ _ (Sym "reset") }
+size                { Located _ _ (Sym "size")         }
+val                 { Located _ _ (Sym "val")}
 
 
 true                { Located _ _ (Lexer.LitB True)  }
@@ -77,25 +76,19 @@ not                 { Located _ _ Lexer.Not  }
 and                 { Located _ _ Lexer.And  }
 or                  { Located _ _ Lexer.Or   }
 if                  { Located _ _ Lexer.If   }
-then                { Located _ _ Then       }
 else                { Located _ _ Else       }
-for                 { Located _ _ For        }
-in                  { Located _ _ In         }
-return              { Located _ _ Return     }
 log                 { Located _ _ Lexer.Log  }
 exp                 { Located _ _ Lexer.Exp  }
-star                { Located _ _ Star       }
 starstar            { Located _ _ StarStar   }
 pop                 { Located _ _ Pop        }
 sim                 { Located _ _ Sim        }
-size                { Located _ _ Size       }
 
 
-%left 'or'
-%left 'and'
+%left or
+%left and
 %nonassoc '<' '<=' '==' '>=' '>'
-%nonassoc 'if' 'then' 'else'
-%right 'not'
+%nonassoc if else
+%right not
 %left '+' '-'
 %left '*' '/'
 
@@ -106,7 +99,7 @@ opt(p)
    | p  { Just $1 }
 
 APRAM                              
-  : Size Columns Params Cohorts Mods       { ($1, $2, $3, $4, $5) }
+  : Size Columns Params Cohorts Mods       {% mkAPRAM $1 $2 $3 $4 $5 }
 
 Size                               :: { (Double, Double) }
   : pop '.' size '=' REAL
@@ -119,9 +112,9 @@ Columns                            :: { Map String [(String, Double)] }
 Column                             :: { (String, [(String, Double)]) }
   : pop '.' make_column '(' 
       STRING ',' np '.' zeros '(' 
-        size 
+        pop '.' size 
       ')' 
-    ')' Statuses                      { ($5, $14) }
+    ')' Statuses                      { ($5, $16) }
 
 
 Statuses                           :: { [(String, Double)] }
@@ -159,7 +152,7 @@ Cohort                             :: { Cohort }
     ')'                               { Cohort $5 (Syntax.Not $10 $14) }
   | pop '.' make_cohort '(' 
       STRING ',' LambdaDecl np '.' repeat '(' 
-        true ',' size
+        true ',' pop '.' size
       ')' 
     ')'                               { Cohort $5 All }
   | pop '.' make_cohort '(' 
@@ -225,41 +218,58 @@ ProbSpecs                          :: { [ProbSpec] }
 
 
 Exp                                :: { Expr }
-  : REAL                              { Expr.LitD $1 }
-  | SYM                               { Expr.Var (pack $1) }
-  | Exp '/' Exp                       { Expr.Div $1 $3 }
+  : Exp '+' Exp                       { Add  $1 $3 }
+  | Exp '-' Exp                       { Sub  $1 $3 }
+  | Exp '*' Exp                       { Mul  $1 $3 }
+  | Exp '/' Exp                       { Div  $1 $3 }
+  | '-' Exp                           { Neg  $2 }
+  | exp '(' Exp ')'                   { Expr.Exp  $3 }
+  | log '(' Exp ')'                   { Expr.Log  $3 }
+  | Exp '>' Exp                       { Expr.GT  $1 $3 }
+  | Exp '>=' Exp                      { Expr.GTE $1 $3 }
+  | Exp '==' Exp                      { Expr.EQ  $1 $3 }
+  | Exp '<=' Exp                      { Expr.LTE $1 $3 }
+  | Exp '<' Exp                       { Expr.LT  $1 $3 }
+  | Exp and Exp                       { Expr.And $1 $3 }
+  | Exp or  Exp                       { Expr.Or  $1 $3 } 
+  | not Exp                           { Expr.Not $2 }
+  | '(' Exp ')'                       { $2 }
+  | Var                               { Var (pack $1) }
+  | REAL                              { Expr.LitD $1 }
+  | true                              { Expr.LitB True }
+  | false                             { Expr.LitB False }
+  | Exp if Exp else Exp               { Expr.If $3 $1 $5 }
 
-Exp                                   :: { Expr }
-  : Exp '+' Exp                          { Add  $1 $3 }
-  | Exp '-' Exp                          { Sub  $1 $3 }
-  | Exp '*' Exp                          { Mul  $1 $3 }
-  | Exp '/' Exp                          { Div  $1 $3 }
-  | '-' Exp                              { Neg  $2 }
-  | 'exp' '(' Exp ')'                    { Exp  $3 }
-  | 'log' '(' Exp ')'                    { Log  $3 }
-  | Exp '>' Exp                          { GT  $1 $3 }
-  | Exp '>=' Exp                         { GTE $1 $3 }
-  | Exp '==' Exp                         { EQ  $1 $3 }
-  | Exp '<=' Exp                         { LTE $1 $3 }
-  | Exp '<' Exp                          { LT  $1 $3 }
-  | Exp 'and' Exp                        { And $1 $3 }
-  | Exp 'or'  Exp                        { Or  $1 $3 } 
-  | 'not' Exp                            { Not $2 }
-  | '(' Exp ')'                          { $2 }
-  | Var                                  { Var $1 }
-  | REAL                                 { LitD $1 }
-  | 'True'                               { LitB True }
-  | 'False'                              { LitB False }
-  | Exp 'if' Exp 'else' Exp              { If $3 $1 $5 }
-
-Var :: { Expr }
-  : SYM { Var $1 }
-  | pop '.' SYM '.' val { Var $3 }
-  | pop '.' SYM '.' size { Var $3 }
+Var                                :: { String }
+  : SYM                               { $1 }
+  | delta                             { "delta" }
+  | pop '.' SYM '.' val               { $3 }
+  | pop '.' SYM '.' size              { $3 }
 
 {
--- mkAPRAM :: Double -> Map String (String, Expr) -> Map String Expr -> [Cohort] -> [Mod] -> APRAM
-mkAPRAM = undefined
+mkAPRAM :: (Double, Double) 
+        -> Map String [(String, Double)] 
+        -> Map String Expr 
+        -> [Cohort] 
+        -> [(String, String, [ActionSequence], [ProbSpec], String)] 
+        -> Either String APRAM
+mkAPRAM (size, delta) columns params cohorts mods =
+  APRAM (floor size) params (Map.map (map fst) columns) cohorts <$> (mapM mkMod mods)
+  where
+    mkMod :: (String, String, [ActionSequence], [ProbSpec], String) -> Either String Mod
+    mkMod (name, cohortName, actions, probs, phase)
+      | length actions == length probs = 
+        Mod name <$> 
+          (findOne ("is "<>cohortName) (\(Cohort name _) -> name == cohortName) cohorts) <*> 
+          (pure $ zip actions probs) <*>
+          (pure phase)
+      | otherwise = Left $ "mod action and probability lists differ in length"
+
+    findOne :: String -> (a -> Bool) -> [a] -> Either String a
+    findOne why p xs =
+      case filter p xs of
+        [x] -> Right x
+        _ -> Left why
 
 mkMod :: String -> Cohort -> [ActionSequence] -> [ProbSpec] -> String -> Either String Mod
 mkMod name cohort actions probs phase
