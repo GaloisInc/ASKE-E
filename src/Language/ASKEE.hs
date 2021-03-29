@@ -23,6 +23,9 @@ import qualified Data.ByteString.Lazy.Char8 as B
 
 import           Language.ASKEE.APRAM.Print            ( printAPRAM )
 import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
+import qualified Language.ASKEE.APRAM.GenLexer         as APL
+import qualified Language.ASKEE.APRAM.GenParser        as APP
+import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
 import qualified Language.ASKEE.Check                  as Check
 import           Language.ASKEE.Convert
 import qualified Language.ASKEE.Core                   as Core
@@ -164,6 +167,20 @@ parseLatex file =
 loadLatex :: DataSource -> IO DiffEqs 
 loadLatex = parseLatex
 
+
+lexAPRAM :: DataSource -> IO [Located APL.Token]
+lexAPRAM file =
+  do  txt <- loadString file
+      case APL.lexAPRAM txt of
+        Right toks -> pure toks
+        Left err -> throwIO (ParseError $ "lexAPRAM: "<>err)
+
+parseAPRAM :: DataSource -> IO APRAM
+parseAPRAM file =
+  do  toks <- lexAPRAM file
+      case APP.parseAPRAM toks of
+        Right apram -> pure apram
+        Left err -> throwIO (ParseError $ "parseAPRAM: "<>err)
 -------------------------------------------------------------------------------
 
 data StratificationType = Demographic | Spatial
