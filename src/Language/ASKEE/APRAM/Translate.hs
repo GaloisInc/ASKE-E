@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.APRAM.Translate where
 
+import Control.Monad.Identity (Identity (runIdentity))
 
 import           Data.Either ( isLeft )
 import           Data.List  ( intercalate )
@@ -18,9 +19,9 @@ import qualified Data.Text  as Text
 
 import           Language.ASKEE.APRAM.Syntax as APRAMSyntax
 import           Language.ASKEE.APRAM.Sample ()
-import           Language.ASKEE.Syntax as ESLSyntax
 import qualified Language.ASKEE.Expr as Expr
-import Language.ASKEE.ExprTransform
+import           Language.ASKEE.ExprTransform
+import           Language.ASKEE.Syntax as ESLSyntax
 
 modelToAPRAM :: Model -> String -> APRAM
 modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
@@ -147,10 +148,10 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
         go :: Set State -> Set State
         go =
           case cexpr of
-            Is  column status -> Set.filter (\s -> s Map.! column == status) --Set.member    status)
-            Not column status -> Set.filter (\s -> s Map.! column /= status) --Set.notMember status)
-            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
-            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
+            Is  column status -> Set.filter (\s -> s Map.! column == status)
+            Not column status -> Set.filter (\s -> s Map.! column /= status)
+            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort "" c1, Cohort "" c2]
+            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort "" c1, Cohort "" c2]
             All -> const allStates
 
     modToEvents :: Mod -> [Event]
@@ -186,8 +187,18 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
       where
         name = Text.intercalate "_AND_" $ map (\a -> pack (show a) <> "_" <> stateName) actions
         when = Just $ Expr.Var stateName `Expr.GT` Expr.LitD 0
-        rate = prob `Expr.Mul` scale
+        rate = runIdentity $ transformExpr go $ prob `Expr.Mul` scale
         effect = concatMap actionToStmts actions
+
+        go :: Expr.Expr -> Identity Expr.Expr
+        go e =
+          case e of
+            Expr.Var v ->
+              case filter (\(Cohort n _) -> n == unpack v) apramCohorts of
+                [cohort] -> pure $ foldr1 Expr.Add (map (Expr.Var . mkStateName) (Set.toList $ relevantStates cohort))
+                _ -> pure e
+            _ -> pure e
+
         
         actionToStmts :: Action -> [Statement]
         actionToStmts act =
