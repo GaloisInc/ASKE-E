@@ -23,6 +23,8 @@ import Data.Text ( pack )
 
 eq                  { Located _ _ (Sym "eq")           }
 ne                  { Located _ _ (Sym "ne")           }
+logical_and         { Located _ _ (Sym "logical_and")           }
+logical_or          { Located _ _ (Sym "logical_or")           }
 np                  { Located _ _ (Sym "np")           }
 repeat              { Located _ _ (Sym "repeat")       }
 bool                { Located _ _ (Sym "bool")         }
@@ -141,27 +143,30 @@ Cohorts                            :: { [Cohort] }
 
 Cohort                             :: { Cohort }
   : pop '.' make_cohort '(' 
-      STRING ',' LambdaDecl pop '.' SYM '.' eq '(' 
-        SYM 
-      ')' 
-    ')'                               { Cohort $5 (Is $10 $14) }
-  | pop '.' make_cohort '(' 
-      STRING ',' LambdaDecl pop '.' SYM '.' ne '(' 
-        SYM 
-      ')' 
-    ')'                               { Cohort $5 (Syntax.Not $10 $14) }
-  | pop '.' make_cohort '(' 
-      STRING ',' LambdaDecl np '.' repeat '(' 
-        true ',' pop '.' size
-      ')' 
-    ')'                               { Cohort $5 All }
-  | pop '.' make_cohort '(' 
-      STRING ',' LambdaDecl np '.' ones '(' 
-        size 
-      ')' '.' astype '(' 
-        bool 
-      ')' 
-    ')'                               { Cohort $5 All }
+      STRING ',' LambdaDecl CohortExpr
+    ')'                               { Cohort $5 $8 }
+
+CohortExpr 
+  : pop '.' SYM '.' eq '(' 
+      SYM 
+    ')'                               { Is $3 $7 }
+  | pop '.' SYM '.' ne '(' 
+      SYM 
+    ')'                               { Syntax.Not $3 $7 }
+  | np '.' repeat '(' 
+      true ',' pop '.' size
+    ')'                               { All }
+  | np '.' ones '(' 
+      pop '.' size 
+    ')' '.' astype '(' 
+      bool 
+    ')'                               { All }
+  | np '.' logical_and '(' 
+      CohortExpr ',' CohortExpr 
+    ')'                               { Syntax.And $5 $7 }
+  | np '.' logical_or '(' 
+      CohortExpr ',' CohortExpr 
+    ')'                               { Syntax.Or $5 $7 }
 
 
 Mods                               :: { [(String, String, [ActionSequence], [ProbSpec], String)] }
@@ -175,10 +180,10 @@ Mod                                :: { (String, String, [ActionSequence], [Prob
       mods '=' '['
         ActionSequences
       ']' ','
-      prob_spec '=' LambdaDecl '['
+      prob_spec '=' opt(LambdaDecl) '['
         ProbSpecs
       ']' ','
-      sim_phase '=' STRING ','
+      sim_phase '=' STRING opt(',')
     ')'                               { ($7, $13, $18, $25, $30) }
 
 ActionSequences                    :: { [ActionSequence] }
@@ -243,6 +248,7 @@ Exp                                :: { Expr }
 Var                                :: { String }
   : SYM                               { $1 }
   | delta                             { "delta" }
+  | pop '.' size                      { "size" }
   | pop '.' SYM '.' val               { $3 }
   | pop '.' SYM '.' size              { $3 }
 
