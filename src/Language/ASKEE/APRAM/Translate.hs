@@ -125,7 +125,8 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
       [ Let (pack t) e
       | (t, e) <- Map.toList apramParams
       ] ++
-      [ Let "delta" (Expr.LitD delta) ]
+      [ Let "delta" (Expr.LitD delta)
+      , Let "size" (Expr.LitD $ fromIntegral apramAgents) ]
   
     -- Generate every possible combination, Cartesian-product style, of `b`s, 
     -- propagating their `a` tags
@@ -176,7 +177,7 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
     asRate thisProbSpec passProbSpec =
       case (thisProbSpec, passProbSpec) of
         (Rate r, _) -> r
-        (Probability tp, Probability pp) -> Expr.Neg ((tp `Expr.Mul` Expr.Log pp) `Expr.Div` (Expr.LitD delta `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp)))
+        (Probability tp, Probability pp) -> Expr.Neg ((tp `Expr.Mul` Expr.Log pp) `Expr.Div` (Expr.Var "delta" `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp)))
         _ -> undefined
 
     mkEvent :: (String, [Action], Expr.Expr, State) -> Event
@@ -196,7 +197,7 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
               ]
 
         stateName = mkStateName state
-        scale = Expr.Var stateName `Expr.Div` Expr.LitD (fromIntegral apramAgents)
+        scale = Expr.Var stateName `Expr.Div` Expr.Var "size"
 
 -- Invariant: every APRAM column accounted for
 type State = Map Column Status
