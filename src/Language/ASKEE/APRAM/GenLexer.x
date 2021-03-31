@@ -63,30 +63,26 @@ tokens :-
 "for"               { atomic For }
 "in"                { atomic In }
 "return"            { atomic Return }
-
 "math.log"          { atomic Log }
 "math.exp"          { atomic Exp }
--- "pop.size"          { atomic Size }
+
 "pop.reset()"       ;
 "sim.reset()"       ;
 
--- "pop.make_column"   { atomic MakeColumn }
--- "pop.make_param"    { atomic MakeParam }
--- "pop.make_cohort"   { atomic MakeCohort }
--- "pop." @ident ".eq" { cohortRef Eq }
 
-"pop" { atomic Pop }
-"."   { atomic Dot }
-"sim" { atomic Sim }
+"pop"               { atomic Pop }
+"."                 { atomic Dot }
+"sim"               { atomic Sim }
 
+"#".*"ASKEE_STOP".* { atomic EOF }
 "#".*               ;
 
-@string    { str }        
+@string             { str }        
 
-@ident  { ident }
+@ident              { ident }
 
-("from" .*)? "import" .* ("as" .*)? { atomic IGNORE }
-"rng".*"=".*"default_rng()" { atomic IGNORE }
+("from" .*)? "import" .* ("as" .*)?   { atomic IGNORE }
+"rng".*"=".*"default_rng()"           { atomic IGNORE }
 
 $white+     ;
 
