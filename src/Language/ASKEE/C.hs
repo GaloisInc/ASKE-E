@@ -56,6 +56,8 @@ callPrefix op x = op <+> x
 not :: Doc -> Doc
 not = callPrefix "!"
 
+(<<) :: Doc -> Doc -> Doc
+(<<) = callInfix "<<"
 
 (+) :: Doc -> Doc -> Doc
 (+) = callInfix "+"
@@ -107,12 +109,18 @@ doubleLit = pretty
 boolLit :: Bool -> Doc
 boolLit b = if b then "true" else "false"
 
+-- XXX: escape bad charcarcters and avoid keywords, etc.
+stringLit :: Text -> Doc
+stringLit s = PP.dquotes (PP.pretty s)
+
 parens :: Doc -> Doc
 parens = PP.parens
 
 cond :: Doc -> Doc -> Doc -> Doc
 cond x y z = x <+> "?" <+> y <+> ":" <+> z
 
+subscript :: Doc -> Doc -> Doc
+subscript arr idx = arr <> PP.brackets idx
 
 --------------------------------------------------------------------------------
 -- Types
