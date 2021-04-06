@@ -6,8 +6,14 @@ import Data.Text(Text)
 -------------------------------------------------------------------------------
 -- Syntax
 
-type Binder = Text
-type Ident = Text
+data TypedName =
+  TypedName { tnName :: Text
+            , tnType :: Maybe Type
+            }
+  deriving Show
+
+type Binder = TypedName
+type Ident = TypedName
 type Label = Text
 
 data Decl =
