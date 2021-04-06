@@ -69,6 +69,23 @@ data Literal =
 data Expr =
     Lit Literal
   | Var Ident
-  | Call Ident [Expr]
+  | Call FunctionName [Expr]
   | Dot Expr Label
+  deriving Show
+
+data FunctionName =
+    Add
+  | Multiply
+  | Divide
+  | Subtract
+  | Negate
+  | Not
+  | LessThan
+  | GreaterThan
+  | LessThanEqual
+  | GreaterThanEqual
+  | Equal
+  | NotEqual
+  | Or
+  | And
   deriving Show
