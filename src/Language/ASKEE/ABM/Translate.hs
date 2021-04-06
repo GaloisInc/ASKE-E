@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 module Language.ASKEE.ABM.Translate where
 
 import           Data.List ( intercalate )
@@ -19,16 +20,16 @@ import qualified Language.ASKEE.Syntax as ESL
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
 newtype ESLState = ESLState 
-  { statuses :: Map String String 
+  { statuses :: Map Text Text 
   }
   deriving (Eq, Ord, Show)
 
 abmToModel :: ABM.Model -> ESL.Model
 abmToModel ABM.Model{..} = ESL.Model name (lets++states) []
   where
-    name = pack modelName
+    name = modelName
     lets = 
-      [ ESL.Let (pack v) e
+      [ ESL.Let v e
       | (v, e) <- modelLets
       ]
     states = map stateDecl (allStates modelAgent)
@@ -52,7 +53,7 @@ allStates (ABM.Agent agentAttrs) =
   | combos <- taggedCombos (map flatten agentAttrs) ]
 
   where
-    flatten :: ABM.AgentAttribute -> (String, [String])
+    flatten :: ABM.AgentAttribute -> (Text, [Text])
     flatten (ABM.AgentAttribute a ss) = (a,ss)
 
     -- Generate every possible combination, Cartesian-product style, of `b`s, 
@@ -69,8 +70,8 @@ allStates (ABM.Agent agentAttrs) =
 stateDecl :: ESLState -> ESL.Decl
 stateDecl (ESLState ss) = ESL.State (mkName ss) (Var "???")
   where
-    mkName :: Map String String -> Text
-    mkName = pack . intercalate "_" . Map.elems
+    mkName :: Map Text Text -> Text
+    mkName = Text.intercalate "_" . Map.elems
 
 
 

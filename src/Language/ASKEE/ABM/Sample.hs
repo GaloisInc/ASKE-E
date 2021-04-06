@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.ABM.Sample where
 
+import Data.Text ( Text )
 import Language.ASKEE.ABM.Syntax
 import Language.ASKEE.Expr ( Expr(LitD, Var, Sub, Div) )
 
@@ -24,7 +25,7 @@ agent = Agent attrs
       -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
       ]
 
-inits :: [(String, Expr)]
+inits :: [(Text, Expr)]
 inits =
   [ ("susceptible", Div (Sub (Var "pop_size") (LitD 3)) (Var "pop_size"))
   , ("exposed",     Div                       (LitD 3)  (Var "pop_size"))
