@@ -97,6 +97,8 @@ go expr curr fail succ a@(ABM.Agent allAttrs) =
   case expr of
     ABM.Eq (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus) -> 
       doSimpleEq agentName agentAttr agentStatus
+    ABM.Eq (ABM.Status agentStatus) (ABM.Attribute agentName agentAttr) ->
+      doSimpleEq agentName agentAttr agentStatus
     ABM.Eq (ABM.Attribute n1 a1) (ABM.Attribute n2 a2) | a1 == a2 ->
       doComplexEq n1 n2 a1
     ABM.And e1 e2 -> go e1 curr fail (\cur res -> go e2 cur res succ a) a
