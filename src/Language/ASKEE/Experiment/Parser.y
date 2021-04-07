@@ -53,6 +53,11 @@ import Language.ASKEE.Experiment.Lexer
   'with'        { Lexeme { lexemeRange = $$, lexemeToken = KWwith       } }
   'yield'       { Lexeme { lexemeRange = $$, lexemeToken = KWyield      } }
   'let'         { Lexeme { lexemeRange = $$, lexemeToken = KWlet        } }
+  'if'          { Lexeme { lexemeRange = $$, lexemeToken = KWif         } }
+  'then'        { Lexeme { lexemeRange = $$, lexemeToken = KWthen       } }
+  'elif'        { Lexeme { lexemeRange = $$, lexemeToken = KWelif       } }
+  'else'        { Lexeme { lexemeRange = $$, lexemeToken = KWelse       } }
+  'end'         { Lexeme { lexemeRange = $$, lexemeToken = KWend        } }
   'number'      { Lexeme { lexemeRange = $$, lexemeToken = KWnumber     } }
   'bool'        { Lexeme { lexemeRange = $$, lexemeToken = KWbool       } }
   'false'       { Lexeme { lexemeRange = $$, lexemeToken = KWfalse      } }
@@ -76,7 +81,7 @@ import Language.ASKEE.Experiment.Lexer
 
 decls                                  :: { [Decl] }
   : listOf(decl)                          { $1 }
-  
+
 decl                                   :: { Decl }
   : experiment                            { DExperiment $1 }
   | measure                               { DMeasure $1 }
@@ -129,6 +134,20 @@ type                                   :: { Type }
 stmt                                   :: { Stmt }
   : ident '=' expr                        { Set $1 $3 }
   | 'let' ident '=' expr                  { Let $2 $4 }
+  | ifStmt 'end'                          { $1 [] }
+  | ifStmt 'else' listOf1(stmt) 'end'     { $1 $3 }
+
+
+ifStmt                                 :: { [Stmt] -> Stmt }
+  : 'if' thenStmt listOf(elseIf)          { If ($2 : $3) }
+
+thenStmt                               :: { (Expr,[Stmt]) }
+  : expr 'then' listOf1(stmt)             { ($1,$3) }
+
+elseIf                                 :: { (Expr,[Stmt]) }
+  : 'elif' thenStmt                       { $2 }
+
+
 
 expr                                   :: { Expr }
   : literal                               { Lit $1 }
@@ -172,12 +191,16 @@ revSepBy1(s,p)                          :: { [p] }
   : p                                      { [$1] }
   | revSepBy1(s,p) s p                     { $3 : $1 }
 
-listOf(p)                               :: { [p] }
-  : revListOf(p)                           { reverse $1 }
+listOf1(p)                              :: { [p] }
+  : revListOf1(p)                          { reverse $1 }
 
-revListOf(p)                            :: { [p] }
-  :                                        { [] }
-  | revListOf(p) p                         { $2 : $1 }
+listOf(p)                               :: { [p] }
+  : revListOf1(p)                          { reverse $1 }
+  | {- empty -}                            { [] }
+
+revListOf1(p)                           :: { [p] }
+  : p                                      { [$1] }
+  | revListOf1(p) p                        { $2 : $1 }
 
 {
 
@@ -273,8 +296,6 @@ parseDeclsFromFile file =
      case parseDecls (Text.pack file) txt of
        Right a  -> pure a
        Left err -> throwIO err
-  
-
 
 }
 

@@ -66,6 +66,11 @@ $ws+              ;
 "yield"           { lexeme KWyield }
 "with"            { lexeme KWwith }
 "let"             { lexeme KWlet }
+"if"              { lexeme KWif }
+"then"            { lexeme KWthen }
+"elif"            { lexeme KWelif }
+"else"            { lexeme KWelse }
+"end"             { lexeme KWend }
 "number"          { lexeme KWnumber }
 "bool"            { lexeme KWbool }
 "false"           { lexeme KWfalse }
@@ -116,6 +121,11 @@ data Token =
   | KWwith
   | KWyield
   | KWlet
+  | KWif
+  | KWelif
+  | KWthen
+  | KWelse
+  | KWend
   | KWnumber
   | KWbool
   | KWfalse
