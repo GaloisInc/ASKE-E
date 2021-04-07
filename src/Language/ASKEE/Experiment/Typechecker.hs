@@ -4,9 +4,11 @@ module Language.ASKEE.Experiment.Typechecker where
 
 import Data.Text(Text)
 import Data.Map(Map)
-import Control.Monad(when)
-import Data.Foldable(traverse_)
 import qualified Data.Map as Map
+import Data.Set(Set)
+import qualified Data.Set as Set
+import Control.Monad(when, unless)
+import Data.Foldable(traverse_)
 import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
 import Control.Monad.Except(throwError)
@@ -18,6 +20,7 @@ type TC a = State.StateT CheckEnv (Except.Except Text) a
 data CheckEnv =
   CheckEnv { ceVars :: Map Text E.Type
            , ceDecls :: Map Text E.Decl
+           , ceMutable :: Set Text
            , ceTVar :: Int
            , ceSubst :: Map Int E.Type
            , ceConstraints :: [E.TypeConstraint]
@@ -66,6 +69,11 @@ addConstraint :: E.TypeConstraint -> TC ()
 addConstraint c =
   State.modify \env -> env { ceConstraints = c:ceConstraints env }
 
+checkModifiableSymbol :: Text -> TC ()
+checkModifiableSymbol name =
+  do  isMod <- State.gets \env -> name `Set.member` ceMutable env
+      unless isMod (throwError $ "'" <> name <> "' is immutable")
+
 zonk :: E.Type -> TC E.Type
 zonk ty =
   do  subst <- State.gets ceSubst
@@ -106,6 +114,29 @@ inferLit l =
     E.LitBool _ -> E.TypeBool
     E.LitNum _ -> E.TypeNumber
 
+inferStmt :: E.Stmt -> TC E.Stmt
+inferStmt s0 =
+  case s0 of
+    E.Set ident e ->
+      do  let name = E.tnName ident
+          varTy <- getVarType name
+          checkModifiableSymbol name
+          (e', eTy) <- inferExpr e
+          unify varTy eTy
+          pure $ E.Set ident { E.tnType = Just varTy } e'
+    E.Let binder e ->
+      do  let name = E.tnName binder
+          (e', eTy) <- inferExpr e
+          bindVar name eTy
+          pure $ E.Let binder { E.tnType = Just eTy } e'
+    E.If thens els ->
+      E.If <$> traverse checkThen thens <*> traverse inferStmt els
+  where
+    checkThen (test, stmts) =
+      do  (test', tty) <- inferExpr test
+          unify E.TypeBool tty
+          stmts' <- inferStmt `traverse` stmts
+          pure (test', stmts')
 
 inferExpr :: E.Expr -> TC (E.Expr, E.Type)
 inferExpr e0 =
