@@ -61,31 +61,46 @@ allStates (ABM.Agent agentAttrs) =
     -- propagating their `a` tags
     -- e.g. [(1, [2,3]), (2, [4])] -> [[(1,2),(2,4)],[(1,3),(2,4)]]
     -- Adapted from https://mail.haskell.org/pipermail/haskell-cafe/2012-October/104127.html
-    taggedCombos :: [(a, [b])] -> [[(a, b)]]
-    taggedCombos xs = filter ((== length xs) . length) (go xs)
-      where
-        go [] = [[]]
-        go ((_, []):ls) = go ls
-        go ((tag, h:t):ls) = map ((tag, h):) (go ls) ++ go ((tag, t):ls)
+taggedCombos :: [(a, [b])] -> [[(a, b)]]
+taggedCombos xs = filter ((== length xs) . length) (go xs)
+  where
+    go [] = [[]]
+    go ((_, []):ls) = go ls
+    go ((tag, h:t):ls) = map ((tag, h):) (go ls) ++ go ((tag, t):ls)
 
 stateDecl :: ESLState -> ESL.Decl
-stateDecl (ESLState ss) = ESL.State (mkName ss) (Var "???")
+stateDecl (ESLState ss) = ESL.State (stateName ss) (Var "???")
+  -- where
+stateName :: Map Text Text -> Text
+stateName = Text.intercalate "_" . Map.elems
+
+
+agentSets :: ABM.Agent -> ABM.AgentExpr -> [Map Text [ESLState]]
+agentSets agent expr = explode (search expr Map.empty [] (:) agent) agent
+
+explode :: [Map Text ESLState] -> ABM.Agent -> [Map Text [ESLState]]
+explode restrictionSets agent = map (Map.map go) restrictionSets
   where
-    mkName :: Map Text Text -> Text
-    mkName = Text.intercalate "_" . Map.elems
+    go :: ESLState -> [ESLState]
+    go restrictionSet = filter (fits restrictionSet) states
 
+    states = allStates agent
 
-foo expr = search expr Map.empty [] (:) agent
+    fits :: ESLState -> ESLState -> Bool
+    fits (ESLState requiredStatuses) (ESLState actualStatuses) = 
+      Map.intersection actualStatuses requiredStatuses == requiredStatuses
+
+-- foo expr = explode (search expr Map.empty [] (:) agent) agent
 
 simpleEq1 :: ABM.AgentExpr
 simpleEq2 :: ABM.AgentExpr
 simpleEq3 :: ABM.AgentExpr
 simpleEq :: ABM.AgentExpr
-simpleEq1 = ABM.Eq (ABM.Attribute "x" "health") (ABM.Status "sus")
-simpleEq2 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "inf")
-simpleEq3 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "rec")
+simpleEq1 = ABM.Eq (ABM.Attribute "x" "health") (ABM.Status "S")
+simpleEq2 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "I")
+simpleEq3 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "R")
 simpleEq = foldr1 ABM.Or [simpleEq1, simpleEq2, simpleEq3]
-
+-- x.city == y.city && ((x.health == S && y.health == I) || (x.health == S && y.health == R))
 complexEq1 :: ABM.AgentExpr
 complexEq2 :: ABM.AgentExpr
 complexEq3 :: ABM.AgentExpr
@@ -95,7 +110,7 @@ complexEq6 :: ABM.AgentExpr
 complexEq :: ABM.AgentExpr
 complexEq1 = ABM.Eq (ABM.Attribute "x" "city") (ABM.Attribute "y" "city")
 complexEq2 = ABM.Eq (ABM.Attribute "x" "city") (ABM.Status "sea")
-complexEq3 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "sea")
+complexEq3 = ABM.Eq (ABM.Attribute "y" "health") (ABM.Status "S")
 complexEq4 = ABM.Eq (ABM.Attribute "x" "health") (ABM.Attribute "y" "health")
 complexEq5 = ABM.Eq (ABM.Attribute "x" "city") (ABM.Attribute "y" "city")
 complexEq6 = ABM.And complexEq4 complexEq5
@@ -119,8 +134,10 @@ search expr curr fail succ a@(ABM.Agent allAttrs) =
       doSimpleEq agentName agentAttr agentStatus
     ABM.Eq (ABM.Attribute n1 a1) (ABM.Attribute n2 a2) | a1 == a2 ->
       doComplexEq n1 n2 a1
-    ABM.And e1 e2 -> search e1 curr fail (\cur res -> search e2 cur res succ a) a
-    ABM.Or e1 e2 -> search e1 curr (search e2 curr fail succ a) succ a
+    ABM.And e1 e2 -> 
+      search e1 curr fail (\cur res -> search e2 cur res succ a) a
+    ABM.Or e1 e2 -> 
+      search e1 curr (search e2 curr fail succ a) succ a
     _ -> undefined 
 
   where
@@ -185,10 +202,10 @@ search expr curr fail succ a@(ABM.Agent allAttrs) =
               in  succ newAgentMap (randomStatuses ss agents)
           where
             fill :: Text -> Text -> Map Text Text -> Map Text ESLState -> Map Text ESLState
-            fill status agentName agentAttrs curr =
+            fill status agentName agentAttrs cur =
               let newAttrs = Map.insert agentAttr status agentAttrs
                   newState = ESLState newAttrs
-                  newAgentMap = Map.insert agentName newState curr
+                  newAgentMap = Map.insert agentName newState cur
               in  newAgentMap
 
         -- | Given a set of attribute-status bindings for one agent, either
@@ -217,12 +234,12 @@ search expr curr fail succ a@(ABM.Agent allAttrs) =
         potentialStatuses :: [Text]
         potentialStatuses = 
           concatMap ABM.attributeStatuses $
-            filter (\(ABM.AgentAttribute attr ss) -> attr == agentAttr) allAttrs
+            filter (\(ABM.AgentAttribute attr _) -> attr == agentAttr) allAttrs
 
         otherAgent :: Text -> Text
-        otherAgent a
-          | a == agentName1 = agentName2
-          | a == agentName2 = agentName1
+        otherAgent agentName
+          | agentName == agentName1 = agentName2
+          | agentName == agentName2 = agentName1
           | otherwise = error "attempted to find other agent for nonexistent agent"
 
     doSimpleEq :: Text -> Text -> Text -> [Map Text ESLState]
