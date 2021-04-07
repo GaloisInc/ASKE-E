@@ -49,6 +49,8 @@ library
                      , Language.ASKEE.Latex.Print
 
                      , Language.ASKEE.Experiment.Syntax
+                     , Language.ASKEE.Experiment.Lexer
+                     , Language.ASKEE.Experiment.Parser
 
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
@@ -91,7 +93,10 @@ library
                        unordered-containers,
                        process,
                        directory,
-                       temporary
+                       temporary,
+                       alex-tools,
+                       monadLib
+
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -118,6 +123,17 @@ executable donu
   default-language:    Haskell2010
   ghc-options:         -Wall
 
+executable ex
+  hs-source-dirs:      app/ex
+  main-is:             Main.hs
+  build-depends:
+    base,
+    alex-tools,
+    pretty-show,
+    aske-e
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+    
 
 
 

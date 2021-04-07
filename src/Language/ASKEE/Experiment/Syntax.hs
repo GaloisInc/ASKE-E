@@ -12,6 +12,9 @@ data TypedName =
             }
   deriving Show
 
+untypedName :: Text -> TypedName
+untypedName x = TypedName { tnName = x, tnType = Nothing }
+
 type Binder = TypedName
 type Ident = TypedName
 type Label = Text
@@ -54,8 +57,8 @@ data MeasureDecl =
   deriving Show
 
 data Stmt =
-    Set Text Expr
-  | Let Text Expr
+    Set Ident Expr
+  | Let Binder Expr
   | If [(Expr, [Stmt])] [Stmt]
   deriving Show
 
