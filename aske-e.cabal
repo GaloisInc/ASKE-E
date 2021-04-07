@@ -51,6 +51,7 @@ library
                      , Language.ASKEE.Experiment.Syntax
                      , Language.ASKEE.Experiment.Lexer
                      , Language.ASKEE.Experiment.Parser
+                     , Language.ASKEE.Experiment.Typechecker
 
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform

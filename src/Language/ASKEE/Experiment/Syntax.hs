@@ -66,9 +66,14 @@ data Type =
     TypeNumber
   | TypeBool
   | TypeSequence Type
-  | TypePoint [(Text, Type)]
-  | TypeModel Text
-  deriving Show
+  -- | TypePoint (Map Text Type)
+  -- | TypeCallable [Type] Type
+  | TypeVar Int
+  deriving (Show, Eq, Ord)
+
+data TypeConstraint =
+    HasField Type Label Type
+  deriving (Show, Eq, Ord)
 
 data Literal =
     LitBool Bool
