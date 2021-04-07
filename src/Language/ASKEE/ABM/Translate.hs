@@ -1,9 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+
+-- {-# OPTIONS_GHC -Wno-missing-signatures #-}
+-- {-# OPTIONS_GHC -Wno-unused-imports #-}
+-- {-# OPTIONS_GHC -Wno-unused-local-binds #-}
+-- {-# OPTIONS_GHC -Wno-unused-matches #-}
+-- {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# LANGUAGE TupleSections #-}
 module Language.ASKEE.ABM.Translate where
 
-import           Data.List ( intercalate )
+import           Data.List ( intercalate, nub )
 import qualified Data.Map  as Map
 import           Data.Map  ( Map )
 import qualified Data.MultiSet as MSet
@@ -17,6 +24,8 @@ import qualified Language.ASKEE.ABM.Syntax as ABM
 import           Language.ASKEE.Expr
 import qualified Language.ASKEE.Syntax as ESL
 import Language.ASKEE.ABM.Sample
+import Debug.Trace
+import Prelude hiding ( succ, fail )
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
@@ -26,7 +35,7 @@ newtype ESLState = ESLState
   deriving (Eq, Ord, Show)
 
 abmToModel :: ABM.Model -> ESL.Model
-abmToModel ABM.Model{..} = ESL.Model name (lets++states) []
+abmToModel ABM.Model{..} = ESL.Model name (lets++states) events
   where
     name = modelName
     lets = 
@@ -34,19 +43,41 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) []
       | (v, e) <- modelLets
       ]
     states = map stateDecl (allStates modelAgent)
+    events = concatMap (translateEvent agent) modelEvents
 
-translateEvent :: ABM.Event -> [ESL.Event]
-translateEvent = undefined 
 
--- unpackESLState :: ESLState -> [String]
--- unpackESLState (ESLState statuses) = Map.elems statuses
-
-generateMultiSets :: [ESLState] -> Int -> Set (MultiSet ESLState)
-generateMultiSets options 1 = Set.fromList $ map MSet.singleton options
-generateMultiSets options n = Set.unions $ map go options
+translateEvent :: ABM.Agent -> ABM.Event -> [ESL.Event]
+translateEvent agent ABM.Event{..} = concatMap template relevantStates
   where
-    go :: ESLState -> Set (MultiSet ESLState)
-    go s = Set.map (MSet.insert s) (generateMultiSets options (n - 1))
+    template :: Map Text [ESLState] -> [ESL.Event]
+    template agents = 
+      nub $ 
+        map (instantiateEvent . Map.fromList) (taggedCombos $ Map.toList agents)
+
+    instantiateEvent :: Map Text ESLState -> ESL.Event
+    instantiateEvent agentMapping = 
+      ESL.Event eventName Nothing eventRate (concatMap asStatement eventEffect) Nothing
+      where
+        asStatement :: ABM.AgentAssign -> [ESL.Statement]
+        asStatement (ABM.AgentAssign (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus)) =
+          let ESLState decAgentStatuses = agentMapping Map.! agentName
+              incAgentStatuses = Map.insert agentAttr agentStatus decAgentStatuses
+              decAgentName = stateName decAgentStatuses
+              incAgentName = stateName incAgentStatuses
+          in  [ (decAgentName, Var decAgentName `Sub` LitD 1)
+              , (incAgentName, Var incAgentName `Add` LitD 1)
+              ]
+        asStatement _ = undefined
+
+
+    relevantStates = agentSets agent eventWhen
+
+-- generateMultiSets :: [ESLState] -> Int -> Set (MultiSet ESLState)
+-- generateMultiSets options 1 = Set.fromList $ map MSet.singleton options
+-- generateMultiSets options n = Set.unions $ map go options
+--   where
+--     go :: ESLState -> Set (MultiSet ESLState)
+--     go s = Set.map (MSet.insert s) (generateMultiSets options (n - 1))
 
 allStates :: ABM.Agent -> [ESLState]
 allStates (ABM.Agent agentAttrs) = 
