@@ -16,119 +16,6 @@ import Control.Monad.Except(throwError)
 import qualified Language.ASKEE.Experiment.Syntax as E
 import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType))
 
-type TC a = State.StateT CheckEnv (Except.Except Text) a
-
-data CheckEnv =
-  CheckEnv { ceVars :: Map Text E.Type
-           , ceDecls :: Map Text E.Decl
-           , ceMutable :: Set Text
-           , ceTVar :: Int
-           , ceSubst :: Map Int E.Type
-           , ceConstraints :: [E.TypeConstraint]
-           }
-
-emptyCheckEnv :: CheckEnv
-emptyCheckEnv =
-  CheckEnv
-    { ceVars        = mempty
-    , ceDecls       = mempty
-    , ceMutable     = mempty
-    , ceTVar        = 1
-    , ceSubst       = mempty
-    , ceConstraints = mempty
-    }
-
-
-{-
-runTC :: TC a -> Either Text a
-runTC tc = Except.runExcept $ State.evalState tc env
-  where
-  env = emptyCheckEnv
--}
-
-requireUnboundName :: Text -> TC ()
-requireUnboundName name =
-  do  isBound <- State.gets isNameBound
-      when isBound (throwError $ "Symbol '" <> name <> "' is already bound`")
-  where
-    isNameBound env =
-      Map.member name (ceVars env) || Map.member name (ceDecls env)
-
-bindVar :: Text -> E.Type -> TC ()
-bindVar name ty =
-  do  requireUnboundName name
-      State.modify \env -> env { ceVars = Map.insert name ty (ceVars env)}
-
-bindDecl :: Text -> E.Decl -> TC ()
-bindDecl name decl =
-  do  requireUnboundName (declName decl)
-      State.modify \env -> env { ceDecls = Map.insert name decl (ceDecls env)}
-
-getVarType :: Text -> TC E.Type
-getVarType name =
-  do  vars <- State.gets ceVars
-      case Map.lookup name vars of
-        Nothing -> throwError ("Variable '" <> name <> "' is not defined")
-        Just ty -> pure ty
-
-bindDecl' :: E.Decl -> TC ()
-bindDecl' decl = bindDecl (declName decl) decl
-
-newTVar :: TC E.Type
-newTVar =
-  do  i <- State.gets ceTVar
-      State.modify \env -> env { ceTVar = i + 1}
-      pure (E.TypeVar i)
-
-addConstraint :: E.TypeConstraint -> TC ()
-addConstraint c =
-  State.modify \env -> env { ceConstraints = c:ceConstraints env }
-
-checkModifiableSymbol :: Text -> TC ()
-checkModifiableSymbol name =
-  do  isMod <- State.gets \env -> name `Set.member` ceMutable env
-      unless isMod (throwError $ "'" <> name <> "' is immutable")
-
-setModifiableSymbol :: Text -> TC ()
-setModifiableSymbol name =
-  State.modify \env ->
-                env { ceMutable = Set.insert name (ceMutable env) }
-
-zonkType :: E.Type -> TC E.Type
-zonkType ty =
-  do  subst <- State.gets ceSubst
-      pure (applySubst subst ty)
-
-zonk :: TraverseType t => t -> TC t
-zonk = traverseType zonkType
-
-unify :: E.Type -> E.Type -> TC ()
-unify t1 t2 =
-  do  t1' <- zonk t1
-      t2' <- zonk t2
-      case mgu t1' t2' of
-        Nothing ->
-          -- XXX: add a real error
-          throwError "Type error"
-        Just u ->
-          State.modify
-            \env -> env { ceSubst = ceSubst env `composeSubst` u }
-
-
-
--- scope :: TC a -> TC a
--- scope tc =
---   do  vars <- State.gets ce
---       a <- tc
---       State.modify (\env -> env { ce})
-
-
-declName :: E.Decl -> Text
-declName decl =
-  case decl of
-    E.DMeasure m -> E.tnName $ E.measureName m
-    E.DExperiment e -> E.tnName $ E.experimentName e
-
 --------------
 
 inferLit :: E.Literal -> E.Type
@@ -213,13 +100,129 @@ inferExpr e0 =
     unifyAll ty ts = unify ty `traverse_` ts
 
 
--- constraints
 
 
 
 
--- unificiation
+--------------------------------------------------------------------------------
+-- The typechecking monad
 
+type TC a = State.StateT CheckEnv (Except.Except Text) a
+
+data CheckEnv =
+  CheckEnv { ceVars :: Map Text E.Type
+           , ceDecls :: Map Text E.Decl
+           , ceMutable :: Set Text
+           , ceTVar :: Int
+           , ceSubst :: Map Int E.Type
+           , ceConstraints :: [E.TypeConstraint]
+           }
+
+emptyCheckEnv :: CheckEnv
+emptyCheckEnv =
+  CheckEnv
+    { ceVars        = mempty
+    , ceDecls       = mempty
+    , ceMutable     = mempty
+    , ceTVar        = 1
+    , ceSubst       = mempty
+    , ceConstraints = mempty
+    }
+
+
+{-
+runTC :: TC a -> Either Text a
+runTC tc = Except.runExcept $ State.evalState tc env
+  where
+  env = emptyCheckEnv
+-}
+
+requireUnboundName :: Text -> TC ()
+requireUnboundName name =
+  do  isBound <- State.gets isNameBound
+      when isBound (throwError $ "Symbol '" <> name <> "' is already bound`")
+  where
+    isNameBound env =
+      Map.member name (ceVars env) || Map.member name (ceDecls env)
+
+bindVar :: Text -> E.Type -> TC ()
+bindVar name ty =
+  do  requireUnboundName name
+      State.modify \env -> env { ceVars = Map.insert name ty (ceVars env)}
+
+bindDecl :: Text -> E.Decl -> TC ()
+bindDecl name decl =
+  do  requireUnboundName (declName decl)
+      State.modify \env -> env { ceDecls = Map.insert name decl (ceDecls env)}
+
+declName :: E.Decl -> Text
+declName decl =
+  case decl of
+    E.DMeasure m -> E.tnName $ E.measureName m
+    E.DExperiment e -> E.tnName $ E.experimentName e
+
+
+
+getVarType :: Text -> TC E.Type
+getVarType name =
+  do  vars <- State.gets ceVars
+      case Map.lookup name vars of
+        Nothing -> throwError ("Variable '" <> name <> "' is not defined")
+        Just ty -> pure ty
+
+bindDecl' :: E.Decl -> TC ()
+bindDecl' decl = bindDecl (declName decl) decl
+
+newTVar :: TC E.Type
+newTVar =
+  do  i <- State.gets ceTVar
+      State.modify \env -> env { ceTVar = i + 1}
+      pure (E.TypeVar i)
+
+addConstraint :: E.TypeConstraint -> TC ()
+addConstraint c =
+  State.modify \env -> env { ceConstraints = c:ceConstraints env }
+
+checkModifiableSymbol :: Text -> TC ()
+checkModifiableSymbol name =
+  do  isMod <- State.gets \env -> name `Set.member` ceMutable env
+      unless isMod (throwError $ "'" <> name <> "' is immutable")
+
+setModifiableSymbol :: Text -> TC ()
+setModifiableSymbol name =
+  State.modify \env ->
+                env { ceMutable = Set.insert name (ceMutable env) }
+
+zonk :: TraverseType t => t -> TC t
+zonk = traverseType \ty -> do subst <- State.gets ceSubst
+                              pure (applySubst subst ty)
+
+unify :: E.Type -> E.Type -> TC ()
+unify t1 t2 =
+  do  t1' <- zonk t1
+      t2' <- zonk t2
+      case mgu t1' t2' of
+        Nothing ->
+          -- XXX: add a real error
+          throwError "Type error"
+        Just u ->
+          State.modify
+            \env -> env { ceSubst = ceSubst env `composeSubst` u }
+
+
+
+-- scope :: TC a -> TC a
+-- scope tc =
+--   do  vars <- State.gets ce
+--       a <- tc
+--       State.modify (\env -> env { ce})
+
+
+
+
+
+--------------------------------------------------------------------------------
+-- Substitution and Unifiers
 
 mgu :: E.Type -> E.Type -> Maybe (Map Int E.Type)
 mgu t1 t2  =
