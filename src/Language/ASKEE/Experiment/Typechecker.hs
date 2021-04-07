@@ -14,6 +14,7 @@ import qualified Control.Monad.Except as Except
 import Control.Monad.Except(throwError)
 
 import qualified Language.ASKEE.Experiment.Syntax as E
+import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType))
 
 type TC a = State.StateT CheckEnv (Except.Except Text) a
 
@@ -26,10 +27,24 @@ data CheckEnv =
            , ceConstraints :: [E.TypeConstraint]
            }
 
--- runTC :: CheckEnv -> TC a -> Either Text a
--- runTC env tc =
---   let tcResult = State.evalState tc env
---   in Except.runExcept tcResult
+emptyCheckEnv :: CheckEnv
+emptyCheckEnv =
+  CheckEnv
+    { ceVars        = mempty
+    , ceDecls       = mempty
+    , ceMutable     = mempty
+    , ceTVar        = 1
+    , ceSubst       = mempty
+    , ceConstraints = mempty
+    }
+
+
+{-
+runTC :: TC a -> Either Text a
+runTC tc = Except.runExcept $ State.evalState tc env
+  where
+  env = emptyCheckEnv
+-}
 
 requireUnboundName :: Text -> TC ()
 requireUnboundName name =
@@ -74,10 +89,18 @@ checkModifiableSymbol name =
   do  isMod <- State.gets \env -> name `Set.member` ceMutable env
       unless isMod (throwError $ "'" <> name <> "' is immutable")
 
-zonk :: E.Type -> TC E.Type
-zonk ty =
+setModifiableSymbol :: Text -> TC ()
+setModifiableSymbol name =
+  State.modify \env ->
+                env { ceMutable = Set.insert name (ceMutable env) }
+
+zonkType :: E.Type -> TC E.Type
+zonkType ty =
   do  subst <- State.gets ceSubst
       pure (applySubst subst ty)
+
+zonk :: TraverseType t => t -> TC t
+zonk = traverseType zonkType
 
 unify :: E.Type -> E.Type -> TC ()
 unify t1 t2 =
