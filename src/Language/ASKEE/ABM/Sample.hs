@@ -19,7 +19,7 @@ agent :: Agent
 agent = Agent attrs
   where
     attrs =
-      [ AgentAttribute "health" ["S", "I", "R"]
+      [ AgentAttribute "health" ["S", "E", "I", "R"]
       , AgentAttribute "city" ["sea", "pdx"]
       -- , AgentAttribute "age" ["0-30", "31-60", "61-90"]
       -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
@@ -27,10 +27,10 @@ agent = Agent attrs
 
 inits :: [(Text, Expr)]
 inits =
-  [ ("susceptible", Div (Sub (Var "pop_size") (LitD 3)) (Var "pop_size"))
-  , ("exposed",     Div                       (LitD 3)  (Var "pop_size"))
-  , ("infected", LitD 0)
-  , ("recovered", LitD 0)
+  [ ("S", Div (Sub (Var "pop_size") (LitD 3)) (Var "pop_size"))
+  , ("E",     Div                   (LitD 3)  (Var "pop_size"))
+  , ("I", LitD 0)
+  , ("R", LitD 0)
   , ("sea", Div (LitD 2) (LitD 3))
   , ("pdx", Div (LitD 1) (LitD 3))
   ]
@@ -44,44 +44,44 @@ events = [expose_e, expose_i, infect, remit, recover]
       ["x", "y"] 
       (foldr1 And
         [ Eq (Attribute "x" "city") (Attribute "y" "city")
-        , Eq (Attribute "x" "city") (Status "susceptible")
-        , Eq (Attribute "y" "city") (Status "exposed")
+        , Eq (Attribute "x" "health") (Status "S")
+        , Eq (Attribute "y" "health") (Status "E")
         ])
       (LitD 0.4)
-      [AgentAssign (Attribute "x" "health") (Status "exposed")]
-    
+      [AgentAssign (Attribute "x" "health") (Status "E")]
+
     expose_i :: Event
     expose_i = Event
       "Expose_i"
       ["x", "y"] 
       (foldr1 And
         [ Eq (Attribute "x" "city") (Attribute "y" "city")
-        , Eq (Attribute "x" "city") (Status "susceptible")
-        , Eq (Attribute "y" "city") (Status "infected")
+        , Eq (Attribute "x" "city") (Status "S")
+        , Eq (Attribute "y" "city") (Status "I")
         ])
       (LitD 0.4)
-      [AgentAssign (Attribute "x" "health") (Status "exposed")]
+      [AgentAssign (Attribute "x" "health") (Status "E")]
 
     infect :: Event
     infect = Event
       "Infect"
       ["x"] 
-      (Eq (Attribute "x" "health") (Status "exposed"))
+      (Eq (Attribute "x" "health") (Status "E"))
       (LitD 0.5) 
-      [AgentAssign (Attribute "x" "health") (Status "infected")]
+      [AgentAssign (Attribute "x" "health") (Status "I")]
 
     remit :: Event
     remit = Event
       "Remit"
       ["x"] 
-      (Eq (Attribute "x" "health") (Status "exposed"))
+      (Eq (Attribute "x" "health") (Status "E"))
       (LitD 0.5) 
-      [AgentAssign (Attribute "x" "health") (Status "recovered")]
+      [AgentAssign (Attribute "x" "health") (Status "R")]
 
     recover :: Event
     recover = Event
       "Recover"
       ["x"] 
-      (Eq (Attribute "x" "health") (Status "infected"))
+      (Eq (Attribute "x" "health") (Status "I"))
       (LitD 0.8) 
-      [AgentAssign (Attribute "x" "health") (Status "recovered")]
+      [AgentAssign (Attribute "x" "health") (Status "R")]
