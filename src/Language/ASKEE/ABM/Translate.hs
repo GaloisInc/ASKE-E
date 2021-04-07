@@ -195,7 +195,7 @@ go expr curr fail succ a@(ABM.Agent allAttrs) =
               let newAttrs = Map.insert agentAttr agentStatus currentAttrs
                   newState = ESLState newAttrs
                   newAgentMap = Map.insert agentName newState curr
-              in  newAgentMap
+              in  succ newAgentMap fail
             _ -> fail
 
 
