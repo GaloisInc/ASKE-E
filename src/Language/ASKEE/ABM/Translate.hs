@@ -114,7 +114,7 @@ go expr curr fail succ a@(ABM.Agent allAttrs) =
           pickStatusForAgents potentialStatuses
         (Just (ESLState currentAttrs), Nothing) ->
           -- agentName1 exists in the mapping - find a matching 
-          -- status for agentName1
+          -- status for agentName2
           makeStatusForAgent currentAttrs agentName2
         (Nothing, Just (ESLState currentAttrs)) ->
           -- agentName2 exists in the mapping - find a matching 
