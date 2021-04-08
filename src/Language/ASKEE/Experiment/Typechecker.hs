@@ -239,7 +239,7 @@ extractConstraints :: TC [E.TypeConstraint]
 extractConstraints =
   do  cs <- State.gets ceConstraints
       State.modify \env -> env { ceConstraints = [] }
-      pure cs
+      zonk cs
 
 checkModifiableSymbol :: Text -> TC ()
 checkModifiableSymbol name =
