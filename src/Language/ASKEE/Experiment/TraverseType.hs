@@ -2,8 +2,27 @@
 module Language.ASKEE.Experiment.TraverseType where
 
 import Data.Text(Text)
+import Data.Functor.Identity(Identity(..), runIdentity)
+import Data.Functor.Const(Const(..), getConst)
 import Language.ASKEE.Experiment.Syntax
 
+collect :: (TraverseType t, Monoid m) => (Type -> m) -> t -> m
+collect f t =
+  getConst $ traverseType (Const . f) t
+
+mapType :: TraverseType t => (Type -> Type) -> t -> t
+mapType f t =
+  runIdentity $ traverseType (Identity . f) t
+
+
+-- data Const w a = Const w
+
+-- instance Functor (Const w) where
+--   fmap _ (Const c) = Const c
+
+-- instance Monoid w => Applicative (Const w) where
+--   pure _ = Const mempty
+--   Const w <*> Const w2 = Const (w <> w2)
 
 class TraverseType t where
   traverseType :: Applicative f => (Type -> f Type) -> t -> f t
@@ -59,8 +78,11 @@ instance TraverseType MeasureExpr where
 instance TraverseType MeasureDecl where
   traverseType f md =
     MeasureDecl <$> traverseType f (measureName md)
+                <*> pure (measureTArgs md)
+                <*> traverseType f (measureConstraints md)
                 <*> traverseType f (measureArgs md)
                 <*> traverseType f (measureVars md)
+                <*> traverseType f (measureDataBinder md)
                 <*> traverseType f (measureImpl md)
 
 instance TraverseType ExperimentDecl where
@@ -77,3 +99,9 @@ instance TraverseType Decl where
     case decl of
       DMeasure m    -> DMeasure    <$> traverseType f m
       DExperiment e -> DExperiment <$> traverseType f e
+
+instance TraverseType TypeConstraint where
+  traverseType f c =
+    case c of
+      HasField recTy label fieldTy ->
+        HasField <$> f recTy <*> pure label <*> f fieldTy

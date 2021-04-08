@@ -50,9 +50,12 @@ data ExperimentDecl =
 
 data MeasureDecl =
   MeasureDecl { measureName :: Ident
+              , measureTArgs :: [Int]
+              , measureConstraints :: [TypeConstraint]
               , measureArgs :: [Binder]
               , measureVars :: [(Binder, Expr)]
-              , measureImpl :: (Binder, [Stmt])
+              , measureDataBinder :: Binder
+              , measureImpl :: [Stmt]
               }
   deriving Show
 
@@ -62,13 +65,18 @@ data Stmt =
   | If [(Expr, [Stmt])] [Stmt]
   deriving Show
 
+data TypeVar =
+    TVBound Int
+  | TVFree  Int
+  deriving (Show, Eq, Ord)
+
 data Type =
     TypeNumber
   | TypeBool
   | TypeSequence Type
   -- | TypePoint (Map Text Type)
   -- | TypeCallable [Type] Type
-  | TypeVar Int
+  | TypeVar TypeVar
   deriving (Show, Eq, Ord)
 
 data TypeConstraint =

@@ -1,8 +1,12 @@
 {
 {-# Language BlockArguments ,ViewPatterns, GeneralizedNewtypeDeriving #-}
 module Language.ASKEE.Experiment.Parser
-  ( parseDecls, parseDeclsFromFile
-  , ParseError(..)
+  ( ParseError(..)
+  , parse
+  , parseFromFile
+  , declsP
+  , blockP
+  , exprP
   ) where
 
 import Data.Text(Text)
@@ -67,6 +71,8 @@ import Language.ASKEE.Experiment.Lexer
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
 
 %name declsP decls
+%name exprP expr
+%name blockP block
 
 %left     '||'
 %left     '&&'
@@ -103,11 +109,14 @@ measureExpr                   :: { Ident -> ExperimentDecl -> ExperimentDecl }
 measure                                :: { MeasureDecl }
   : 'measure' ident params
       listOf(measureVar)
-      'with' ident listOf(stmt)           { MeasureDecl
+      'with' ident block                  { MeasureDecl
                                               { measureName = $2
+                                              , measureTArgs = []
+                                              , measureConstraints = []
                                               , measureArgs = $3
                                               , measureVars = $4
-                                              , measureImpl = ($6,$7)
+                                              , measureDataBinder = $6
+                                              , measureImpl = $7
                                               } }
 
 measureVar                             :: { (Ident,Expr) }
@@ -131,18 +140,21 @@ type                                   :: { Type }
   | 'bool'                                { TypeBool }
 
 
+block                                  :: { [Stmt] }
+  : listOf1(stmt)                         { $1 }
+
 stmt                                   :: { Stmt }
   : ident '=' expr                        { Set $1 $3 }
   | 'let' ident '=' expr                  { Let $2 $4 }
   | ifStmt 'end'                          { $1 [] }
-  | ifStmt 'else' listOf1(stmt) 'end'     { $1 $3 }
+  | ifStmt 'else' block 'end'             { $1 $3 }
 
 
 ifStmt                                 :: { [Stmt] -> Stmt }
   : 'if' thenStmt listOf(elseIf)          { If ($2 : $3) }
 
 thenStmt                               :: { (Expr,[Stmt]) }
-  : expr 'then' listOf1(stmt)             { ($1,$3) }
+  : expr 'then' block                     { ($1,$3) }
 
 elseIf                                 :: { (Expr,[Stmt]) }
   : 'elif' thenStmt                       { $2 }
@@ -282,18 +294,17 @@ isLexNumber x = case lexemeToken x of
 
 --------------------------------------------------------------------------------
 
-parseDecls :: Text -> Text -> Either ParseError [Decl]
-parseDecls srcName thingToParse =
+parse ::  Parser a -> Text -> Text -> Either ParseError a
+parse (Parser m) srcName thingToParse =
   fst <$> runId (runExceptionT (runStateT tokens m))
   where
-  Parser m = declsP
   tokens   = lexer srcName thingToParse
 
 -- Throws parse error
-parseDeclsFromFile :: FilePath -> IO [Decl]
-parseDeclsFromFile file =
+parseFromFile :: Parser a -> FilePath -> IO a
+parseFromFile m file =
   do txt <- Text.readFile file
-     case parseDecls (Text.pack file) txt of
+     case parse m (Text.pack file) txt of
        Right a  -> pure a
        Left err -> throwIO err
 

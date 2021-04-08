@@ -7,22 +7,78 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
-import Control.Monad(when, unless)
+import Control.Monad(when, unless, forM)
 import Data.Foldable(traverse_)
 import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
 import Control.Monad.Except(throwError)
 
 import qualified Language.ASKEE.Experiment.Syntax as E
-import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType))
+import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType), collect, mapType)
 
 --------------
+
+inferArgs :: [E.Binder] -> ([E.Binder] -> TC a) -> TC a
+inferArgs args body =
+    scope $
+      (introduceArg `traverse` args) >>= body
+  where
+    introduceArg binder =
+      do  ty <- case E.tnType binder of
+                  Just t  -> pure t
+                  Nothing -> newTVar
+          bindVar (E.tnName binder) ty
+          pure binder { E.tnType = Just ty }
+
+inferMeasure :: E.MeasureDecl -> TC E.MeasureDecl
+inferMeasure measure =
+  inferArgs (E.measureArgs measure) \args ->
+    do  -- vars
+        let (varNames, varExprs) = unzip (E.measureVars measure)
+        (varExps', varExpTys) <- unzip <$> inferExpr `traverse` varExprs
+        varNames' <-
+          forM (zip varNames varExpTys) \(name, ty) ->
+            do  bindVar (E.tnName name) ty
+                setModifiableSymbol (E.tnName name)
+                pure name { E.tnType = Just ty }
+
+        -- binder
+        binderTy <- newTVar
+        let dataBinder' = (E.measureDataBinder measure) { E.tnType = Just binderTy }
+        bindVar (E.tnName dataBinder') binderTy
+
+        -- impl
+        block' <- inferBlock (E.measureImpl measure)
+
+        m' <- zonk E.MeasureDecl { E.measureName = E.measureName measure
+                                 , E.measureTArgs = []
+                                 , E.measureConstraints = []
+                                 , E.measureArgs = args
+                                 , E.measureVars = zip varNames' varExps'
+                                 , E.measureDataBinder = dataBinder'
+                                 , E.measureImpl = block'
+                                 }
+
+        let freeVars = Set.toList $ freeTVars m'
+            bv = E.TVBound <$> freeVars
+            subst = Map.fromList (zip (E.TVFree <$> freeVars) (E.TypeVar <$> bv))
+
+        cns <- extractConstraints
+
+        pure $ mapType (applySubst subst) m' { E.measureTArgs = freeVars
+                                             , E.measureConstraints = cns
+                                             }
+
+
 
 inferLit :: E.Literal -> E.Type
 inferLit l =
   case l of
     E.LitBool _ -> E.TypeBool
     E.LitNum _ -> E.TypeNumber
+
+inferBlock :: [E.Stmt] -> TC [E.Stmt]
+inferBlock = scope . traverse inferStmt
 
 inferStmt :: E.Stmt -> TC E.Stmt
 inferStmt s0 =
@@ -40,12 +96,12 @@ inferStmt s0 =
           bindVar name eTy
           pure $ E.Let binder { E.tnType = Just eTy } e'
     E.If thens els ->
-      E.If <$> traverse checkThen thens <*> traverse inferStmt els
+      E.If <$> traverse checkThen thens <*> inferBlock els
   where
     checkThen (test, stmts) =
       do  (test', tty) <- inferExpr test
           unify E.TypeBool tty
-          stmts' <- inferStmt `traverse` stmts
+          stmts' <- inferBlock stmts
           pure (test', stmts')
 
 inferExpr :: E.Expr -> TC (E.Expr, E.Type)
@@ -114,7 +170,7 @@ data CheckEnv =
            , ceDecls :: Map Text E.Decl
            , ceMutable :: Set Text
            , ceTVar :: Int
-           , ceSubst :: Map Int E.Type
+           , ceSubst :: Subst
            , ceConstraints :: [E.TypeConstraint]
            }
 
@@ -130,12 +186,10 @@ emptyCheckEnv =
     }
 
 
-{-
-runTC :: TC a -> Either Text a
-runTC tc = Except.runExcept $ State.evalState tc env
+runTC :: TraverseType a => TC a -> Either Text a
+runTC tc = Except.runExcept $ State.evalStateT (tc >>= zonk) env
   where
   env = emptyCheckEnv
--}
 
 requireUnboundName :: Text -> TC ()
 requireUnboundName name =
@@ -161,8 +215,6 @@ declName decl =
     E.DMeasure m -> E.tnName $ E.measureName m
     E.DExperiment e -> E.tnName $ E.experimentName e
 
-
-
 getVarType :: Text -> TC E.Type
 getVarType name =
   do  vars <- State.gets ceVars
@@ -177,11 +229,17 @@ newTVar :: TC E.Type
 newTVar =
   do  i <- State.gets ceTVar
       State.modify \env -> env { ceTVar = i + 1}
-      pure (E.TypeVar i)
+      pure (E.TypeVar (E.TVFree i))
 
 addConstraint :: E.TypeConstraint -> TC ()
 addConstraint c =
   State.modify \env -> env { ceConstraints = c:ceConstraints env }
+
+extractConstraints :: TC [E.TypeConstraint]
+extractConstraints =
+  do  cs <- State.gets ceConstraints
+      State.modify \env -> env { ceConstraints = [] }
+      pure cs
 
 checkModifiableSymbol :: Text -> TC ()
 checkModifiableSymbol name =
@@ -210,46 +268,46 @@ unify t1 t2 =
             \env -> env { ceSubst = ceSubst env `composeSubst` u }
 
 
-
--- scope :: TC a -> TC a
--- scope tc =
---   do  vars <- State.gets ce
---       a <- tc
---       State.modify (\env -> env { ce})
-
-
-
-
+scope :: TC a -> TC a
+scope tc =
+  do  env0 <- State.get
+      a <- tc
+      State.modify \env -> env { ceVars = ceVars env0
+                               , ceMutable = ceMutable env0
+                               }
+      pure a
 
 --------------------------------------------------------------------------------
 -- Substitution and Unifiers
 
-mgu :: E.Type -> E.Type -> Maybe (Map Int E.Type)
+mgu :: E.Type -> E.Type -> Maybe Subst
 mgu t1 t2  =
   case (t1, t2) of
     (E.TypeBool, E.TypeBool) -> ok
     (E.TypeNumber, E.TypeNumber) -> ok
     (E.TypeSequence t1', E.TypeSequence t2') ->
       mgu t1' t2'
-    (E.TypeVar i, _) -> bindTVar i t2
-    (_, E.TypeVar i) -> bindTVar i t1
+    (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
+    (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
     _ -> Nothing
   where
     ok = Just Map.empty
 
+type Subst = Map E.TypeVar E.Type
+
 -- applySubst (composeSubst s1 s2) t == applySubst s2 (applySubst s1 t)
-composeSubst :: Map Int E.Type -> Map Int E.Type -> Map Int E.Type
+composeSubst :: Subst -> Subst -> Subst
 composeSubst s1 s2 =
   (applySubst s2 <$> s1) `Map.union` s2
 
-bindTVar :: Int -> E.Type -> Maybe (Map Int E.Type)
+bindTVar :: E.TypeVar -> E.Type -> Maybe Subst
 bindTVar var ty =
   case ty of
     E.TypeVar i | var == i  -> Just Map.empty
     _ | occurs var ty       -> Nothing
       | otherwise           -> Just $ Map.singleton var ty
 
-occurs :: Int -> E.Type -> Bool
+occurs :: E.TypeVar -> E.Type -> Bool
 occurs var ty =
   case ty of
     E.TypeBool -> False
@@ -257,7 +315,7 @@ occurs var ty =
     E.TypeVar i -> var == i
     E.TypeSequence sty -> occurs var sty
 
-applySubst :: Map Int E.Type -> E.Type -> E.Type
+applySubst :: Subst -> E.Type -> E.Type
 applySubst subst ty =
   case ty of
     E.TypeBool -> E.TypeBool
@@ -265,3 +323,13 @@ applySubst subst ty =
     E.TypeSequence ty' -> E.TypeSequence (applySubst subst ty')
     E.TypeVar i -> Map.findWithDefault ty i subst
 
+freeTVars :: TraverseType t => t -> Set Int
+freeTVars = collect freeVarsInType
+  where
+    freeVarsInType t0 =
+      case t0 of
+        E.TypeBool -> Set.empty
+        E.TypeNumber -> Set.empty
+        E.TypeSequence t -> freeVarsInType t
+        E.TypeVar (E.TVFree i) -> Set.singleton i
+        E.TypeVar (E.TVBound _) -> Set.empty
