@@ -7,7 +7,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
-import Control.Monad(when, unless, forM)
+import Control.Monad(when, unless, forM, zipWithM)
 import Data.Foldable(traverse_)
 import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
@@ -69,9 +69,21 @@ inferMeasure measure =
 
         cns <- extractConstraints
 
-        pure $ mapType (applySubst subst) m' { E.measureTArgs = freeVars
-                                             , E.measureConstraints = cns
-                                             }
+        pure $ applySubst subst m' { E.measureTArgs       = freeVars
+                                   , E.measureConstraints = cns
+                                   }
+
+inferMeasureExpr :: E.MeasureExpr -> TC (E.Type, E.MeasureExpr)
+inferMeasureExpr mexpr =
+  do mty <- lookupMeasure (E.tnName (E.meMeasureName mexpr))
+     undefined
+
+checkCall :: [E.Expr] -> [E.Type] -> TC [E.Expr]
+checkCall es ts =
+  case compare (length es) (length ts) of
+    EQ -> zipWithM checkExpr es ts
+    LT -> throwError "Not enough arguments"
+    GT -> throwError "Too many arguments"
 
 
 inferLit :: E.Literal -> E.Type
@@ -106,6 +118,13 @@ inferStmt s0 =
           unify E.TypeBool tty
           stmts' <- inferBlock stmts
           pure (test', stmts')
+
+
+checkExpr :: E.Expr -> E.Type -> TC E.Expr
+checkExpr e t =
+  do (e',t') <- inferExpr e
+     unify t t'
+     pure e'
 
 inferExpr :: E.Expr -> TC (E.Expr, E.Type)
 inferExpr e0 =
@@ -212,6 +231,17 @@ bindDecl name decl =
   do  requireUnboundName (declName decl)
       State.modify \env -> env { ceDecls = Map.insert name decl (ceDecls env)}
 
+lookupMeasure :: Text -> TC E.MeasureType
+lookupMeasure name =
+  do mb <- State.gets (Map.lookup name . ceDecls)
+     case mb of
+       Nothing -> throwError $ "Undefined measure '" <> name <> "'"
+       Just decl  ->
+         case decl of
+           E.DExperiment {} ->
+              throwError $ "'" <> name <> "' is an experiment, not a measure."
+           E.DMeasure m -> instantiate (E.measureType m)
+
 declName :: E.Decl -> Text
 declName decl =
   case decl of
@@ -224,6 +254,7 @@ getVarType name =
       case Map.lookup name vars of
         Nothing -> throwError ("Variable '" <> name <> "' is not defined")
         Just ty -> pure ty
+
 
 bindDecl' :: E.Decl -> TC ()
 bindDecl' decl = bindDecl (declName decl) decl
@@ -263,10 +294,8 @@ unify t1 t2 =
   do  t1' <- zonk t1
       t2' <- zonk t2
       case mgu t1' t2' of
-        Nothing ->
-          -- XXX: add a real error
-          throwError "Type error"
-        Just u ->
+        Left err -> throwError err
+        Right u ->
           State.modify
             \env -> env { ceSubst = ceSubst env `composeSubst` u }
 
@@ -280,26 +309,38 @@ scope tc =
                                }
       pure a
 
+instantiate :: TraverseType t => E.Qualiefied t -> TC t
+instantiate (E.Forall xs cs t) =
+  do subst <- Map.fromList <$> traverse freshVar xs
+     traverse_ addConstraint (applySubst subst cs)
+     pure (applySubst subst t)
+  where
+  freshVar x =
+    do ty <- newTVar
+       pure (E.TVBound x, ty)
+
+
 
 
 --------------------------------------------------------------------------------
 -- Substitution and Unifiers
 
-mgu :: E.Type -> E.Type -> Maybe Subst
+type TypeError = Text
+
+mgu :: E.Type -> E.Type -> Either TypeError Subst
 mgu t1 t2  =
   case (t1, t2) of
     (E.TypeBool, E.TypeBool) -> ok
     (E.TypeNumber, E.TypeNumber) -> ok
-    (E.TypeSequence t1', E.TypeSequence t2') ->
-      mgu t1' t2'
+    (E.TypeSequence t1', E.TypeSequence t2') -> mgu t1' t2'
     (E.TypePoint mp1, E.TypePoint mp2) -> mguMap mp1 mp2
     (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
     (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
-    _ -> Nothing
+    _ -> Left "Types differ"
   where
-    ok = Just Map.empty
+    ok = pure Map.empty
 
-mguMap :: Map Text E.Type -> Map Text E.Type -> Maybe Subst
+mguMap :: Map Text E.Type -> Map Text E.Type -> Either TypeError Subst
 mguMap mp1 mp2 = mguFields (Map.toList mp1) (Map.toList mp2)
   where
   mguFields xs ys =
@@ -311,9 +352,13 @@ mguMap mp1 mp2 = mguFields (Map.toList mp1) (Map.toList mp2)
                    let upd (f,t) = (f, applySubst su1 t)
                    su2 <- mguFields (map upd xs') (map upd ys')
                    pure (composeSubst su1 su2)
-          _ -> Nothing -- the ordering can tell us which field is missing
-                        -- for a better error
-      _ -> Nothing -- XXX: better error
+          LT -> missingField f1
+          GT -> missingField f2
+
+      ((f,_):_, []     ) -> missingField f
+      ([],      (f,_):_) -> missingField f
+
+  missingField f = Left ("Missing field '" <> f <> "'")
 
 type Subst = Map E.TypeVar E.Type
 
@@ -322,12 +367,12 @@ composeSubst :: Subst -> Subst -> Subst
 composeSubst s1 s2 =
   (applySubst s2 <$> s1) `Map.union` s2
 
-bindTVar :: E.TypeVar -> E.Type -> Maybe Subst
+bindTVar :: E.TypeVar -> E.Type -> Either TypeError Subst
 bindTVar var ty =
   case ty of
-    E.TypeVar i | var == i  -> Just Map.empty
-    _ | occurs var ty       -> Nothing
-      | otherwise           -> Just $ Map.singleton var ty
+    E.TypeVar i | var == i  -> pure Map.empty
+    _ | occurs var ty       -> Left "Recursive type"
+      | otherwise           -> pure (Map.singleton var ty)
 
 occurs :: E.TypeVar -> E.Type -> Bool
 occurs var ty =
@@ -338,14 +383,16 @@ occurs var ty =
     E.TypeSequence sty -> occurs var sty
     E.TypePoint mp -> any (occurs var) mp
 
-applySubst :: Subst -> E.Type -> E.Type
-applySubst subst ty =
-  case ty of
-    E.TypeBool -> E.TypeBool
-    E.TypeNumber -> E.TypeNumber
-    E.TypeSequence ty' -> E.TypeSequence (applySubst subst ty')
-    E.TypePoint mp -> E.TypePoint (applySubst subst <$> mp)
-    E.TypeVar i -> Map.findWithDefault ty i subst
+applySubst :: TraverseType t => Subst -> t -> t
+applySubst subst = mapType doSubst
+  where
+  doSubst ty =
+    case ty of
+      E.TypeBool          -> E.TypeBool
+      E.TypeNumber        -> E.TypeNumber
+      E.TypeSequence ty'  -> E.TypeSequence (doSubst ty')
+      E.TypePoint mp      -> E.TypePoint (doSubst <$> mp)
+      E.TypeVar i         -> Map.findWithDefault ty i subst
 
 
 freeTVars :: TraverseType t => t -> Set Int
