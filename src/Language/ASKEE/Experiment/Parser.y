@@ -66,6 +66,7 @@ import Language.ASKEE.Experiment.Lexer
   'bool'        { Lexeme { lexemeRange = $$, lexemeToken = KWbool       } }
   'false'       { Lexeme { lexemeRange = $$, lexemeToken = KWfalse      } }
   'true'        { Lexeme { lexemeRange = $$, lexemeToken = KWtrue       } }
+  'return'      { Lexeme { lexemeRange = $$, lexemeToken = KWreturn     } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -94,17 +95,29 @@ decl                                   :: { Decl }
 
 experiment                             :: { ExperimentDecl }
   : 'experiment' ident params
-      listOf(experimentDecl)              { mkExperiment $2 $3 $4 }
+      listOf(experimentDecl)
+      'return' expr
+                                          { ExperimentDecl $2 $3 $4 $6 }
 
-experimentDecl                         :: { ExperimentDecl -> ExperimentDecl }
-  : 'let' ident '=' expr                  { mkExperimentLet $2 $4 }
-  | ident '=' 'sample' expr ident args    { mkSampleExpr $1 $4 $5 $6 }
-  | ident '=' measureExpr                 { $3 $1 }
-  | 'yield' ident '=' measureExpr         { mkYield $2 (Var $2) . $4 $2 }
-  | 'yield' ident '=' expr                { mkYield $2 $4 }
+experimentDecl                         :: { ExperimentStmt }
+  : 'let' ident '=' expr                  { ESLet $2 $4 }
+  | ident '=' sampleExpr                  { ESSample $1 $3 }
+  | ident '=' measureExpr                 { ESMeasure $1 $3 }
 
-measureExpr                   :: { Ident -> ExperimentDecl -> ExperimentDecl }
-  : 'measure' ident 'with' ident args   { \x -> mkMeasureExpr x $2 $4 $5 }
+sampleExpr                             :: { SampleExpr }
+  : 'sample' expr ident args              { SampleExpr { seName = $3
+                                                       , seArgs = $4
+                                                       , seRange = $2
+                                                       }
+                                          }
+
+measureExpr                            :: { MeasureExpr }
+  : 'measure' ident 'with' ident args     { MeasureExpr { meMeasureName = $4
+                                                        , meDataset = $2
+                                                        , meArgs = $5
+                                                        , meTypeArgs = []
+                                                        }
+                                          }
 
 measure                                :: { MeasureDecl }
   : 'measure' ident params
@@ -239,42 +252,6 @@ happyError =
     do ~(l : _) <- get
        raise (ParseError (lexemeRange l))
 
-
---------------------------------------------------------------------------------
-mkExperiment ::
-  Ident -> [Binder] -> [ExperimentDecl -> ExperimentDecl] -> ExperimentDecl
-mkExperiment name params =
-  foldr ($)
-    ExperimentDecl
-      { experimentName      = name
-      , experimentArgs      = params
-      , experimentInputs    = []
-      , experimentYield     = []
-      , experimentMeasures  = []
-      , experimentLets      = []
-      }
-
-mkExperimentLet :: Ident -> Expr -> ExperimentDecl -> ExperimentDecl
-mkExperimentLet x e d = d { experimentLets = (x,e) : experimentLets d }
-
-mkSampleExpr ::
-  Ident -> Expr -> Ident -> [Expr] -> ExperimentDecl -> ExperimentDecl
-mkSampleExpr x r f es d =
-  d { experimentInputs = (x,SampleExpr { seName = f, seArgs = es, seRange = r })
-                       : experimentInputs d }
-
-mkMeasureExpr ::
-  Ident -> Ident -> Ident -> [Expr] -> ExperimentDecl -> ExperimentDecl
-mkMeasureExpr x d f es decl =
-  decl { experimentMeasures = (x, MeasureExpr { meDataset = d
-                                              , meMeasureName = f
-                                              , meArgs = es
-                                              })
-                            : experimentMeasures decl }
-
-mkYield :: Ident -> Expr -> ExperimentDecl -> ExperimentDecl
-mkYield x e decl =
-  decl { experimentYield = (tnName x,e) : experimentYield decl }
 
 --------------------------------------------------------------------------------
 

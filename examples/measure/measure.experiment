@@ -1,0 +1,9 @@
+measure peak(i_starting)
+  I_peak = i_starting
+  t_peak = 0.0
+
+  with dp
+    if dp.I > I_peak
+      then I_peak = dp.I
+           t_peak = dp.t
+    end

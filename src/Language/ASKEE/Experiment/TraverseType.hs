@@ -74,6 +74,7 @@ instance TraverseType MeasureExpr where
     MeasureExpr <$> traverseType f (meMeasureName me)
                 <*> traverseType f (meDataset me)
                 <*> traverseType f (meArgs me)
+                <*> traverseType f (meTypeArgs me)
 
 instance TraverseType MeasureDecl where
   traverseType f md =
@@ -89,10 +90,15 @@ instance TraverseType ExperimentDecl where
   traverseType f ed =
     ExperimentDecl <$> traverseType f (experimentName ed)
                    <*> traverseType f (experimentArgs ed)
-                   <*> traverseType f (experimentInputs ed)
-                   <*> traverseType f (experimentMeasures ed)
-                   <*> traverseType f (experimentLets ed)
-                   <*> traverseType f (experimentYield ed)
+                   <*> traverseType f (experimentStmts ed)
+                   <*> traverseType f (experimentReturn ed)
+
+instance TraverseType ExperimentStmt where
+  traverseType f stmt =
+    case stmt of
+      ESLet n e -> ESLet <$> traverseType f n <*> traverseType f e
+      ESSample n se -> ESSample <$> traverseType f n <*> traverseType f se
+      ESMeasure n me -> ESMeasure <$> traverseType f n <*> traverseType f me
 
 instance TraverseType Decl where
   traverseType f decl =

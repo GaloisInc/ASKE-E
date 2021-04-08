@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE BangPatterns #-}
 module Language.ASKEE.Experiment.Typechecker where
 
 import Data.Text(Text)
@@ -7,7 +8,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
-import Control.Monad(when, unless, forM, zipWithM)
+import Control.Monad(when, unless, forM, zipWithM, void)
 import Data.Foldable(traverse_)
 import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
@@ -17,6 +18,18 @@ import qualified Language.ASKEE.Experiment.Syntax as E
 import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType), collect, mapType)
 
 --------------
+
+inferDecls :: [E.Decl] -> TC [E.Decl]
+inferDecls = traverse inferDecl
+
+inferDecl :: E.Decl -> TC E.Decl
+inferDecl decl =
+  do  decl' <- case decl of
+        E.DMeasure m -> E.DMeasure <$> inferMeasure m
+        E.DExperiment e -> E.DExperiment <$> inferExperiment e
+
+      bindDecl' decl'
+      pure decl'
 
 inferArgs :: [E.Binder] -> ([E.Binder] -> TC a) -> TC a
 inferArgs args body =
@@ -73,13 +86,83 @@ inferMeasure measure =
                                    , E.measureConstraints = cns
                                    }
 
-inferMeasureExpr :: E.MeasureExpr -> TC (E.Type, E.MeasureExpr)
-inferMeasureExpr mexpr = undefined
-{-
-  do let name = E.tnName (E.mmty <- lookupMeasure (E.tnName (E.meMeasureName mexpr))
-     es  <- checkCall (
-     undefined
--}
+inferMeasureExpr :: E.MeasureExpr -> TC (E.MeasureExpr, E.Type)
+inferMeasureExpr mexpr =
+  do let name = E.tnName (E.meMeasureName mexpr)
+     (mty, tyArgs) <- lookupMeasure name
+     es  <- checkCall name (E.meArgs mexpr) (E.mtArgs mty)
+     dsTy <- getVarType (E.tnName (E.meDataset mexpr))
+     unify (E.TypeStream $ E.mtData mty) dsTy
+
+     pure ( E.MeasureExpr { E.meMeasureName = E.meMeasureName mexpr
+                          , E.meDataset = E.setType (E.meDataset mexpr) dsTy
+                          , E.meArgs = es
+                          , E.meTypeArgs = tyArgs
+                          }
+          , E.mtResult mty
+          )
+
+inferSampleExpr :: E.SampleExpr -> TC (E.SampleExpr, E.Type)
+inferSampleExpr sexpr =
+  do  let name = E.tnName (E.seName sexpr)
+      ety <- lookupExperiment name
+      seRange' <- checkExpr (E.seRange sexpr) E.TypeNumber
+      seArgs' <- checkCall name (E.seArgs sexpr) (E.etArgs ety)
+
+      pure ( E.SampleExpr { E.seName = E.seName sexpr
+                          , E.seArgs = seArgs'
+                          , E.seRange = seRange'
+                          }
+           , E.TypeStream (E.etResult ety)
+           )
+
+inferExperimentStmt :: E.ExperimentStmt -> TC E.ExperimentStmt
+inferExperimentStmt stmt =
+  case stmt of
+    E.ESLet name e ->
+      do  (e', ty) <- inferExpr e
+          bindVar (E.tnName name) ty
+          pure $ E.ESLet (E.setType name ty) e'
+
+    E.ESMeasure name m ->
+      do  (m', ty) <- inferMeasureExpr m
+          bindVar (E.tnName name) ty
+          pure $ E.ESMeasure (E.setType name ty) m'
+
+    E.ESSample name se ->
+      do  (se', ty) <- inferSampleExpr se
+          bindVar (E.tnName name) ty
+          pure $ E.ESSample (E.setType name ty) se'
+
+inferExperiment :: E.ExperimentDecl -> TC E.ExperimentDecl
+inferExperiment ex =
+  inferArgs (E.experimentArgs ex) \args' ->
+    do  stmts' <- inferExperimentStmt `traverse` E.experimentStmts ex
+        -- XXX: maybe add constraint to rty to ensure the type is 'simple'
+        (returnExp', rty) <- inferExpr (E.experimentReturn ex)
+
+        cns <- extractConstraints >>= solveConstraints
+
+        let exName = E.experimentName ex
+        let ex' = E.ExperimentDecl { E.experimentName = E.setType exName rty
+                                   , E.experimentArgs = args'
+                                   , E.experimentStmts = stmts'
+                                   , E.experimentReturn = returnExp'
+                                   }
+
+        ex'' <- zonk ex'
+        let tvars = freeTVars ex''
+
+        -- XXX: errors are bad
+        unless (Set.null tvars) (throwError "experiment is polymorphic")
+        unless (null cns) (throwError "could not solve all constraints in experiment")
+
+        pure ex''
+
+
+
+
+
 
 checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
 checkCall thing es ts =
@@ -237,7 +320,8 @@ bindDecl name decl =
   do  requireUnboundName (declName decl)
       State.modify \env -> env { ceDecls = Map.insert name decl (ceDecls env)}
 
-lookupMeasure :: Text -> TC E.MeasureType
+
+lookupMeasure :: Text -> TC (E.MeasureType, [E.Type])
 lookupMeasure name =
   do mb <- State.gets (Map.lookup name . ceDecls)
      case mb of
@@ -247,6 +331,20 @@ lookupMeasure name =
            E.DExperiment {} ->
               throwError $ "'" <> name <> "' is an experiment, not a measure."
            E.DMeasure m -> instantiate (E.measureType m)
+
+lookupExperiment :: Text -> TC E.ExperimentType
+lookupExperiment name =
+  do mb <- State.gets (Map.lookup name . ceDecls)
+     case mb of
+       Nothing -> throwError $ "Undefined experiment '" <> name <> "'"
+       Just decl  ->
+         case decl of
+           E.DExperiment e ->
+              pure $ E.experimentType e
+
+           E.DMeasure {} ->
+              throwError $ "'" <> name <> "' is a measure, not a experiment."
+
 
 declName :: E.Decl -> Text
 declName decl =
@@ -296,15 +394,18 @@ zonk = traverseType \ty -> do subst <- State.gets ceSubst
                               pure (applySubst subst ty)
 
 unify :: E.Type -> E.Type -> TC ()
-unify t1 t2 =
+unify t1 t2 = void $ unify' t1 t2
+
+unify' :: E.Type -> E.Type -> TC Bool
+unify' t1 t2 =
   do  t1' <- zonk t1
       t2' <- zonk t2
       case mgu t1' t2' of
         Left err -> throwError err
-        Right u ->
-          State.modify
-            \env -> env { ceSubst = ceSubst env `composeSubst` u }
-
+        Right u | Map.null u -> pure False
+                | otherwise ->
+                    do State.modify \env -> env { ceSubst = ceSubst env `composeSubst` u }
+                       pure True
 
 scope :: TC a -> TC a
 scope tc =
@@ -315,11 +416,12 @@ scope tc =
                                }
       pure a
 
-instantiate :: TraverseType t => E.Qualified t -> TC t
+instantiate :: TraverseType t => E.Qualified t -> TC (t, [E.Type])
 instantiate (E.Forall xs cs t) =
-  do subst <- Map.fromList <$> traverse freshVar xs
+  do vars <- traverse freshVar xs
+     let subst = Map.fromList vars
      traverse_ addConstraint (applySubst subst cs)
-     pure (applySubst subst t)
+     pure (applySubst subst t, snd <$> vars)
   where
   freshVar x =
     do ty <- newTVar
@@ -338,7 +440,7 @@ mgu t1 t2  =
   case (t1, t2) of
     (E.TypeBool, E.TypeBool) -> ok
     (E.TypeNumber, E.TypeNumber) -> ok
-    (E.TypeSequence t1', E.TypeSequence t2') -> mgu t1' t2'
+    (E.TypeStream t1', E.TypeStream t2') -> mgu t1' t2'
     (E.TypePoint mp1, E.TypePoint mp2) -> mguMap mp1 mp2
     (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
     (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
@@ -386,7 +488,7 @@ occurs var ty =
     E.TypeBool -> False
     E.TypeNumber -> False
     E.TypeVar i -> var == i
-    E.TypeSequence sty -> occurs var sty
+    E.TypeStream sty -> occurs var sty
     E.TypePoint mp -> any (occurs var) mp
 
 applySubst :: TraverseType t => Subst -> t -> t
@@ -396,7 +498,7 @@ applySubst subst = mapType doSubst
     case ty of
       E.TypeBool          -> E.TypeBool
       E.TypeNumber        -> E.TypeNumber
-      E.TypeSequence ty'  -> E.TypeSequence (doSubst ty')
+      E.TypeStream ty'    -> E.TypeStream (doSubst ty')
       E.TypePoint mp      -> E.TypePoint (doSubst <$> mp)
       E.TypeVar i         -> Map.findWithDefault ty i subst
 
@@ -408,7 +510,38 @@ freeTVars = collect freeVarsInType
       case t0 of
         E.TypeBool -> Set.empty
         E.TypeNumber -> Set.empty
-        E.TypeSequence t -> freeVarsInType t
+        E.TypeStream t -> freeVarsInType t
         E.TypePoint mp -> foldMap freeVarsInType mp
         E.TypeVar (E.TVFree i) -> Set.singleton i
         E.TypeVar (E.TVBound _) -> Set.empty
+
+-------------------------------------------------------------------------------
+-- constraints
+
+solveConstraints :: [E.TypeConstraint] -> TC [E.TypeConstraint]
+solveConstraints cns = go [] cns False
+  where
+    go unsolved todo !hasChanges =
+      case todo of
+        [] | hasChanges -> go [] unsolved False
+           | otherwise  -> pure unsolved
+
+        c:cs ->
+          do  c' <- zonk c
+              solveResult <- solveConstraint c'
+              case solveResult of
+                Left us -> go (us:unsolved) cs hasChanges
+                Right changes -> go unsolved cs (hasChanges || changes)
+
+solveConstraint :: E.TypeConstraint -> TC (Either E.TypeConstraint Bool)
+solveConstraint constraint =
+  case constraint of
+    E.HasField recordTy label fieldTy ->
+      case recordTy of
+        E.TypePoint pm ->
+          case Map.lookup label pm of
+            Just fieldTy' -> Right <$> unify' fieldTy fieldTy'
+            Nothing -> throwError ("Record does not have field '" <> label <> "'")
+        E.TypeVar _ -> pure $ Left constraint
+        --XXX: better error
+        _ -> throwError "type is not data point"

@@ -75,6 +75,7 @@ $ws+              ;
 "bool"            { lexeme KWbool }
 "false"           { lexeme KWfalse }
 "true"            { lexeme KWtrue }
+"return"          { lexeme KWreturn }
 
 @ident            { lexeme Ident }
 @rational         { lexRational }
@@ -130,6 +131,7 @@ data Token =
   | KWbool
   | KWfalse
   | KWtrue
+  | KWreturn
 
   | TokError String
   | TokEOF

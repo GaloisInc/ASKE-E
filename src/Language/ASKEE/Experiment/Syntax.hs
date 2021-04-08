@@ -37,6 +37,7 @@ data MeasureExpr =
   MeasureExpr { meMeasureName :: Ident
               , meDataset     :: Ident
               , meArgs        :: [Expr]
+              , meTypeArgs    :: [Type]
               }
   deriving Show
 
@@ -47,16 +48,22 @@ data SampleExpr =
              }
   deriving Show
 
+
+data ExperimentStmt =
+    ESLet Binder Expr
+  | ESSample Binder SampleExpr
+  | ESMeasure Binder MeasureExpr
+  deriving Show
+
 data ExperimentDecl =
   ExperimentDecl { experimentName :: Ident
                  , experimentArgs :: [Binder]
-                 , experimentInputs :: [(Binder, SampleExpr)]
-                 , experimentMeasures :: [(Binder, MeasureExpr)]
-                 , experimentLets :: [(Binder, Expr)]
-                 , experimentYield :: [(Label, Expr)]
+                 , experimentStmts :: [ExperimentStmt]
+                 , experimentReturn :: Expr
                  }
   deriving Show
 
+-- XXX: add measure finalizer/initializers?
 data MeasureDecl =
   MeasureDecl { measureName :: Ident
               , measureTArgs :: [Int]
@@ -76,6 +83,11 @@ data MeasureType = MeasureType
   , mtResult :: Type
   }
 
+data ExperimentType = ExperimentType
+  { etArgs   :: [Type]
+  , etResult :: Type
+  }
+
 measureType :: MeasureDecl -> Qualified MeasureType
 measureType m = Forall (measureTArgs m) (measureConstraints m)
                 MeasureType
@@ -83,6 +95,13 @@ measureType m = Forall (measureTArgs m) (measureConstraints m)
                   , mtData   = getType (measureDataBinder m)
                   , mtResult = getType (measureName m)
                   }
+
+experimentType :: ExperimentDecl -> ExperimentType
+experimentType e =
+  ExperimentType { etArgs = getType <$> experimentArgs e
+                 , etResult = getType (experimentName e)
+                 }
+
 
 data Stmt =
     Set Ident Expr
@@ -98,7 +117,7 @@ data TypeVar =
 data Type =
     TypeNumber
   | TypeBool
-  | TypeSequence Type
+  | TypeStream Type -- stream/dataset
   | TypePoint (Map Text Type)
   -- | TypeCallable [Type] Type
   | TypeVar TypeVar
@@ -118,6 +137,7 @@ data Expr =
   | Var Ident
   | Call FunctionName [Expr]
   | Dot Expr Label
+  -- | Point (Map Text Expr)
   deriving Show
 
 data FunctionName =

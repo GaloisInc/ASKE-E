@@ -35,5 +35,13 @@ testDecl path =
       let m' = runTC (TC.inferMeasure m)
       pPrint m'
 
-
+testFile :: FilePath -> IO ()
+testFile fp =
+ do  decls <- parseFromFile declsP fp
+     let decls' = TC.runTC (TC.inferDecls decls)
+     pPrint decls'
+  `catches`
+    [ Handler \(ParseError r) ->
+        hPutStrLn stderr ("Parse error at " ++ prettySourceRange r)
+    ]
 
