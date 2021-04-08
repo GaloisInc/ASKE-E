@@ -42,6 +42,10 @@ inferMeasure measure =
                 setModifiableSymbol (E.tnName name)
                 pure (E.setType name ty)
 
+        let outTy = E.TypePoint
+                  $ Map.fromList [ (E.tnName x, E.getType x) | x <- varNames' ]
+            newName = E.setType (E.measureName measure) outTy
+
         -- binder
         binderTy <- newTVar
         let dataBinder' = E.setType (E.measureDataBinder measure) binderTy
@@ -50,7 +54,7 @@ inferMeasure measure =
         -- impl
         block' <- inferBlock (E.measureImpl measure)
 
-        m' <- zonk E.MeasureDecl { E.measureName = E.measureName measure
+        m' <- zonk E.MeasureDecl { E.measureName = newName
                                  , E.measureTArgs = []
                                  , E.measureConstraints = []
                                  , E.measureArgs = args
@@ -68,7 +72,6 @@ inferMeasure measure =
         pure $ mapType (applySubst subst) m' { E.measureTArgs = freeVars
                                              , E.measureConstraints = cns
                                              }
-
 
 
 inferLit :: E.Literal -> E.Type
@@ -277,6 +280,8 @@ scope tc =
                                }
       pure a
 
+
+
 --------------------------------------------------------------------------------
 -- Substitution and Unifiers
 
@@ -287,11 +292,28 @@ mgu t1 t2  =
     (E.TypeNumber, E.TypeNumber) -> ok
     (E.TypeSequence t1', E.TypeSequence t2') ->
       mgu t1' t2'
+    (E.TypePoint mp1, E.TypePoint mp2) -> mguMap mp1 mp2
     (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
     (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
     _ -> Nothing
   where
     ok = Just Map.empty
+
+mguMap :: Map Text E.Type -> Map Text E.Type -> Maybe Subst
+mguMap mp1 mp2 = mguFields (Map.toList mp1) (Map.toList mp2)
+  where
+  mguFields xs ys =
+    case (xs,ys) of
+      ([],[]) -> pure mempty
+      ((f1,t1) : xs', (f2,t2) : ys') ->
+        case compare f1 f2 of
+          EQ -> do su1 <- mgu t1 t2
+                   let upd (f,t) = (f, applySubst su1 t)
+                   su2 <- mguFields (map upd xs') (map upd ys')
+                   pure (composeSubst su1 su2)
+          _ -> Nothing -- the ordering can tell us which field is missing
+                        -- for a better error
+      _ -> Nothing -- XXX: better error
 
 type Subst = Map E.TypeVar E.Type
 
@@ -314,6 +336,7 @@ occurs var ty =
     E.TypeNumber -> False
     E.TypeVar i -> var == i
     E.TypeSequence sty -> occurs var sty
+    E.TypePoint mp -> any (occurs var) mp
 
 applySubst :: Subst -> E.Type -> E.Type
 applySubst subst ty =
@@ -321,7 +344,9 @@ applySubst subst ty =
     E.TypeBool -> E.TypeBool
     E.TypeNumber -> E.TypeNumber
     E.TypeSequence ty' -> E.TypeSequence (applySubst subst ty')
+    E.TypePoint mp -> E.TypePoint (applySubst subst <$> mp)
     E.TypeVar i -> Map.findWithDefault ty i subst
+
 
 freeTVars :: TraverseType t => t -> Set Int
 freeTVars = collect freeVarsInType
@@ -331,5 +356,6 @@ freeTVars = collect freeVarsInType
         E.TypeBool -> Set.empty
         E.TypeNumber -> Set.empty
         E.TypeSequence t -> freeVarsInType t
+        E.TypePoint mp -> foldMap freeVarsInType mp
         E.TypeVar (E.TVFree i) -> Set.singleton i
         E.TypeVar (E.TVBound _) -> Set.empty

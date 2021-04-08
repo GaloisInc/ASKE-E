@@ -105,3 +105,9 @@ instance TraverseType TypeConstraint where
     case c of
       HasField recTy label fieldTy ->
         HasField <$> f recTy <*> pure label <*> f fieldTy
+
+instance TraverseType MeasureType where
+  traverseType f m =
+    MeasureType <$> traverseType f (mtArgs m)
+                <*> f (mtData m)
+                <*> f (mtResult m)

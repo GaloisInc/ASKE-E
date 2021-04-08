@@ -2,6 +2,7 @@
 module Language.ASKEE.Experiment.Syntax where
 
 import Data.Text(Text)
+import Data.Map(Map)
 
 -------------------------------------------------------------------------------
 -- Syntax
@@ -17,6 +18,11 @@ untypedName x = TypedName { tnName = x, tnType = Nothing }
 
 setType :: TypedName -> Type -> TypedName
 setType x t = x { tnType = Just t }
+
+getType :: TypedName -> Type
+getType x = case tnType x of
+              Just t  -> t
+              Nothing -> error "[BUG] Missing type on name"
 
 type Binder = TypedName
 type Ident = TypedName
@@ -62,6 +68,22 @@ data MeasureDecl =
               }
   deriving Show
 
+data Qualiefied t = Forall [Int] [TypeConstraint] t
+
+data MeasureType = MeasureType
+  { mtArgs   :: [Type]
+  , mtData   :: Type
+  , mtResult :: Type
+  }
+
+measureType :: MeasureDecl -> Qualiefied MeasureType
+measureType m = Forall (measureTArgs m) (measureConstraints m)
+                MeasureType
+                  { mtArgs   = getType <$> measureArgs m
+                  , mtData   = getType (measureDataBinder m)
+                  , mtResult = getType (measureName m)
+                  }
+
 data Stmt =
     Set Ident Expr
   | Let Binder Expr
@@ -77,7 +99,7 @@ data Type =
     TypeNumber
   | TypeBool
   | TypeSequence Type
-  -- | TypePoint (Map Text Type)
+  | TypePoint (Map Text Type)
   -- | TypeCallable [Type] Type
   | TypeVar TypeVar
   deriving (Show, Eq, Ord)
