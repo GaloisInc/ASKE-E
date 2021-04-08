@@ -74,16 +74,22 @@ inferMeasure measure =
                                    }
 
 inferMeasureExpr :: E.MeasureExpr -> TC (E.Type, E.MeasureExpr)
-inferMeasureExpr mexpr =
-  do mty <- lookupMeasure (E.tnName (E.meMeasureName mexpr))
+inferMeasureExpr mexpr = undefined
+{-
+  do let name = E.tnName (E.mmty <- lookupMeasure (E.tnName (E.meMeasureName mexpr))
+     es  <- checkCall (
      undefined
+-}
 
-checkCall :: [E.Expr] -> [E.Type] -> TC [E.Expr]
-checkCall es ts =
-  case compare (length es) (length ts) of
+checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
+checkCall thing es ts =
+  case compare have need of
     EQ -> zipWithM checkExpr es ts
-    LT -> throwError "Not enough arguments"
-    GT -> throwError "Too many arguments"
+    LT -> throwError ("Not enough arguments in call to " <> thing)
+    GT -> throwError ("Too many arguments in call to " <> thing)
+  where
+  have = length es
+  need = length ts
 
 
 inferLit :: E.Literal -> E.Type
@@ -309,7 +315,7 @@ scope tc =
                                }
       pure a
 
-instantiate :: TraverseType t => E.Qualiefied t -> TC t
+instantiate :: TraverseType t => E.Qualified t -> TC t
 instantiate (E.Forall xs cs t) =
   do subst <- Map.fromList <$> traverse freshVar xs
      traverse_ addConstraint (applySubst subst cs)

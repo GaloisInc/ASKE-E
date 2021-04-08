@@ -68,7 +68,7 @@ data MeasureDecl =
               }
   deriving Show
 
-data Qualiefied t = Forall [Int] [TypeConstraint] t
+data Qualified t = Forall [Int] [TypeConstraint] t
 
 data MeasureType = MeasureType
   { mtArgs   :: [Type]
@@ -76,7 +76,7 @@ data MeasureType = MeasureType
   , mtResult :: Type
   }
 
-measureType :: MeasureDecl -> Qualiefied MeasureType
+measureType :: MeasureDecl -> Qualified MeasureType
 measureType m = Forall (measureTArgs m) (measureConstraints m)
                 MeasureType
                   { mtArgs   = getType <$> measureArgs m
