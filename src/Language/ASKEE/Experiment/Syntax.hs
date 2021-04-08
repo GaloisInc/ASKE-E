@@ -15,6 +15,9 @@ data TypedName =
 untypedName :: Text -> TypedName
 untypedName x = TypedName { tnName = x, tnType = Nothing }
 
+setType :: TypedName -> Type -> TypedName
+setType x t = x { tnType = Just t }
+
 type Binder = TypedName
 type Ident = TypedName
 type Label = Text

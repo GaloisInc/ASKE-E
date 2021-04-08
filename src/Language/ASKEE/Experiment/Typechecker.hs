@@ -28,7 +28,7 @@ inferArgs args body =
                   Just t  -> pure t
                   Nothing -> newTVar
           bindVar (E.tnName binder) ty
-          pure binder { E.tnType = Just ty }
+          pure (E.setType binder ty)
 
 inferMeasure :: E.MeasureDecl -> TC E.MeasureDecl
 inferMeasure measure =
@@ -40,11 +40,11 @@ inferMeasure measure =
           forM (zip varNames varExpTys) \(name, ty) ->
             do  bindVar (E.tnName name) ty
                 setModifiableSymbol (E.tnName name)
-                pure name { E.tnType = Just ty }
+                pure (E.setType name ty)
 
         -- binder
         binderTy <- newTVar
-        let dataBinder' = (E.measureDataBinder measure) { E.tnType = Just binderTy }
+        let dataBinder' = E.setType (E.measureDataBinder measure) binderTy
         bindVar (E.tnName dataBinder') binderTy
 
         -- impl
@@ -89,12 +89,12 @@ inferStmt s0 =
           checkModifiableSymbol name
           (e', eTy) <- inferExpr e
           unify varTy eTy
-          pure $ E.Set ident { E.tnType = Just varTy } e'
+          pure $ E.Set (E.setType ident varTy) e'
     E.Let binder e ->
       do  let name = E.tnName binder
           (e', eTy) <- inferExpr e
           bindVar name eTy
-          pure $ E.Let binder { E.tnType = Just eTy } e'
+          pure $ E.Let (E.setType binder eTy) e'
     E.If thens els ->
       E.If <$> traverse checkThen thens <*> inferBlock els
   where
@@ -110,7 +110,7 @@ inferExpr e0 =
     E.Lit l -> pure (e0, inferLit l)
     E.Var v ->
       do  ty <- getVarType (E.tnName v)
-          pure (E.Var v { E.tnType = Just ty }, ty)
+          pure (E.Var (E.setType v ty), ty)
 
     E.Dot e1 label ->
       do  (e1', e1ty) <- inferExpr e1
