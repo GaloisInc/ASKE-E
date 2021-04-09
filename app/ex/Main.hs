@@ -16,6 +16,7 @@ import qualified Language.ASKEE.Experiment.Typechecker as TC
 import qualified Language.ASKEE.Experiment.TraverseType as TC
 import qualified Language.ASKEE.Experiment.EaselAdapter as Ex
 import qualified Language.ASKEE as Core
+import qualified Language.ASKEE.SimulatorGen as Gen
 
 main :: IO ()
 main =
@@ -30,7 +31,8 @@ measureModel modelFile experimentFile =
      exper <- loadExperiment experimentFile
      let measures = [ m | E.DMeasure m <- exper ]
          model    = foldr Ex.withMeasure core measures
-     pPrint model
+         cpp      = Gen.genModel model
+     print cpp
 
 
 --------------------------------------------------------------------------------
