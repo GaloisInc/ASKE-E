@@ -1,0 +1,4 @@
+measure Count()
+  count = 0
+  with p
+    count = count + 1

@@ -53,6 +53,7 @@ library
                      , Language.ASKEE.Experiment.Parser
                      , Language.ASKEE.Experiment.Typechecker
                      , Language.ASKEE.Experiment.TraverseType
+                     , Language.ASKEE.Experiment.EaselAdapter
 
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
