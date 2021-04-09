@@ -9,10 +9,6 @@ measure Sum()
     sum = sum + i
     count = count + 1
 
-  final
-    let avg = sum / count
-    return avg
-
 experiment MkTwos()
   twos = sample 100 MkTwo(0.0)
   sum = measure twos with Sum()

@@ -8,6 +8,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
 import qualified Data.Set as Set
+import qualified Data.List as List
 import Control.Monad(when, unless, forM, zipWithM, void)
 import Data.Foldable(traverse_)
 import qualified Control.Monad.State as State
@@ -105,7 +106,7 @@ inferMeasureExpr mexpr =
 inferSampleExpr :: E.SampleExpr -> TC (E.SampleExpr, E.Type)
 inferSampleExpr sexpr =
   do  let name = E.tnName (E.seName sexpr)
-      ety <- lookupExperiment name
+      ety <- lookupSampleSource name
       seRange' <- checkExpr (E.seRange sexpr) E.TypeNumber
       seArgs' <- checkCall name (E.seArgs sexpr) (E.etArgs ety)
 
@@ -234,7 +235,22 @@ inferExpr e0 =
           let (args', argTys) = unzip argsInferred
           resultTy <- checkFunc fname argTys
           pure (E.Call fname args', resultTy)
+
+    E.Point pm ->
+      do  let fields = fst <$> pm
+          case [f | f:_:_ <- List.group (List.sort fields)] of
+            [] -> pure ()
+            duplicateField:_ -> throwError $ "field '" <> duplicateField
+                                             <> "' is duplicated in point constructor"
+
+          (fValues, fTys) <- unzip <$> (checkPointField `traverse` pm)
+          pure (E.Point fValues, E.TypePoint (Map.fromList fTys))
+
   where
+    checkPointField (n, v) =
+      do  (v', ty) <- inferExpr v
+          pure ((n, v'), (n, ty))
+
     checkFunc fname =
       case fname of
         E.Add -> arith
@@ -276,9 +292,14 @@ inferExpr e0 =
 
 type TC a = State.StateT CheckEnv (Except.Except Text) a
 
+data DeclType =
+    DTMeasure (E.Qualified E.MeasureType)
+  | DTExperiment E.ExperimentType
+  | DTModel E.Type
+
 data CheckEnv =
   CheckEnv { ceVars :: Map Text E.Type
-           , ceDecls :: Map Text E.Decl
+           , ceDecls :: Map Text DeclType
            , ceMutable :: Set Text
            , ceTVar :: Int
            , ceSubst :: Subst
@@ -315,10 +336,10 @@ bindVar name ty =
   do  requireUnboundName name
       State.modify \env -> env { ceVars = Map.insert name ty (ceVars env)}
 
-bindDecl :: Text -> E.Decl -> TC ()
-bindDecl name decl =
-  do  requireUnboundName (declName decl)
-      State.modify \env -> env { ceDecls = Map.insert name decl (ceDecls env)}
+bindDecl :: Text -> DeclType -> TC ()
+bindDecl name declTy =
+  do  requireUnboundName name
+      State.modify \env -> env { ceDecls = Map.insert name declTy (ceDecls env)}
 
 
 lookupMeasure :: Text -> TC (E.MeasureType, [E.Type])
@@ -328,23 +349,22 @@ lookupMeasure name =
        Nothing -> throwError $ "Undefined measure '" <> name <> "'"
        Just decl  ->
          case decl of
-           E.DExperiment {} ->
-              throwError $ "'" <> name <> "' is an experiment, not a measure."
-           E.DMeasure m -> instantiate (E.measureType m)
+           DTMeasure m -> instantiate m
+           _ -> throwError $ "'" <> name <> "' is not a measure."
 
-lookupExperiment :: Text -> TC E.ExperimentType
-lookupExperiment name =
+
+lookupSampleSource :: Text -> TC E.ExperimentType
+lookupSampleSource name =
   do mb <- State.gets (Map.lookup name . ceDecls)
      case mb of
        Nothing -> throwError $ "Undefined experiment '" <> name <> "'"
        Just decl  ->
          case decl of
-           E.DExperiment e ->
-              pure $ E.experimentType e
-
-           E.DMeasure {} ->
-              throwError $ "'" <> name <> "' is a measure, not a experiment."
-
+           DTExperiment e -> pure e
+           DTModel m -> pure E.ExperimentType { E.etArgs = []
+                                              , E.etResult = m
+                                              }
+           _ -> throwError $ "'" <> name <> "' is not a experiment."
 
 declName :: E.Decl -> Text
 declName decl =
@@ -359,9 +379,11 @@ getVarType name =
         Nothing -> throwError ("Variable '" <> name <> "' is not defined")
         Just ty -> pure ty
 
-
 bindDecl' :: E.Decl -> TC ()
-bindDecl' decl = bindDecl (declName decl) decl
+bindDecl' decl = bindDecl (declName decl)
+  case decl of
+    E.DMeasure m -> DTMeasure $ E.measureType m
+    E.DExperiment e -> DTExperiment $ E.experimentType e
 
 newTVar :: TC E.Type
 newTVar =
@@ -371,7 +393,11 @@ newTVar =
 
 addConstraint :: E.TypeConstraint -> TC ()
 addConstraint c =
-  State.modify \env -> env { ceConstraints = c:ceConstraints env }
+  do  solveResult <- zonk c >>= solveConstraint
+      case solveResult of
+        Right _ -> pure ()
+        Left c' ->
+          State.modify \env -> env { ceConstraints = c':ceConstraints env }
 
 extractConstraints :: TC [E.TypeConstraint]
 extractConstraints =

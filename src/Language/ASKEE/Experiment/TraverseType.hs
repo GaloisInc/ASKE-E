@@ -55,6 +55,10 @@ instance TraverseType Expr where
       Var i       -> Var <$> traverseType f i
       Call fu es  -> Call fu <$> traverseType f es
       Dot e l     -> (`Dot` l) <$> traverseType f e
+      Point fs    -> Point <$> (traverseField `traverse` fs)
+    where
+      traverseField (fname, fvalue) = (,) fname <$> traverseType f fvalue
+
 
 instance TraverseType Stmt where
   traverseType f stmt =

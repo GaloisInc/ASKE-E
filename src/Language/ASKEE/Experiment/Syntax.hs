@@ -83,6 +83,7 @@ data MeasureType = MeasureType
   , mtResult :: Type
   }
 
+--XXX: this is really a function/callable type
 data ExperimentType = ExperimentType
   { etArgs   :: [Type]
   , etResult :: Type
@@ -137,7 +138,7 @@ data Expr =
   | Var Ident
   | Call FunctionName [Expr]
   | Dot Expr Label
-  -- | Point (Map Text Expr)
+  | Point [(Text, Expr)]
   deriving Show
 
 data FunctionName =

@@ -13,7 +13,7 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import Control.Exception(Exception(..),throwIO)
-import MonadLib
+import MonadLib hiding(Label)
 
 import Language.ASKEE.Experiment.Syntax
 import Language.ASKEE.Experiment.Lexer
@@ -26,6 +26,8 @@ import Language.ASKEE.Experiment.Lexer
   IDENT         { (isLexIdent  -> Just $$) }
   NUMBER        { (isLexNumber -> Just $$) }
 
+  '{'           { Lexeme { lexemeRange = $$, lexemeToken = OpenBrace    } }
+  '}'           { Lexeme { lexemeRange = $$, lexemeToken = CloseBrace   } }
   '('           { Lexeme { lexemeRange = $$, lexemeToken = OpenParen    } }
   ')'           { Lexeme { lexemeRange = $$, lexemeToken = CloseParen   } }
   ','           { Lexeme { lexemeRange = $$, lexemeToken = Comma        } }
@@ -55,7 +57,6 @@ import Language.ASKEE.Experiment.Lexer
   'measure'     { Lexeme { lexemeRange = $$, lexemeToken = KWmeasure    } }
   'sample'      { Lexeme { lexemeRange = $$, lexemeToken = KWsample     } }
   'with'        { Lexeme { lexemeRange = $$, lexemeToken = KWwith       } }
-  'yield'       { Lexeme { lexemeRange = $$, lexemeToken = KWyield      } }
   'let'         { Lexeme { lexemeRange = $$, lexemeToken = KWlet        } }
   'if'          { Lexeme { lexemeRange = $$, lexemeToken = KWif         } }
   'then'        { Lexeme { lexemeRange = $$, lexemeToken = KWthen       } }
@@ -172,8 +173,6 @@ thenStmt                               :: { (Expr,[Stmt]) }
 elseIf                                 :: { (Expr,[Stmt]) }
   : 'elif' thenStmt                       { $2 }
 
-
-
 expr                                   :: { Expr }
   : literal                               { Lit $1 }
   | ident                                 { Var $1 }
@@ -198,6 +197,10 @@ expr                                   :: { Expr }
   | expr '||' expr                        { Call Or  [$1, $3] }
 
   | expr '.' IDENT                        { Dot $1 (snd $3) }
+  | '{'  sepBy(',', fieldInit) '}'        { Point $2 }
+
+fieldInit                              :: {(Label, Expr)}
+  : IDENT '=' expr                        {(snd $1, $3)}
 
 literal                                :: { Literal }
   : NUMBER                                { LitNum (snd $1) }

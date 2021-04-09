@@ -38,6 +38,8 @@ $ws         = [\0\9\10\13\32]
 $ws+              ;
 @comment          ;
 "{-"              { startComment }
+"{"               { lexeme OpenBrace }
+"}"               { lexeme CloseBrace }
 "("               { lexeme OpenParen }
 ")"               { lexeme CloseParen }
 ","               { lexeme Comma }
@@ -63,7 +65,6 @@ $ws+              ;
 "experiment"      { lexeme KWexperiment }
 "measure"         { lexeme KWmeasure }
 "sample"          { lexeme KWsample }
-"yield"           { lexeme KWyield }
 "with"            { lexeme KWwith }
 "let"             { lexeme KWlet }
 "if"              { lexeme KWif }
@@ -96,6 +97,8 @@ data Token =
 
   | OpenParen
   | CloseParen
+  | OpenBrace
+  | CloseBrace
   | Comma
   | Colon
 
@@ -120,7 +123,6 @@ data Token =
   | KWmeasure
   | KWsample
   | KWwith
-  | KWyield
   | KWlet
   | KWif
   | KWelif
