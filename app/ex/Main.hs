@@ -20,19 +20,31 @@ import qualified Language.ASKEE.SimulatorGen as Gen
 
 main :: IO ()
 main =
-  do [mf,ef] <- getArgs
-     measureModel mf ef
+  do  [mf, n, out] <- getArgs
+      replicateModel (read n) mf out
+  -- do [mf,ef,out] <- getArgs
+  --    measureModel mf ef out
 
 
-measureModel :: FilePath -> FilePath -> IO ()
-measureModel modelFile experimentFile =
+replicateModel :: Int -> FilePath -> FilePath -> IO ()
+replicateModel n modelFile out =
+  runTest
+  do  core <- Core.loadCoreModel (Core.FromFile modelFile) []
+      let core' = Ex.replicateModel n core
+          cpp   = Gen.genModel core'
+      pPrint core'
+      writeFile out $ show cpp
+
+
+measureModel :: FilePath -> FilePath -> FilePath -> IO ()
+measureModel modelFile experimentFile out =
   runTest
   do core  <- Core.loadCoreModel (Core.FromFile modelFile) []
      exper <- loadExperiment experimentFile
      let measures = [ m | E.DMeasure m <- exper ]
          model    = foldr Ex.withMeasure core measures
          cpp      = Gen.genModel model
-     print cpp
+     writeFile out $ show cpp
 
 
 --------------------------------------------------------------------------------

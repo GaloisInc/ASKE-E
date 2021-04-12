@@ -22,7 +22,10 @@ eventWhenName :: Core.Event -> C.Doc
 eventWhenName evt = C.ident ("event_when_" <> Core.eventName evt)
 
 stateVarName :: Text -> C.Doc
-stateVarName nm = C.ident ("state_" <> nm)
+stateVarName nm =
+  if nm == "time"
+    then timeName
+    else C.ident ("state_" <> nm)
 
 nextEventFunctionName :: C.Doc
 nextEventFunctionName = C.ident "next_event"
@@ -82,7 +85,10 @@ genExecStep mdl =
 
   where
   evts = Core.modelEvents mdl
-  stateVarCurName sv = "cur_" <> stateVarName sv
+  stateVarCurName sv =
+    if sv == "time"
+      then timeName
+      else "cur_" <> stateVarName sv
   mkCase evt =
     C.stmts
      [ C.case' (C.intLit (eventNum evts (Core.eventName evt)))

@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments #-}
 module Language.ASKEE.Experiment.EaselAdapter where
 
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.Experiment.Syntax as E
 import qualified Data.Map as Map
+import Data.Map(Map)
 import Data.Text(pack)
 
 modelType :: Core.Model -> E.Type
@@ -24,7 +26,10 @@ replicateModel n m =
                Map.keys (Core.modelLets m)
     nameVariant i x = (x, x <> "_" <> pack (show i))
     nameMap i = Core.Var <$> Map.fromList (nameVariant i <$> varNames)
-    renameEvent i e = e { Core.eventName = snd (nameVariant i (Core.eventName e)) }
+    renameEvent i e = e { Core.eventName = snd (nameVariant i (Core.eventName e))
+                        , Core.eventEffect = Map.mapKeys (snd . nameVariant i)
+                                                         (Core.eventEffect e)
+                        }
     variant i =
       Core.mapExprs (Core.substExpr (nameMap i)) m
         { Core.modelInitState = Map.mapKeys (snd . nameVariant i) (Core.modelInitState m)
@@ -40,16 +45,31 @@ withMeasure decl m =
   where
     newVars = Map.fromList (convertVar <$> E.measureVars decl)
     convertVar (n, v) = (E.tnName n, convertExpression v)
-    measureSetters = Map.fromList (asSetters `concatMap` E.measureImpl decl)
+    measureSetters = convertBlock $ E.measureImpl decl
     evtWithSetters evt =
       evt { Core.eventEffect = Core.eventEffect evt `Map.union` measureSetters }
 
 
-asSetters :: E.Stmt -> [(Core.Ident, Core.Expr)]
+convertBlock :: [E.Stmt] -> Map Core.Ident Core.Expr
+convertBlock stmts = Map.unions (asSetters <$> stmts)
+
+asSetters :: E.Stmt -> Map Core.Ident Core.Expr
 asSetters stmt =
   case stmt of
-    E.Set n e -> [(E.tnName n, convertExpression e )]
-    _ -> []
+    E.Set n e -> Map.singleton (E.tnName n) (convertExpression e)
+    E.If thens blockElse ->
+      foldr addThen (convertBlock blockElse) thens
+    _ -> Map.empty
+  where
+    merge p _ thenE elseE = Just $ Core.If p thenE elseE
+    mapThen p = Map.mapWithKey \n ex -> Core.If p ex (Core.Var n)
+    mapElse p = mapThen (Core.Op1 Core.Not p)
+    addThen (test, stmts) =
+      let stmts' = convertBlock stmts
+          test' = convertExpression test
+      in Map.mergeWithKey (merge test') (mapThen test') (mapElse test') stmts'
+
+
 
 convertExpression :: E.Expr -> Core.Expr
 convertExpression e =
@@ -58,4 +78,8 @@ convertExpression e =
     E.Var t -> Core.Var (E.tnName t)
     E.Call E.Add [e1, e2] -> Core.Op2 Core.Add (convertExpression e1) (convertExpression e2)
     E.Dot _ l -> Core.Var l  -- this might need another look
-    _ -> error "nooooo"
+    E.Call E.LessThan [e1, e2] -> Core.Op2 Core.Lt (convertExpression e1)
+                                                   (convertExpression e2)
+    E.Call E.GreaterThanEqual [e1, e2] -> convertExpression e2 Core.:<=: convertExpression e1
+
+    _ -> error ("nooooo: " ++ show e)

@@ -34,6 +34,44 @@ public:
   }
 };
 
+template<typename TModel, typename TPointType, typename TMeasure>
+class WithMeasure {
+public:
+  WithMeasure(TModel& model, TMeasure& measure)
+    : measure { measure }, model { model }
+  {
+    doMeasure();
+  }
+
+  bool done() {
+    return model.done();
+  }
+
+  double getTime() {
+    return model.getTime();
+  }
+
+  TPointType& getPoint() {
+    return model.getPoint();
+  }
+
+  void step() {
+    if(!model.done()) {
+      model.step();
+      doMeasure();
+    }
+  }
+
+private:
+  void doMeasure() {
+    measure.withPoint(model.getPoint());
+  }
+
+  TMeasure& measure;
+  TModel& model;
+};
+
+
 struct Example {
   double time;
   double data;
@@ -51,16 +89,34 @@ struct Example {
 
 };
 
+class SumMeasure {
+public:
+  void withPoint(Example const& p) {
+    value += p.data;
+  }
+
+  double value = 0.0;
+};
+
+template<typename TModel, typename TPointType, typename TMeasure>
+WithMeasure<TModel, TPointType, TMeasure> withMeasure(TModel& m, TMeasure t) {
+  return {m, t};
+}
+
 int main() {
   Example model;
   TimeAdapter<Example> timed(0,1,120,model);
+  SumMeasure sum;
+  // template trickery might make this a little more palatable
+  auto timed_measured =
+    WithMeasure<TimeAdapter<Example>, Example, SumMeasure> { timed, sum };
 
-  while (!timed.done()) {
-    Example &m = timed.getPoint();
-    std::cout << "time = " << timed.getTime() << ", data = " << m.data << std::endl;
-    timed.step();
+  while (!timed_measured.done()) {
+    Example &m = timed_measured.getPoint();
+    std::cout << "time = " << timed_measured.getTime() << ", data = " << m.data << std::endl;
+    timed_measured.step();
   }
 
-
+  std::cout << "sum = " << sum.value << std::endl;
 }
 
