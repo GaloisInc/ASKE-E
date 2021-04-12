@@ -10,32 +10,28 @@ class TimeAdapter {
   Model  point;           // point we are emitting
   double point_time;      // current time
 
-  // assumes that model.time <= point_time
-  void advanceToPointTime() {
-    while (model.getNextTime() < point_time) model.step();
-    point = model;
-  }
-
 public:
   TimeAdapter(double start, double step, double end, Model& model)
     : time_start(start), time_step(step), time_end(end),
-      model(model), point(model), point_time(start)
-  { advanceToPointTime();
+      model(model), point(model)
+  {
+    this->step();
   }
 
   Model& getPoint() { return point; }
+  double getTime() { return point_time; }
+
   bool done() { return point_time > time_end; }
 
-
   void step() {
-    if (point_time > time_end) return;
-    point_time += time_step;
-    if (point_time > time_end) return;
-    if (point_time <= model.getTime()) return;
-    advanceToPointTime();
+    if(done())
+      return;
+    while(model.getNextTime() <= point_time + time_step)
+      model.step();
+
+    point = model;
+    point_time = point_time + time_step;
   }
-
-
 };
 
 struct Example {
@@ -61,7 +57,7 @@ int main() {
 
   while (!timed.done()) {
     Example &m = timed.getPoint();
-    std::cout << "time = " << m.time << ", data = " << m.data << std::endl;
+    std::cout << "time = " << timed.getTime() << ", data = " << m.data << std::endl;
     timed.step();
   }
 
