@@ -7,14 +7,11 @@ import Language.ASKEE.Expr
 
 data Model = Model
   { modelName   :: Text
-  , modelAgent  :: Agent
+  , modelAgent  :: [AgentAttribute]
   , modelLets   :: [(Text, Expr)]
   , modelInit   :: [(Text, Expr)]
   , modelEvents :: [Event]
   }
-  deriving Show
-
-newtype Agent = Agent [AgentAttribute]
   deriving Show
 
 data AgentAttribute = AgentAttribute 
@@ -32,15 +29,21 @@ data Event = Event
   }
   deriving Show
 
-data AgentAssign = AgentAssign AgentExpr AgentExpr
-  -- LHS must be `Attribute`, RHS must be `Status`
+data AgentAssign = AgentAssign AttributeRef AttributeRef
   deriving Show
 
-data AgentExpr =
-    Status Text             -- susceptible
-  | Attribute Text Text   -- x.city
-  | Eq AgentExpr AgentExpr
+data AttributeRef =
+    Status Text
+  | Attribute Text Text
+  deriving Show
+
+data AgentExpr = 
+    Eq AttributeRef AttributeRef
   | And AgentExpr AgentExpr
   | Or AgentExpr AgentExpr
-  --  | Not AgentExpr
+  deriving Show
+
+data RateExpr =
+    Plain Expr
+  | Size Expr
   deriving Show

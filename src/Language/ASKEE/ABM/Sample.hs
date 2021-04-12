@@ -10,23 +10,21 @@ sampleModel :: Model
 sampleModel = Model{..}
   where
     modelName = "SIR_Seattle_Portland"
-    modelAgent = agent
+    modelAgent = sampleAgent
     modelLets = [("pop_size", LitD 1e5)]
-    modelInit = inits
-    modelEvents = events
+    modelInit = sampleInits
+    modelEvents = sampleEvents
 
-agent :: Agent 
-agent = Agent attrs
-  where
-    attrs =
-      [ AgentAttribute "health" ["S", "E", "I", "R"]
-      , AgentAttribute "city" ["sea", "pdx"]
-      -- , AgentAttribute "age" ["0-30", "31-60", "61-90"]
-      -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
-      ]
+sampleAgent :: [AgentAttribute] 
+sampleAgent =
+  [ AgentAttribute "health" ["S", "E", "I", "R"]
+  , AgentAttribute "city" ["sea", "pdx"]
+  -- , AgentAttribute "age" ["0-30", "31-60", "61-90"]
+  -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
+  ]
 
-inits :: [(Text, Expr)]
-inits =
+sampleInits :: [(Text, Expr)]
+sampleInits =
   [ ("S", Div (Sub (Var "pop_size") (LitD 3)) (Var "pop_size"))
   , ("E",     Div                   (LitD 3)  (Var "pop_size"))
   , ("I", LitD 0)
@@ -35,8 +33,8 @@ inits =
   , ("pdx", Div (LitD 1) (LitD 3))
   ]
 
-events :: [Event]
-events = [expose_e, expose_i, infect, remit, recover]
+sampleEvents :: [Event]
+sampleEvents = [expose_e, expose_i, infect, remit, recover]
   where
     expose_e :: Event
     expose_e = Event
