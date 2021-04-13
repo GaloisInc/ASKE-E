@@ -156,4 +156,5 @@ data FunctionName =
   | NotEqual
   | Or
   | And
+  | Range -- should have three arguments (start, stop, step)
   deriving Show

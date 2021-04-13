@@ -267,6 +267,10 @@ inferExpr e0 =
         E.NotEqual -> binary comparison -- if so, we probably want to have a constraint instead
         E.Or -> logical
         E.And -> logical
+        E.Range ->
+          \argTys -> do  when (length argTys /= 3) (throwError "[BUG] expecting exactly 3 args for range")
+                         unifyAll E.TypeNumber argTys
+                         pure $ E.TypeStream E.TypeNumber
 
     unary f tys =
       do  when (length tys /= 1) (throwError "[BUG] expecting only one argument to call")
@@ -281,11 +285,6 @@ inferExpr e0 =
     comparison tys = unifyAll E.TypeNumber tys >> pure E.TypeBool
 
     unifyAll ty ts = unify ty `traverse_` ts
-
-
-
-
-
 
 --------------------------------------------------------------------------------
 -- The typechecking monad
