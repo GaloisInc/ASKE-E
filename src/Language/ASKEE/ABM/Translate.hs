@@ -38,11 +38,17 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events
 translateEvent :: [ABM.AgentAttribute] -> ABM.Event -> [ESL.Event]
 translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
   where
+    -- `nub` because events might only touch a portion of those agents in
+    -- a mapping, and we blindly explode into events for every single possible
+    -- mapping of agent to state variables. This leads to duplicates that
+    -- (at this point) we can't see until now.
     template :: Map Text [ESLState] -> [ESL.Event]
     template agents = 
       nub $ 
         map (instantiateEvent . Map.fromList) (taggedCombos $ Map.toList agents)
 
+    -- Instantiate an event at a particular mapping of agents to ESL state
+    -- variables.
     instantiateEvent :: Map Text ESLState -> ESL.Event
     instantiateEvent agentMapping = 
       ESL.Event eventName Nothing eventRate (concatMap asStatement eventEffect) Nothing
@@ -99,14 +105,27 @@ agentSets agentAttrs expr =
   explode (search expr Map.empty [] (:) agentAttrs) agentAttrs
 
 
--- | Expand the provided agent -> status
+-- | Expand the provided "ground truth" agent -> state variable mappings
+-- to include all possible combinations of attributes not mentioned in
+-- agents' state variables. For example:
+-- restrictionSets = 
+--   [ Map.singleton "x" (ESLState (Map.singleton "city" "PDX")) ]
+-- agentAttrs = 
+--   [ AgentAttribute "city" ["PDX", "SEA"]
+--   , AgentAttribute "health" ["S", "I", "R"]
+--   ]
+-- --> 
+-- [ Map.singleton "X" [ ESLState (Map.fromList [("city","PDX"),("health","S")])
+--                     , ESLState (Map.fromList [("city","PDX"),("health","I")])
+--                     , ESLState (Map.fromList [("city","PDX"),("health","R")])
+--                     ]]
 explode :: [Map Text ESLState] -> [ABM.AgentAttribute] -> [Map Text [ESLState]]
-explode restrictionSets agent = map (Map.map go) restrictionSets
+explode restrictionSets agentAttrs = map (Map.map go) restrictionSets
   where
     go :: ESLState -> [ESLState]
-    go restrictionSet = filter (fits restrictionSet) states
+    go restrictionSet = filter (fits restrictionSet) allStateVariables
 
-    states = allStates agent
+    allStateVariables = allStates agentAttrs
 
     fits :: ESLState -> ESLState -> Bool
     fits (ESLState requiredStatuses) (ESLState actualStatuses) = 

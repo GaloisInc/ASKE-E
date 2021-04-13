@@ -231,7 +231,7 @@ mkModel (statuses, AgentDecl{..}, (modelName, modelLets, modelInit, modelEvents)
     statusMap = foldr (uncurry Map.insert) Map.empty 
       [ (n, vs) 
       | StatusDecl n vs <- statuses ]
-    modelAgent = Agent
+    modelAgent =
       [ AgentAttribute attrName (statusMap Map.! attrType) 
       | (attrName, attrType) <- agentAttributes ]
 }
