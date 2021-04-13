@@ -56,9 +56,17 @@ inferMeasure measure =
                 setModifiableSymbol (E.tnName name)
                 pure (E.setType name ty)
 
-        let outTy = E.TypePoint
-                  $ Map.fromList [ (E.tnName x, E.getType x) | x <- varNames' ]
-            newName = E.setType (E.measureName measure) outTy
+        (fexpr, outTy) <- case E.measureFinal measure of
+          Nothing ->
+            let ty = E.TypePoint $ Map.fromList [ (E.tnName x, E.getType x) | x <- varNames' ]
+            in pure (Nothing, ty)
+
+          Just finalizer ->
+            do  (expr', fty) <- inferExpr finalizer
+                pure (Just expr', fty)
+
+
+        let newName = E.setType (E.measureName measure) outTy
 
         -- binder
         binderTy <- newTVar
@@ -75,6 +83,7 @@ inferMeasure measure =
                                  , E.measureVars = zip varNames' varExps'
                                  , E.measureDataBinder = dataBinder'
                                  , E.measureImpl = block'
+                                 , E.measureFinal = fexpr
                                  }
 
         let freeVars = Set.toList $ freeTVars m'
@@ -159,11 +168,6 @@ inferExperiment ex =
         unless (null cns) (throwError "could not solve all constraints in experiment")
 
         pure ex''
-
-
-
-
-
 
 checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
 checkCall thing es ts =
