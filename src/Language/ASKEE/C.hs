@@ -21,10 +21,14 @@ nested = indent 2 . stmts
 
 function :: Doc -> Doc -> [Doc] -> [Doc] -> Doc
 function retTy name args xs =
-  vcat [ retTy <+> name <> parens (hsep (punctuate comma args)) <+> "{"
+  vcat [ retTy <+> name <> argList args <+> "{"
        , nested xs
        , "}"
        ]
+
+argList :: [Doc] -> Doc
+argList = parens . hsep . punctuate comma
+
 
 arg :: Doc -> Doc -> Doc
 arg ty name = ty <+> name
@@ -46,6 +50,9 @@ callCon f args = f <> braces args
 
 braces :: [Doc] -> Doc
 braces = PP.braces . hsep . punctuate comma
+
+angles :: [Doc] -> Doc
+angles = PP.angles . hsep . punctuate comma
 
 callInfix :: Doc -> Doc -> Doc -> Doc
 callInfix op x y = x <+> op <+> y
@@ -172,7 +179,9 @@ ifThen :: Doc -> [Doc] -> Doc
 ifThen c t = block ("if" <+> parens c) t
 
 ifThenElse :: Doc -> [Doc] -> [Doc] -> Doc
-ifThenElse c t e =
+ifThenElse c t e
+  | null e = ifThen c t
+  | otherwise =
   vcat [ "if" <+> parens c <+> "{"
        , nested t
        , "} else {"

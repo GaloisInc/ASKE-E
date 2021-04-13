@@ -15,6 +15,7 @@ import qualified Language.ASKEE.Experiment.Syntax as E
 import qualified Language.ASKEE.Experiment.Typechecker as TC
 import qualified Language.ASKEE.Experiment.TraverseType as TC
 import qualified Language.ASKEE.Experiment.EaselAdapter as Ex
+import qualified Language.ASKEE.Experiment.CodeGen as GenX
 import qualified Language.ASKEE as Core
 import qualified Language.ASKEE.SimulatorGen as Gen
 
@@ -45,6 +46,12 @@ measureModel modelFile experimentFile out =
          model    = foldr Ex.withMeasure core measures
          cpp      = Gen.genModel model
      writeFile out $ show cpp
+
+testCodeGen :: FilePath -> IO ()
+testCodeGen experimentFile =
+  runTest
+  do exper <- loadExperiment experimentFile
+     mapM_ print [ GenX.compileMeasure m | E.DMeasure m <- exper ]
 
 
 --------------------------------------------------------------------------------
