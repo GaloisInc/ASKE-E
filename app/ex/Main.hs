@@ -91,13 +91,6 @@ testExpr envs source =
                            TC.inferExpr e
       pPrint inferred
 
-testDecl :: FilePath -> IO ()
-testDecl path =
-  runTest
-  do  [E.DMeasure m] <- P.parseFromFile P.declsP path
-      m' <- runTC (TC.inferMeasure m)
-      pPrint m'
-
 testFile :: FilePath -> IO ()
 testFile fp = runTest
   do ds <- loadExperiment fp

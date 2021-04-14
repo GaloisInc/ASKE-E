@@ -30,6 +30,8 @@ import Language.ASKEE.Experiment.Lexer
   '}'           { Lexeme { lexemeRange = $$, lexemeToken = CloseBrace   } }
   '('           { Lexeme { lexemeRange = $$, lexemeToken = OpenParen    } }
   ')'           { Lexeme { lexemeRange = $$, lexemeToken = CloseParen   } }
+  '['           { Lexeme { lexemeRange = $$, lexemeToken = OpenBracket  } }
+  ']'           { Lexeme { lexemeRange = $$, lexemeToken = CloseBracket } }
   ','           { Lexeme { lexemeRange = $$, lexemeToken = Comma        } }
   ':'           { Lexeme { lexemeRange = $$, lexemeToken = Colon        } }
 
@@ -42,6 +44,7 @@ import Language.ASKEE.Experiment.Lexer
   '='           { Lexeme { lexemeRange = $$, lexemeToken = OpEq         } }
   '!'           { Lexeme { lexemeRange = $$, lexemeToken = OpBang       } }
   '.'           { Lexeme { lexemeRange = $$, lexemeToken = OpDot        } }
+  '..'          { Lexeme { lexemeRange = $$, lexemeToken = OpDotDot     } }
 
   '=='          { Lexeme { lexemeRange = $$, lexemeToken = OpEqEq       } }
   '!='          { Lexeme { lexemeRange = $$, lexemeToken = OpBangEq     } }
@@ -68,6 +71,8 @@ import Language.ASKEE.Experiment.Lexer
   'false'       { Lexeme { lexemeRange = $$, lexemeToken = KWfalse      } }
   'true'        { Lexeme { lexemeRange = $$, lexemeToken = KWtrue       } }
   'return'      { Lexeme { lexemeRange = $$, lexemeToken = KWreturn     } }
+  'finalize'    { Lexeme { lexemeRange = $$, lexemeToken = KWfinalize   } }
+  'by'          { Lexeme { lexemeRange = $$, lexemeToken = KWby         } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -106,9 +111,9 @@ experimentDecl                         :: { ExperimentStmt }
   | ident '=' measureExpr                 { ESMeasure $1 $3 }
 
 sampleExpr                             :: { SampleExpr }
-  : 'sample' expr ident args              { SampleExpr { seName = $3
-                                                       , seArgs = $4
-                                                       , seRange = $2
+  : 'sample' ident args expr              { SampleExpr { seName = $2
+                                                       , seArgs = $3
+                                                       , seRange = $4
                                                        }
                                           }
 
@@ -123,7 +128,7 @@ measureExpr                            :: { MeasureExpr }
 measure                                :: { MeasureDecl }
   : 'measure' ident params
       listOf(measureVar)
-      'with' ident block                  { MeasureDecl
+      'with' ident block finalizeBlock    { MeasureDecl
                                               { measureName = $2
                                               , measureTArgs = []
                                               , measureConstraints = []
@@ -131,11 +136,15 @@ measure                                :: { MeasureDecl }
                                               , measureVars = $4
                                               , measureDataBinder = $6
                                               , measureImpl = $7
+                                              , measureFinal = $8
                                               } }
 
 measureVar                             :: { (Ident,Expr) }
   : ident '=' expr                        { ($1,$3) }
 
+finalizeBlock                          :: { Maybe Expr }
+  : {- empty -}                           { Nothing }
+  | 'finalize' 'return' expr              { Just $3 }
 
 
 params                                 :: { [ Binder ] }
@@ -198,6 +207,7 @@ expr                                   :: { Expr }
 
   | expr '.' IDENT                        { Dot $1 (snd $3) }
   | '{'  sepBy(',', fieldInit) '}'        { Point $2 }
+  | '[' expr '..' expr 'by' expr ']'      { Call Range [$2, $4, $6] }
 
 fieldInit                              :: {(Label, Expr)}
   : IDENT '=' expr                        {(snd $1, $3)}

@@ -40,12 +40,15 @@ $ws+              ;
 "{-"              { startComment }
 "{"               { lexeme OpenBrace }
 "}"               { lexeme CloseBrace }
+"["               { lexeme OpenBracket }
+"]"               { lexeme CloseBracket }
 "("               { lexeme OpenParen }
 ")"               { lexeme CloseParen }
 ","               { lexeme Comma }
 ":"               { lexeme Colon }
 
 "."               { lexeme OpDot }
+".."              { lexeme OpDotDot }
 "="               { lexeme OpEq }
 "=="              { lexeme OpEqEq }
 "!"               { lexeme OpBang }
@@ -77,6 +80,8 @@ $ws+              ;
 "false"           { lexeme KWfalse }
 "true"            { lexeme KWtrue }
 "return"          { lexeme KWreturn }
+"finalize"        { lexeme KWfinalize }
+"by"              { lexeme KWby }
 
 @ident            { lexeme Ident }
 @rational         { lexRational }
@@ -99,6 +104,8 @@ data Token =
   | CloseParen
   | OpenBrace
   | CloseBrace
+  | OpenBracket
+  | CloseBracket
   | Comma
   | Colon
 
@@ -118,6 +125,7 @@ data Token =
   | OpAmpAmp
   | OpBarBar
   | OpDot
+  | OpDotDot
 
   | KWexperiment
   | KWmeasure
@@ -134,6 +142,9 @@ data Token =
   | KWfalse
   | KWtrue
   | KWreturn
+  | KWfinalize
+  | KWby
+  | StringLit Text
 
   | TokError String
   | TokEOF
@@ -148,8 +159,6 @@ lexRational :: Action s [Lexeme Token]
 lexRational =
   do x <- Text.unpack <$> matchText
      lexeme $! Rational (read x)    -- XXX: looses precision
-
-
 
 alexGetByte :: Input -> Maybe (Word8, Input)
 alexGetByte = makeAlexGetByte (toEnum . fromEnum)
