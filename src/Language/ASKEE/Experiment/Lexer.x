@@ -68,6 +68,8 @@ $ws+              ;
 "experiment"      { lexeme KWexperiment }
 "measure"         { lexeme KWmeasure }
 "sample"          { lexeme KWsample }
+"trace"           { lexeme KWtrace }
+"model"           { lexeme KWmodel }
 "with"            { lexeme KWwith }
 "let"             { lexeme KWlet }
 "if"              { lexeme KWif }
@@ -130,6 +132,8 @@ data Token =
   | KWexperiment
   | KWmeasure
   | KWsample
+  | KWtrace
+  | KWmodel
   | KWwith
   | KWlet
   | KWif

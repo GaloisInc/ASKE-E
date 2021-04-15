@@ -31,7 +31,13 @@ type Label = Text
 data Decl =
     DMeasure MeasureDecl
   | DExperiment ExperimentDecl
+  | DModel ModelDecl
   deriving Show
+
+data ModelDecl = ModelDecl
+  { mdName   :: Ident
+  , mdFields :: Map Text Type
+  } deriving Show
 
 data MeasureExpr =
   MeasureExpr { meMeasureName :: Ident
@@ -53,13 +59,14 @@ data ExperimentStmt =
     ESLet Binder Expr
   | ESSample Binder SampleExpr
   | ESMeasure Binder MeasureExpr
+  | ESTrace Binder Expr
   deriving Show
 
 data ExperimentDecl =
   ExperimentDecl { experimentName :: Ident
                  , experimentArgs :: [Binder]
                  , experimentStmts :: [ExperimentStmt]
-                 , experimentReturn :: Expr
+                 -- , experimentReturn :: Expr
                  }
   deriving Show
 
@@ -90,6 +97,8 @@ data ExperimentType = ExperimentType
   , etResult :: Type
   }
 
+type ModelType = Type
+
 measureType :: MeasureDecl -> Qualified MeasureType
 measureType m = Forall (measureTArgs m) (measureConstraints m)
                 MeasureType
@@ -104,6 +113,8 @@ experimentType e =
                  , etResult = getType (experimentName e)
                  }
 
+modelType :: ModelDecl -> ModelType
+modelType m = getType (mdName m)
 
 data Stmt =
     Set Ident Expr
@@ -123,11 +134,18 @@ data Type =
   | TypePoint (Map Text Type)
   -- | TypeCallable [Type] Type
   | TypeVar TypeVar
-  deriving (Show, Eq, Ord)
+  | TypeCon TCon
+  deriving (Show, Eq)
+
+data TCon = TCon
+  { tconName    :: Text
+  , tconArgs    :: [Type]
+  , tconFields  :: Map Text Type
+  } deriving (Show, Eq)
 
 data TypeConstraint =
     HasField Type Label Type
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq)
 
 data Literal =
     LitBool Bool
@@ -138,7 +156,7 @@ data Expr =
     Lit Literal
   | Var Ident
   | Call FunctionName [Expr]
-  | Dot Expr Label
+  | Dot Expr Label (Maybe Type) -- filled in by type checker
   | Point [(Text, Expr)]
   deriving Show
 

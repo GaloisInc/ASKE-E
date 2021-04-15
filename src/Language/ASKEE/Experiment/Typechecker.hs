@@ -16,6 +16,7 @@ import qualified Control.Monad.Except as Except
 import Control.Monad.Except(throwError)
 
 import qualified Language.ASKEE.Experiment.Syntax as E
+import Language.ASKEE.Experiment.TypeOf(typeOf)
 import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType), collect, mapType)
 
 --------------
@@ -28,6 +29,7 @@ inferDecl decl =
   do  decl' <- case decl of
         E.DMeasure m -> E.DMeasure <$> inferMeasure m
         E.DExperiment e -> E.DExperiment <$> inferExperiment e
+        E.DModel m -> E.DModel <$> inferModel m
 
       bindDecl' decl'
       pure decl'
@@ -44,6 +46,15 @@ inferArgs args body =
           bindVar (E.tnName binder) ty
           pure (E.setType binder ty)
 
+inferModel :: E.ModelDecl -> TC E.ModelDecl
+inferModel mdl =
+  do let ty = E.TypeCon E.TCon
+                { E.tconName   = E.tnName (E.mdName mdl)
+                , E.tconArgs   = []
+                , E.tconFields = E.mdFields mdl
+                }
+     pure mdl { E.mdName = E.setType (E.mdName mdl) ty }
+
 inferMeasure :: E.MeasureDecl -> TC E.MeasureDecl
 inferMeasure measure =
   inferArgs (E.measureArgs measure) \args ->
@@ -56,6 +67,11 @@ inferMeasure measure =
                 setModifiableSymbol (E.tnName name)
                 pure (E.setType name ty)
 
+        case E.measureFinal measure of
+          Nothing -> pure ()
+          Just _  -> throwError "'final' not supported at present"
+
+{-
         (fexpr, outTy) <- case E.measureFinal measure of
           Nothing ->
             let ty = E.TypePoint $ Map.fromList [ (E.tnName x, E.getType x) | x <- varNames' ]
@@ -64,9 +80,9 @@ inferMeasure measure =
           Just finalizer ->
             do  (expr', fty) <- inferExpr finalizer
                 pure (Just expr', fty)
+-}
 
 
-        let newName = E.setType (E.measureName measure) outTy
 
         -- binder
         binderTy <- newTVar
@@ -76,23 +92,33 @@ inferMeasure measure =
         -- impl
         block' <- inferBlock (E.measureImpl measure)
 
-        m' <- zonk E.MeasureDecl { E.measureName = newName
+        m' <- zonk E.MeasureDecl { E.measureName = E.measureName measure
                                  , E.measureTArgs = []
                                  , E.measureConstraints = []
                                  , E.measureArgs = args
                                  , E.measureVars = zip varNames' varExps'
                                  , E.measureDataBinder = dataBinder'
                                  , E.measureImpl = block'
-                                 , E.measureFinal = fexpr
+                                 , E.measureFinal = Nothing -- XXX fexpr
                                  }
 
         let freeVars = Set.toList $ freeTVars m'
             bv = E.TVBound <$> freeVars
             subst = Map.fromList (zip (E.TVFree <$> freeVars) (E.TypeVar <$> bv))
 
+        outTy <- zonk $ E.TypeCon
+                        E.TCon { E.tconName = E.tnName (E.measureName measure)
+                               , E.tconArgs = E.TypeVar <$> bv
+                               , E.tconFields = Map.fromList
+                                  [ (E.tnName x, E.getType x) | x <- varNames' ]
+                               }
+
+        let pname = E.setType (E.measureName measure) outTy
+
         cns <- extractConstraints
 
-        pure $ applySubst subst m' { E.measureTArgs       = freeVars
+        pure $ applySubst subst m' { E.measureName        = pname
+                                   , E.measureTArgs       = freeVars
                                    , E.measureConstraints = cns
                                    }
 
@@ -102,9 +128,12 @@ inferMeasureExpr mexpr =
      (mty, tyArgs) <- lookupMeasure name
      es  <- checkCall name (E.meArgs mexpr) (E.mtArgs mty)
      dsTy <- getVarType (E.tnName (E.meDataset mexpr))
-     unify (E.TypeStream $ E.mtData mty) dsTy
+     unify (E.TypeStream (E.mtData mty)) dsTy
 
-     pure ( E.MeasureExpr { E.meMeasureName = E.meMeasureName mexpr
+     let r = E.mtResult mty
+
+     pure ( E.MeasureExpr { E.meMeasureName = E.setType (E.meMeasureName mexpr)
+                                                        r
                           , E.meDataset = E.setType (E.meDataset mexpr) dsTy
                           , E.meArgs = es
                           , E.meTypeArgs = tyArgs
@@ -116,7 +145,9 @@ inferSampleExpr :: E.SampleExpr -> TC (E.SampleExpr, E.Type)
 inferSampleExpr sexpr =
   do  let name = E.tnName (E.seName sexpr)
       ety <- lookupSampleSource name
-      seRange' <- checkExpr (E.seRange sexpr) E.TypeNumber
+      seRange' <- checkExpr (E.seRange sexpr) (E.TypeStream E.TypeNumber)
+          -- XXX: perhaps Stream should be a constraint instead of a type
+
       seArgs' <- checkCall name (E.seArgs sexpr) (E.etArgs ety)
 
       pure ( E.SampleExpr { E.seName = E.seName sexpr
@@ -148,16 +179,26 @@ inferExperiment :: E.ExperimentDecl -> TC E.ExperimentDecl
 inferExperiment ex =
   inferArgs (E.experimentArgs ex) \args' ->
     do  stmts' <- inferExperimentStmt `traverse` E.experimentStmts ex
+
+{-
         -- XXX: maybe add constraint to rty to ensure the type is 'simple'
         (returnExp', rty) <- inferExpr (E.experimentReturn ex)
+-}
 
         cns <- extractConstraints >>= solveConstraints
+
+        let rty = E.TypeCon
+                  E.TCon { E.tconName = E.tnName (E.experimentName ex)
+                         , E.tconArgs = []
+                         , E.tconFields = Map.fromList
+                                                  (concatMap stmtToField stmts')
+                         }
 
         let exName = E.experimentName ex
         let ex' = E.ExperimentDecl { E.experimentName = E.setType exName rty
                                    , E.experimentArgs = args'
                                    , E.experimentStmts = stmts'
-                                   , E.experimentReturn = returnExp'
+                                   -- , E.experimentReturn = returnExp'
                                    }
 
         ex'' <- zonk ex'
@@ -168,6 +209,14 @@ inferExperiment ex =
         unless (null cns) (throwError "could not solve all constraints in experiment")
 
         pure ex''
+
+  where
+  stmtToField s =
+    case s of
+      E.ESLet x e     -> [ (E.tnName x, typeOf e) ]
+      E.ESSample {}   -> []
+      E.ESMeasure x m -> [ (E.tnName x, E.getType (E.meMeasureName m)) ]
+      E.ESTrace x e   -> [ (E.tnName x, undefined) ]
 
 checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
 checkCall thing es ts =
@@ -228,11 +277,11 @@ inferExpr e0 =
       do  ty <- getVarType (E.tnName v)
           pure (E.Var (E.setType v ty), ty)
 
-    E.Dot e1 label ->
+    E.Dot e1 label _ ->
       do  (e1', e1ty) <- inferExpr e1
           ty <- newTVar
           addConstraint (E.HasField e1ty label ty)
-          pure (E.Dot e1' label, ty)
+          pure (E.Dot e1' label (Just ty), ty)
 
     E.Call fname args ->
       do  argsInferred <- inferExpr `traverse` args
@@ -298,7 +347,7 @@ type TC a = State.StateT CheckEnv (Except.Except Text) a
 data DeclType =
     DTMeasure (E.Qualified E.MeasureType)
   | DTExperiment E.ExperimentType
-  | DTModel E.Type
+  | DTModel E.ModelType
 
 data CheckEnv =
   CheckEnv { ceVars :: Map Text E.Type
@@ -374,6 +423,7 @@ declName decl =
   case decl of
     E.DMeasure m -> E.tnName $ E.measureName m
     E.DExperiment e -> E.tnName $ E.experimentName e
+    E.DModel m -> E.tnName $ E.mdName m
 
 getVarType :: Text -> TC E.Type
 getVarType name =
@@ -387,6 +437,7 @@ bindDecl' decl = bindDecl (declName decl)
   case decl of
     E.DMeasure m -> DTMeasure $ E.measureType m
     E.DExperiment e -> DTExperiment $ E.experimentType e
+    E.DModel m -> DTModel $ E.modelType m
 
 newTVar :: TC E.Type
 newTVar =
@@ -471,11 +522,28 @@ mgu t1 t2  =
     (E.TypeNumber, E.TypeNumber) -> ok
     (E.TypeStream t1', E.TypeStream t2') -> mgu t1' t2'
     (E.TypePoint mp1, E.TypePoint mp2) -> mguMap mp1 mp2
+    (E.TypeCon tc1, E.TypeCon tc2) -> mguTCon tc1 tc2
     (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
     (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
     _ -> Left "Types differ"
   where
     ok = pure Map.empty
+
+mguTCon :: E.TCon -> E.TCon -> Either TypeError Subst
+mguTCon tc1 tc2
+  | E.tconName tc1 == E.tconName tc2 = mguMany (E.tconArgs tc1) (E.tconArgs tc2)
+  | otherwise = Left "Type con mismatch"
+
+mguMany :: [E.Type] -> [E.Type] -> Either TypeError Subst
+mguMany xs ys =
+  case (xs,ys) of
+    ([],[]) -> pure mempty
+    (x:xs',y:ys') ->
+      do su1 <- mgu x y
+         su2 <- mguMany (applySubst su1 <$> xs') (applySubst su1 <$> ys')
+         pure (composeSubst su1 su2)
+    _ -> Left "Not enough arugments to type"
+
 
 mguMap :: Map Text E.Type -> Map Text E.Type -> Either TypeError Subst
 mguMap mp1 mp2 = mguFields (Map.toList mp1) (Map.toList mp2)
@@ -513,12 +581,9 @@ bindTVar var ty =
 
 occurs :: E.TypeVar -> E.Type -> Bool
 occurs var ty =
-  case ty of
-    E.TypeBool -> False
-    E.TypeNumber -> False
-    E.TypeVar i -> var == i
-    E.TypeStream sty -> occurs var sty
-    E.TypePoint mp -> any (occurs var) mp
+  case var of
+    E.TVFree v -> v `Set.member` freeTVars ty
+    E.TVBound {} -> False
 
 applySubst :: TraverseType t => Subst -> t -> t
 applySubst subst = mapType doSubst
@@ -530,6 +595,7 @@ applySubst subst = mapType doSubst
       E.TypeStream ty'    -> E.TypeStream (doSubst ty')
       E.TypePoint mp      -> E.TypePoint (doSubst <$> mp)
       E.TypeVar i         -> Map.findWithDefault ty i subst
+      E.TypeCon tc        -> E.TypeCon (applySubst subst tc)
 
 
 freeTVars :: TraverseType t => t -> Set Int
@@ -541,6 +607,7 @@ freeTVars = collect freeVarsInType
         E.TypeNumber -> Set.empty
         E.TypeStream t -> freeVarsInType t
         E.TypePoint mp -> foldMap freeVarsInType mp
+        E.TypeCon tc -> freeTVars tc
         E.TypeVar (E.TVFree i) -> Set.singleton i
         E.TypeVar (E.TVBound _) -> Set.empty
 
@@ -567,10 +634,18 @@ solveConstraint constraint =
   case constraint of
     E.HasField recordTy label fieldTy ->
       case recordTy of
+        E.TypeCon tc ->
+          case Map.lookup label (E.tconFields tc) of
+            Just fieldTy' -> Right <$> unify' fieldTy fieldTy'
+            Nothing ->
+              throwError ("'" <> E.tconName tc <>
+                                          "' does not have field " <> label)
+
         E.TypePoint pm ->
           case Map.lookup label pm of
             Just fieldTy' -> Right <$> unify' fieldTy fieldTy'
-            Nothing -> throwError ("Record does not have field '" <> label <> "'")
+            Nothing ->
+              throwError ("Record does not have field '" <> label <> "'")
         E.TypeVar _ -> pure $ Left constraint
         --XXX: better error
         _ -> throwError "type is not data point"

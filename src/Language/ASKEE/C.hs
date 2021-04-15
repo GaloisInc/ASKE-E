@@ -29,6 +29,11 @@ function retTy name args xs =
 argList :: [Doc] -> Doc
 argList = parens . hsep . punctuate comma
 
+typeArgList :: [Doc] -> Doc
+typeArgList xs = case xs of
+                  [] -> mempty
+                  _  -> angles xs
+
 
 arg :: Doc -> Doc -> Doc
 arg ty name = ty <+> name

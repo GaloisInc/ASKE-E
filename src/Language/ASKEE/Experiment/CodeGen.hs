@@ -7,17 +7,70 @@ import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.C as C
 import Language.ASKEE.Experiment.Syntax
+import Language.ASKEE.Experiment.TypeOf(typeOf)
+
+{-
+data ExperimentDecl =
+  ExperimentDecl { experimentName :: Ident
+                 , experimentArgs :: [Binder]
+                 , experimentStmts :: [ExperimentStmt]
+                 , experimentReturn :: Expr
+                 }
+  deriving Show
+-}
+
+compileExperiment exdecl =
+  vcat
+    [ "struct" <+> name <+> "{"
+    , C.nested $ concatMap attrsFromStmt (experimentStmts exdecl)
+    , "};"
+    ]
+  where
+  name = measureEName (tnName (experimentName exdecl))
+  attrsFromStmt estmt =
+    case estmt of
+      ESLet x e -> [C.declare (compileType (typeOf e)) (compileVar x)]
+      ESSample {} -> []
+      ESMeasure b m ->
+        [C.declare (compileType (getType (meMeasureName m))) (compileVar b)]
+      -- ESTrace Binder Expr
 
 
+
+{-
+
+
+
+  x = sample P [1..120 by 1]
+  a = measure x with M1
+  b = measure x with M2
+
+  P x';
+  Range t(1,1,120)
+  x = Sample(t,x')
+
+  M1<P> a;
+  M2<P> b;
+  while (!x.done()) {
+    x.step();
+    a.addPoint(x.getPoint())
+    b.addPoint(x.getPoint())
+  }
+
+
+
+-}
+
+
+--------------------------------------------------------------------------------
 
 compileMeasure :: MeasureDecl -> C.Doc
 compileMeasure mdecl =
   vcat
   [ template
-  , "class" <+> name <+> "{"
+  , "struct" <+> name <+> "{"
   , C.nested $ map attr         (measureArgs mdecl) ++
                map (attr . fst) (measureVars mdecl)
-  , "public:"
   , C.nested [ con, addPoint ]
   ,"};"
   ]
@@ -73,7 +126,7 @@ compileExpr prec expr =
     Lit l     -> compileLiteral l
     Var x     -> compileVar x
     Call f es -> compileCall prec f es
-    Dot e l   -> C.member (compileExpr 1 e) (labelName l)
+    Dot e l _ -> C.member (compileExpr 1 e) (labelName l)
     -- Point [(Text, Expr)]
 
 compileVar :: TypedName -> C.Doc
@@ -145,9 +198,11 @@ compileTVar tv =
 compileType :: Type -> C.Doc
 compileType ty =
   case ty of
-    TypeNumber -> C.double
-    TypeBool   -> C.bool
-    TypeVar tv -> compileTVar tv
+    TypeNumber   -> C.double
+    TypeBool     -> C.bool
+    TypeVar tv   -> compileTVar tv
+    TypeCon tcon -> tconCName (tconName tcon) <>
+                              C.typeArgList (map compileType (tconArgs tcon))
 {-
   | TypeStream Type -- stream/dataset
   | TypePoint (Map Text Type)
@@ -161,6 +216,10 @@ tvarName :: Int -> C.Doc
 tvarName n = "T" <> C.intLit n
 
 -- XXX: escape
+tconCName :: Text -> C.Doc
+tconCName = pretty
+
+-- XXX: escape
 varName :: Text -> C.Doc
 varName = pretty
 
@@ -171,5 +230,11 @@ labelName = pretty
 -- XXX: escape
 measureCName :: Text -> C.Doc
 measureCName = pretty
+
+-- XXX: escape
+measureEName :: Text -> C.Doc
+measureEName = pretty
+
+
 
 

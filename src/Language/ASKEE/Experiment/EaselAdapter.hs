@@ -77,7 +77,7 @@ convertExpression e =
     E.Lit (E.LitNum n) -> Core.NumLit n
     E.Var t -> Core.Var (E.tnName t)
     E.Call E.Add [e1, e2] -> Core.Op2 Core.Add (convertExpression e1) (convertExpression e2)
-    E.Dot _ l -> Core.Var l  -- this might need another look
+    E.Dot _ l _ -> Core.Var l  -- this might need another look
     E.Call E.LessThan [e1, e2] -> Core.Op2 Core.Lt (convertExpression e1)
                                                    (convertExpression e2)
     E.Call E.GreaterThanEqual [e1, e2] -> convertExpression e2 Core.:<=: convertExpression e1

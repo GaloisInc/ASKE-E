@@ -111,8 +111,70 @@ struct Example {
 };
 
 
+struct SIR {
+  using Point = SIR;
+  double time = 0;
+  double s = 0;
+  double i = 0;
+  double r = 0;
+  double  getTime() { return time; }
+  double  getNextTime() { return time + 2; }
+  Point&  getPoint() { return *this; }
+
+  void step() {
+    time = getNextTime();
+    i = i + 1;
+  }
+};
+
+template <typename T3>
+struct Peak {
+  double peak_value;
+  double peak_time;
+  Peak()
+  : peak_value(0.0), peak_time(0.0)
+  {}
+  void addPoint(T3 &p) {
+    if ((p.i >= peak_value)) {
+      peak_value = p.i;
+      peak_time = p.time;
+    }
+  }
+};
+
+
+// x = sample SIR() with [0..120 by 1]
+// p = measure x with Peak()      <-    x :: SIR  (ElementOf Sir)
+//                                      Peak<SIR>
+
+
+
+/*
+
+*/
+
+struct X {
+  Peak<SIR> p;
+
+  void run() {
+    Range xRange(0,1,120);
+    SIR xModel;
+    auto x = sample(xRange,xModel);
+    p = {};
+
+    while (!x.done()) {
+      x.step();
+      p.addPoint(x.getPoint());
+    }
+  }
+};
 
 int main() {
+  X x;
+  x.run();
+  std::cout << x.p.peak_value << std::endl;
+
+#if 0
   Range time(0,7,120);
   Example example;
   auto sampled = sample<>(time,example);
@@ -127,5 +189,6 @@ int main() {
     std::cout << it->data << " ";
   }
   std::cout << std::endl;
+#endif
 }
 

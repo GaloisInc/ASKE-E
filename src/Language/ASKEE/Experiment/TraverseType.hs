@@ -54,7 +54,7 @@ instance TraverseType Expr where
       Lit {}      -> pure expr
       Var i       -> Var <$> traverseType f i
       Call fu es  -> Call fu <$> traverseType f es
-      Dot e l     -> (`Dot` l) <$> traverseType f e
+      Dot e l t   -> (`Dot` l) <$> traverseType f e <*> traverse f t
       Point fs    -> Point <$> (traverseField `traverse` fs)
     where
       traverseField (fname, fvalue) = (,) fname <$> traverseType f fvalue
@@ -96,7 +96,6 @@ instance TraverseType ExperimentDecl where
     ExperimentDecl <$> traverseType f (experimentName ed)
                    <*> traverseType f (experimentArgs ed)
                    <*> traverseType f (experimentStmts ed)
-                   <*> traverseType f (experimentReturn ed)
 
 instance TraverseType ExperimentStmt where
   traverseType f stmt =
@@ -110,6 +109,11 @@ instance TraverseType Decl where
     case decl of
       DMeasure m    -> DMeasure    <$> traverseType f m
       DExperiment e -> DExperiment <$> traverseType f e
+      DModel m      -> DModel      <$> traverseType f m
+
+instance TraverseType ModelDecl where
+  traverseType f md =
+    ModelDecl <$> traverseType f (mdName md) <*> traverse f (mdFields md)
 
 instance TraverseType TypeConstraint where
   traverseType f c =
@@ -122,3 +126,8 @@ instance TraverseType MeasureType where
     MeasureType <$> traverseType f (mtArgs m)
                 <*> f (mtData m)
                 <*> f (mtResult m)
+
+instance TraverseType TCon where
+  traverseType f tc =
+    TCon (tconName tc) <$> traverse f (tconArgs tc)
+                       <*> traverse f (tconFields tc)

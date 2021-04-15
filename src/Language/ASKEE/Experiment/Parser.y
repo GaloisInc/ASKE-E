@@ -12,6 +12,7 @@ module Language.ASKEE.Experiment.Parser
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
+import qualified Data.Map as Map
 import Control.Exception(Exception(..),throwIO)
 import MonadLib hiding(Label)
 
@@ -59,6 +60,8 @@ import Language.ASKEE.Experiment.Lexer
   'experiment'  { Lexeme { lexemeRange = $$, lexemeToken = KWexperiment } }
   'measure'     { Lexeme { lexemeRange = $$, lexemeToken = KWmeasure    } }
   'sample'      { Lexeme { lexemeRange = $$, lexemeToken = KWsample     } }
+  'trace'       { Lexeme { lexemeRange = $$, lexemeToken = KWtrace      } }
+  'model'       { Lexeme { lexemeRange = $$, lexemeToken = KWmodel      } }
   'with'        { Lexeme { lexemeRange = $$, lexemeToken = KWwith       } }
   'let'         { Lexeme { lexemeRange = $$, lexemeToken = KWlet        } }
   'if'          { Lexeme { lexemeRange = $$, lexemeToken = KWif         } }
@@ -98,17 +101,26 @@ decls                                  :: { [Decl] }
 decl                                   :: { Decl }
   : experiment                            { DExperiment $1 }
   | measure                               { DMeasure $1 }
+  | model                                 { DModel $1 }
+
+model                                  :: { ModelDecl }
+  : 'model' ident
+      listOf(modelField)                  { ModelDecl
+                                              { mdName = $2
+                                              , mdFields = Map.fromList $3 } }
+
+modelField                             :: { (Text,Type) }
+  : ident ':' type                        { (tnName $1, $3) }
 
 experiment                             :: { ExperimentDecl }
   : 'experiment' ident params
-      listOf(experimentDecl)
-      'return' expr
-                                          { ExperimentDecl $2 $3 $4 $6 }
+      listOf(experimentDecl)              { ExperimentDecl $2 $3 $4 }
 
 experimentDecl                         :: { ExperimentStmt }
   : 'let' ident '=' expr                  { ESLet $2 $4 }
   | ident '=' sampleExpr                  { ESSample $1 $3 }
   | ident '=' measureExpr                 { ESMeasure $1 $3 }
+  | ident '=' 'trace' expr                { ESTrace $1 $4 }
 
 sampleExpr                             :: { SampleExpr }
   : 'sample' ident args expr              { SampleExpr { seName = $2
@@ -205,7 +217,7 @@ expr                                   :: { Expr }
   | expr '&&' expr                        { Call And [$1, $3] }
   | expr '||' expr                        { Call Or  [$1, $3] }
 
-  | expr '.' IDENT                        { Dot $1 (snd $3) }
+  | expr '.' IDENT                        { Dot $1 (snd $3) Nothing }
   | '{'  sepBy(',', fieldInit) '}'        { Point $2 }
   | '[' expr '..' expr 'by' expr ']'      { Call Range [$2, $4, $6] }
 
