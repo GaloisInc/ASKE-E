@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.ASKEE.Expr where
 
@@ -15,8 +16,6 @@ data Expr =
   | Mul  Expr Expr
   | Div  Expr Expr
   | Neg  Expr
-  | Exp  Expr
-  | Log  Expr
   | And  Expr Expr
   | Or   Expr Expr
   | Not  Expr
@@ -30,6 +29,7 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
+  | Fn   Text [Expr]
   deriving (Eq, Show, Ord)
 
 
@@ -42,8 +42,6 @@ eval vars e = ev e
     ev (Mul e1 e2) = binop (*) e1 e2
     ev (Div e1 e2) = binop (/) e1 e2
     ev (Neg e1) = negate <$> ev e1
-    ev (Exp e1) = exp <$> ev e1
-    ev (Log e1) = log <$> ev e1
     ev (And e1 e2) = logop (&&) e1 e2
     ev (Or e1 e2) = logop (||) e1 e2
     ev (Not e1) = double . not <$> evB e1
@@ -70,6 +68,20 @@ eval vars e = ev e
         Nothing -> Left $ "unbound variable "<>unpack t
     ev (LitD d) = pure d
     ev (LitB b) = pure $ double b
+    ev (Fn f args) =
+      case (f, args) of
+        ("exp", [e1]) -> exp <$> ev e1
+        ("exp", as) -> Left $ 
+          "eval: arity mismatch: function `exp` expected 1 argument, received "<>
+          show (length as)<>
+          ": "<>show as
+        ("log", [e1]) -> log <$> ev e1
+        ("log", as) -> Left $ 
+          "eval: arity mismatch: function `log` expected 1 argument, received "<>
+          show (length as)<>
+          ": "<>show as
+        _ -> Left $ "eval: didn't recognize function "<>unpack f
+
 
     evB :: Expr -> Either String Bool
     evB e' = bool <$> ev e'

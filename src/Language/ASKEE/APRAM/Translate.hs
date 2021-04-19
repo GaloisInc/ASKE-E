@@ -167,7 +167,11 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
     asRate thisProbSpec passProbSpec =
       case (thisProbSpec, passProbSpec) of
         (Rate r, _) -> r
-        (Probability tp, Probability pp) -> Expr.Neg ((tp `Expr.Mul` Expr.Log pp) `Expr.Div` (Expr.LitD delta `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp)))
+        (Probability tp, Probability pp) -> 
+          Expr.Neg $ 
+            (tp `Expr.Mul` Expr.Fn "log" [pp]) 
+            `Expr.Div` 
+            (Expr.LitD delta `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp))
         _ -> undefined
 
     mkEvent :: (String, [Action], Expr.Expr, State) -> Event

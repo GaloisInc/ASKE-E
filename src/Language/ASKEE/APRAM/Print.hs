@@ -148,7 +148,7 @@ printMods params mods = (vcat . map printMod) mods
           potentialRates = map snd $ concatMap APRAM.modActions $ filter (\m -> APRAM.modCohort m == modCohort) mods
           rates = mapMaybe (\case Rate r -> Just $ qualify r; _ -> Nothing) potentialRates
           rateSum = foldr1 Add rates
-          baseActProb = LitD 1 `Sub` Exp (Neg rateSum `Mul` Var deltaName)
+          baseActProb = LitD 1 `Sub` Fn "exp" [Neg rateSum `Mul` Var deltaName]
           inaction = rateSum `Expr.EQ` LitD 0
 
           actProb :: Expr

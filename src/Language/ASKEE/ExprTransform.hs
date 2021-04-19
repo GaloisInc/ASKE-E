@@ -26,8 +26,6 @@ transformExpr exprT e =
     Expr.Mul e1 e2 -> bin Expr.Mul e1 e2
     Expr.Div e1 e2 -> bin Expr.Div e1 e2
     Expr.Neg e1    -> (Expr.Neg <$> expr e1) >>= exprT
-    Expr.Exp e1    -> (Expr.Exp <$> expr e1) >>= exprT
-    Expr.Log e1    -> (Expr.Log <$> expr e1) >>= exprT
     Expr.And e1 e2 -> bin Expr.And e1 e2
     Expr.Or  e1 e2 -> bin Expr.Or e1 e2
     Expr.LT  e1 e2 -> cmp Expr.LT e1 e2
@@ -45,6 +43,7 @@ transformExpr exprT e =
       do  ch <- condChoice `traverse` choices
           oth <- expr `traverse` other
           exprT $ Expr.Cond ch oth
+    Expr.Fn f args -> (Expr.Fn f <$> expr `traverse` args) >>= exprT
   where
     cmp op e1 e2 = (op <$> expr e1 <*> expr e2) >>= exprT
     expr = transformExpr exprT

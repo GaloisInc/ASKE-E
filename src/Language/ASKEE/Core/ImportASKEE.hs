@@ -50,8 +50,6 @@ expAsCore e =
     Src.Sub e1 e2     -> binop Sub e1 e2
     Src.Mul e1 e2     -> binop Mul e1 e2
     Src.Div e1 e2     -> binop Div e1 e2
-    Src.Exp e1        -> Op1 Exp (expAsCore e1)
-    Src.Log e1        -> Op1 Log (expAsCore e1)
     Src.Neg e1        -> Op1 Neg (expAsCore e1)
     Src.LitD d        -> NumLit d
     Src.Var t         -> Var t
@@ -66,6 +64,7 @@ expAsCore e =
     Src.LitB b        -> BoolLit b
     Src.If tst e1 e2  -> If (expAsCore tst) (expAsCore e1) (expAsCore e2)
     Src.Cond bs oth   -> condAsCore bs oth
+    Src.Fn {} -> error $ "expAsCore: can't convert function expression to core ("++show e++")"
   where
   cmp op e1 e2   = Op2 op (expAsCore e1) (expAsCore e2)
   binop op e1 e2 = Op2 op (expAsCore e1) (expAsCore e2)

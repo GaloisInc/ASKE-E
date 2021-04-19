@@ -22,8 +22,6 @@ pyPrintExpr expr =
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    (Exp e1) -> text "math.exp" <> parens (pyPrintExpr e1)
-    (Log e1) -> text "math.log" <> parens (pyPrintExpr e1)
     (Neg e1) -> char '-' <> pp e1
     (LitD d) -> double d
     (Var i) -> text (unpack i)
@@ -47,6 +45,20 @@ pyPrintExpr expr =
     Cond _ _ -> undefined
     LitB True -> text "True"
     LitB False -> text "False"
+    (Fn f args) ->
+      case (f, args) of
+        ("exp", [e1]) -> "math.exp"<>parens (pyPrintExpr e1)
+        ("exp", as) -> error $ 
+          "pyPrintExpr: arity mismatch: function `exp` expected 1 argument, received "++
+          show (length as)++
+          ": "++show as
+        ("log", [e1]) -> "math.log"<>parens (pyPrintExpr e1)
+        ("log", as) -> error $ 
+          "pyPrintExpr: arity mismatch: function `log` expected 1 argument, received "++
+          show (length as)++
+          ": "++show as
+        _ -> error $ "pyPrintExpr: didn't recognize function "++unpack f
+
   
   where
     binop = expBinop pp
@@ -66,8 +78,6 @@ pyPrintExpr expr =
         LitB _ -> 10
         Neg _ -> 1
         Not _ -> 1
-        Exp _ -> 1
-        Log _ -> 1
         Add _ _ -> 6
         Sub _ _ -> 6
         Mul _ _ -> 7
@@ -82,6 +92,7 @@ pyPrintExpr expr =
         Var _ -> 10
         If {} -> 0
         Cond {} -> 0
+        Fn {} -> 10
 
 
 printExpr :: Expr -> Doc
@@ -91,8 +102,6 @@ printExpr expr =
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    (Exp e1) -> text "exp" <> parens (printExpr e1)
-    (Log e1) -> text "log" <> parens (printExpr e1)
     (Neg e1) -> char '-' <> pp e1
     (LitD d) -> double d
     (Var i) -> text (unpack i)
@@ -122,6 +131,19 @@ printExpr expr =
       in  nest 2 decl $$ nest 4 branches' 
     LitB True -> text "true"
     LitB False -> text "false"
+    (Fn f args) ->
+      case (f, args) of
+        ("exp", [e1]) -> "exp"<>parens (printExpr e1)
+        ("exp", as) -> error $ 
+          "printExpr: arity mismatch: function `exp` expected 1 argument, received "++
+          show (length as)++
+          ": "++show as
+        ("log", [e1]) -> "log"<>parens (printExpr e1)
+        ("log", as) -> error $ 
+          "printExpr: arity mismatch: function `log` expected 1 argument, received "++
+          show (length as)++
+          ": "++show as
+        _ -> error $ "printExpr: didn't recognize function "++unpack f
   
   where
     binop = expBinop pp
@@ -141,8 +163,6 @@ printExpr expr =
         LitB _ -> 10
         Neg _ -> 1
         Not _ -> 1
-        Exp _ -> 1
-        Log _ -> 1
         Add _ _ -> 6
         Sub _ _ -> 6
         Mul _ _ -> 7
@@ -157,6 +177,7 @@ printExpr expr =
         Var _ -> 10
         If {} -> 0
         Cond {} -> 0
+        Fn {} -> 10
 
     condBranch :: Expr -> Expr -> Doc
     condBranch e1 e2 = 

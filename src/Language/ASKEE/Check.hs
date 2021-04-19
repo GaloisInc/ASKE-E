@@ -10,7 +10,7 @@ import           Data.Map (Map)
 import qualified Data.Map as Map
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 import qualified Data.Text as Text
 
 import           Language.ASKEE.Expr (Expr(..))
@@ -168,8 +168,6 @@ typeOf bindings orig = ty orig
         Mul e1 e2   -> arithTy e1 e2
         Div e1 e2   -> arithTy e1 e2
         Neg e1      -> ty e1 >>= expect' e1 Double >> pure Double
-        Exp e1      -> ty e1 >>= expect' e1 Double >> pure Double
-        Log e1      -> ty e1 >>= expect' e1 Double >> pure Double
         And e1 e2   -> logTy e1 e2
         Or e1 e2    -> logTy e1 e2
         Not e1      -> ty e1 >>= expect' e1 Boolean >> pure Boolean
@@ -213,6 +211,18 @@ typeOf bindings orig = ty orig
               ]
         LitD _ -> pure Double
         LitB _ -> pure Boolean
+        Fn "exp" [arg] -> ty arg >>= expect' arg Double >> pure Double
+        Fn "exp" args -> Left $
+          "typeOf: arity mismatch: function `exp` expected 1 argument, received "<>
+          show (length args)<>
+          ": "<>show args
+        Fn "log" [arg] -> ty arg >>= expect' arg Double >> pure Double
+        Fn "log" args -> Left $
+          "typeOf: arity mismatch: function `log` expected 1 argument, received "<>
+          show (length args)<>
+          ": "<>show args
+        Fn f _ -> Left $
+          "typeOf: didn't recongnize function "<>unpack f
 
     arithTy :: Expr -> Expr -> Either String Type
     arithTy e1 e2 =

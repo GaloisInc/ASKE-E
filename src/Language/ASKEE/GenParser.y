@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.GenParser where
 
@@ -146,8 +147,10 @@ Exp                                   :: { Expr }
   | Exp '*' Exp                          { Mul  $1 $3 }
   | Exp '/' Exp                          { Div  $1 $3 }
   | '-' Exp                              { Neg  $2 }
-  | 'exp' '(' Exp ')'                    { Exp  $3 }
-  | 'log' '(' Exp ')'                    { Log  $3 }
+  -- XXX: better to parse any Fn, 
+  -- or just the ones we understand?
+  | 'exp' '(' Exp ')'                    { Fn "exp" [$3] }
+  | 'log' '(' Exp ')'                    { Fn "log" [$3] }
   | Exp '>' Exp                          { GT  $1 $3 }
   | Exp '>=' Exp                         { GTE $1 $3 }
   | Exp '==' Exp                         { EQ  $1 $3 }
