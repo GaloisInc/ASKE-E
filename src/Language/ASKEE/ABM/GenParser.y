@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ABM.GenParser where
 
