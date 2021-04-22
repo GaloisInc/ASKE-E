@@ -126,7 +126,7 @@ stateName = Text.intercalate "_" . Map.elems
 
 -- | Provided a mapping of attribute names to their statuses, and an agent
 -- expression, synthesize a list of every possible mapping of agent name
--- to ESL state variable
+-- to ESL state variable that satisfies the agent expression
 agentSets :: [(Text, [Text])] -> ABM.AgentExpr -> [Map Text [ESLStateVar]]
 agentSets agentAttrs expr = 
   explode (search expr Map.empty [] (:) agentAttrs) agentAttrs
@@ -136,7 +136,7 @@ agentSets agentAttrs expr =
 -- to include all possible combinations of attributes not mentioned in
 -- agents' state variables. For example:
 -- restrictionSets = 
---   [ Map.singleton "x" (ESLStateVar (Map.singleton "city" "PDX")) ]
+--   [ Map.singleton "X" (ESLStateVar (Map.singleton "city" "PDX")) ]
 -- agentAttrs = 
 --   [ AgentAttribute "city" ["PDX", "SEA"]
 --   , AgentAttribute "health" ["S", "I", "R"]
