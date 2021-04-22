@@ -51,7 +51,7 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     -- variables.
     instantiateEvent :: Map Text ESLState -> ESL.Event
     instantiateEvent agentMapping = 
-      ESL.Event eventName Nothing eventRate (concatMap asStatement eventEffect) Nothing
+      ESL.Event eventName Nothing eventRate' (concatMap asStatement eventEffect) Nothing
       where
         asStatement :: ABM.AgentAssign -> [ESL.Statement]
         asStatement (ABM.AgentAssign (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus)) =
@@ -64,8 +64,26 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
               ]
         asStatement _ = undefined
 
+        eventRate' = runIdentity $ transformExpr spliceSizes eventRate
 
-    relevantStates = agentSets agent eventWhen
+        -- Convert expressions like size(x) and size(x.city) into `Expr`s
+        -- that ESL can recognize - namely, (sums of) state variables.
+        spliceSizes :: Expr -> Identity Expr
+        spliceSizes e =
+          case e of
+            Fn "size" [Var v] ->
+              case Text.split (== '.') v of
+                [agentName] -> 
+                  let ESLState thisAgentStatuses = agentMapping Map.! agentName
+                  in  (pure . Var . stateName) thisAgentStatuses
+                [agentName, agentAttr] ->
+                  let ESLState thisAgentStatuses = agentMapping Map.! agentName
+                      thisStatus = thisAgentStatuses Map.! agentAttr
+                      dummyAgent = Map.singleton "_" (ESLState $ Map.singleton agentAttr thisStatus)
+                      [foo] = explode [dummyAgent] agentAttrs
+                  in  pure $ foldr1 Add (map (Var . stateName . statuses) (foo Map.! "_"))
+                _ -> undefined
+            _ -> pure e
 
     relevantStates = agentSets agentAttrs eventWhen
 
