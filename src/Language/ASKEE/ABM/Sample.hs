@@ -54,8 +54,8 @@ sampleEvents = [expose_e, expose_i, infect, remit, recover]
       ["x", "y"] 
       (foldr1 And
         [ Eq (Attribute "x" "city") (Attribute "y" "city")
-        , Eq (Attribute "x" "city") (Status "S")
-        , Eq (Attribute "y" "city") (Status "I")
+        , Eq (Attribute "x" "health") (Status "S")
+        , Eq (Attribute "y" "health") (Status "I")
         ])
       (LitD 0.4)
       [AgentAssign (Attribute "x" "health") (Status "E")]
