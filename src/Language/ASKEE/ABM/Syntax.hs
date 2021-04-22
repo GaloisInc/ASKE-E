@@ -8,16 +8,16 @@ import Language.ASKEE.Expr
 
 data Model = Model
   { modelName   :: Text
-  , modelAgent  :: Map Text AgentAttribute
+  , modelAgent  :: Map Text AgentAttribute -- ^ Names of attributes mapped to attributes themselves
   , modelLets   :: Map Text Expr
-  , modelInit   :: Map Text Expr
+  , modelInit   :: Map Text Expr -- ^ Initial conditions of the model
   , modelEvents :: [Event]
   }
   deriving Show
 
 data AgentAttribute = AgentAttribute 
-  { attributeName     :: Text
-  , attributeStatuses :: [Text]
+  { attributeName     :: Text -- ^ The name/type of an attribute
+  , attributeStatuses :: [Text] -- ^ The statuses associated with this attribute
   }
   deriving Show
 
@@ -39,7 +39,7 @@ data AttributeRef =
   deriving Show
 
 data AgentExpr = 
-    Eq AttributeRef AttributeRef
+    Eq AttributeRef AttributeRef -- ^ `x.city == y.city` or `x.health == S`, e.g.
   | And AgentExpr AgentExpr
   | Or AgentExpr AgentExpr
   deriving Show

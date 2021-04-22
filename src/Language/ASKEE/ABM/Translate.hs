@@ -16,6 +16,9 @@ import qualified Language.ASKEE.Syntax as ESL
 import Prelude hiding ( succ, fail )
 import Control.Monad.Identity ( Identity(runIdentity) )
 
+-- An attribute is something like "city" or "health"
+-- A status is something like "Portland" or "infected"
+
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
 newtype ESLState = ESLState 
@@ -34,8 +37,8 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events
     states = map stateDecl (allStates agentAttrs)
     events = concatMap (translateEvent agentAttrs) modelEvents
     agentAttrs = 
-      [ (attribute, statuses)
-      | (attribute, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
+      [ (attr, statuses)
+      | (attr, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
       ]
 
 
@@ -89,6 +92,8 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
                 _ -> undefined
             _ -> pure e
 
+    -- We'll map over these state variable mappings to instantiate
+    -- our events
     relevantStates = agentSets agentAttrs eventWhen
 
 
@@ -119,6 +124,9 @@ stateName :: Map Text Text -> Text
 stateName = Text.intercalate "_" . Map.elems
 
 
+-- | Provided a mapping of attribute names to their statuses, and an agent
+-- expression, synthesize a list of every possible mapping of agent name
+-- to ESL state variable
 agentSets :: [(Text, [Text])] -> ABM.AgentExpr -> [Map Text [ESLState]]
 agentSets agentAttrs expr = 
   explode (search expr Map.empty [] (:) agentAttrs) agentAttrs
@@ -159,10 +167,13 @@ search :: ABM.AgentExpr
        -> [Map Text ESLState]
 search expr curr fail succ allAttrs =
   case expr of
+    -- x.city == pdx
     ABM.Eq (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus) -> 
       doSimpleEq agentName agentAttr agentStatus
+    -- pdx == x.city
     ABM.Eq (ABM.Status agentStatus) (ABM.Attribute agentName agentAttr) ->
       doSimpleEq agentName agentAttr agentStatus
+    -- x.city == y.city
     ABM.Eq (ABM.Attribute n1 a1) (ABM.Attribute n2 a2) | a1 == a2 ->
       doComplexEq n1 n2 a1
     ABM.And e1 e2 -> 
