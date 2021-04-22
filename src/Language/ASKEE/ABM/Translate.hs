@@ -21,7 +21,7 @@ import Control.Monad.Identity ( Identity(runIdentity) )
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
-newtype ESLState = ESLState 
+newtype ESLStateVar = ESLStateVar 
   { statuses :: Map Text Text 
   }
   deriving (Eq, Ord, Show)
@@ -49,20 +49,20 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     -- a mapping, and we blindly explode into events for every single possible
     -- mapping of agent to state variables. This leads to duplicates that
     -- (at this point) we can't see until now.
-    template :: Map Text [ESLState] -> [ESL.Event]
+    template :: Map Text [ESLStateVar] -> [ESL.Event]
     template agents = 
       nub $ 
         map (instantiateEvent . Map.fromList) (taggedCombos $ Map.toList agents)
 
     -- Instantiate an event at a particular mapping of agents to ESL state
     -- variables.
-    instantiateEvent :: Map Text ESLState -> ESL.Event
+    instantiateEvent :: Map Text ESLStateVar -> ESL.Event
     instantiateEvent agentMapping = 
       ESL.Event eventName Nothing eventRate' (concatMap asStatement eventEffect) Nothing
       where
         asStatement :: ABM.AgentAssign -> [ESL.Statement]
         asStatement (ABM.AgentAssign (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus)) =
-          let ESLState decAgentStatuses = agentMapping Map.! agentName
+          let ESLStateVar decAgentStatuses = agentMapping Map.! agentName
               incAgentStatuses = Map.insert agentAttr agentStatus decAgentStatuses
               decAgentName = stateName decAgentStatuses
               incAgentName = stateName incAgentStatuses
@@ -81,12 +81,12 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
             Fn "size" [Var v] ->
               case Text.split (== '.') v of
                 [agentName] -> 
-                  let ESLState thisAgentStatuses = agentMapping Map.! agentName
+                  let ESLStateVar thisAgentStatuses = agentMapping Map.! agentName
                   in  (pure . Var . stateName) thisAgentStatuses
                 [agentName, agentAttr] ->
-                  let ESLState thisAgentStatuses = agentMapping Map.! agentName
+                  let ESLStateVar thisAgentStatuses = agentMapping Map.! agentName
                       thisStatus = thisAgentStatuses Map.! agentAttr
-                      dummyAgent = Map.singleton "_" (ESLState $ Map.singleton agentAttr thisStatus)
+                      dummyAgent = Map.singleton "_" (ESLStateVar $ Map.singleton agentAttr thisStatus)
                       [foo] = explode [dummyAgent] agentAttrs
                   in  pure $ foldr1 Add (map (Var . stateName . statuses) (foo Map.! "_"))
                 _ -> undefined
@@ -97,9 +97,9 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     relevantStates = agentSets agentAttrs eventWhen
 
 
-allStates :: [(Text, [Text])] -> [ESLState]
+allStates :: [(Text, [Text])] -> [ESLStateVar]
 allStates agentAttrs = 
-  [ ESLState (Map.fromList combos)
+  [ ESLStateVar (Map.fromList combos)
   | combos <- taggedCombos agentAttrs
   ]
 
@@ -116,8 +116,8 @@ taggedCombos xs = filter ((== length xs) . length) (go xs)
     go ((tag, h:t):ls) = map ((tag, h):) (go ls) ++ go ((tag, t):ls)
 
 
-stateDecl :: ESLState -> ESL.Decl
-stateDecl (ESLState ss) = ESL.State (stateName ss) (Var "???")
+stateDecl :: ESLStateVar -> ESL.Decl
+stateDecl (ESLStateVar ss) = ESL.State (stateName ss) (Var "???")
 
 
 stateName :: Map Text Text -> Text
@@ -127,7 +127,7 @@ stateName = Text.intercalate "_" . Map.elems
 -- | Provided a mapping of attribute names to their statuses, and an agent
 -- expression, synthesize a list of every possible mapping of agent name
 -- to ESL state variable
-agentSets :: [(Text, [Text])] -> ABM.AgentExpr -> [Map Text [ESLState]]
+agentSets :: [(Text, [Text])] -> ABM.AgentExpr -> [Map Text [ESLStateVar]]
 agentSets agentAttrs expr = 
   explode (search expr Map.empty [] (:) agentAttrs) agentAttrs
 
@@ -136,35 +136,35 @@ agentSets agentAttrs expr =
 -- to include all possible combinations of attributes not mentioned in
 -- agents' state variables. For example:
 -- restrictionSets = 
---   [ Map.singleton "x" (ESLState (Map.singleton "city" "PDX")) ]
+--   [ Map.singleton "x" (ESLStateVar (Map.singleton "city" "PDX")) ]
 -- agentAttrs = 
 --   [ AgentAttribute "city" ["PDX", "SEA"]
 --   , AgentAttribute "health" ["S", "I", "R"]
 --   ]
 -- --> 
--- [ Map.singleton "X" [ ESLState (Map.fromList [("city","PDX"),("health","S")])
---                     , ESLState (Map.fromList [("city","PDX"),("health","I")])
---                     , ESLState (Map.fromList [("city","PDX"),("health","R")])
+-- [ Map.singleton "X" [ ESLStateVar (Map.fromList [("city","PDX"),("health","S")])
+--                     , ESLStateVar (Map.fromList [("city","PDX"),("health","I")])
+--                     , ESLStateVar (Map.fromList [("city","PDX"),("health","R")])
 --                     ]]
-explode :: [Map Text ESLState] -> [(Text, [Text])] -> [Map Text [ESLState]]
+explode :: [Map Text ESLStateVar] -> [(Text, [Text])] -> [Map Text [ESLStateVar]]
 explode restrictionSets agentAttrs = map (Map.map go) restrictionSets
   where
-    go :: ESLState -> [ESLState]
+    go :: ESLStateVar -> [ESLStateVar]
     go restrictionSet = filter (fits restrictionSet) allStateVariables
 
     allStateVariables = allStates agentAttrs
 
-    fits :: ESLState -> ESLState -> Bool
-    fits (ESLState requiredStatuses) (ESLState actualStatuses) = 
+    fits :: ESLStateVar -> ESLStateVar -> Bool
+    fits (ESLStateVar requiredStatuses) (ESLStateVar actualStatuses) = 
       Map.intersection actualStatuses requiredStatuses == requiredStatuses
 
 
 search :: ABM.AgentExpr 
-       -> Map Text ESLState
-       -> [Map Text ESLState]
-       -> (Map Text ESLState -> [Map Text ESLState] -> [Map Text ESLState]) 
+       -> Map Text ESLStateVar
+       -> [Map Text ESLStateVar]
+       -> (Map Text ESLStateVar -> [Map Text ESLStateVar] -> [Map Text ESLStateVar]) 
        -> [(Text, [Text])]
-       -> [Map Text ESLState]
+       -> [Map Text ESLStateVar]
 search expr curr fail succ allAttrs =
   case expr of
     -- x.city == pdx
@@ -182,7 +182,7 @@ search expr curr fail succ allAttrs =
       search e1 curr (search e2 curr fail succ allAttrs) succ allAttrs
     _ -> undefined 
   where
-    doComplexEq :: Text -> Text -> Text -> [Map Text ESLState]
+    doComplexEq :: Text -> Text -> Text -> [Map Text ESLStateVar]
     doComplexEq agentName1 agentName2 agentAttr =
       case (curr Map.!? agentName1, curr Map.!? agentName2) of
         (Nothing, Nothing) -> 
@@ -192,15 +192,15 @@ search expr curr fail succ allAttrs =
               [ (agentName1, Map.empty)
               , (agentName2, Map.empty)
               ]
-        (Just (ESLState currentAttrs1), Nothing) ->
+        (Just (ESLStateVar currentAttrs1), Nothing) ->
           -- agentName1 exists in the mapping - find a matching 
           -- status for agentName2
           makeStatusForAgent currentAttrs1 agentName2
-        (Nothing, Just (ESLState currentAttrs2)) ->
+        (Nothing, Just (ESLStateVar currentAttrs2)) ->
           -- agentName2 exists in the mapping - find a matching 
           -- status for agentName1
           makeStatusForAgent currentAttrs2 agentName1
-        (Just (ESLState currentAttrs1), Just (ESLState currentAttrs2)) -> 
+        (Just (ESLStateVar currentAttrs1), Just (ESLStateVar currentAttrs2)) -> 
           -- Both agents exist in the mapping...
           case (currentAttrs1 Map.!? agentAttr, currentAttrs2 Map.!? agentAttr) of
             (Nothing, Nothing) -> 
@@ -214,13 +214,13 @@ search expr curr fail succ allAttrs =
             (Just s, Nothing) ->
               -- ...and agentName1 defines the attribute in question
               let newAttrs = Map.singleton agentAttr s
-                  newState = ESLState newAttrs
+                  newState = ESLStateVar newAttrs
                   newAgentMap = Map.insert agentName2 newState curr
               in succ newAgentMap fail
             (Nothing, Just s) ->
               -- ...and agentName2 defines the attribute in question
               let newAttrs = Map.singleton agentAttr s
-                  newState = ESLState newAttrs
+                  newState = ESLStateVar newAttrs
                   newAgentMap = Map.insert agentName1 newState curr
               in succ newAgentMap fail
             (Just s1, Just s2) | s1 == s2 -> 
@@ -231,7 +231,7 @@ search expr curr fail succ allAttrs =
         -- | From a list of potential statuses, pick the first and assign it
         -- to the attribute in question for agents' attributes in the 
         -- `agents` map
-        randomStatuses :: [Text] -> Map Text (Map Text Text) -> [Map Text ESLState]
+        randomStatuses :: [Text] -> Map Text (Map Text Text) -> [Map Text ESLStateVar]
         randomStatuses candidateStatuses agents =
           case candidateStatuses of
             [] -> 
@@ -242,24 +242,24 @@ search expr curr fail succ allAttrs =
               let newAgentMap = Map.foldrWithKey (fill s) curr agents
               in  succ newAgentMap (randomStatuses ss agents)
           where
-            fill :: Text -> Text -> Map Text Text -> Map Text ESLState -> Map Text ESLState
+            fill :: Text -> Text -> Map Text Text -> Map Text ESLStateVar -> Map Text ESLStateVar
             fill status agentName agentAttrs cur =
               let newAttrs = Map.insert agentAttr status agentAttrs
-                  newState = ESLState newAttrs
+                  newState = ESLStateVar newAttrs
                   newAgentMap = Map.insert agentName newState cur
               in  newAgentMap
 
         -- | Given a set of attribute-status bindings for one agent, either
         -- find the correct attribute-status binding for the other agent or,
         -- if the attribute doesn't exist in the bindings, pick a new one
-        makeStatusForAgent :: Map Text Text -> Text -> [Map Text ESLState]
+        makeStatusForAgent :: Map Text Text -> Text -> [Map Text ESLStateVar]
         makeStatusForAgent boundAgentAttrs unboundAgentName =
           case boundAgentAttrs Map.!? agentAttr of
             Just s ->
               -- The already-bound agent has a status `s` associated with
               -- this attribute
               let newAttrs = Map.singleton agentAttr s
-                  newState = ESLState newAttrs
+                  newState = ESLStateVar newAttrs
                   newAgentMap = Map.insert unboundAgentName newState curr
               in succ newAgentMap fail
             Nothing -> 
@@ -283,16 +283,16 @@ search expr curr fail succ allAttrs =
           | agentName == agentName2 = agentName1
           | otherwise = error "attempted to find other agent for nonexistent agent"
 
-    doSimpleEq :: Text -> Text -> Text -> [Map Text ESLState]
+    doSimpleEq :: Text -> Text -> Text -> [Map Text ESLStateVar]
     doSimpleEq agentName agentAttr agentStatus =
       case curr Map.!? agentName of
         -- The agent doesn't exist in the mapping
         Nothing -> 
           let newAttrs = Map.singleton agentAttr agentStatus
-              newState = ESLState newAttrs
+              newState = ESLStateVar newAttrs
               newAgentMap = Map.insert agentName newState curr
           in  succ newAgentMap fail
-        Just (ESLState currentAttrs) ->
+        Just (ESLStateVar currentAttrs) ->
           -- The agent does exist in the mapping...
           case currentAttrs Map.!? agentAttr of
             Just s | s == agentStatus -> 
@@ -301,7 +301,7 @@ search expr curr fail succ allAttrs =
             Nothing ->
               -- ...and doesn't define the attribute of interest
               let newAttrs = Map.insert agentAttr agentStatus currentAttrs
-                  newState = ESLState newAttrs
+                  newState = ESLStateVar newAttrs
                   newAgentMap = Map.insert agentName newState curr
               in  succ newAgentMap fail
             _ -> 
