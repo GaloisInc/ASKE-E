@@ -2,6 +2,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.ABM.Sample where
 
+import qualified Data.Map as Map
+import Data.Map ( Map )
 import Data.Text ( Text )
 import Language.ASKEE.ABM.Syntax
 import Language.ASKEE.Expr ( Expr(LitD, Var, Sub, Div) )
@@ -11,20 +13,20 @@ sampleModel = Model{..}
   where
     modelName = "SIR_Seattle_Portland"
     modelAgent = sampleAgent
-    modelLets = [("pop_size", LitD 1e5)]
+    modelLets = Map.fromList [("pop_size", LitD 1e5)]
     modelInit = sampleInits
     modelEvents = sampleEvents
 
-sampleAgent :: [AgentAttribute] 
-sampleAgent =
-  [ AgentAttribute "health" ["S", "E", "I", "R"]
-  , AgentAttribute "city" ["sea", "pdx"]
+sampleAgent :: Map Text AgentAttribute
+sampleAgent = Map.fromList
+  [ ("health", AgentAttribute "Health" ["S", "E", "I", "R"])
+  , ("city", AgentAttribute "City" ["sea", "pdx"])
   -- , AgentAttribute "age" ["0-30", "31-60", "61-90"]
   -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
   ]
 
-sampleInits :: [(Text, Expr)]
-sampleInits =
+sampleInits :: Map Text Expr
+sampleInits = Map.fromList
   [ ("S", Div (Sub (Var "pop_size") (LitD 3)) (Var "pop_size"))
   , ("E",     Div                   (LitD 3)  (Var "pop_size"))
   , ("I", LitD 0)

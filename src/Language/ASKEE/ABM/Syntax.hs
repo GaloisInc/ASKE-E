@@ -2,14 +2,15 @@
 module Language.ASKEE.ABM.Syntax where
 
 import Data.Text ( Text )
+import Data.Map ( Map )
 
 import Language.ASKEE.Expr
 
 data Model = Model
   { modelName   :: Text
-  , modelAgent  :: [AgentAttribute]
-  , modelLets   :: [(Text, Expr)]
-  , modelInit   :: [(Text, Expr)]
+  , modelAgent  :: Map Text AgentAttribute
+  , modelLets   :: Map Text Expr
+  , modelInit   :: Map Text Expr
   , modelEvents :: [Event]
   }
   deriving Show
@@ -41,9 +42,4 @@ data AgentExpr =
     Eq AttributeRef AttributeRef
   | And AgentExpr AgentExpr
   | Or AgentExpr AgentExpr
-  deriving Show
-
-data RateExpr =
-    Plain Expr
-  | Size Expr
   deriving Show

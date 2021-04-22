@@ -11,10 +11,10 @@ import           Data.Text ( Text )
 
 import qualified Language.ASKEE.ABM.Syntax as ABM
 import           Language.ASKEE.Expr
+import           Language.ASKEE.ExprTransform
 import qualified Language.ASKEE.Syntax as ESL
-import Language.ASKEE.ABM.Sample
-import Debug.Trace
 import Prelude hiding ( succ, fail )
+import Control.Monad.Identity ( Identity(runIdentity) )
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
@@ -29,13 +29,17 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events
     name = modelName
     lets = 
       [ ESL.Let v e
-      | (v, e) <- modelLets
+      | (v, e) <- Map.toList modelLets
       ]
-    states = map stateDecl (allStates modelAgent)
-    events = concatMap (translateEvent modelAgent) modelEvents
+    states = map stateDecl (allStates agentAttrs)
+    events = concatMap (translateEvent agentAttrs) modelEvents
+    agentAttrs = 
+      [ (attribute, statuses)
+      | (attribute, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
+      ]
 
 
-translateEvent :: [ABM.AgentAttribute] -> ABM.Event -> [ESL.Event]
+translateEvent :: [(Text, [Text])] -> ABM.Event -> [ESL.Event]
 translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
   where
     -- `nub` because events might only touch a portion of those agents in
@@ -88,14 +92,11 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     relevantStates = agentSets agentAttrs eventWhen
 
 
-allStates :: [ABM.AgentAttribute] -> [ESLState]
+allStates :: [(Text, [Text])] -> [ESLState]
 allStates agentAttrs = 
   [ ESLState (Map.fromList combos)
-  | combos <- taggedCombos (map flatten agentAttrs) 
+  | combos <- taggedCombos agentAttrs
   ]
-  where
-    flatten :: ABM.AgentAttribute -> (Text, [Text])
-    flatten (ABM.AgentAttribute a ss) = (a,ss)
 
 
 -- Generate every possible combination, Cartesian-product style, of `b`s, 
@@ -118,7 +119,7 @@ stateName :: Map Text Text -> Text
 stateName = Text.intercalate "_" . Map.elems
 
 
-agentSets :: [ABM.AgentAttribute] -> ABM.AgentExpr -> [Map Text [ESLState]]
+agentSets :: [(Text, [Text])] -> ABM.AgentExpr -> [Map Text [ESLState]]
 agentSets agentAttrs expr = 
   explode (search expr Map.empty [] (:) agentAttrs) agentAttrs
 
@@ -137,7 +138,7 @@ agentSets agentAttrs expr =
 --                     , ESLState (Map.fromList [("city","PDX"),("health","I")])
 --                     , ESLState (Map.fromList [("city","PDX"),("health","R")])
 --                     ]]
-explode :: [Map Text ESLState] -> [ABM.AgentAttribute] -> [Map Text [ESLState]]
+explode :: [Map Text ESLState] -> [(Text, [Text])] -> [Map Text [ESLState]]
 explode restrictionSets agentAttrs = map (Map.map go) restrictionSets
   where
     go :: ESLState -> [ESLState]
@@ -154,7 +155,7 @@ search :: ABM.AgentExpr
        -> Map Text ESLState
        -> [Map Text ESLState]
        -> (Map Text ESLState -> [Map Text ESLState] -> [Map Text ESLState]) 
-       -> [ABM.AgentAttribute]
+       -> [(Text, [Text])]
        -> [Map Text ESLState]
 search expr curr fail succ allAttrs =
   case expr of
@@ -262,8 +263,8 @@ search expr curr fail succ allAttrs =
         -- to `doComplexEq`
         potentialStatuses :: [Text]
         potentialStatuses = 
-          concatMap ABM.attributeStatuses $
-            filter (\(ABM.AgentAttribute attr _) -> attr == agentAttr) allAttrs
+          concatMap (\(_, statuses) -> statuses) $
+            filter (\(attr, _) -> attr == agentAttr) allAttrs
 
         otherAgent :: Text -> Text
         otherAgent agentName

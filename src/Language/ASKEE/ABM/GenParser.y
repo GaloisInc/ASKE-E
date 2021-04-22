@@ -227,14 +227,16 @@ data AgentDecl = AgentDecl
   deriving (Eq, Show)
 
 mkModel :: ([StatusDecl], AgentDecl, (Text, [(Text, Expr)], [(Text, Expr)], [Event])) -> Model
-mkModel (statuses, AgentDecl{..}, (modelName, modelLets, modelInit, modelEvents)) = Model{..}
+mkModel (statuses, AgentDecl{..}, (modelName, lets, init, modelEvents)) = Model{..}
   where
     statusMap = foldr (uncurry Map.insert) Map.empty 
       [ (n, vs) 
       | StatusDecl n vs <- statuses ]
-    modelAgent =
-      [ AgentAttribute attrName (statusMap Map.! attrType) 
+    modelAgent = foldr (uncurry Map.insert) Map.empty
+      [ (attrName, AgentAttribute attrType (statusMap Map.! attrType))
       | (attrName, attrType) <- agentAttributes ]
+    modelLets = Map.fromList lets
+    modelInit = Map.fromList init
 }
 
 
