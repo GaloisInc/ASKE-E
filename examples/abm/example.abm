@@ -1,38 +1,37 @@
-# one or more statuses
-status Health:
-    susceptible
-    exposed
-    infected
-    recovered
-    dead
-
-status Quarantine:
-    quarantined
-    not_quarantined
-
-# exactly one agent
-agent:
-    health :: Health
-    quarantine :: Quarantine
-
-# one or more cohorts
-cohort S:
-    health == susceptible
-
-cohort E, I, R, D...
-
-cohort F:
-    (health == exposed || health == infected) && quarantine == not_quarantined
-
-cohort Q:
-    quarantine == quarantined
-
 # exactly one `model`
-model SIR:
+model SEIRD_Q:
     let pop_size = 100000
     let beta = ...
     let gamma = ...
     ...
+
+    # one or more statuses
+    status Health:
+        susceptible
+        exposed
+        infected
+        recovered
+        dead
+
+    status Quarantine:
+        quarantined
+        not_quarantined
+
+    agent:
+        health :: Health
+        quarantine :: Quarantine
+
+    # one or more cohorts
+    cohort S:
+        health == susceptible
+
+    cohort E, I, R, D...
+
+    cohort F:
+        (health == exposed || health == infected) && quarantine == not_quarantined
+
+    cohort Q:
+        quarantine == quarantined
 
     # exactly one `init` block
     init:
@@ -51,7 +50,7 @@ model SIR:
         exposed = 10 / pop_size
 
     event Expose:
-        on:   S
+        if:   health == susceptible
         do:   health = exposed
         rate: beta
 
@@ -84,3 +83,58 @@ model SIR:
         on:   Q
         do:   quarantine = not_quarantined
         rate: pretty_often
+
+
+model SFOPDXSIR(agents):
+    status Location:
+        sfo
+        pdx
+
+    cohort SFO:
+        agents where { location == sfo }
+
+    cohort PDX:
+        agents where { location == pdx }
+
+    event SFOtoPDX:
+        on:   SFO
+        do:   location = pdx
+        rate: whatever
+
+    event PDXtoSFO:
+        on:   PDX
+        do:   location = sfo
+        rate: however_much
+
+    submodel SIR(SFO, 0.4, 0.04)
+    # is syntactic sugar for something like:
+    event SFO_Infect:
+        on:   agents where { health == susceptible && location == sfo }
+        do:   health = infected
+        rate: 0.4
+    event SFO_Recover:
+        on:   agents where { health == infected && location == sfo }
+        do:   health = recovered
+        rate: 0.04
+
+    submodel SIR(PDX, 0.3, 0.03)
+        
+
+model SIR(agents, beta, gamma):
+    status Health:
+        infected
+        susceptible
+        recovered
+
+    cohort S:
+        agents where { health == susceptible }
+
+    event Infect:
+        on:   agents where { health == susceptible }
+        do:   health = infected
+        rate: beta
+
+    event Recover:
+        on:   agents where { health == infected }
+        do:   health = recovered
+        rate: gamma
