@@ -33,6 +33,10 @@ library
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
                      , Language.ASKEE.ABM.Translate
+                     , Language.ASKEE.ABM.GenParser
+                     , Language.ASKEE.ABM.GenLexer
+                     , Language.ASKEE.ABM.Lexer
+                     , Language.ASKEE.ABM.Print
 
                     --  , Language.ASKEE.DiffEq.Lexer
                     --  , Language.ASKEE.DiffEq.GenLexer
