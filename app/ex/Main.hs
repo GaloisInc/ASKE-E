@@ -1,5 +1,6 @@
 {-# Language BlockArguments #-}
 {-# Language OverloadedStrings #-}
+{-# Language TupleSections #-}
 module Main(main) where
 
 import System.Environment
@@ -8,6 +9,7 @@ import System.IO(hPutStrLn,stderr)
 import Data.Text(Text)
 import qualified Data.Text.IO as Text
 import Data.Foldable(traverse_)
+import qualified Data.Map as Map
 import AlexTools(prettySourceRange)
 import Text.Show.Pretty(pPrint)
 import qualified Language.ASKEE.Experiment.Parser as P
@@ -17,7 +19,9 @@ import qualified Language.ASKEE.Experiment.TraverseType as TC
 import qualified Language.ASKEE.Experiment.EaselAdapter as Ex
 import qualified Language.ASKEE.Experiment.CodeGen as GenX
 import qualified Language.ASKEE as Core
+import qualified Language.ASKEE.Core as C
 import qualified Language.ASKEE.SimulatorGen as Gen
+import qualified Language.ASKEE.SimulatorGen as SG
 
 main :: IO ()
 main =
@@ -54,6 +58,25 @@ testCodeGen experimentFile =
      mapM_ print [ GenX.compileMeasure m | E.DMeasure m <- exper ]
      mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
 
+
+testCodeGen' :: [FilePath] -> FilePath -> IO ()
+testCodeGen' mdls experiment =
+  runTest
+  do  cores <- loadModel `traverse` mdls
+      expDecls <- loadExperiment experiment
+      let modelDecls = modelDecl <$> cores
+          exper = modelDecls ++ expDecls
+
+      mapM_ print ((show <$> SG.genModel) `traverse` cores)
+      mapM_ print [ GenX.compileMeasure m | E.DMeasure m <- exper ]
+      mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
+
+
+  where
+    loadModel fp = Core.loadCoreModel (Core.FromFile fp) []
+    modelDecl c =
+      E.DModel $ E.ModelDecl (E.untypedName $ C.modelName c)
+                             (Map.fromList $ (, E.TypeNumber) <$> C.modelStateVars c)
 
 --------------------------------------------------------------------------------
 runTest :: IO () -> IO ()

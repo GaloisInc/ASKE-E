@@ -1,5 +1,36 @@
+#ifndef _ASKEE_HPP_
+#define _ASKEE_HPP_
+
 #include <iostream>
 #include <vector>
+
+template<typename TModel>
+class Model {
+  using Point = TModel;
+
+  Model(TModel& m) {
+    model = m;
+    next();
+  }
+
+  double getTime()      { return model.time; }
+  double getNextTime()  { return model.next_time; }
+  TModel& getPoint()    { return model; }
+  bool  done()          { return false; }
+  void  step() {
+    model.runEvent(next_event, next_time);
+    next();
+  }
+
+private:
+  void next() {
+    model.nextEvent(next_event, next_time);
+  }
+
+  TModel& model;
+  double next_time;
+  int next_event;
+};
 
 // Increasing range
 class Range {
@@ -20,15 +51,12 @@ public:
   void  step()          { if (!done()) value += vstep; }
 };
 
-
-
 // Data with a time-stamp
 template <typename T>
 struct TimePoint {
   double time;
   T      data;
 };
-
 
 // Record points when generated (like `tee`)
 template <typename Series>
@@ -53,8 +81,6 @@ public:
     if (!done()) snapshot();
   }
 };
-
-
 
 // Filter `Data` on the points specified by `Time`
 template <typename Time, typename Data>
@@ -85,50 +111,10 @@ public:
   }
 };
 
-
 template <typename Data>
 Trace<Data> trace(Data& data) { return Trace<Data>(data); }
 
 template <typename Time, typename Data>
 Sample<Time,Data> sample(Time &t, Data &d) { return Sample<Time,Data>(t,d); }
 
-
-//-----------------------------------
-
-struct Example {
-  using Point = double;
-
-  double time;
-  Point data;
-
-  Example() : time(0), data(0) {}
-
-  Point& getPoint()    { return data; }
-  double getTime()     { return time; }
-  double getNextTime() { return time + 5; }
-
-  void step() {
-    time += 5;
-    data = 2 * time;
-  }
-};
-
-
-
-int main() {
-  Range time(0,7,120);
-  Example example;
-  auto sampled = sample<>(time,example);
-  auto data    = trace<>(sampled);
-
-  while (!data.done()) {
-    std::cout << data.getPoint() << std::endl;
-    data.step();
-  }
-
-  for (auto it = data.trace.begin(); it != data.trace.end(); ++it) {
-    std::cout << it->data << " ";
-  }
-  std::cout << std::endl;
-}
-
+#endif

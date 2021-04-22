@@ -3,6 +3,8 @@ module Language.ASKEE.Experiment.CodeGen where
 
 import Data.Text(Text)
 import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
+import Data.Map(Map)
+import qualified Data.Map as Map
 
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.C as C
@@ -19,13 +21,19 @@ data ExperimentDecl =
   deriving Show
 -}
 
+vectorOfType :: C.Doc -> C.Doc
+vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
+
+compileExperiment :: ExperimentDecl -> C.Doc
 compileExperiment exdecl =
   vcat
     [ "struct" <+> name <+> "{"
-    , C.nested $ concatMap attrsFromStmt (experimentStmts exdecl)
+    , C.nested $ concatMap attrsFromStmt inlinedBody
+    , C.nested [runFn $ compileSamples inlinedBody]
     , "};"
     ]
   where
+  inlinedBody = inlineVars Map.empty (experimentStmts exdecl)
   name = measureEName (tnName (experimentName exdecl))
   attrsFromStmt estmt =
     case estmt of
@@ -33,7 +41,89 @@ compileExperiment exdecl =
       ESSample {} -> []
       ESMeasure b m ->
         [C.declare (compileType (getType (meMeasureName m))) (compileVar b)]
-      -- ESTrace Binder Expr
+      ESTrace n e ->
+        [C.declare  (vectorOfType (compileType (typeOf e))) (compileVar n) ]
+
+  addMeasurePointName = C.ident "addPoint"
+
+  runFn stmts =
+    C.function C.void (C.ident "step") [] stmts
+  done e = C.call (C.member e (C.ident "done")) []
+  step e = C.callStmt (C.member e (C.ident "step")) []
+  getPoint e = C.call (C.member e (C.ident "getPoint")) []
+  callSample e r = C.call (C.ident "sample") [e, r]
+
+  compileSamples stmts =
+    case stmts of
+      [] -> []
+      ESSample s e:t ->
+        -- XXX: the name _model_ + tnName kinda sucks
+        [ C.declare (compileType $ getType s) (C.ident ("_model_" <> tnName s))
+        , C.declareInit C.auto (compileVar s) (callSample (C.ident ("_model_" <> tnName s)) (compileExpr' (seRange e)))
+        , C.while (C.not (done (compileVar s)))
+          ((compileBodyStmt (tnName s) `concatMap` t) ++ [step (compileVar s)])
+        ] ++ compileSamples t
+      _:t -> compileSamples t
+
+  compileBodyStmt sname estmt =
+    case estmt of
+      ESLet _ _      -> panic "compileBodyStmt" ["let should have been inlined"]
+      ESMeasure b me | tnName (meDataset me) == sname ->
+        [ C.callStmt (C.member (compileVar b) addMeasurePointName) [getPoint $ C.ident sname] ]
+                     | otherwise -> []
+      ESSample _ _ -> []
+      ESTrace _ _ -> [] --XXX: implement me
+
+compileMainEx :: TypedName -> C.Doc
+compileMainEx exTName =
+  C.main [ C.callStmt exName []
+         , C.callStmt (C.member exName "run") []
+         -- TODO: output
+         ]
+  where
+    exName = compileVar exTName
+
+
+-- TODO: generic traversal
+inlineVars :: Map Text Expr -> [ExperimentStmt] -> [ExperimentStmt]
+inlineVars lets stmts =
+  case stmts of
+    [] -> []
+    stmt:stmts' ->
+      case stmt of
+        ESLet x e ->
+          inlineVars (Map.insert (tnName x) (inlineExpr e) lets) stmts'
+
+        ESMeasure b me ->
+          ESMeasure b me { meArgs = inlineExpr <$> meArgs me
+                         , meDataset = findAlias (meDataset me)
+                         } : inlineVars lets stmts'
+
+        ESSample e se ->
+          let sample' =
+                ESSample e se { seArgs = inlineExpr <$> seArgs se
+                              , seRange = inlineExpr (seRange se)
+                              }
+          in sample':inlineVars lets stmts'
+
+        ESTrace b t -> ESTrace b (inlineExpr t) : inlineVars lets stmts
+  where
+    findAlias name =
+      case Map.lookup (tnName name) lets of
+        Just (Var v) -> findAlias v
+        Nothing -> name
+        Just _ -> panic "inlineVars" ["not expecting non Var expression as an data set alias"]
+
+    inlineExpr expr =
+      case expr of
+        Lit _ -> expr
+        Var i ->
+          case tnName i `Map.lookup` lets of
+            Just expr' -> expr'
+            Nothing -> expr
+        Call fname args -> Call fname (inlineExpr <$> args)
+        Dot e l t -> Dot (inlineExpr e) l t
+        Point flds -> Point (fmap inlineExpr <$> flds)
 
 
 
@@ -114,20 +204,31 @@ compileStmt stmt =
       where
       doThen (b,stmts) es = [C.ifThenElse (compileExpr 0 b) (doStmts stmts) es]
       doStmts             = map compileStmt
- 
+
 
 
 --------------------------------------------------------------------------------
 -- Expressions
- 
+
+compileExpr' :: Expr -> C.Doc
+compileExpr'= compileExpr 15
+
 compileExpr :: Int -> Expr -> C.Doc
 compileExpr prec expr =
   case expr of
     Lit l     -> compileLiteral l
     Var x     -> compileVar x
     Call f es -> compileCall prec f es
-    Dot e l _ -> C.member (compileExpr 1 e) (labelName l)
-    -- Point [(Text, Expr)]
+    Dot e l _ ->
+      case typeOf e of
+        TypeCon {} | l == "time" ->
+                          C.member (compileExpr 1 e) (C.call "getTime" [])
+                   | otherwise ->
+                          C.member (compileExpr 1 e)
+                                   (C.member (C.call "getPoint" []) (labelName l))
+
+        et -> panic "compileExpr" ["type not implemented for Dot " <> show et]
+    Point _ -> panic "compileExpr" ["compile Point expr not implemented"]
 
 compileVar :: TypedName -> C.Doc
 compileVar = varName . tnName
@@ -203,12 +304,15 @@ compileType ty =
     TypeVar tv   -> compileTVar tv
     TypeCon tcon -> tconCName (tconName tcon) <>
                               C.typeArgList (map compileType (tconArgs tcon))
+    TypeStream t@(TypeCon _) -> compileType t
+    TypeStream _ -> panic "compileType" ["cannot compile non constructed stream type (yet)"]
+    TypePoint _ -> panic "compileType" ["cannot compile point type (yet)"]
 {-
   | TypeStream Type -- stream/dataset
   | TypePoint (Map Text Type)
   -- | TypeCallable [Type] Type
 -}
- 
+
 --------------------------------------------------------------------------------
 -- Names
 
@@ -234,7 +338,5 @@ measureCName = pretty
 -- XXX: escape
 measureEName :: Text -> C.Doc
 measureEName = pretty
-
-
 
 

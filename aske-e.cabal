@@ -136,7 +136,8 @@ executable ex
     alex-tools,
     pretty-show,
     aske-e,
-    text
+    text,
+    containers
   default-language:    Haskell2010
   ghc-options:         -Wall
     

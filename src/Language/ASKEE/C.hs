@@ -26,6 +26,13 @@ function retTy name args xs =
        , "}"
        ]
 
+operatorDecl :: Doc -> Doc -> [Doc] -> [Doc] -> Doc
+operatorDecl retTy name args ss =
+  vcat [ retTy <+> "operator" <> name <> argList args <+> "{"
+       , nested ss
+       , "}"
+       ]
+
 argList :: [Doc] -> Doc
 argList = parens . hsep . punctuate comma
 
@@ -43,6 +50,9 @@ refArg ty name = ty <+> "&" <> name
 
 ptrArg :: Doc -> Doc -> Doc
 ptrArg ty name = ty <+> "*" <> name
+
+ptrptrArg :: Doc -> Doc -> Doc
+ptrptrArg ty name = ty <+> "**" <> name
 
 --------------------------------------------------------------------------------
 -- Expressions (kind of)
@@ -66,7 +76,7 @@ callPrefix :: Doc -> Doc -> Doc
 callPrefix op x = op <+> x
 
 not :: Doc -> Doc
-not = callPrefix "!"
+not e = "!" <> e
 
 (<<) :: Doc -> Doc -> Doc
 (<<) = callInfix "<<"
@@ -152,6 +162,9 @@ double = "double"
 bool :: Doc
 bool = "bool"
 
+char :: Doc
+char = "char"
+
 
 --------------------------------------------------------------------------------
 -- Statements
@@ -231,3 +244,11 @@ block pref ds = vcat [ pref <+> "{", nested ds, "}" ]
 
 spacedOut :: [Doc] -> [Doc]
 spacedOut = intersperse ""
+
+
+--------------------------------------------------------------------------------
+-- Convenience
+
+main :: [Doc] -> Doc
+main =
+  function int "main" [arg int "argc", ptrptrArg char "argv"]

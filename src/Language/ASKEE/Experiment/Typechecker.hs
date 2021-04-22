@@ -175,6 +175,7 @@ inferExperimentStmt stmt =
           bindVar (E.tnName name) ty
           pure $ E.ESSample (E.setType name ty) se'
 
+
 inferExperiment :: E.ExperimentDecl -> TC E.ExperimentDecl
 inferExperiment ex =
   inferArgs (E.experimentArgs ex) \args' ->

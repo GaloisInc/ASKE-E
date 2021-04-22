@@ -1,0 +1,27 @@
+model m
+  value : number
+  time : number
+
+measure Sum()
+  sum = 0.0
+
+  with j
+    sum = sum + j.value
+
+measure Peak()
+  peak_value = 0.0
+  peak_time = 0.0
+
+  with p
+    if peak_value < p.value then
+      peak_value = p.value
+      peak_time = p.time
+    end
+
+experiment X()
+  xs = sample m() [0 .. 120 by 1]
+  let xs2 = xs
+  i = measure xs2 with Sum()
+  ys = sample m() [0 .. 60 by 1]
+  j = measure ys with Peak()
+
