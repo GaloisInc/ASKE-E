@@ -21,6 +21,9 @@ import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
 
+import qualified Language.ASKEE.ABM.GenLexer           as ABMLexer
+import qualified Language.ASKEE.ABM.GenParser          as ABMParser
+import qualified Language.ASKEE.ABM.Syntax             as ABMSyntax
 import           Language.ASKEE.APRAM.Print            ( printAPRAM )
 import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
 import qualified Language.ASKEE.Check                  as Check
@@ -163,6 +166,23 @@ parseLatex file =
 
 loadLatex :: DataSource -> IO DiffEqs 
 loadLatex = parseLatex
+
+lexABM :: DataSource -> IO [Located ABMLexer.Token]
+lexABM file = do
+  txt <- loadString file
+  case ABMLexer.lexABM txt of
+    Right toks -> pure toks
+    Left err -> throwIO (ParseError $ "lexABM: "<>err)
+
+parseABM :: DataSource -> IO ABMSyntax.Model
+parseABM file = do
+  toks <- lexABM file
+  case ABMParser.parseABM toks of
+    Right abm -> pure abm
+    Left err -> throwIO (ParseError $ "parseABM: "<>err)
+
+loadABM :: DataSource -> IO ABMSyntax.Model
+loadABM = parseABM
 
 -------------------------------------------------------------------------------
 
