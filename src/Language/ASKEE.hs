@@ -306,3 +306,5 @@ toAPRAM modelFile aPRAMFile =
       let a = modelToAPRAM m "health"
           a' = show $ printAPRAM a
       writeFile aPRAMFile a'
+
+$allConverters

@@ -20,6 +20,12 @@ import Language.ASKEE.Core.ImportASKEE ( modelAsCore )
 import Language.ASKEE.Graph            ( shortestPath )
 import Language.ASKEE.Panic            ( panic )
 
+import qualified Language.ASKEE.ABM.GenLexer  as ABMLex
+import qualified Language.ASKEE.ABM.GenParser as ABMParse
+import qualified Language.ASKEE.ABM.Print     as ABMPrint
+import qualified Language.ASKEE.ABM.Syntax    as ABMSyntax
+import           Language.ASKEE.ABM.Translate as ABMTrans
+
 import qualified Language.ASKEE.DEQ.GenLexer  as DEQLex
 import qualified Language.ASKEE.DEQ.GenParser as DEQParse
 import qualified Language.ASKEE.DEQ.Print     as DEQPrint
@@ -57,6 +63,8 @@ data ModelType =
   | TOPO_C
   | TOPO_A
   | LATEX_C
+  | ABM_C
+  | ABM_A
   deriving (Enum, Eq, Ord)
 
 instance Show ModelType where
@@ -69,6 +77,8 @@ instance Show ModelType where
   show TOPO_A = "topology Abstract Syntax"
   show TOPO_C = "topology Concrete Syntax"
   show LATEX_C = "latex Concrete Syntax"
+  show ABM_C = "aBM Concrete Syntax"
+  show ABM_A = "aBM Abstract Syntax"
 
 data Repr = Abstract | Concrete
   deriving (Eq, Show)
@@ -98,6 +108,10 @@ instance Tagged Net where
   tagOf Abstract = TOPO_A
   tagOf Concrete = TOPO_C
 
+instance Tagged ABMSyntax.Model where
+  tagOf Abstract = ABM_A
+  tagOf Concrete = ABM_C
+
 typeOf :: ModelType -> Q Type
 typeOf m =
   case m of
@@ -110,9 +124,11 @@ typeOf m =
     TOPO_C -> [t| String |]
     TOPO_A -> [t| TopoSyntax.Net |]
     LATEX_C -> [t| String |]
+    ABM_A -> [t| ABMSyntax.Model |]
+    ABM_C -> [t| String |]
 
-converter' :: String -> ModelType -> ModelType -> Q [Dec]
-converter' nm from to =
+typedConverter :: String -> ModelType -> ModelType -> Q [Dec]
+typedConverter nm from to =
   do  let conv = converter from to
       funDec <- funD (mkName nm) [clause [] (normalB conv) []]
       typeDec <- sigD (mkName nm) [t| $(typeOf from) -> Either String $(typeOf to) |]
@@ -174,6 +190,8 @@ vertexFromKey :: ModelType -> Maybe Vertex
             , mkNode rnetATranslators  RNET_A  [ESL_A]
             , mkNode topoCTranslators  TOPO_C  [TOPO_A]
             , mkNode topoATranslators  TOPO_A  [TOPO_C, ESL_A]
+            , mkNode abmATranslators   ABM_A   [ABM_C, ESL_A]
+            , mkNode abmCTranslators   ABM_C   [ABM_A]
             ]
 
     eslCTranslators =   Map.fromList [ (ESL_A,   [e| ESLLex.lexModel >=> ESLParse.parseModel |]) ]
@@ -189,6 +207,9 @@ vertexFromKey :: ModelType -> Maybe Vertex
     topoCTranslators =  Map.fromList [ (TOPO_A,  [e| Aeson.eitherDecode @Net . B.pack |]) ]
     topoATranslators =  Map.fromList [ (TOPO_C,  [e| Right . B.unpack . Aeson.encode @Net |])
                                      , (ESL_A,   [e| Right . topologyAsModel |]) ]
+    abmATranslators  = Map.fromList  [ (ABM_C,   [e| Right . show . ABMPrint.printABM |])
+                                     , (ESL_A,   [e| Right . ABMTrans.abmToModel |]) ]
+    abmCTranslators  = Map.fromList  [ (ABM_A,   [e| ABMLex.lexABM >=> ABMParse.parseABM |]) ]
 
     mkNode :: Map ModelType (Q Exp) -> ModelType -> [ModelType] -> (Map ModelType (Q Exp), ModelType, [ModelType])
     mkNode translators model links
@@ -207,7 +228,7 @@ allConverters = concat <$> mapM (\pair -> pure [] `recover` mkConv pair) pairs
     mkConv pair =
       do  let (from, to) = verticesToNodes pair
               name = mkName $ filter (not . isSpace) $ show from<>"_to_"<>show to
-          converter' (show name) from to
+          typedConverter (show name) from to
 
     snd3 (_,y,_) = y
     pairs = mapMaybe pairToVertices $ allPairs allModels
