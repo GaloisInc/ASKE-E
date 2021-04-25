@@ -3,6 +3,7 @@ module Language.ASKEE.Experiment.CodeGen where
 
 import Data.Text(Text)
 import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
+import qualified Prettyprinter as PP
 import Data.Map(Map)
 import qualified Data.Map as Map
 
@@ -41,13 +42,13 @@ compileExperiment exdecl =
       ESSample {} -> []
       ESMeasure b m ->
         [C.declare (compileType (getType (meMeasureName m))) (compileVar b)]
-      ESTrace n e ->
-        [C.declare  (vectorOfType (compileType (typeOf e))) (compileVar n) ]
+      ESTrace n _ ->
+        [C.declare  (compileType (getType n)) (compileVar n) ]
 
   addMeasurePointName = C.ident "addPoint"
 
   runFn stmts =
-    C.function C.void (C.ident "step") [] stmts
+    C.function C.void (C.ident "run") [] stmts
   done e = C.call (C.member e (C.ident "done")) []
   step e = C.callStmt (C.member e (C.ident "step")) []
   getPoint e = C.call (C.member e (C.ident "getPoint")) []
@@ -68,11 +69,21 @@ compileExperiment exdecl =
   compileBodyStmt sname estmt =
     case estmt of
       ESLet _ _      -> panic "compileBodyStmt" ["let should have been inlined"]
-      ESMeasure b me | tnName (meDataset me) == sname ->
-        [ C.callStmt (C.member (compileVar b) addMeasurePointName) [getPoint $ C.ident sname] ]
-                     | otherwise -> []
+      ESMeasure b me
+        | tnName (meDataset me) == sname ->
+          [ C.callStmt (C.member (compileVar b) addMeasurePointName)
+                       [getPoint $ C.ident sname] ]
+        | otherwise -> []
       ESSample _ _ -> []
-      ESTrace _ _ -> [] --XXX: implement me
+      ESTrace tn (Var ds)
+        | tnName ds == sname ->
+          [ C.callStmt (C.member (compileVar tn) "push_back")
+                       [getPoint $ C.ident sname] ]
+        | otherwise -> []
+      ESTrace _ _ -> panic "compileBodyStmt" ["expecting trace to operate on a Var expr"]
+
+
+
 
 compileMainEx :: TypedName -> C.Doc
 compileMainEx exTName =
@@ -106,7 +117,7 @@ inlineVars lets stmts =
                               }
           in sample':inlineVars lets stmts'
 
-        ESTrace b t -> ESTrace b (inlineExpr t) : inlineVars lets stmts
+        ESTrace b t -> ESTrace b (inlineExpr t) : inlineVars lets stmts'
   where
     findAlias name =
       case Map.lookup (tnName name) lets of
@@ -219,16 +230,8 @@ compileExpr prec expr =
     Lit l     -> compileLiteral l
     Var x     -> compileVar x
     Call f es -> compileCall prec f es
-    Dot e l _ ->
-      case typeOf e of
-        TypeCon {} | l == "time" ->
-                          C.member (compileExpr 1 e) (C.call "getTime" [])
-                   | otherwise ->
-                          C.member (compileExpr 1 e)
-                                   (C.member (C.call "getPoint" []) (labelName l))
-
-        et -> panic "compileExpr" ["type not implemented for Dot " <> show et]
-    Point _ -> panic "compileExpr" ["compile Point expr not implemented"]
+    Dot e l _ -> C.member (compileExpr 1 e) (labelName l)
+    -- Point [(Text, Expr)]
 
 compileVar :: TypedName -> C.Doc
 compileVar = varName . tnName
@@ -305,6 +308,7 @@ compileType ty =
     TypeCon tcon -> tconCName (tconName tcon) <>
                               C.typeArgList (map compileType (tconArgs tcon))
     TypeStream t@(TypeCon _) -> compileType t
+    TypeVector tv -> vectorOfType (compileType tv)
     TypeStream _ -> panic "compileType" ["cannot compile non constructed stream type (yet)"]
     TypePoint _ -> panic "compileType" ["cannot compile point type (yet)"]
 {-
@@ -339,4 +343,24 @@ measureCName = pretty
 measureEName :: Text -> C.Doc
 measureEName = pretty
 
+-------------------------------------------------------------------------------
+-- JSON
 
+-- outputExp :: C.Doc -> C.Doc -> ExperimentDecl -> C.Doc
+-- outputExp output experiment decl =
+--     brackets (uncurry nameValue <$> expVars decl)
+--   where
+--     quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
+--     nameValue n v = quotedStrLit n C.<< C.stringLit ":" C.<< v
+--     fromName n = nameValue n (pretty n)
+--     brackets e = C.stringLit "{" C.<< e C.<< C.stringLit "}"
+
+--     outputStmt s0 =
+--       case s0 of
+--         ESMeasure n _ ->
+--           case getType n of
+--             TypeCon (TCon _ _ fs) ->
+--               case fromName <$> Map.keys fs of
+--                 [] -> panic "outputExp" ["Measure must have fields"]
+--                 h:t -> foldl (C.<<) h t
+--         ESTrace n _ ->

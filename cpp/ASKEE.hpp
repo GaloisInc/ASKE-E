@@ -14,8 +14,9 @@ class Model {
   }
 
   double getTime()      { return model.time; }
-  double getNextTime()  { return model.next_time; }
   TModel& getPoint()    { return model; }
+
+  double getNextTime()  { return model.next_time; }
   bool  done()          { return false; }
   void  step() {
     model.runEvent(next_event, next_time);
@@ -108,6 +109,7 @@ public:
     time.step();
     while (data.getNextTime() <= time.getTime()) data.step();
     point = data.getPoint();
+    point.time = time.getTime();
   }
 };
 

@@ -2,6 +2,12 @@ model m
   value : number
   time : number
 
+model SIR
+  S : number
+  I : number
+  R : number
+  time : number
+
 measure Sum()
   sum = 0.0
 
@@ -22,6 +28,9 @@ experiment X()
   xs = sample m() [0 .. 120 by 1]
   let xs2 = xs
   i = measure xs2 with Sum()
+
   ys = sample m() [0 .. 60 by 1]
   j = measure ys with Peak()
+
+  pts = trace xs
 

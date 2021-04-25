@@ -175,6 +175,13 @@ inferExperimentStmt stmt =
           bindVar (E.tnName name) ty
           pure $ E.ESSample (E.setType name ty) se'
 
+    E.ESTrace name e ->
+      do  (e', ty) <- inferExpr e
+          var <- newTVar
+          unify ty (E.TypeStream var)
+          let vty = E.TypeVector var
+          pure $ E.ESTrace (E.setType name vty) e'
+
 
 inferExperiment :: E.ExperimentDecl -> TC E.ExperimentDecl
 inferExperiment ex =
@@ -217,7 +224,7 @@ inferExperiment ex =
       E.ESLet x e     -> [ (E.tnName x, typeOf e) ]
       E.ESSample {}   -> []
       E.ESMeasure x m -> [ (E.tnName x, E.getType (E.meMeasureName m)) ]
-      E.ESTrace x e   -> [ (E.tnName x, undefined) ]
+      E.ESTrace x _   -> [ (E.tnName x, E.getType x) ]
 
 checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
 checkCall thing es ts =
@@ -597,6 +604,7 @@ applySubst subst = mapType doSubst
       E.TypePoint mp      -> E.TypePoint (doSubst <$> mp)
       E.TypeVar i         -> Map.findWithDefault ty i subst
       E.TypeCon tc        -> E.TypeCon (applySubst subst tc)
+      E.TypeVector ty'     -> E.TypeVector (applySubst subst ty')
 
 
 freeTVars :: TraverseType t => t -> Set Int
@@ -611,6 +619,7 @@ freeTVars = collect freeVarsInType
         E.TypeCon tc -> freeTVars tc
         E.TypeVar (E.TVFree i) -> Set.singleton i
         E.TypeVar (E.TVBound _) -> Set.empty
+        E.TypeVector t -> freeVarsInType t
 
 -------------------------------------------------------------------------------
 -- constraints

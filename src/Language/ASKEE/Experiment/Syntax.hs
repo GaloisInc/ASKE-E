@@ -135,6 +135,7 @@ data Type =
   -- | TypeCallable [Type] Type
   | TypeVar TypeVar
   | TypeCon TCon
+  | TypeVector Type
   deriving (Show, Eq)
 
 data TCon = TCon

@@ -103,6 +103,7 @@ instance TraverseType ExperimentStmt where
       ESLet n e -> ESLet <$> traverseType f n <*> traverseType f e
       ESSample n se -> ESSample <$> traverseType f n <*> traverseType f se
       ESMeasure n me -> ESMeasure <$> traverseType f n <*> traverseType f me
+      ESTrace n e -> ESTrace <$> traverseType f n <*> traverseType f e
 
 instance TraverseType Decl where
   traverseType f decl =
