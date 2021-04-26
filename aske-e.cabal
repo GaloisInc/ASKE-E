@@ -15,6 +15,7 @@ library
                      , Language.ASKEE.GenLexer
                      , Language.ASKEE.Lexer
                      , Language.ASKEE.GenParser
+                     , Language.ASKEE.Box
                      , Language.ASKEE.Core
                      , Language.ASKEE.Core.ImportASKEE
                      , Language.ASKEE.Core.Simplify
