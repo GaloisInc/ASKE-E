@@ -30,7 +30,7 @@ import Debug.Trace
 agent           { Located _ _ Lexer.Agent }
 effect          { Located _ _ Lexer.Effect }
 event           { Located _ _ Lexer.Event }
-initt            { Located _ _ Lexer.Init }
+init            { Located _ _ Lexer.Init }
 let             { Located _ _ Lexer.Let }
 model           { Located _ _ Lexer.Model }
 rate            { Located _ _ Lexer.Rate }
@@ -82,6 +82,13 @@ BCLOSE          { Located _ _ Lexer.CloseBlock }
 
 %%
 
+REV(p)
+   :                   { [] }
+   | REV(p) p          { $2 : $1 }
+
+MANY(p)
+   : REV(p)            { reverse $1 }
+
 REV1(p)
    : p                 { [$1] }
    | REV1(p) p         { $2 : $1 }
@@ -123,15 +130,15 @@ ModelDecl                            :: { (Text, [(Text, Expr)], [(Text, Expr)],
     BCLOSE                              { ($2, $5, $6, $7) }
 
 LetDecls                             :: { [(Text, Expr)] }
-  : MANY1(LetDecl)                      { $1 }
+  : MANY(LetDecl)                       { $1 }
 
 LetDecl                              :: { (Text, Expr) }
   : let SYM '=' Exp BSEP                { ($2, $4) }
 
 InitDecl                             :: { [(Text, Expr)] }
-  : initt ':' BOPEN
+  : init ':'
       SYM '<-' Exp
-    BCLOSE BSEP                         { [($4, $6)] }
+    BSEP                                { [($3, $5)] }
 
 BindStatement                        :: { (Text, Expr) }
   : SYM '<-' Exp                        { ($1, $3) }
