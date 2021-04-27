@@ -1,12 +1,14 @@
 module Language.ASKEE.APRAM.Lexer where
 
+import Data.Text ( Text )
+
 import Prelude hiding ( GT, EQ, LT )
 
 data Token = EOF
-  | Sym String
+  | Sym Text
   | LitD Double
   | LitB Bool 
-  | LitS String
+  | LitS Text
   | OpenP
   | CloseP
   | OpenB
@@ -22,10 +24,10 @@ data Token = EOF
   | MakeParam
   | MakeCohort
   | MakeMod
-  | CohortExpr String LogOp
-  | ParamVal String
-  | CohortSize String
-  | ColumnAssign String
+  | CohortExpr Text LogOp
+  | ParamVal Text
+  | CohortSize Text
+  | ColumnAssign Text
   | Plus
   | Minus
   | Times

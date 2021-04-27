@@ -1,12 +1,13 @@
 module Language.ASKEE.APRAM.Syntax where
 
 import Data.Map ( Map )
+import Data.Text ( Text, unpack )
 
 import Language.ASKEE.Expr ( Expr )
   
 data APRAM = APRAM
   { apramAgents   :: Int
-  , apramParams   :: Map String Expr
+  , apramParams   :: Map Text Expr
   , apramStatuses :: Map Column [Status]
   , apramCohorts  :: [Cohort]
   , apramMods     :: [Mod]
@@ -14,15 +15,15 @@ data APRAM = APRAM
   deriving Show
 
 data Mod = Mod
-  { modName    :: String 
+  { modName    :: Text 
   , modCohort  :: Cohort
   , modActions :: [(ActionSequence, ProbSpec)]
-  , modPhase   :: String
+  , modPhase   :: Text
   }
   deriving Show
 
 data Cohort = Cohort
-  { cohortName :: String 
+  { cohortName :: Text 
   , cohortExpr :: CohortExpr
   }
   deriving (Eq, Show)
@@ -50,8 +51,8 @@ data ProbSpec =
   | Unknown
   deriving (Show, Eq)
 
-type Column = String
-type Status = String
+type Column = Text
+type Status = Text
 
 instance Show Action where
-  show (Assign _ status) = "Assign_status_"<>status<>"_to"
+  show (Assign _ status) = "Assign_status_"<>unpack status<>"_to"

@@ -4,10 +4,12 @@
 
 module Language.ASKEE.APRAM.GenLexer ( lexAPRAM, Token(..) ) where
 
-import Prelude hiding (LT,GT,EQ)
+import qualified Data.Text as Text
+
 import Language.ASKEE.APRAM.Lexer  ( Token(..), LogOp(..) )
 import Language.ASKEE.Lexer        ( Located(..) )
 
+import Prelude hiding (LT,GT,EQ)
 }
 
 %wrapper "monad"
@@ -95,13 +97,13 @@ real :: Action
 real (_,_,_,s) len = (pure . LitD . read . take len) s
 
 ident :: Action
-ident (_,_,_,s) len = (pure . Sym . take len) s
+ident (_,_,_,s) len = (pure . Sym . Text.pack . take len) s
 
 bool :: Bool -> Action
 bool b = \_ _ -> pure $ LitB b
 
 str :: Action
-str (_,_,_,s) len = (pure . LitS . init . tail . take len) s
+str (_,_,_,s) len = (pure . LitS . Text.pack . init . tail . take len) s
 
 cohortRef :: LogOp -> Action
 cohortRef op (_,_,_,s) len =
@@ -111,7 +113,7 @@ cohortRef op (_,_,_,s) len =
             (cohort, _) <- lex b
             pure cohort
   in  case res of
-        [c] -> pure $ CohortExpr c op
+        [c] -> pure $ CohortExpr (Text.pack c) op
         r -> alexError $ "couldn't lex cohort reference \""<>s<>"\" ("<>show r<>")"
 
 atomic :: Token -> Action

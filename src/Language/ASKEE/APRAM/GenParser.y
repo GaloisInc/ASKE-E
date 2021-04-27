@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.APRAM.GenParser where
 
 import Language.ASKEE.APRAM.GenLexer
@@ -11,7 +12,7 @@ import Language.ASKEE.Lexer ( Located(..) )
 import qualified Data.Map as Map
 import Data.Map ( Map )
 
-import Data.Text ( pack )
+import Data.Text ( Text, pack, unpack )
 }
 
 %name        parseAPRAM APRAM
@@ -107,11 +108,11 @@ Size                               :: { (Double, Double) }
   : pop '.' size '=' REAL
     delta '=' REAL                    { ($5, $8) }
 
-Columns                            :: { Map String [(String, Double)] }
+Columns                            :: { Map Text [(Text, Double)] }
   : Column                            { uncurry Map.singleton $1 }
   | Columns Column                    { uncurry Map.insert $2 $1 }
 
-Column                             :: { (String, [(String, Double)]) }
+Column                             :: { (Text, [(Text, Double)]) }
   : pop '.' make_column '(' 
       STRING ',' np '.' zeros '(' 
         pop '.' size 
@@ -119,19 +120,19 @@ Column                             :: { (String, [(String, Double)]) }
     ')' Statuses                      { ($5, $16) }
 
 
-Statuses                           :: { [(String, Double)] }
+Statuses                           :: { [(Text, Double)] }
   : Status                            { [$1] }
   | Statuses Status                   { $2 : $1 }
 
-Status                             :: { (String, Double) }
+Status                             :: { (Text, Double) }
   : SYM '=' REAL                      { ($1, $3) }
 
 
-Params                             :: { Map String Expr }
+Params                             :: { Map Text Expr }
   : Param                             { uncurry Map.singleton $1 }
   | Params Param                      { uncurry Map.insert $2 $1 }
   
-Param                              :: { (String, Expr) }
+Param                              :: { (Text, Expr) }
   : pop '.' make_param '(' 
       STRING ',' Exp 
     ')'                               { ($5, $7) }
@@ -169,11 +170,11 @@ CohortExpr
     ')'                               { Syntax.Or $5 $7 }
 
 
-Mods                               :: { [(String, String, [ActionSequence], [ProbSpec], String)] }
+Mods                               :: { [(Text, Text, [ActionSequence], [ProbSpec], Text)] }
   : Mod                               { [$1] }
   | Mods Mod                          { $2 : $1 }
 
-Mod                                :: { (String, String, [ActionSequence], [ProbSpec], String) }
+Mod                                :: { (Text, Text, [ActionSequence], [ProbSpec], Text) }
   : sim '.' make_mod '('
       name '=' STRING ','
       cohort '=' pop '.' SYM ','
@@ -239,13 +240,13 @@ Exp                                :: { Expr }
   | Exp or  Exp                       { Expr.Or  $1 $3 } 
   | not Exp                           { Expr.Not $2 }
   | '(' Exp ')'                       { $2 }
-  | Var                               { Var (pack $1) }
+  | Var                               { Var ($1) }
   | REAL                              { Expr.LitD $1 }
   | true                              { Expr.LitB True }
   | false                             { Expr.LitB False }
   | Exp if Exp else Exp               { Expr.If $3 $1 $5 }
 
-Var                                :: { String }
+Var                                :: { Text }
   : SYM                               { $1 }
   | delta                             { "delta" }
   | pop '.' size                      { "size" }
@@ -254,19 +255,19 @@ Var                                :: { String }
 
 {
 mkAPRAM :: (Double, Double) 
-        -> Map String [(String, Double)] 
-        -> Map String Expr 
+        -> Map Text [(Text, Double)] 
+        -> Map Text Expr 
         -> [Cohort] 
-        -> [(String, String, [ActionSequence], [ProbSpec], String)] 
+        -> [(Text, Text, [ActionSequence], [ProbSpec], Text)] 
         -> Either String APRAM
 mkAPRAM (size, delta) columns params cohorts mods =
   APRAM (floor size) params (Map.map (map fst) columns) cohorts <$> (mapM mkMod mods)
   where
-    mkMod :: (String, String, [ActionSequence], [ProbSpec], String) -> Either String Mod
+    mkMod :: (Text, Text, [ActionSequence], [ProbSpec], Text) -> Either String Mod
     mkMod (name, cohortName, actions, probs, phase)
       | length actions == length probs = 
         Mod name <$> 
-          (findOne ("is "<>cohortName) (\(Cohort name _) -> name == cohortName) cohorts) <*> 
+          (findOne ("is "<>unpack cohortName) (\(Cohort name _) -> name == cohortName) cohorts) <*> 
           (pure $ zip actions probs) <*>
           (pure phase)
       | otherwise = Left $ "mod action and probability lists differ in length"
@@ -277,7 +278,7 @@ mkAPRAM (size, delta) columns params cohorts mods =
         [x] -> Right x
         _ -> Left why
 
-mkMod :: String -> Cohort -> [ActionSequence] -> [ProbSpec] -> String -> Either String Mod
+mkMod :: Text -> Cohort -> [ActionSequence] -> [ProbSpec] -> Text -> Either String Mod
 mkMod name cohort actions probs phase
   | length actions == length probs = Right $ Mod name cohort (zip actions probs) phase
   | otherwise = Left $ "mod action and probability lists differ in length"
