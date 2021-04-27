@@ -6,10 +6,10 @@
 
 template<typename TModel>
 class Model {
+public:
   using Point = TModel;
 
-  Model(TModel& m) {
-    model = m;
+  Model(TModel& m) : model(m) {
     next();
   }
 
@@ -19,13 +19,13 @@ class Model {
   double getNextTime()  { return model.next_time; }
   bool  done()          { return false; }
   void  step() {
-    model.runEvent(next_event, next_time);
+    model.run_event(next_event, next_time);
     next();
   }
 
 private:
   void next() {
-    model.nextEvent(next_event, next_time);
+    model.next_event(next_event, next_time);
   }
 
   TModel& model;
@@ -90,12 +90,12 @@ class Sample {
     using Point = typename Data::Point;
 
   private:
-    Time& time;
+    Time time;
     Data& data;     // actual model
     Point point;    // point we are emitting
 
 public:
-  Sample (Time& time, Data& data) : time(time), data(data) { step(); }
+  Sample (Time const& time, Data& data) : time(time), data(data) { step(); }
 
   double getTime()        { return time.getTime(); }
   double getNextTime()    { return time.getNextTime(); }
@@ -117,6 +117,6 @@ template <typename Data>
 Trace<Data> trace(Data& data) { return Trace<Data>(data); }
 
 template <typename Time, typename Data>
-Sample<Time,Data> sample(Time &t, Data &d) { return Sample<Time,Data>(t,d); }
+Sample<Time,Data> sample(Time t, Data &d) { return Sample<Time,Data>(t,d); }
 
 #endif

@@ -105,6 +105,10 @@ not e = "!" <> e
 (==) :: Doc -> Doc -> Doc
 (==) = callInfix "=="
 
+(!=) :: Doc -> Doc -> Doc
+(!=) = callInfix "!="
+
+
 (&&) :: Doc -> Doc -> Doc
 (&&) = callInfix "&&"
 
@@ -114,9 +118,11 @@ not e = "!" <> e
 lineComment :: Doc -> Doc
 lineComment x = "//" <+> x
 
-
 member :: Doc -> Doc -> Doc
 member obj x = obj <> "." <> x
+
+deref :: Doc -> Doc
+deref obj = "*" <> obj
 
 -- XXX: escape bad charcarcters and avoid keywords, etc.
 ident :: Text -> Doc
@@ -213,6 +219,10 @@ while p xs = block ("while" <+> parens p) xs
 doWhile :: [Doc] -> Doc -> Doc
 doWhile xs p =
   stmt (block "do" xs <+> "while" <+> parens p)
+
+foreachAuto :: Doc -> Doc -> [Doc] -> Doc
+foreachAuto binder coll =
+  block ("for" <> parens (auto <> "&" <+> binder <+> ":" <+> coll))
 
 break :: Doc
 break = stmt "break"

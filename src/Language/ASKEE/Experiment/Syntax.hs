@@ -32,6 +32,7 @@ data Decl =
     DMeasure MeasureDecl
   | DExperiment ExperimentDecl
   | DModel ModelDecl
+  | DMain MainDecl
   deriving Show
 
 data ModelDecl = ModelDecl
@@ -115,6 +116,16 @@ experimentType e =
 
 modelType :: ModelDecl -> ModelType
 modelType m = getType (mdName m)
+
+data MainDecl =
+  MainDecl { mainStmts :: [MainStmt]
+           , mainOutput :: [Expr]
+           }
+  deriving Show
+
+data MainStmt =
+    MSSample Int Ident [Expr]
+  deriving Show
 
 data Stmt =
     Set Ident Expr

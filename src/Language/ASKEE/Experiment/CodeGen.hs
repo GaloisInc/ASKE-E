@@ -2,10 +2,12 @@
 module Language.ASKEE.Experiment.CodeGen where
 
 import Data.Text(Text)
-import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
-import qualified Prettyprinter as PP
 import Data.Map(Map)
 import qualified Data.Map as Map
+import Data.List(intersperse)
+import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
+import qualified Prettyprinter as PP
+
 
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.C as C
@@ -31,6 +33,9 @@ compileExperiment exdecl =
     [ "struct" <+> name <+> "{"
     , C.nested $ concatMap attrsFromStmt inlinedBody
     , C.nested [runFn $ compileSamples inlinedBody]
+    , C.nested [
+        C.function C.void "print" []
+          [ mkJsonOutput "std::cout" (experimentToJson exdecl) ]]
     , "};"
     ]
   where
@@ -60,7 +65,7 @@ compileExperiment exdecl =
       ESSample s e:t ->
         -- XXX: the name _model_ + tnName kinda sucks
         [ C.declare (compileType $ getType s) (C.ident ("_model_" <> tnName s))
-        , C.declareInit C.auto (compileVar s) (callSample (C.ident ("_model_" <> tnName s)) (compileExpr' (seRange e)))
+        , C.declareInit C.auto (compileVar s) (callSample (compileExpr' (seRange e)) (C.ident ("_model_" <> tnName s)))
         , C.while (C.not (done (compileVar s)))
           ((compileBodyStmt (tnName s) `concatMap` t) ++ [step (compileVar s)])
         ] ++ compileSamples t
@@ -346,21 +351,60 @@ measureEName = pretty
 -------------------------------------------------------------------------------
 -- JSON
 
--- outputExp :: C.Doc -> C.Doc -> ExperimentDecl -> C.Doc
--- outputExp output experiment decl =
---     brackets (uncurry nameValue <$> expVars decl)
---   where
---     quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
---     nameValue n v = quotedStrLit n C.<< C.stringLit ":" C.<< v
---     fromName n = nameValue n (pretty n)
---     brackets e = C.stringLit "{" C.<< e C.<< C.stringLit "}"
+data JsonOutput =
+    JsonObj    [(Text, JsonOutput)]
+  | JsonVar    C.Doc
+  | JsonVector C.Doc
 
---     outputStmt s0 =
---       case s0 of
---         ESMeasure n _ ->
---           case getType n of
---             TypeCon (TCon _ _ fs) ->
---               case fromName <$> Map.keys fs of
---                 [] -> panic "outputExp" ["Measure must have fields"]
---                 h:t -> foldl (C.<<) h t
---         ESTrace n _ ->
+mkJsonOutput :: C.Doc -> JsonOutput -> C.Doc
+mkJsonOutput output o =
+  case o of
+    JsonVar v    -> write v
+    JsonObj mems ->
+      vcat $  write (C.stringLit "{")
+           :  delimit (writeMem <$> mems)
+           <> [write $ C.stringLit "}"]
+    JsonVector v ->
+      vcat
+        [ write (C.stringLit "[")
+        , C.foreachAuto "__i" v
+          [ write (C.deref "__i")
+          , C.ifThen ("__i" C.!= C.call "std::end" [v])
+                    [ write litComma ]
+          ]
+        , write (C.stringLit "]")
+        ]
+
+  where
+    litComma = C.stringLit ","
+    write e = C.stmt (output C.<< e)
+    quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
+    delimit = intersperse (write litComma)
+    writeMem (name, val) =
+      vcat [ write (quotedStrLit name)
+           , write (C.stringLit ":")
+           , mkJsonOutput output val
+           ]
+
+experimentToJson :: ExperimentDecl -> JsonOutput
+experimentToJson decl =
+  JsonObj (experimentStmts decl >>= stmtToJson)
+  where
+    measureFields n =
+      case getType n of
+        TypeCon (TCon _ _ fs) -> fs
+        _ -> panic "experimentToJson"
+                   ["Expecting measure to be of constructed type"]
+
+    outputVar c n =
+      (c <> "." <> n, JsonVar $ C.member (C.ident c) (C.ident n))
+
+    stmtToJson stmt =
+      case stmt of
+        ESMeasure n _ ->
+          [( tnName n
+           , JsonObj (outputVar (tnName n) <$> Map.keys (measureFields n))
+          )]
+        ESTrace n _ ->
+          [(tnName n, JsonVector (C.ident (tnName n)))]
+        _ -> []

@@ -76,6 +76,7 @@ import Language.ASKEE.Experiment.Lexer
   'return'      { Lexeme { lexemeRange = $$, lexemeToken = KWreturn     } }
   'finalize'    { Lexeme { lexemeRange = $$, lexemeToken = KWfinalize   } }
   'by'          { Lexeme { lexemeRange = $$, lexemeToken = KWby         } }
+  'at'          { Lexeme { lexemeRange = $$, lexemeToken = KWat         } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -123,8 +124,8 @@ experimentDecl                         :: { ExperimentStmt }
   | ident '=' 'trace' expr                { ESTrace $1 $4 }
 
 sampleExpr                             :: { SampleExpr }
-  : 'sample' ident args expr              { SampleExpr { seName = $2
-                                                       , seArgs = $3
+  : ident args 'at' expr                  { SampleExpr { seName = $1
+                                                       , seArgs = $2
                                                        , seRange = $4
                                                        }
                                           }

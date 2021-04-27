@@ -432,6 +432,7 @@ declName decl =
     E.DMeasure m -> E.tnName $ E.measureName m
     E.DExperiment e -> E.tnName $ E.experimentName e
     E.DModel m -> E.tnName $ E.mdName m
+    E.DMain _ -> "main"
 
 getVarType :: Text -> TC E.Type
 getVarType name =

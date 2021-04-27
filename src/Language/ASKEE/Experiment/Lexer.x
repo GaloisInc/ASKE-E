@@ -84,6 +84,7 @@ $ws+              ;
 "return"          { lexeme KWreturn }
 "finalize"        { lexeme KWfinalize }
 "by"              { lexeme KWby }
+"at"              { lexeme KWat }
 
 @ident            { lexeme Ident }
 @rational         { lexRational }
@@ -148,6 +149,7 @@ data Token =
   | KWreturn
   | KWfinalize
   | KWby
+  | KWat
   | StringLit Text
 
   | TokError String
