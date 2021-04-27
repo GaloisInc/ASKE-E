@@ -29,6 +29,9 @@ library
                      , Language.ASKEE.APRAM.Translate
                      , Language.ASKEE.APRAM.Sample
                      , Language.ASKEE.APRAM.Print
+                     , Language.ASKEE.APRAM.GenLexer
+                     , Language.ASKEE.APRAM.GenParser
+                     , Language.ASKEE.APRAM.Lexer
 
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
