@@ -24,8 +24,8 @@ import Data.Text ( Text, pack, unpack )
 
 eq                  { Located _ _ (Sym "eq")           }
 ne                  { Located _ _ (Sym "ne")           }
-logical_and         { Located _ _ (Sym "logical_and")           }
-logical_or          { Located _ _ (Sym "logical_or")           }
+logical_and         { Located _ _ (Sym "logical_and")  }
+logical_or          { Located _ _ (Sym "logical_or")   }
 np                  { Located _ _ (Sym "np")           }
 repeat              { Located _ _ (Sym "repeat")       }
 bool                { Located _ _ (Sym "bool")         }
@@ -42,49 +42,47 @@ mods                { Located _ _ (Sym "mods")         }
 prob_spec           { Located _ _ (Sym "prob_spec")    }
 sim_phase           { Located _ _ (Sym "sim_phase")    }
 assign              { Located _ _ (Sym "assign")       }
-delta               { Located _ _ (Sym "delta") }
+delta               { Located _ _ (Sym "delta")        }
 size                { Located _ _ (Sym "size")         }
-val                 { Located _ _ (Sym "val")}
+val                 { Located _ _ (Sym "val")          }
 
 
-true                { Located _ _ (Lexer.LitB True)  }
-false               { Located _ _ (Lexer.LitB False)  }
-BOOL                { Located _ _ (Lexer.LitB $$)  }
-REAL                { Located _ _ (Lexer.LitD $$)  }
-STRING              { Located _ _ (LitS $$)  }
-SYM                 { Located _ _ (Sym $$)   }
-'+'                 { Located _ _ Plus       }
-'-'                 { Located _ _ Minus      }
-'*'                 { Located _ _ Times      }
-'/'                 { Located _ _ Divide     }
-'='                 { Located _ _ Lexer.Assign }
-'<='                { Located _ _ Lexer.LTE  }
-'>='                { Located _ _ Lexer.GTE  }
-'<'                 { Located _ _ Lexer.LT   }
-'>'                 { Located _ _ Lexer.GT   }
-'=='                { Located _ _ Lexer.EQ   }
+true                { Located _ _ (Lexer.LitB True)    }
+false               { Located _ _ (Lexer.LitB False)   }
+REAL                { Located _ _ (Lexer.LitD $$)      }
+STRING              { Located _ _ (LitS $$)            }
+SYM                 { Located _ _ (Sym $$)             }
+'+'                 { Located _ _ Plus                 }
+'-'                 { Located _ _ Minus                }
+'*'                 { Located _ _ Times                }
+'/'                 { Located _ _ Divide               }
+'='                 { Located _ _ Lexer.Assign         }
+'<='                { Located _ _ Lexer.LTE            }
+'>='                { Located _ _ Lexer.GTE            }
+'<'                 { Located _ _ Lexer.LT             }
+'>'                 { Located _ _ Lexer.GT             }
+'=='                { Located _ _ Lexer.EQ             }
 
-'('                 { Located _ _ OpenP      }
-')'                 { Located _ _ CloseP     }
-'['                 { Located _ _ OpenB      }
-']'                 { Located _ _ CloseB     }
+'('                 { Located _ _ OpenP                }
+')'                 { Located _ _ CloseP               }
+'['                 { Located _ _ OpenB                }
+']'                 { Located _ _ CloseB               }
 
-':'                 { Located _ _ Colon      }
-','                 { Located _ _ Comma      }
-'.'                 { Located _ _ Dot        }
+':'                 { Located _ _ Colon                }
+','                 { Located _ _ Comma                }
+'.'                 { Located _ _ Dot                  }
 
-
-lambda              { Located _ _ Lambda     }
-not                 { Located _ _ Lexer.Not  }
-and                 { Located _ _ Lexer.And  }
-or                  { Located _ _ Lexer.Or   }
-if                  { Located _ _ Lexer.If   }
-else                { Located _ _ Else       }
-log                 { Located _ _ Lexer.Log  }
-exp                 { Located _ _ Lexer.Exp  }
-starstar            { Located _ _ StarStar   }
-pop                 { Located _ _ Pop        }
-sim                 { Located _ _ Sim        }
+lambda              { Located _ _ Lambda               }
+not                 { Located _ _ Lexer.Not            }
+and                 { Located _ _ Lexer.And            }
+or                  { Located _ _ Lexer.Or             }
+if                  { Located _ _ Lexer.If             }
+else                { Located _ _ Else                 }
+log                 { Located _ _ Lexer.Log            }
+exp                 { Located _ _ Lexer.Exp            }
+starstar            { Located _ _ StarStar             }
+pop                 { Located _ _ Pop                  }
+sim                 { Located _ _ Sim                  }
 
 
 %left or
@@ -97,50 +95,58 @@ sim                 { Located _ _ Sim        }
 
 %%
 
-opt(p)
-   :    { Nothing }
-   | p  { Just $1 }
+REV1(p)
+  : p                { [$1] }
+  | REV1(p) p        { $2 : $1 }
+
+REV(p)
+  :                  { [] }
+  | REV(p) p         { $2 : $1 }
+
+OPT(p)
+   :                 { Nothing }
+   | p               { Just $1 }
+
+MANY1(p) 
+  : REV1(p)          { reverse $1 }
+
+MANY(p) 
+  : REV(p)           { reverse $1 }
+
+MANY1MAP(p)
+  : p                { uncurry Map.singleton $1 }
+  | MANY1MAP(p) p    { uncurry Map.insert $2 $1 }
+
+
 
 APRAM                              
-  : Size Columns Params Cohorts Mods       {% mkAPRAM $1 $2 $3 $4 $5 }
+  : Size 
+    MANY1MAP(Column) 
+    MANY1MAP(Param) 
+    MANY1(Cohort)
+    MANY1(Mod)                        {% mkAPRAM $1 $2 $3 $4 $5 }
 
 Size                               :: { (Double, Double) }
   : pop '.' size '=' REAL
     delta '=' REAL                    { ($5, $8) }
 
-Columns                            :: { Map Text [(Text, Double)] }
-  : Column                            { uncurry Map.singleton $1 }
-  | Columns Column                    { uncurry Map.insert $2 $1 }
 
 Column                             :: { (Text, [(Text, Double)]) }
   : pop '.' make_column '(' 
       STRING ',' np '.' zeros '(' 
         pop '.' size 
       ')' 
-    ')' Statuses                      { ($5, $16) }
-
-
-Statuses                           :: { [(Text, Double)] }
-  : Status                            { [$1] }
-  | Statuses Status                   { $2 : $1 }
+    ')' MANY1(Status)                 { ($5, $16) }
 
 Status                             :: { (Text, Double) }
   : SYM '=' REAL                      { ($1, $3) }
 
-
-Params                             :: { Map Text Expr }
-  : Param                             { uncurry Map.singleton $1 }
-  | Params Param                      { uncurry Map.insert $2 $1 }
   
 Param                              :: { (Text, Expr) }
   : pop '.' make_param '(' 
       STRING ',' Exp 
     ')'                               { ($5, $7) }
 
-
-Cohorts                            :: { [Cohort] }
-  : Cohort                            { [$1] }
-  | Cohorts Cohort                    { $2 : $1 }
 
 Cohort                             :: { Cohort }
   : pop '.' make_cohort '(' 
@@ -170,39 +176,27 @@ CohortExpr
     ')'                               { Syntax.Or $5 $7 }
 
 
-Mods                               :: { [(Text, Text, [ActionSequence], [ProbSpec], Text)] }
-  : Mod                               { [$1] }
-  | Mods Mod                          { $2 : $1 }
-
 Mod                                :: { (Text, Text, [ActionSequence], [ProbSpec], Text) }
   : sim '.' make_mod '('
       name '=' STRING ','
       cohort '=' pop '.' SYM ','
       mods '=' '['
-        ActionSequences
+        MANY(ActionSequence)
       ']' ','
-      prob_spec '=' opt(LambdaDecl) '['
+      prob_spec '=' OPT(LambdaDecl) '['
         ProbSpecs
       ']' ','
-      sim_phase '=' STRING opt(',')
+      sim_phase '=' STRING OPT(',')
     ')'                               { ($7, $13, $18, $25, $30) }
 
-ActionSequences                    :: { [ActionSequence] }
-  :                                   { [] }
-  | ActionSequences ActionSequence    { $2 : $1 }
-
 ActionSequence                     :: { ActionSequence }
-  : '[' Actions ']' opt(',')          { Actions $2 }
-  | '[' ']' opt(',')                  { Pass }
-
-Actions                            :: { [Syntax.Action] }
-  : Action                            { [$1] }
-  | Actions Action                    { $2 : $1 }
+  : '[' MANY1(Action) ']' OPT(',')    { Actions $2 }
+  | '[' ']' OPT(',')                  { Pass }
 
 Action                             :: { Syntax.Action }
   : LambdaDecl pop '.' SYM '.' assign '(' 
       SYM ',' starstar SYM 
-    ')' opt(',')                      { Syntax.Assign $4 $8 }
+    ')' OPT(',')                      { Syntax.Assign $4 $8 }
 
 LambdaDecl                         :: { () }
   : lambda LambdaArgs ':'             { () }
