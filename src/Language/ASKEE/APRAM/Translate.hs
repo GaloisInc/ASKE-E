@@ -97,6 +97,8 @@ eventsToMods columnName = map eventToMod
         Expr.Add (Expr.Var v') (Expr.LitD 1) | v == v' -> Just v'
         _ -> Nothing
 
+-------------------------------------------------------------------------------
+
 apramToModel :: APRAM -> Double -> Model
 apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap modToEvents apramMods)
   where
