@@ -57,6 +57,7 @@ testCodeGen experimentFile =
   do exper <- loadExperiment experimentFile
      mapM_ print [ GenX.compileMeasure m | E.DMeasure m <- exper ]
      mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
+     mapM_ print [ GenX.compileMain m | E.DMain m <- exper ]
 
 
 testCodeGen' :: [FilePath] -> FilePath -> IO ()
