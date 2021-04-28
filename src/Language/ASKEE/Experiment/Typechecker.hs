@@ -18,6 +18,7 @@ import Control.Monad.Except(throwError)
 import qualified Language.ASKEE.Experiment.Syntax as E
 import Language.ASKEE.Experiment.TypeOf(typeOf)
 import Language.ASKEE.Experiment.TraverseType(TraverseType(traverseType), collect, mapType)
+import Language.ASKEE.Panic (panic)
 
 --------------
 
@@ -30,6 +31,7 @@ inferDecl decl =
         E.DMeasure m -> E.DMeasure <$> inferMeasure m
         E.DExperiment e -> E.DExperiment <$> inferExperiment e
         E.DModel m -> E.DModel <$> inferModel m
+        E.DMain m -> E.DMain <$> inferMain m
 
       bindDecl' decl'
       pure decl'
@@ -45,6 +47,26 @@ inferArgs args body =
                   Nothing -> newTVar
           bindVar (E.tnName binder) ty
           pure (E.setType binder ty)
+
+inferMain :: E.MainDecl -> TC E.MainDecl
+inferMain mn = 
+  scope $
+    do  mainStmts' <- inferMainStmt `traverse` E.mainStmts mn
+        mainOutput' <- inferExpr `traverse` E.mainOutput mn
+        pure E.MainDecl { E.mainStmts  = mainStmts'
+                        , E.mainOutput = fst <$> mainOutput' }
+
+  where
+    inferMainStmt :: E.MainStmt -> TC E.MainStmt
+    inferMainStmt ms =
+      case ms of
+        E.MSSample bind num ident es -> 
+          do  let ty = E.TypeVector (E.getType ident)
+                  bind' = E.setType bind ty
+              bindVar (E.tnName bind) ty
+              -- (es', tys) <- unzip <$> inferExpr `traverse` es
+              unless (null es) (panic "inferMainStmt" ["you've called an experiment with arguments, you fool!"])
+              pure $ E.MSSample bind' num ident es
 
 inferModel :: E.ModelDecl -> TC E.ModelDecl
 inferModel mdl =
@@ -442,11 +464,14 @@ getVarType name =
         Just ty -> pure ty
 
 bindDecl' :: E.Decl -> TC ()
-bindDecl' decl = bindDecl (declName decl)
+bindDecl' decl = 
   case decl of
-    E.DMeasure m -> DTMeasure $ E.measureType m
-    E.DExperiment e -> DTExperiment $ E.experimentType e
-    E.DModel m -> DTModel $ E.modelType m
+    E.DMeasure m -> b $ DTMeasure $ E.measureType m
+    E.DExperiment e -> b $ DTExperiment $ E.experimentType e
+    E.DModel m -> b $ DTModel $ E.modelType m
+    E.DMain _ -> pure ()
+  where
+    b = bindDecl (declName decl)
 
 newTVar :: TC E.Type
 newTVar =
@@ -659,4 +684,6 @@ solveConstraint constraint =
               throwError ("Record does not have field '" <> label <> "'")
         E.TypeVar _ -> pure $ Left constraint
         --XXX: better error
+        E.TypeVector ty -> solveConstraint $ E.HasField ty label fieldTy
+        -- XXX: support arbitrarily many layers of vectors for this operation?
         _ -> throwError "type is not data point"

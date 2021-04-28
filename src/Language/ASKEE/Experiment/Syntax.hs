@@ -3,6 +3,7 @@ module Language.ASKEE.Experiment.Syntax where
 
 import Data.Text(Text)
 import Data.Map(Map)
+import Language.ASKEE.Panic (panic)
 
 -------------------------------------------------------------------------------
 -- Syntax
@@ -22,7 +23,7 @@ setType x t = x { tnType = Just t }
 getType :: TypedName -> Type
 getType x = case tnType x of
               Just t  -> t
-              Nothing -> error "[BUG] Missing type on name"
+              Nothing -> panic "getType" ["Missing type on name", show x]
 
 type Binder = TypedName
 type Ident = TypedName
@@ -124,7 +125,7 @@ data MainDecl =
   deriving Show
 
 data MainStmt =
-    MSSample Int Ident [Expr]
+    MSSample Binder Int Ident [Expr]
   deriving Show
 
 data Stmt =

@@ -111,6 +111,20 @@ instance TraverseType Decl where
       DMeasure m    -> DMeasure    <$> traverseType f m
       DExperiment e -> DExperiment <$> traverseType f e
       DModel m      -> DModel      <$> traverseType f m
+      DMain m       -> DMain       <$> traverseType f m
+
+instance TraverseType MainDecl where
+  traverseType f mn =
+    MainDecl <$> traverseType f (mainStmts mn) <*> traverseType f (mainOutput mn)
+
+instance TraverseType MainStmt where
+  traverseType f stmt =
+    case stmt of
+      MSSample bind num ident exprs ->
+        MSSample  <$> traverseType f bind 
+                  <*> pure num
+                  <*> traverseType f ident
+                  <*> traverseType f exprs
 
 instance TraverseType ModelDecl where
   traverseType f md =

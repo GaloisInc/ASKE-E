@@ -77,6 +77,7 @@ import Language.ASKEE.Experiment.Lexer
   'finalize'    { Lexeme { lexemeRange = $$, lexemeToken = KWfinalize   } }
   'by'          { Lexeme { lexemeRange = $$, lexemeToken = KWby         } }
   'at'          { Lexeme { lexemeRange = $$, lexemeToken = KWat         } }
+  'main'        { Lexeme { lexemeRange = $$, lexemeToken = KWmain       } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -103,6 +104,7 @@ decl                                   :: { Decl }
   : experiment                            { DExperiment $1 }
   | measure                               { DMeasure $1 }
   | model                                 { DModel $1 }
+  | main                                  { DMain $1 }
 
 model                                  :: { ModelDecl }
   : 'model' ident
@@ -158,6 +160,16 @@ measureVar                             :: { (Ident,Expr) }
 finalizeBlock                          :: { Maybe Expr }
   : {- empty -}                           { Nothing }
   | 'finalize' 'return' expr              { Just $3 }
+
+
+main                                   :: { MainDecl }
+  : 'main' 
+    listOf(mainStmt)
+    'return' expr                         { MainDecl $2 [$4] }
+
+mainStmt                               :: { MainStmt }
+  : ident '=' 
+    'sample' NUMBER ident '(' ')'         { MSSample $1 (floor $ snd $4) $5 [] }
 
 
 params                                 :: { [ Binder ] }
