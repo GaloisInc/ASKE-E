@@ -16,7 +16,7 @@ public:
   double getTime()      { return model.time; }
   TModel& getPoint()    { return model; }
 
-  double getNextTime()  { return model.next_time; }
+  double getNextTime()  { return next_time; }
   bool  done()          { return false; }
   void  step() {
     model.run_event(next_event, next_time);
@@ -42,7 +42,7 @@ class Range {
 public:
   using Point = double;
 
-  Range(double start, double step, double end)
+  Range(double start, double end, double step)
     : value(start), vstep(step), end(end) {}
 
   double getTime()      { return value; }
