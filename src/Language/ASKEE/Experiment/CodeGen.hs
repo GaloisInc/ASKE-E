@@ -27,6 +27,68 @@ data ExperimentDecl =
 vectorOfType :: C.Doc -> C.Doc
 vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
 
+compileMain :: MainDecl -> C.Doc
+compileMain mndecl =
+  vcat
+    [ C.main (map compileMainStmt (mainStmts mndecl)) ]
+  where
+    compileMainStmt stmt =
+      case stmt of
+        MSSample samplesName samplesNum experName _ -> vcat $
+          declareSamples experName samplesName :
+          map declareOutput (mainOutput mndecl) ++
+          [ loop samplesNum $
+            [ declareExper experName
+            , runExper experName
+            , pushExperResult experName samplesName
+            ] ++ concatMap (outputToStmt experName samplesName) (mainOutput mndecl)
+          ]
+
+    mkType ident = compileVar ident
+    mkVar ident = "_" <> mkType ident
+
+    declareExper :: Ident -> C.Doc
+    declareExper experName = 
+      C.declare (mkType experName) (mkVar experName)
+
+    runExper :: Ident -> C.Doc
+    runExper experName = 
+      C.stmt $ C.call (C.member (mkVar experName) (C.ident "run")) []
+
+    pushExperResult :: Ident -> Binder -> C.Doc
+    pushExperResult experName samplesName =
+      C.stmt $ C.call (C.member (compileVar samplesName) (C.ident "push_back")) [mkVar experName]
+
+    outputToStmt :: Ident -> Binder -> Expr -> [C.Doc]
+    outputToStmt experName samplesName e =
+      case e of
+        Dot (Var sample) sampleMember _ | samplesName == sample -> 
+          let experMem = C.member (mkVar experName) (C.ident sampleMember)
+              pushBack = C.member (C.ident $ "_"<>sampleMember) (C.ident "push_back")
+          in  [ C.stmt $ C.call pushBack [experMem] ]
+        _ -> []
+
+    declareSamples :: Ident -> Binder -> C.Doc
+    declareSamples experName samplesName = 
+      C.declare (vectorOfType (compileVar experName)) (compileVar samplesName)
+
+    declareOutput :: Expr -> C.Doc
+    declareOutput e =
+      case e of
+        -- XXX: this is, at the very least, ugly
+        Dot (Var (TypedName _ (Just (TypeVector (TypeCon (TCon _ _ tcFields)))))) lbl _ -> 
+          C.declare (vectorOfType (compileType $ tcFields Map.! lbl)) (C.ident $ "_"<>lbl)
+        _ -> C.nop
+
+    loop :: Int -> [C.Doc] -> C.Doc
+    loop bound stmts = 
+      C.for (C.declareInit' C.int loopVar (C.intLit 0))
+            (loopVar C.< C.intLit bound) 
+            (C.incr' loopVar) 
+            stmts
+      where
+        loopVar = C.ident "i"
+
 compileExperiment :: ExperimentDecl -> C.Doc
 compileExperiment exdecl =
   vcat
@@ -63,13 +125,20 @@ compileExperiment exdecl =
     case stmts of
       [] -> []
       ESSample s e:t ->
-        -- XXX: the name _model_ + tnName kinda sucks
-        [ C.declare (compileType $ getType s) (C.ident ("_model_" <> tnName s))
+        [ C.declare (modelImplTy s) (modelImplName s)
+        , C.declareInit (modelTy s) (modelName s) (C.braces [modelImplName s])
         , C.declareInit C.auto (compileVar s) (callSample (compileExpr' (seRange e)) (C.ident ("_model_" <> tnName s)))
         , C.while (C.not (done (compileVar s)))
           ((compileBodyStmt (tnName s) `concatMap` t) ++ [step (compileVar s)])
         ] ++ compileSamples t
       _:t -> compileSamples t
+
+
+  modelTy s = C.ident "Model" <> C.angles [modelImplTy s]
+  modelImplTy s = compileType $ getType s
+  -- XXX: the name _model_ + tnName kinda sucks
+  modelName s = C.ident ("_model_" <> tnName s)
+  modelImplName s = C.ident ("_model_impl_" <> tnName s)
 
   compileBodyStmt sname estmt =
     case estmt of

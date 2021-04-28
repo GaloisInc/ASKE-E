@@ -12,7 +12,7 @@ data TypedName =
   TypedName { tnName :: Text
             , tnType :: Maybe Type
             }
-  deriving Show
+  deriving (Eq, Show)
 
 untypedName :: Text -> TypedName
 untypedName x = TypedName { tnName = x, tnType = Nothing }

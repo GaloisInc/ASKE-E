@@ -188,10 +188,22 @@ declare :: Doc -> Doc -> Doc
 declare t v = stmt (t <+> v)
 
 declareInit :: Doc -> Doc -> Doc -> Doc
-declareInit ty n v = stmt (ty <+> n <+> "=" <+> v)
+declareInit ty n v = stmt (declareInit' ty n v)
+
+declareInit' :: Doc -> Doc -> Doc -> Doc
+declareInit' ty n v = ty <+> n <+> "=" <+> v
 
 assign :: Doc -> Doc -> Doc
-assign n v = stmt (n <+> "=" <+> v)
+assign n v = stmt $ assign' n v
+
+assign' :: Doc -> Doc -> Doc
+assign' n v = n <+> "=" <+> v
+
+incr :: Doc -> Doc
+incr = stmt . incr'
+
+incr' :: Doc -> Doc
+incr' n = n <> "+" <> "+"
 
 switch :: Doc -> [Doc] -> Doc
 switch e cs = block ("switch" <+> parens e) cs
@@ -223,6 +235,10 @@ doWhile xs p =
 foreachAuto :: Doc -> Doc -> [Doc] -> Doc
 foreachAuto binder coll =
   block ("for" <> parens (auto <> "&" <+> binder <+> ":" <+> coll))
+
+for :: Doc -> Doc -> Doc -> [Doc] -> Doc
+for c1 c2 c3 =
+  block ("for" <> parens (PP.hsep $ punctuate ";" [c1,c2,c3]))
 
 break :: Doc
 break = stmt "break"

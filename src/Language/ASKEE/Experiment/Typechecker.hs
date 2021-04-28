@@ -61,8 +61,11 @@ inferMain mn =
     inferMainStmt ms =
       case ms of
         E.MSSample bind num ident es -> 
-          do  let ty = E.TypeVector (E.getType ident)
-                  bind' = E.setType bind ty
+          do  ty <- E.TypeVector <$>
+                      case E.tnType ident of
+                        Nothing -> E.etResult <$> lookupSampleSource (E.tnName ident)
+                        Just t -> pure t
+              let bind' = E.setType bind ty
               bindVar (E.tnName bind) ty
               -- (es', tys) <- unzip <$> inferExpr `traverse` es
               unless (null es) (panic "inferMainStmt" ["you've called an experiment with arguments, you fool!"])

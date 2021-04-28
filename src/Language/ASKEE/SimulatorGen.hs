@@ -25,7 +25,7 @@ stateVarName :: Text -> C.Doc
 stateVarName nm =
   if nm == "time"
     then timeName
-    else C.ident ("state_" <> nm)
+    else C.ident nm
 
 nextEventFunctionName :: C.Doc
 nextEventFunctionName = C.ident "next_event"
