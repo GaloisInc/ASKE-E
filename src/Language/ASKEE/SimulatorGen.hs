@@ -8,6 +8,7 @@ import qualified Data.Map as Map
 import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.C as C
+import Data.List (intercalate)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -61,6 +62,7 @@ genIncludes = C.stmts [ C.include i | i <- includes ]
   includes =
     [ "random"
     , "stdint.h"
+    , "iostream"
     ]
 
 eventNum :: [Core.Event]-> Core.Ident -> Int
@@ -149,6 +151,8 @@ genModel mdl
         ++ (mkEventRateDecl   <$> Core.modelEvents mdl)
         ++ (mkEventEffectDecl <$> Core.modelEvents mdl)
 
+        ++ [mkPrintFn (Core.modelStateVars mdl)]
+
         ++ [ genNextStep (Core.modelEvents mdl)
            , genExecStep mdl
            , setSeedFunc
@@ -185,6 +189,19 @@ genModel mdl
     C.function C.void setSeed1Name  [ C.arg "uint32_t" "seed" ]
       [ C.stmt (C.call (C.member rngName "seed") ["seed"]) ]
 
+  mkPrintFn :: [Core.Ident] -> C.Doc
+  mkPrintFn svs = C.function C.void (C.ident "print") [] $
+    C.stmt (C.ident "std::cout" C.<< C.stringLit "{") :
+    intercalate [C.stmt (C.ident "std::cout" C.<< C.stringLit ",")] (map printSv svs) ++
+    [C.stmt (C.ident "std::cout" C.<< C.stringLit "}")]
+    where
+      printSv :: Core.Ident -> [C.Doc]
+      printSv sv = 
+        [ C.stmt (C.ident "std::cout" C.<< quotedStrLit sv)
+        , C.stmt (C.ident "std::cout" C.<< C.stringLit ":")
+        , C.stmt (C.ident "std::cout" C.<< C.ident sv)
+        ]
+      quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
 
 
 genExpr' :: Env -> Core.Expr -> C.Doc

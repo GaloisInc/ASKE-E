@@ -30,7 +30,7 @@ vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
 compileMain :: MainDecl -> C.Doc
 compileMain mndecl =
   vcat
-    [ C.main $ declareOutput ++ map compileMainStmt (mainStmts mndecl) ]
+    [ C.main $ declareOutput ++ map compileMainStmt (mainStmts mndecl) ++ concatMap printOutput (mainOutput mndecl) ]
   where
     compileMainStmt stmt =
       case stmt of
@@ -42,6 +42,7 @@ compileMain mndecl =
             , pushExperResult experName samplesName
             ] ++ concatMap (outputToStmt experName samplesName) (mainOutput mndecl)
           ]
+          
 
     mkType ident = compileVar ident
     mkVar ident = "_" <> mkType ident
@@ -58,6 +59,33 @@ compileMain mndecl =
     pushExperResult experName samplesName =
       C.stmt $ C.call (C.member (compileVar samplesName) (C.ident "push_back")) [mkVar experName]
 
+    printOutput :: Expr -> [C.Doc]
+    printOutput e =
+      case e of
+        Dot (Var _) sampleMember _ ->
+          [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
+          , C.for (C.declareInit' C.size_t (C.ident "i") (C.intLit 0))
+                  (C.ident "i" C.< C.member (C.ident $ "_" <> sampleMember) (C.call (C.ident "size") []))
+                  (C.incr' (C.ident "i"))
+                  [ C.member (C.subscript (C.ident $ "_" <> sampleMember) (C.ident "i")) (C.call (C.ident "print") [])
+                  , C.ifThen ((C.ident "i" C.< C.member (C.ident $ "_" <> sampleMember) (C.call (C.ident "size") [])) C.- C.intLit 1) 
+                             [ C.stmt (C.ident "std::cout" C.<< C.stringLit ",") ]
+                  ]
+          , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
+          ]
+        Var sample -> 
+          [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
+          , C.for (C.declareInit' C.size_t (C.ident "i") (C.intLit 0))
+                  (C.ident "i" C.< C.member (compileVar sample) (C.call (C.ident "size") []))
+                  (C.incr' (C.ident "i"))
+                  [ C.member (C.subscript (compileVar sample) (C.ident "i")) (C.call (C.ident "print") [])
+                  , C.ifThen ((C.ident "i" C.< C.member (compileVar sample) (C.call (C.ident "size") [])) C.- C.intLit 1) 
+                             [ C.stmt (C.ident "std::cout" C.<< C.stringLit ",") ]
+                  ]
+          , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
+          ]
+        _ -> undefined
+
     outputToStmt :: Ident -> Binder -> Expr -> [C.Doc]
     outputToStmt experName samplesName e =
       case e of
@@ -65,6 +93,10 @@ compileMain mndecl =
           let experMem = C.member (mkVar experName) (C.ident sampleMember)
               pushBack = C.member (C.ident $ "_"<>sampleMember) (C.ident "push_back")
           in  [ C.stmt $ C.call pushBack [experMem] ]
+        -- Var sample | samplesName == sample ->
+        --   let exper = mkVar experName
+        --       pushBack = C.member (C.ident $ "_"<>tnName sample) (C.ident "push_back")
+        --   in  [ C.stmt $ C.call pushBack [exper] ]
         _ -> []
 
     declareSamples :: Ident -> Binder -> C.Doc
@@ -79,6 +111,8 @@ compileMain mndecl =
           -- XXX: this is, at the very least, ugly
           Dot (Var (TypedName _ (Just (TypeVector (TypeCon (TCon _ _ tcFields)))))) lbl _ -> 
             C.declare (vectorOfType (compileType $ tcFields Map.! lbl)) (C.ident $ "_"<>lbl)
+          -- Var (TypedName tn (Just t@(TypeVector _))) ->
+          --   C.declare (compileType t) (C.ident $ "_"<>tn)
           _ -> C.nop
 
     loop :: Int -> [C.Doc] -> C.Doc
@@ -248,6 +282,9 @@ compileMeasure mdecl =
   , C.nested $ map attr         (measureArgs mdecl) ++
                map (attr . fst) (measureVars mdecl)
   , C.nested [ con, addPoint ]
+  , C.nested [
+        C.function C.void "print" []
+          [ mkJsonOutput "std::cout" (measureToJson mdecl) ]]
   ,"};"
   ]
   where
@@ -478,3 +515,10 @@ experimentToJson decl =
         ESTrace n _ ->
           [(tnName n, JsonVector (C.ident (tnName n)))]
         _ -> []
+
+measureToJson :: MeasureDecl -> JsonOutput
+measureToJson decl = 
+  JsonObj (measureVars decl >>= varToJson)
+  where
+    varToJson :: (Binder, Expr) -> [(Text, JsonOutput)]
+    varToJson (b, _) = [ (tnName b, JsonVar (compileExpr' (Var b))) ]

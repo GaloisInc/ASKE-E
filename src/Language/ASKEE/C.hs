@@ -171,6 +171,9 @@ bool = "bool"
 char :: Doc
 char = "char"
 
+size_t :: Doc
+size_t = "size_t"
+
 
 --------------------------------------------------------------------------------
 -- Statements
