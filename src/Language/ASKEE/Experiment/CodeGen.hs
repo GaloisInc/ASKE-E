@@ -36,7 +36,7 @@ compileMain mndecl =
       case stmt of
         MSSample samplesName samplesNum experName _ -> vcat $
           declareSamples experName samplesName :
-          [ loop samplesNum $
+          [ simpleLoop (C.ident "__i") (C.intLit samplesNum) $
             [ declareExper experName
             , runExper experName
             , pushExperResult experName samplesName
@@ -64,24 +64,12 @@ compileMain mndecl =
       case e of
         Dot (Var _) sampleMember _ ->
           [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
-          , C.for (C.declareInit' C.size_t (C.ident "i") (C.intLit 0))
-                  (C.ident "i" C.< C.member (C.ident $ "_" <> sampleMember) (C.call (C.ident "size") []))
-                  (C.incr' (C.ident "i"))
-                  [ C.member (C.subscript (C.ident $ "_" <> sampleMember) (C.ident "i")) (C.call (C.ident "print") [])
-                  , C.ifThen ((C.ident "i" C.< C.member (C.ident $ "_" <> sampleMember) (C.call (C.ident "size") [])) C.- C.intLit 1) 
-                             [ C.stmt (C.ident "std::cout" C.<< C.stringLit ",") ]
-                  ]
+          , printEach (C.ident $ "_" <> sampleMember)
           , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
           ]
-        Var sample -> 
+        Var sample@(TypedName _ (Just (TypeVector _))) -> 
           [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
-          , C.for (C.declareInit' C.size_t (C.ident "i") (C.intLit 0))
-                  (C.ident "i" C.< C.member (compileVar sample) (C.call (C.ident "size") []))
-                  (C.incr' (C.ident "i"))
-                  [ C.member (C.subscript (compileVar sample) (C.ident "i")) (C.call (C.ident "print") [])
-                  , C.ifThen ((C.ident "i" C.< C.member (compileVar sample) (C.call (C.ident "size") [])) C.- C.intLit 1) 
-                             [ C.stmt (C.ident "std::cout" C.<< C.stringLit ",") ]
-                  ]
+          , printEach (compileVar sample)
           , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
           ]
         _ -> undefined
@@ -115,14 +103,22 @@ compileMain mndecl =
           --   C.declare (compileType t) (C.ident $ "_"<>tn)
           _ -> C.nop
 
-    loop :: Int -> [C.Doc] -> C.Doc
-    loop bound stmts = 
-      C.for (C.declareInit' C.int loopVar (C.intLit 0))
-            (loopVar C.< C.intLit bound) 
-            (C.incr' loopVar) 
-            stmts
-      where
-        loopVar = C.ident "i"
+simpleLoop :: C.Doc -> C.Doc -> [C.Doc] -> C.Doc
+simpleLoop loopVar bound = 
+  C.for (C.declareInit' C.size_t loopVar (C.intLit 0))
+        (loopVar C.< bound) 
+        (C.incr' loopVar) 
+
+printEach :: C.Doc -> C.Doc
+printEach ident = simpleLoop loopVar vecSize 
+  [ C.stmt $ C.member (C.subscript ident loopVar) (C.call (C.ident "print") [])
+  , C.ifThen 
+      (loopVar C.< (vecSize C.- C.intLit 1))
+      [C.stmt (C.ident "std::cout" C.<< C.stringLit ",")]
+  ]
+  where
+    loopVar = C.ident "__i"
+    vecSize = C.member ident (C.call (C.ident "size") [])
 
 compileExperiment :: ExperimentDecl -> C.Doc
 compileExperiment exdecl =
@@ -474,13 +470,17 @@ mkJsonOutput output o =
     JsonVector v ->
       vcat
         [ write (C.stringLit "[")
-        , C.foreachAuto "__i" v
-          [ write (C.deref "__i")
-          , C.ifThen ("__i" C.!= C.call "std::end" [v])
-                    [ write litComma ]
-          ]
+        , printEach v
         , write (C.stringLit "]")
         ]
+        -- [ write (C.stringLit "[")
+        -- , C.foreachAuto "__i" v
+        --   [ write (C.deref "__i")
+        --   , C.ifThen ("__i" C.!= C.call "std::end" [v])
+        --             [ write litComma ]
+        --   ]
+        -- , write (C.stringLit "]")
+        -- ]
 
   where
     litComma = C.stringLit ","
