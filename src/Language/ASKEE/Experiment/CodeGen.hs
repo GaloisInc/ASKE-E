@@ -62,14 +62,27 @@ compileMain mndecl =
     printOutput :: Expr -> [C.Doc]
     printOutput e =
       case e of
+        Dot (Var _) sampleMember (Just (TypeVector _)) -> undefined
+        -- The below doesn't work, because we need to interleave commas between
+        -- lists - also, not sure if we need to worry about arbitrarily-deeply-
+        -- nested vectors, but I don't think well-formed experiments can 
+        -- construct them.
+          -- [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
+          -- , simpleLoop "__j" (C.member (C.ident $ "_" <> sampleMember) (C.call (C.ident "size") [])) -- freshen
+          --   [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
+          --   , printEach "__i" (C.subscript (C.ident $ "_" <> sampleMember) (C.ident "__j"))
+          --   , C.stmt (C.ident "std::cout" C.<< C.stringLit "]") 
+          --   ]
+          -- , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
+          -- ]
         Dot (Var _) sampleMember _ ->
           [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
-          , printEach (C.ident $ "_" <> sampleMember)
+          , printEach "__i" (C.ident $ "_" <> sampleMember)
           , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
           ]
-        Var sample@(TypedName _ (Just (TypeVector _))) -> 
+        Var sample -> 
           [ C.stmt (C.ident "std::cout" C.<< C.stringLit "[")
-          , printEach (compileVar sample)
+          , printEach "__i" (compileVar sample)
           , C.stmt (C.ident "std::cout" C.<< C.stringLit "]")
           ]
         _ -> undefined
@@ -109,15 +122,15 @@ simpleLoop loopVar bound =
         (loopVar C.< bound) 
         (C.incr' loopVar) 
 
-printEach :: C.Doc -> C.Doc
-printEach ident = simpleLoop loopVar vecSize 
-  [ C.stmt $ C.member (C.subscript ident loopVar) (C.call (C.ident "print") [])
+printEach :: Text -> C.Doc -> C.Doc
+printEach loopVar ident = simpleLoop loopVar' vecSize 
+  [ C.stmt $ C.member (C.subscript ident loopVar') (C.call (C.ident "print") [])
   , C.ifThen 
-      (loopVar C.< (vecSize C.- C.intLit 1))
+      (loopVar' C.< (vecSize C.- C.intLit 1))
       [C.stmt (C.ident "std::cout" C.<< C.stringLit ",")]
   ]
   where
-    loopVar = C.ident "__i"
+    loopVar' = C.ident loopVar
     vecSize = C.member ident (C.call (C.ident "size") [])
 
 compileExperiment :: ExperimentDecl -> C.Doc
@@ -470,7 +483,7 @@ mkJsonOutput output o =
     JsonVector v ->
       vcat
         [ write (C.stringLit "[")
-        , printEach v
+        , printEach "__i" v
         , write (C.stringLit "]")
         ]
         -- [ write (C.stringLit "[")
