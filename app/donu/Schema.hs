@@ -27,6 +27,7 @@ data Input =
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
+  | GenerateCPPExperiment GenerateCPPExpCommand
   | Stratify StratifyCommand
     deriving Show
 
@@ -37,6 +38,7 @@ instance HasSpec Input where
          <!> (Fit      <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
          <!>  (Stratify <$> anySpec)
+         <!> (GenerateCPPExperiment <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -277,3 +279,27 @@ instance HasSpec GenerateCPPCommand where
 stratResultToJSON :: Model -> [Text] -> JS.Value 
 stratResultToJSON m ps =
   JS.object [ "model" .= show (printModel m), "parameters" .= ps ]
+
+
+-------------------------------------------------------------------------------
+
+data GenerateCPPExpCommand = GenerateCPPExpCommand
+  { generateCPPExpExperiment :: DataSource
+  , generateCPPExpModel :: DataSource
+  , generateCPPExpModelType :: ModelType
+  }
+  deriving (Show)
+
+instance HasSpec GenerateCPPExpCommand where
+  anySpec = 
+    sectionsSpec "generate-cpp-experiment"
+    do  reqSection' "command" (jsAtom "generate-cpp-exp") 
+          "Render an experiment as a C++ program customized to a particular model" -- bit of a lie
+        generateCPPExpModelType <- 
+          reqSection "model" "Type of model associated with experiment"
+        generateCPPExpModel <- 
+          reqSection' "model-definition" dataSource "Specification of the model"
+        generateCPPExpExperiment <- 
+          reqSection' "exp-definition" dataSource "Specification of the experiment"
+
+        pure GenerateCPPExpCommand { .. }

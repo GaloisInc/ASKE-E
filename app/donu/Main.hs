@@ -1,8 +1,10 @@
 {-# Language BlockArguments, OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main(main) where
 
 import Data.Text(Text)
-import qualified Text.PrettyPrint as PP
+-- import qualified Text.PrettyPrint as PP
+import qualified Prettyprinter as PPr
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -20,9 +22,18 @@ import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
+import qualified Language.ASKEE.Experiment.CodeGen as GenExp
+import qualified Language.ASKEE.Experiment.Syntax as Exp
+import qualified Language.ASKEE.Experiment.Parser as ExpP
 import Schema
 
+import System.IO.Temp ( withSystemTempDirectory, writeTempFile )
+import System.Process ( readProcess )
+import System.FilePath
+
 import qualified Data.ByteString.Lazy.Char8 as BS8
+import qualified Language.ASKEE.Experiment.Typechecker as TC
+import qualified Language.ASKEE.Experiment.TraverseType as TC
 
 main :: IO ()
 main = quickHttpServe
@@ -40,9 +51,10 @@ main = quickHttpServe
                               (Snap.setResponseStatus 400 "Bad request")
                    Snap.writeText $ Text.pack $ show (err :: SomeException)
        Left err ->
-         do Snap.writeText $ Text.pack err
-            Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
+         do -- Snap.writeText $ Text.pack err
+            -- Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
             -- showHelp
+            Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
 
@@ -101,6 +113,38 @@ handleRequest r =
 
     GenerateCPP cmd ->
       OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
+    GenerateCPPExperiment GenerateCPPExpCommand{..} ->
+      do  -- deqs <- loadDiffEqs generateCPPExpModelType generateCPPExpModel [] Map.empty
+          modelCpp' <- generateCPP generateCPPExpModelType generateCPPExpModel
+          modelCpp <- case modelCpp' of
+            Left err -> notImplemented (Text.unpack err)
+            Right res -> pure res
+          
+          expCpp <- loadExperiment generateCPPExpExperiment
+
+          res <- withSystemTempDirectory "cpp-gen" \dir ->
+            do  modelFile <- writeTempFile dir "model" (Text.unpack modelCpp)
+                let modelFName = takeFileName modelFile
+                let expCpp' = unlines 
+                      [ "#include \""++modelFName++"\""
+                      , "#include \"ASKEE.hpp\""
+                      ] ++ expCpp
+                putStrLn expCpp'
+                expFile <- writeTempFile dir "exp" expCpp'
+                _ <- readProcess "cp" [ "cpp/ASKEE.hpp", dir ] ""
+                readProcess "clang++"
+                  [ "-Wall"
+                  , "-Wextra"
+                  , modelFile
+                  , expFile
+                  ] ""
+          notImplemented res
+
+
+          -- let stateVars = Map.keys deqRates
+          --     modelSplice = unlines
+          --       [ "model "]
+          undefined
     Stratify info ->
       do  (model, params) <- stratifyModel'  (stratModel info)
                                     (stratConnections info)
@@ -183,3 +227,31 @@ generateCPP ty src =
 
 -------------------------------------------------------------------------
 
+loadExperiment :: DataSource -> IO String
+loadExperiment ds =
+  do  src <- loadString ds
+      let experimentE = ExpP.parse ExpP.declsP "(donu)" (Text.pack src)
+      experiment <- case experimentE of
+        Left err -> throwIO err
+        Right res -> pure res
+      experiment' <- runTC (TC.inferDecls experiment)
+      let cpp = show $ PPr.vcat $
+            [ GenExp.compileMeasure m | Exp.DMeasure m <- experiment' ] ++
+            [ GenExp.compileExperiment m | Exp.DExperiment m <- experiment' ] ++
+            [ GenExp.compileMain m | Exp.DMain m <- experiment' ]
+      pure cpp
+
+data TCError = TCError Text deriving Show
+
+instance Exception TCError
+
+runTC :: TC.TraverseType a => TC.TC a -> IO a
+runTC tc =
+  case TC.runTC tc of
+    Left err -> throwIO (TCError err)
+    Right a  -> pure a
+
+-- loadExperiment :: FilePath -> IO [E.Decl]
+-- loadExperiment file =
+--   do  syn <- P.parseFromFile P.declsP file
+--       runTC (TC.inferDecls syn)
