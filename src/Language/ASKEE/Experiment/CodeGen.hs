@@ -27,6 +27,16 @@ data ExperimentDecl =
 vectorOfType :: C.Doc -> C.Doc
 vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
 
+compileDecls :: [Decl] -> C.Doc
+compileDecls ds = PP.vcat (ds >>= compileDecl)
+  where
+  compileDecl d =
+    case d of
+      DMeasure m -> [compileMeasure m]
+      DModel _   -> []
+      DMain m -> [compileMain m]
+      DExperiment e -> [compileExperiment e]
+
 compileMain :: MainDecl -> C.Doc
 compileMain mndecl =
   vcat

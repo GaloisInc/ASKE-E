@@ -71,8 +71,7 @@ testCodeGen' mdls experiment =
       mapM_ print ((show <$> SG.genModel) `traverse` cores)
       mapM_ print [ GenX.compileMeasure m | E.DMeasure m <- exper ]
       mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
-
-
+      mapM_ print [ GenX.compileMain m | E.DMain m <- exper ]
   where
     loadModel fp = Core.loadCoreModel (Core.FromFile fp) []
     modelDecl c =

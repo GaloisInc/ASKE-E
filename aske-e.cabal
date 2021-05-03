@@ -62,6 +62,7 @@ library
                      , Language.ASKEE.Measure
                      , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
+                     , Language.ASKEE.CppCompiler
                      , Language.ASKEE.Panic
                      , Language.ASKEE.Check
                      , Language.ASKEE.Translate
@@ -100,7 +101,8 @@ library
                        directory,
                        temporary,
                        alex-tools,
-                       monadLib
+                       monadLib,
+                       filepath
 
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src

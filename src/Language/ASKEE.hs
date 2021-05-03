@@ -1,6 +1,7 @@
 {-# Language OverloadedStrings #-}
 {-# Language TemplateHaskell #-}
 {-# Language TypeApplications #-}
+{-# Language TupleSections #-}
 
 module Language.ASKEE where
 
@@ -11,6 +12,8 @@ import           Data.Text (Text, unpack)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy.Char8 as B
 import Data.Aeson ( encode, decode )
+import qualified Data.Aeson as JSON
+import qualified Prettyprinter as PP
 
 import qualified Language.ASKEE.Check as Check
 import           Language.ASKEE.Convert
@@ -33,6 +36,11 @@ import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen as SG
 import qualified Language.ASKEE.Syntax as Syntax
 import qualified Language.ASKEE.ModelStratify.Syntax as MS
+import qualified Language.ASKEE.Experiment.Syntax as E
+import qualified Language.ASKEE.Experiment.CodeGen as EGen
+import qualified Language.ASKEE.Experiment.Parser as EP
+import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CppCompiler as CC
 import Data.Word (Word8)
 
 
@@ -275,3 +283,41 @@ renderCppModel file =
   do  compiled <- loadCoreModel file []
       pure $ show (SG.genModel compiled)
 
+loadCoreModel' :: DataSource -> IO Core.Model
+loadCoreModel' f = loadCoreModel f []
+
+withLoadExp :: [DataSource] -> DataSource -> ([Core.Model] -> [E.Decl] -> IO a) -> IO a
+withLoadExp modelFiles experiment action =
+  do  cores <- loadCoreModel' `traverse` modelFiles
+      expSrc <- loadString experiment
+      exper <- EP.parseFromFile EP.declsP expSrc
+      action cores exper
+
+genExpCppFromSrcs :: [DataSource] -> DataSource -> IO C.Doc
+genExpCppFromSrcs modelFiles experiment =
+  withLoadExp modelFiles experiment (\m e -> pure $ genExpCpp m e)
+
+runExpCppFromSrcs :: [DataSource] -> DataSource -> IO JSON.Value
+runExpCppFromSrcs modelFiles experiment =
+  withLoadExp modelFiles experiment runExp
+
+genExpCpp :: [Core.Model] -> [E.Decl] -> C.Doc
+genExpCpp cores expDecls =
+  do  let modelDecls = modelDecl <$> cores
+          expDecls' = modelDecls ++ expDecls
+
+      PP.vcat [ PP.vcat (SG.genModel <$> cores)
+              , EGen.compileDecls expDecls'
+              ]
+  where
+    modelDecl c =
+      E.DModel $ E.ModelDecl (E.untypedName $ Core.modelName c)
+                             (Map.fromList $ (, E.TypeNumber) <$> ("time":Core.modelStateVars c))
+
+runExp :: [Core.Model] -> [E.Decl] -> IO JSON.Value
+runExp cores decls =
+  do  let cpp = genExpCpp cores decls
+      str <- CC.compileAndRun CC.GCC [("model.cpp", cpp)]
+      case JSON.decode (B.pack str) of
+        Nothing -> throwIO (ValidationError "could not parse generated experiment program output as json")
+        Just j -> pure j
