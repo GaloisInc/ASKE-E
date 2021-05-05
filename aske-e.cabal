@@ -57,6 +57,15 @@ library
                      , Language.ASKEE.Experiment.CodeGen
                      , Language.ASKEE.Experiment.TypeOf
 
+                     , Language.ASKEE.Expo.Syntax
+                     , Language.ASKEE.Expo.Parser
+                     , Language.ASKEE.Expo.Lexer
+                     , Language.ASKEE.Expo.TypeOf
+                     , Language.ASKEE.Expo.Typechecker
+                     , Language.ASKEE.Expo.TraverseType
+                     , Language.ASKEE.Expo.CodeGen
+                    --  , Language.ASKEE.Expo.EaselAdapter
+
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
