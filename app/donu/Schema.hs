@@ -28,15 +28,17 @@ data Input =
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
   | Stratify StratifyCommand
+  | ListModels ListModelsCommand
     deriving Show
 
 instance HasSpec Input where
   anySpec =   (Simulate <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
-         <!> (Fit      <$> anySpec)
+         <!> (Fit <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
-         <!>  (Stratify <$> anySpec)
+         <!> (Stratify <$> anySpec)
+         <!> (ListModels <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -134,10 +136,18 @@ data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
   deriving Show
 
 instance HasSpec ModelType where
-  anySpec =  (jsAtom "askee"    $> AskeeModel)
+  anySpec =  (jsAtom "easel"    $> AskeeModel)
          <!> (jsAtom "diff-eqs" $> DiffEqs)
          <!> (jsAtom "reaction-net" $> ReactionNet)
          <!> (jsAtom "latex-eqnarray" $> LatexEqnarray)
+
+instance JS.ToJSON ModelType where
+  toJSON mt =
+    case mt of
+      AskeeModel -> JS.String "easel"
+      DiffEqs -> JS.String "diff-eqs"
+      ReactionNet -> JS.String "reaction-net"
+      LatexEqnarray -> JS.String "latex-eqnarray"
 
 
 dataSource :: ValueSpec DataSource
@@ -159,6 +169,7 @@ helpHTML = docsJSON (anySpec :: ValueSpec Input)
 data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
+  | OutputModelList [(FilePath, ModelType)]
   | FitResult (Map Ident (Double, Double))
   | StratificationResult Model [Text]
 
@@ -167,9 +178,13 @@ instance JS.ToJSON Output where
   toJSON out =
     case out of
       OutputData d -> dsToJSON d
+      OutputModelList ms ->
+        JS.object [ "models" .= (pathTypeResult <$> ms) ]
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
       StratificationResult model params -> stratResultToJSON model params
+    where
+      pathTypeResult (path, ty) = [JS.String (Text.pack path), JS.toJSON ty]
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -277,3 +292,17 @@ instance HasSpec GenerateCPPCommand where
 stratResultToJSON :: Model -> [Text] -> JS.Value 
 stratResultToJSON m ps =
   JS.object [ "model" .= show (printModel m), "parameters" .= ps ]
+
+---------------------------------------------------------------------------
+
+data ListModelsCommand = ListModelsCommand
+  deriving Show
+
+instance HasSpec ListModelsCommand where
+  anySpec =
+    sectionsSpec "list-models"
+    do  reqSection' "command" (jsAtom "list-models") "List available models"
+        pure ListModelsCommand
+
+
+---------------------------------------------------------------------------

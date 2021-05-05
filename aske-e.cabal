@@ -126,7 +126,7 @@ executable donu
   build-depends:       base, containers, snap-server, snap-core, aske-e,
                        text, bytestring, aeson, config-value, config-schema,
                        scientific, pretty, vector, unordered-containers,
-                       semigroupoids
+                       semigroupoids, filepath, directory
   default-language:    Haskell2010
   ghc-options:         -Wall
 

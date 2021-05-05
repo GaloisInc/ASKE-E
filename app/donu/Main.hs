@@ -1,7 +1,9 @@
-{-# Language BlockArguments, OverloadedStrings #-}
+{-# Language BlockArguments, OverloadedStrings, TupleSections #-}
 module Main(main) where
 
 import Data.Text(Text)
+import qualified System.Directory as Directory
+import System.FilePath((</>))
 import qualified Text.PrettyPrint as PP
 import qualified Data.Text as Text
 import Data.Map(Map)
@@ -26,23 +28,28 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 
 main :: IO ()
 main = quickHttpServe
-  do let limit = 8 * 1024 * 1024    -- 8 megs
-     body <- Snap.readRequestBody limit
-     case JS.eitherDecode body of
-       Right a ->
-         do r <- liftIO $ try $ handleRequest a
-            case r of
-              Right ok ->
-                do Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
-                   Snap.writeLBS (JS.encode ok)
-              Left err ->
-                do Snap.modifyResponse
-                              (Snap.setResponseStatus 400 "Bad request")
-                   Snap.writeText $ Text.pack $ show (err :: SomeException)
-       Left err ->
-         do Snap.writeText $ Text.pack err
-            Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-            -- showHelp
+  do  Snap.route [ ("/help", showHelp)
+                 , ("/", endpoint)
+                 ]
+  where
+    endpoint =
+     do let limit = 8 * 1024 * 1024    -- 8 megs
+        body <- Snap.readRequestBody limit
+        case JS.eitherDecode body of
+          Right a ->
+            do  r <- liftIO $ try $ handleRequest a
+                case r of
+                  Right ok ->
+                    do  Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
+                        Snap.writeLBS (JS.encode ok)
+                  Left err ->
+                    do  Snap.modifyResponse
+                                  (Snap.setResponseStatus 400 "Bad request")
+                        Snap.writeText $ Text.pack $ show (err :: SomeException)
+          Left err ->
+            do  Snap.writeText $ Text.pack err
+                Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
+                -- showHelp
 
 --------------------------------------------------------------------------------
 
@@ -108,6 +115,9 @@ handleRequest r =
                                     (stratType info)
           pure $ StratificationResult model params
 
+    ListModels _ ->
+      do  results <- listModels "modelRepo"
+          pure $ OutputModelList results
           
   where
     pack :: DataSource -> IO BS8.ByteString
@@ -180,6 +190,15 @@ generateCPP ty src =
       pure $ Left "Rendering diff-eq to C++ is not implemented"
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
+
+
+listModels :: FilePath -> IO [(FilePath, ModelType)]
+listModels modelBaseDir =
+    list "easel" AskeeModel
+  where
+    list dir ty =
+        do  files <- Directory.listDirectory (modelBaseDir </> dir)
+            pure $ (,ty) <$> files
 
 -------------------------------------------------------------------------
 
