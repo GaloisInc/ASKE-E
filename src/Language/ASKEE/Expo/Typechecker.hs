@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE BangPatterns #-}
@@ -53,6 +54,7 @@ inferMain :: E.MainDecl -> TC E.MainDecl
 inferMain mn = 
   scope $
     do  mainStmts' <- inferStmt `traverse` E.mainStmts mn
+        void $ extractConstraints >>= solveConstraints
         mainOutput' <- inferExpr `traverse` E.mainOutput mn
         pure E.MainDecl { E.mainStmts  = mainStmts'
                         , E.mainOutput = fst <$> mainOutput' }
@@ -80,7 +82,7 @@ inferModel mdl =
                    , E.tconArgs   = []
                    , E.tconFields = E.mdFields mdl
                    }
-          ty = E.TypeMeasurable (E.TypeRandomVar (E.TypeCon con))
+          ty = E.TypeStream (E.TypeRandomVar (E.TypeCon con))
       
       pure mdl { E.mdName = E.setType (E.mdName mdl) ty }
 
@@ -154,16 +156,7 @@ inferMeasure measure =
                                    , E.measureConstraints = cns
                                    }
 
--- data MeasureExpr = MeasureExpr
---   { meMeasureName :: E.Ident
---   , meDataset :: E.Ident
---   , meArgs :: [E.Expr]
---   , meTypeArgs :: [E.Type]
---   , meResult :: E.Type
---   }
---   deriving (Show)
-          
-          
+
 
 -- inferMeasureExpr :: E.MeasureExpr -> TC (E.MeasureExpr, E.Type)
 -- inferMeasureExpr mexpr =
@@ -367,11 +360,14 @@ inferExpr e0 =
 --           )
     E.Measure measuredThing measuringTool measuringArgs _tyArgs ->
       do  (measuredThing', measuredThingTy) <- inferExpr measuredThing
-          addConstraint (E.IsMeasurable measuredThingTy)
+
           let name = E.tnName measuringTool
+
           (measuringTy, measuringTyArgs) <- lookupMeasure name
-          -- unify (E.TypeVector _) measuredThingTy
+          unify (E.TypeStream (E.TypeRandomVar (E.mtData measuringTy))) measuredThingTy
+
           measuringArgs' <- checkCall name measuringArgs (E.mtArgs measuringTy)
+
           zonk
             ( E.Measure
                 { E.measuredThing = measuredThing'
@@ -382,13 +378,20 @@ inferExpr e0 =
             , E.mtResult measuringTy
             )
 
-    E.At sampledThing samplingTool ->
+    E.At slicedThing slicer ->
+      do  (slicedThing', slicedThingTy) <- inferExpr slicedThing
+          pointTy <- newTVar
+          unify (E.TypeStream (E.TypeRandomVar pointTy)) slicedThingTy
+
+          (slicer', slicerTy) <- inferExpr slicer
+          addConstraint (E.IsTimeLike slicerTy)
+          pure (E.At slicedThing' slicer', slicedThingTy)
+
+    E.Sample sampleNum sampledThing ->
       do  (sampledThing', sampledThingTy) <- inferExpr sampledThing
-          -- unless (isRandom thingTy) (throwError $ "tried to `at` non-random thing "<>pack (show thingTy))
-          addConstraint (E.IsRandom sampledThingTy)
-          (samplingTool', samplingToolTy) <- inferExpr samplingTool
-          unify samplingToolTy E.TypeNumber -- XXX incorrect/insufficient
-          pure (E.At sampledThing' samplingTool', sampledThingTy)
+          pointTy <- newTVar
+          unify (E.TypeRandomVar pointTy) sampledThingTy
+          pure (E.Sample sampleNum sampledThing', E.TypeVector pointTy)
 
 
   where
@@ -429,21 +432,37 @@ inferExpr e0 =
     logical tys = unifyAll E.TypeBool tys >> pure (head tys) --E.TypeBool
     comparison tys = unifyAll E.TypeNumber tys >> pure E.TypeBool -- XXX ???
 
-    unifyAll ty ts = unify ty `traverse_` ts
+    unifyAll ty ts = permissiveUnify ty `traverse_` ts
 
-isMeasurable :: E.Type -> Bool
-isMeasurable ty =
-  case ty of
-    E.TypeMeasurable _ -> True
-    E.TypeRandomVar (E.TypeMeasurable _) -> True
-    _ -> False
+-- stripRandom :: E.Type -> TC E.Type
+-- stripRandom = traverseType go
+--   where
+--     go :: E.Type -> TC E.Type
+--     go ty =
+--       case ty of
+--         E.TypeRandomVar t -> pure t
+--         E.TypeBool -> pure ty
+--         E.TypeNumber -> pure ty
+--         (E.TypeVector t) -> E.TypeVector <$> go t
+--         (E.TypePoint mp) -> undefined
+--         (E.TypeCon tc) -> undefined
+--         (E.TypeVar tv) -> undefined
+--         (E.TypeMeasurable t) -> E.TypeMeasurable <$> go t
 
-isRandom :: E.Type -> Bool
-isRandom ty =
-  case ty of
-    E.TypeRandomVar _ -> True
-    E.TypeMeasurable (E.TypeRandomVar _) -> True
-    _ -> False
+
+-- isMeasurable :: E.Type -> Bool
+-- isMeasurable ty =
+--   case ty of
+--     E.TypeMeasurable _ -> True
+--     E.TypeRandomVar (E.TypeMeasurable _) -> True
+--     _ -> False
+
+-- isRandom :: E.Type -> Bool
+-- isRandom ty =
+--   case ty of
+--     E.TypeRandomVar _ -> True
+--     E.TypeMeasurable (E.TypeRandomVar _) -> True
+--     _ -> False
 
 
 
@@ -552,7 +571,7 @@ bindDecl' decl =
     E.DModel m -> 
       do  bD (DTModel $ E.modelType m) 
           bV (E.plainModelType $ E.modelType m)
-          addConstraint (E.IsMeasurable (E.plainModelType $ E.modelType m))
+          -- addConstraint (E.IsMeasurable (E.plainModelType $ E.modelType m))
     E.DMain _ -> pure ()
   where
     bD = bindDecl (declName decl)
@@ -594,6 +613,17 @@ zonk = traverseType \ty -> do subst <- State.gets ceSubst
 
 unify :: E.Type -> E.Type -> TC ()
 unify t1 t2 = void $ unify' t1 t2
+
+permissiveUnify :: E.Type -> E.Type -> TC ()
+permissiveUnify t1 t2 = 
+  do  t1' <- zonk t1
+      t2' <- zonk t2
+      case smgu t1' t2' of
+        Left err -> throwError err
+        Right u | Map.null u -> pure ()
+                | otherwise ->
+                  State.modify \env -> env { ceSubst = ceSubst env `composeSubst` u }
+                       
 
 unify' :: E.Type -> E.Type -> TC Bool
 unify' t1 t2 =
@@ -644,20 +674,21 @@ mgu t1 t2  =
     (E.TypeCon tc1, E.TypeCon tc2) -> mguTCon tc1 tc2
     (E.TypeVar i@(E.TVFree _), _) -> bindTVar i t2
     (_, E.TypeVar i@(E.TVFree _)) -> bindTVar i t1
-    -- (E.TypeRandomVar t1', E.TypeRandomVar t2') -> mgu t1' t2'
-    -- (E.TypeMeasurable t1', E.TypeMeasurable t2') -> mgu t1' t2'
-    _ -> smgu t1 t2
+    (E.TypeRandomVar t1', E.TypeRandomVar t2') -> mgu t1' t2'
+    (E.TypeStream t1', E.TypeStream t2') -> mgu t1' t2'
+    _ -> Left $ "Types differ: "<>pack (show (t1, t2))
+    -- _ -> smgu t1 t2
   where
     ok = pure Map.empty
 
 smgu :: E.Type -> E.Type -> Either TypeError Subst
 smgu t1 t2 =
   case (t1, t2) of
-    (E.TypeMeasurable t1', t2') -> mgu t1' t2'
-    (t1', E.TypeMeasurable t2') -> mgu t1' t2'
-    (E.TypeRandomVar t1', t2') -> mgu t1' t2'
-    (t1', E.TypeRandomVar t2') -> mgu t1' t2'
-    _ -> Left $ "Types differ: "<>pack (show (t1, t2))
+    (E.TypeStream t1', t2') -> smgu t1' t2'
+    (t1', E.TypeStream t2') -> smgu t1' t2'
+    (E.TypeRandomVar t1', t2') -> smgu t1' t2'
+    (t1', E.TypeRandomVar t2') -> smgu t1' t2'
+    _ -> mgu t1 t2
 
 mguTCon :: E.TCon -> E.TCon -> Either TypeError Subst
 mguTCon tc1 tc2
@@ -727,7 +758,7 @@ applySubst subst = mapType doSubst
       E.TypeVar i         -> Map.findWithDefault ty i subst
       E.TypeCon tc        -> E.TypeCon (applySubst subst tc)
       -- E.TypeVector ty'     -> E.TypeVector (applySubst subst ty')
-      E.TypeMeasurable ty' -> E.TypeMeasurable (doSubst ty')
+      E.TypeStream ty' -> E.TypeStream (doSubst ty')
       E.TypeRandomVar ty'  -> E.TypeRandomVar (doSubst ty')
 
 
@@ -743,7 +774,7 @@ freeTVars = collect freeVarsInType
         E.TypeCon tc -> freeTVars tc
         E.TypeVar (E.TVFree i) -> Set.singleton i
         E.TypeVar (E.TVBound _) -> Set.empty
-        E.TypeMeasurable t -> freeVarsInType t
+        E.TypeStream t -> freeVarsInType t
         E.TypeRandomVar t -> freeVarsInType t
 
 -------------------------------------------------------------------------------
@@ -786,25 +817,18 @@ solveConstraint = go id
                 Nothing ->
                   throwError ("Record does not have field '" <> label <> "'")
             E.TypeVar _ -> pure $ Left constraint
-            E.TypeVector ty -> go f $ E.HasField ty label fieldTy
+            -- E.TypeVector ty -> go f $ E.HasField ty label fieldTy
             -- XXX: support arbitrarily many layers of vectors for this operation?
-            E.TypeMeasurable ty -> go (f . E.TypeMeasurable) (E.HasField ty label fieldTy)
+            E.TypeStream ty -> go (f . E.TypeStream) (E.HasField ty label fieldTy)
             E.TypeRandomVar ty -> go (f . E.TypeRandomVar) (E.HasField ty label fieldTy)
             _ -> throwError $ pack $ "type "<>show recordTy<>" is not data point"
             --XXX: better error
-        E.IsMeasurable ty ->
+        E.IsTimeLike ty ->
           case ty of
+            E.TypeNumber -> triv
+            E.TypeVector E.TypeNumber -> triv
             E.TypeVar _ -> pure $ Left constraint
-            E.TypeMeasurable _ -> pure $ Right True
-            E.TypeRandomVar ty' -> solveConstraint $ E.IsMeasurable ty'
-            -- E.TypeNumber -> pure $ Right True
-            -- E.TypeBool -> pure $ Right True
-            _ -> error (show constraint)
-        E.IsRandom ty ->
-          case ty of
-            E.TypeVar _ -> pure $ Left constraint
-            E.TypeMeasurable ty' -> solveConstraint $ E.IsRandom ty'
-            E.TypeRandomVar _ -> pure $ Right True
-            -- E.TypeNumber -> pure $ Right True
-            -- E.TypeBool -> pure $ Right True
-            _ -> error (show constraint)
+            _ -> throwError $ pack $ "type "<>show ty<>" is not time-like"
+
+              
+    triv = pure $ Right True

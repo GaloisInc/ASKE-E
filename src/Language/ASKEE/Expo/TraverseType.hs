@@ -58,6 +58,7 @@ instance TraverseType Expr where
       Point fs    -> Point <$> (traverseField `traverse` fs)
       Measure thing with args tyArgs -> Measure <$> traverseType f thing <*> traverseType f with <*> traverseType f args <*> traverseType f tyArgs
       At thing when -> At <$> traverseType f thing <*> traverseType f when
+      Sample num thing -> Sample num <$> traverseType f thing
     where
       traverseField (fname, fvalue) = (,) fname <$> traverseType f fvalue
 
@@ -137,10 +138,8 @@ instance TraverseType TypeConstraint where
     case c of
       HasField recTy label fieldTy ->
         HasField <$> f recTy <*> pure label <*> f fieldTy
-      IsMeasurable ty ->
-        IsMeasurable <$> f ty
-      IsRandom ty ->
-        IsRandom <$> f ty
+      IsTimeLike ty ->
+        IsTimeLike <$> f ty
       
 
 instance TraverseType MeasureType where

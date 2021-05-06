@@ -157,7 +157,7 @@ data Type =
   | TypeCon TCon
   | TypeVector Type
   -- | TypeMeasure [Type] Type Type
-  | TypeMeasurable Type
+  | TypeStream Type
   | TypeRandomVar Type
   -- | Forall [Int] [TypeConstraint] Type
   deriving (Show, Eq)
@@ -170,8 +170,7 @@ data TCon = TCon
 
 data TypeConstraint =
     HasField Type Label Type
-  | IsMeasurable Type
-  | IsRandom Type
+  | IsTimeLike Type
   deriving (Show, Eq)
 
 data Literal =
@@ -184,15 +183,14 @@ data Expr =
   | Var Ident
   | Call FunctionName [Expr]
   | Dot Expr Label (Maybe Type) -- filled in by type checker
-  -- eliminates `TypeMeasurable`
   | Measure
       { measuredThing :: Expr
       , measuringTool :: Ident
       , measuringArgs :: [Expr]
       , measuringArgTys :: [Type]
       }
-  -- eliminates `TypeRandomVar`
   | At Expr Expr
+  | Sample Int Expr
   | Point [(Text, Expr)]
   deriving Show
 

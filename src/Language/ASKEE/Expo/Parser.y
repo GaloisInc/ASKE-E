@@ -86,6 +86,7 @@ import Language.ASKEE.Expo.Lexer
 %name exprP expr
 %name blockP block
 
+%left    'sample'
 %left     '||'
 %left     '&&'
 %nonassoc '==' '!='
@@ -236,6 +237,7 @@ expr                                   :: { Expr }
 
   | expr 'measure' ident args             { Measure $1 $3 $4 [] }
   | expr 'at' expr                        { At $1 $3 }
+  | 'sample' NUMBER '(' expr ')'          { Sample (floor $ snd $2) $4 }
 
 fieldInit                              :: {(Label, Expr)}
   : IDENT '=' expr                        {(snd $1, $3)}
