@@ -18,6 +18,7 @@ data Node =
 
 newtype Graph =
   Graph { edges :: [(Node, Node)] }
+  deriving(Show, Eq, Ord)
 
 nodes :: Graph -> [Node]
 nodes g = nub ((fst <$> edges g) ++ (snd <$> edges g))

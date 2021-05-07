@@ -21,6 +21,7 @@ library
                      , Language.ASKEE.Core.DiffEq
                      , Language.ASKEE.Core.Eval
                      , Language.ASKEE.Core.GSLODE
+                     , Language.ASKEE.Core.Visualization
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
                      , Language.ASKEE.AMIDOLIR

@@ -22,6 +22,7 @@ import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
+import qualified Language.ASKEE.Core.Visualization as CoreViz
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -118,6 +119,16 @@ handleRequest r =
     ListModels _ ->
       do  results <- listModels "modelRepo"
           pure $ OutputModelList results
+
+    ModelSchemaGraph cmd ->
+      case modelSchemaGraphType cmd of
+        AskeeModel ->
+          do  modelSource <- loadCoreModel' (modelSchemaGraphSource cmd)
+              case CoreViz.asSchematicGraph modelSource of
+                Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
+                Just g -> pure $ OutputResult (SuccessResult g)
+
+        _ -> pure $ OutputResult (FailureResult "model type not supported")
           
   where
     pack :: DataSource -> IO BS8.ByteString
@@ -198,7 +209,7 @@ listModels modelBaseDir =
   where
     list dir ty =
         do  files <- Directory.listDirectory (modelBaseDir </> dir)
-            pure $ (,ty) <$> files
+            pure $ (,ty) . ((modelBaseDir </> dir) </>) <$> files
 
 -------------------------------------------------------------------------
 

@@ -29,16 +29,18 @@ data Input =
   | GenerateCPP GenerateCPPCommand
   | Stratify StratifyCommand
   | ListModels ListModelsCommand
+  | ModelSchemaGraph ModelSchemaGraphCommand
     deriving Show
 
 instance HasSpec Input where
-  anySpec =   (Simulate <$> anySpec)
+  anySpec =  (Simulate <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
          <!> (Stratify <$> anySpec)
          <!> (ListModels <$> anySpec)
+         <!> (ModelSchemaGraph <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -306,3 +308,20 @@ instance HasSpec ListModelsCommand where
 
 
 ---------------------------------------------------------------------------
+
+data ModelSchemaGraphCommand = ModelSchemaGraphCommand
+  { modelSchemaGraphSource :: DataSource
+  , modelSchemaGraphType   :: ModelType
+  }
+  deriving Show
+instance HasSpec ModelSchemaGraphCommand where
+  anySpec =
+    sectionsSpec "get-model-schematic"
+    do  reqSection' "command" (jsAtom "get-model-schematic")
+                    "Get simplified graph representation for a model"
+        modelSchemaGraphSource <- reqSection' "definition" dataSource
+                                              "Specification of the source model"
+        modelSchemaGraphType <- reqSection "model" "Type of source model"
+
+        pure ModelSchemaGraphCommand { .. }
+
