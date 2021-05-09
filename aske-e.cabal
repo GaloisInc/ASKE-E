@@ -21,9 +21,9 @@ library
                      , Language.ASKEE.Core.DiffEq
                      , Language.ASKEE.Core.Eval
                      , Language.ASKEE.Core.GSLODE
+                     , Language.ASKEE.Core.Visualization
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
-                     , Language.ASKEE.VisualSummaryGraph
                      , Language.ASKEE.AMIDOLIR
                      , Language.ASKEE.APRAM.Syntax
                      , Language.ASKEE.APRAM.Translate
@@ -60,11 +60,21 @@ library
                      , Language.ASKEE.Latex.Lexer
                      , Language.ASKEE.Latex.Print
 
+                     , Language.ASKEE.Experiment.Syntax
+                     , Language.ASKEE.Experiment.Lexer
+                     , Language.ASKEE.Experiment.Parser
+                     , Language.ASKEE.Experiment.Typechecker
+                     , Language.ASKEE.Experiment.TraverseType
+                     , Language.ASKEE.Experiment.EaselAdapter
+                     , Language.ASKEE.Experiment.CodeGen
+                     , Language.ASKEE.Experiment.TypeOf
+
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
                      , Language.ASKEE.Measure
                      , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
+                     , Language.ASKEE.CppCompiler
                      , Language.ASKEE.Panic
                      , Language.ASKEE.Check
                      , Language.ASKEE.Translate
@@ -75,9 +85,12 @@ library
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
                      , PetriNet
+
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
+                       -- TODO: remove
                        attoparsec,
+                       megaparsec,
                        bytestring,
                        containers,
                        vector,
@@ -99,7 +112,11 @@ library
                        process,
                        directory,
                        temporary,
-                       multiset
+                       multiset,
+                       alex-tools,
+                       monadLib,
+                       filepath
+
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -122,10 +139,23 @@ executable donu
   build-depends:       base, containers, snap-server, snap-core, aske-e,
                        text, bytestring, aeson, config-value, config-schema,
                        scientific, pretty, vector, unordered-containers,
-                       semigroupoids
+                       semigroupoids, filepath, directory
   default-language:    Haskell2010
   ghc-options:         -Wall
 
+executable ex
+  hs-source-dirs:      app/ex
+  main-is:             Main.hs
+  build-depends:
+    base,
+    alex-tools,
+    pretty-show,
+    aske-e,
+    text,
+    containers
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+    
 
 
 

@@ -8,7 +8,6 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Data.Maybe(fromMaybe)
 import Data.Functor(($>))
-import Data.Functor.Alt ((<!>))
 
 import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
@@ -27,15 +26,19 @@ data Input =
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
   | Stratify StratifyCommand
+  | ListModels ListModelsCommand
+  | ModelSchemaGraph ModelSchemaGraphCommand
     deriving Show
 
 instance HasSpec Input where
-  anySpec =   (Simulate <$> anySpec)
+  anySpec =  (Simulate <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
-         <!> (Fit      <$> anySpec)
+         <!> (Fit <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
-         <!>  (Stratify <$> anySpec)
+         <!> (Stratify <$> anySpec)
+         <!> (ListModels <$> anySpec)
+         <!> (ModelSchemaGraph <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -133,10 +136,18 @@ data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
   deriving Show
 
 instance HasSpec ModelType where
-  anySpec =  (jsAtom "askee"    $> AskeeModel)
+  anySpec =  (jsAtom "easel"    $> AskeeModel)
          <!> (jsAtom "diff-eqs" $> DiffEqs)
          <!> (jsAtom "reaction-net" $> ReactionNet)
          <!> (jsAtom "latex-eqnarray" $> LatexEqnarray)
+
+instance JS.ToJSON ModelType where
+  toJSON mt =
+    case mt of
+      AskeeModel -> JS.String "easel"
+      DiffEqs -> JS.String "diff-eqs"
+      ReactionNet -> JS.String "reaction-net"
+      LatexEqnarray -> JS.String "latex-eqnarray"
 
 
 dataSource :: ValueSpec DataSource
@@ -158,6 +169,7 @@ helpHTML = docsJSON (anySpec :: ValueSpec Input)
 data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
+  | OutputModelList [(FilePath, ModelType)]
   | FitResult (Map Ident (Double, Double))
   | StratificationResult StratificationInfo
 
@@ -166,9 +178,15 @@ instance JS.ToJSON Output where
   toJSON out =
     case out of
       OutputData d -> dsToJSON d
+      OutputModelList ms ->
+        JS.object [ "models" .= (pathTypeResult <$> ms) ]
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
       StratificationResult info -> stratResultToJSON info
+    where
+      pathTypeResult (path, ty) =
+        JS.object [ "file" .= JS.toJSON path
+                  , "model" .= JS.toJSON ty]
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -283,3 +301,34 @@ stratResultToJSON StratificationInfo{..} =
             , "parameters" .= holes
             , "vertices" .= vertices
             ]
+
+---------------------------------------------------------------------------
+
+data ListModelsCommand = ListModelsCommand
+  deriving Show
+
+instance HasSpec ListModelsCommand where
+  anySpec =
+    sectionsSpec "list-models"
+    do  reqSection' "command" (jsAtom "list-models") "List available models"
+        pure ListModelsCommand
+
+
+---------------------------------------------------------------------------
+
+data ModelSchemaGraphCommand = ModelSchemaGraphCommand
+  { modelSchemaGraphSource :: DataSource
+  , modelSchemaGraphType   :: ModelType
+  }
+  deriving Show
+instance HasSpec ModelSchemaGraphCommand where
+  anySpec =
+    sectionsSpec "get-model-schematic"
+    do  reqSection' "command" (jsAtom "get-model-schematic")
+                    "Get simplified graph representation for a model"
+        modelSchemaGraphSource <- reqSection' "definition" dataSource
+                                              "Specification of the source model"
+        modelSchemaGraphType <- reqSection "model" "Type of source model"
+
+        pure ModelSchemaGraphCommand { .. }
+

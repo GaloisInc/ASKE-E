@@ -1,0 +1,24 @@
+model SIR
+  S : number
+  I : number
+  R : number
+  time : number
+  
+measure Peak()
+  max_I = 0.0
+  max_t = 0.0
+
+  with sir
+    if sir.I > max_I then
+      max_I = sir.I
+      max_t = sir.time
+    end
+
+experiment peakexp()
+  ss = SIR() at [0..120 by 1]
+  peak = measure ss with Peak()
+
+main
+  peak_samples = sample 100 peakexp()
+
+  return peak_samples.peak

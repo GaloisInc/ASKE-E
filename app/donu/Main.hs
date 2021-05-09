@@ -1,7 +1,9 @@
-{-# Language BlockArguments, OverloadedStrings #-}
+{-# Language BlockArguments, OverloadedStrings, TupleSections #-}
 module Main(main) where
 
 import Data.Text(Text)
+import qualified System.Directory as Directory
+import System.FilePath((</>))
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -18,29 +20,35 @@ import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
+import qualified Language.ASKEE.Core.Visualization as CoreViz
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
 
 main :: IO ()
 main = quickHttpServe
-  do let limit = 8 * 1024 * 1024    -- 8 megs
-     body <- Snap.readRequestBody limit
-     case JS.eitherDecode body of
-       Right a ->
-         do r <- liftIO $ try $ handleRequest a
-            case r of
-              Right ok ->
-                do Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
-                   Snap.writeLBS (JS.encode ok)
-              Left err ->
-                do Snap.modifyResponse
-                              (Snap.setResponseStatus 400 "Bad request")
-                   Snap.writeText $ Text.pack $ show (err :: SomeException)
-       Left err ->
-         do Snap.writeText $ Text.pack err
-            Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-            -- Snap.writeLBS helpHTML
+  do  Snap.route [ ("/help", showHelp)
+                 , ("/", endpoint)
+                 ]
+  where
+    endpoint =
+     do let limit = 8 * 1024 * 1024    -- 8 megs
+        body <- Snap.readRequestBody limit
+        case JS.eitherDecode body of
+          Right a ->
+            do  r <- liftIO $ try $ handleRequest a
+                case r of
+                  Right ok ->
+                    do  Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
+                        Snap.writeLBS (JS.encode ok)
+                  Left err ->
+                    do  Snap.modifyResponse
+                                  (Snap.setResponseStatus 400 "Bad request")
+                        Snap.writeText $ Text.pack $ show (err :: SomeException)
+          Left err ->
+            do  Snap.writeText $ Text.pack err
+                Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
+                -- showHelp
 
 --------------------------------------------------------------------------------
 
@@ -50,6 +58,9 @@ newtype ServerError = NotImplemented String
 instance Exception ServerError
 notImplemented :: String -> IO a
 notImplemented what = throwIO (NotImplemented what)
+
+showHelp :: Snap.Snap ()
+showHelp = Snap.writeLBS helpHTML
 
 handleRequest :: Input -> IO Output
 handleRequest r =
@@ -103,6 +114,19 @@ handleRequest r =
                                       (stratType info)
           pure $ StratificationResult modelInfo
 
+    ListModels _ ->
+      do  results <- listModels "modelRepo"
+          pure $ OutputModelList results
+
+    ModelSchemaGraph cmd ->
+      case modelSchemaGraphType cmd of
+        AskeeModel ->
+          do  modelSource <- loadCoreModel' (modelSchemaGraphSource cmd)
+              case CoreViz.asSchematicGraph modelSource of
+                Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
+                Just g -> pure $ OutputResult (SuccessResult g)
+
+        _ -> pure $ OutputResult (FailureResult "model type not supported")
           
   where
     pack :: DataSource -> IO BS8.ByteString
@@ -175,5 +199,14 @@ generateCPP ty src =
       pure $ Left "Rendering diff-eq to C++ is not implemented"
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
+
+
+listModels :: FilePath -> IO [(FilePath, ModelType)]
+listModels modelBaseDir =
+    list "easel" AskeeModel
+  where
+    list dir ty =
+        do  files <- Directory.listDirectory (modelBaseDir </> dir)
+            pure $ (,ty) . ((modelBaseDir </> dir) </>) <$> files
 
 -------------------------------------------------------------------------

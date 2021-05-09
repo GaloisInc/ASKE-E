@@ -3,6 +3,7 @@
 {-# Language OverloadedStrings #-}
 {-# Language TemplateHaskell #-}
 {-# Language TypeApplications #-}
+{-# Language TupleSections #-}
 
 module Language.ASKEE where
 
@@ -20,6 +21,9 @@ import           Data.Text                  ( Text
 import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
+import Data.Aeson ( encode, decode )
+import qualified Data.Aeson as JSON
+import qualified Prettyprinter as PP
 
 import           Language.ASKEE.APRAM.Print            ( printAPRAM )
 import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
@@ -55,6 +59,40 @@ import qualified Language.ASKEE.Syntax                 as Syntax
 
 import System.Process   ( readProcess )
 import GHC.Generics (Generic)
+
+
+import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.DEQ.GenLexer as DL
+import qualified Language.ASKEE.DEQ.GenParser as DP
+import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
+import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
+import qualified Language.ASKEE.GenLexer as AL
+import qualified Language.ASKEE.GenParser as AP
+import qualified Language.ASKEE.Latex.GenLexer as LL
+import qualified Language.ASKEE.Latex.GenParser as LP
+import           Language.ASKEE.Lexer (Token, Located)
+import qualified Language.ASKEE.Measure as M
+import qualified Language.ASKEE.MeasureToCPP as MG
+import qualified Language.ASKEE.RNet.GenLexer as RL
+import qualified Language.ASKEE.RNet.GenParser as RP
+import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
+import qualified Language.ASKEE.SimulatorGen as SG
+import qualified Language.ASKEE.Syntax as Syntax
+import qualified Language.ASKEE.ModelStratify.Syntax as MS
+import qualified Language.ASKEE.Experiment.Syntax as E
+import qualified Language.ASKEE.Experiment.CodeGen as EGen
+import qualified Language.ASKEE.Experiment.Parser as EP
+import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CppCompiler as CC
+import Data.Word (Word8)
+
+
+import System.Directory ( withCurrentDirectory, makeAbsolute, removeFile )
+import System.Process ( readProcess )
+import System.IO.Temp ( withSystemTempFile, writeSystemTempFile )
+import System.Random ( randomIO )
+import System.IO (hPutStr, hSeek, SeekMode (AbsoluteSeek))
 
 newtype ParseError      = ParseError String deriving Show
 newtype ValidationError = ValidationError String deriving Show
@@ -303,3 +341,41 @@ toAPRAM modelFile aPRAMFile =
       let a = modelToAPRAM m "health"
           a' = show $ printAPRAM a
       writeFile aPRAMFile a'
+loadCoreModel' :: DataSource -> IO Core.Model
+loadCoreModel' f = loadCoreModel f []
+
+withLoadExp :: [DataSource] -> DataSource -> ([Core.Model] -> [E.Decl] -> IO a) -> IO a
+withLoadExp modelFiles experiment action =
+  do  cores <- loadCoreModel' `traverse` modelFiles
+      expSrc <- loadString experiment
+      exper <- EP.parseFromFile EP.declsP expSrc
+      action cores exper
+
+genExpCppFromSrcs :: [DataSource] -> DataSource -> IO C.Doc
+genExpCppFromSrcs modelFiles experiment =
+  withLoadExp modelFiles experiment (\m e -> pure $ genExpCpp m e)
+
+runExpCppFromSrcs :: [DataSource] -> DataSource -> IO JSON.Value
+runExpCppFromSrcs modelFiles experiment =
+  withLoadExp modelFiles experiment runExp
+
+genExpCpp :: [Core.Model] -> [E.Decl] -> C.Doc
+genExpCpp cores expDecls =
+  do  let modelDecls = modelDecl <$> cores
+          expDecls' = modelDecls ++ expDecls
+
+      PP.vcat [ PP.vcat (SG.genModel <$> cores)
+              , EGen.compileDecls expDecls'
+              ]
+  where
+    modelDecl c =
+      E.DModel $ E.ModelDecl (E.untypedName $ Core.modelName c)
+                             (Map.fromList $ (, E.TypeNumber) <$> ("time":Core.modelStateVars c))
+
+runExp :: [Core.Model] -> [E.Decl] -> IO JSON.Value
+runExp cores decls =
+  do  let cpp = genExpCpp cores decls
+      str <- CC.compileAndRun CC.GCC [("model.cpp", cpp)]
+      case JSON.decode (B.pack str) of
+        Nothing -> throwIO (ValidationError "could not parse generated experiment program output as json")
+        Just j -> pure j
