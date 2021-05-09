@@ -10,4 +10,5 @@
   - [`rate`](./rate.md)
   - [`effect`](./effect.md)
 - [Example](./example.md)
+- [Donu](./donu.md)
 - [Milestones](./milestones.md)
