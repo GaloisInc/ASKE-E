@@ -424,6 +424,10 @@ inferExpr e0 =
           \argTys -> do  when (length argTys /= 3) (throwError "[BUG] expecting exactly 3 args for range")
                          unifyAll E.TypeNumber argTys
                          pure $ E.TypeVector E.TypeNumber
+        E.VMean -> \tys ->
+          do  when (length tys /= 1) (throwError "[BUG] expecting only one argument to call")
+              unifyAll (E.TypeVector E.TypeNumber) tys
+              pure E.TypeNumber
 
     unary f tys =
       do  when (length tys /= 1) (throwError "[BUG] expecting only one argument to call")

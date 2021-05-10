@@ -78,6 +78,7 @@ import Language.ASKEE.Expo.Lexer
   'by'          { Lexeme { lexemeRange = $$, lexemeToken = KWby         } }
   'at'          { Lexeme { lexemeRange = $$, lexemeToken = KWat         } }
   'main'        { Lexeme { lexemeRange = $$, lexemeToken = KWmain       } }
+  'vmean'       { Lexeme { lexemeRange = $$, lexemeToken = KWvmean      } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -239,6 +240,7 @@ expr                                   :: { Expr }
   | expr 'at' expr                        { At $1 $3 }
   | 'sample' '(' expr ',' NUMBER ')'      { Sample (floor $ snd $5) $3 }
   | 'trace' '(' expr ')'                  { Trace $3 }
+  | 'vmean' '(' expr ')'                  { Call VMean [$3] }
 
 fieldInit                              :: {(Label, Expr)}
   : IDENT '=' expr                        {(snd $1, $3)}

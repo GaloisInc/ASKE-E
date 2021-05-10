@@ -86,6 +86,7 @@ $ws+              ;
 "by"              { lexeme KWby }
 "at"              { lexeme KWat }
 "main"            { lexeme KWmain }
+"vmean"           { lexeme KWvmean }
 
 @ident            { lexeme Ident }
 @rational         { lexRational }
@@ -152,6 +153,7 @@ data Token =
   | KWby
   | KWat
   | KWmain
+  | KWvmean
   | StringLit Text
 
   | TokError String

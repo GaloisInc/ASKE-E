@@ -211,4 +211,5 @@ data FunctionName =
   | Or
   | And
   | Range -- should have three arguments (start, stop, step)
+  | VMean
   deriving Show
