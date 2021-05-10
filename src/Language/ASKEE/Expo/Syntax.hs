@@ -12,7 +12,7 @@ data TypedName =
   TypedName { tnName :: Text
             , tnType :: Maybe Type
             }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 untypedName :: Text -> TypedName
 untypedName x = TypedName { tnName = x, tnType = Nothing }
@@ -160,13 +160,13 @@ data Type =
   | TypeStream Type
   | TypeRandomVar Type
   -- | Forall [Int] [TypeConstraint] Type
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 data TCon = TCon
   { tconName    :: Text
   , tconArgs    :: [Type]
   , tconFields  :: Map Text Type
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Ord)
 
 data TypeConstraint =
     HasField Type Label Type
@@ -191,6 +191,7 @@ data Expr =
       }
   | At Expr Expr
   | Sample Int Expr
+  | Trace Expr
   | Point [(Text, Expr)]
   deriving Show
 

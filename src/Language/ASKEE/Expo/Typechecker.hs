@@ -364,7 +364,7 @@ inferExpr e0 =
           let name = E.tnName measuringTool
 
           (measuringTy, measuringTyArgs) <- lookupMeasure name
-          unify (E.TypeStream (E.TypeRandomVar (E.mtData measuringTy))) measuredThingTy
+          unify (E.TypeVector (E.TypeRandomVar (E.mtData measuringTy))) measuredThingTy
 
           measuringArgs' <- checkCall name measuringArgs (E.mtArgs measuringTy)
 
@@ -385,7 +385,7 @@ inferExpr e0 =
 
           (slicer', slicerTy) <- inferExpr slicer
           addConstraint (E.IsTimeLike slicerTy)
-          pure (E.At slicedThing' slicer', slicedThingTy)
+          pure (E.At slicedThing' slicer', E.TypeVector (E.TypeRandomVar pointTy))
 
     E.Sample sampleNum sampledThing ->
       do  (sampledThing', sampledThingTy) <- inferExpr sampledThing
@@ -393,6 +393,11 @@ inferExpr e0 =
           unify (E.TypeRandomVar pointTy) sampledThingTy
           pure (E.Sample sampleNum sampledThing', E.TypeVector pointTy)
 
+    E.Trace tracedThing ->
+      do  (tracedThing', tracedThingTy) <- inferExpr tracedThing
+          ty <- newTVar
+          unify (E.TypeVector (E.TypeRandomVar ty)) tracedThingTy
+          pure (E.Trace tracedThing', E.TypeVector ty)
 
   where
     checkPointField (n, v) =

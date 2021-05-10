@@ -235,9 +235,10 @@ expr                                   :: { Expr }
   | '{'  sepBy(',', fieldInit) '}'        { Point $2 }
   | '[' expr '..' expr 'by' expr ']'      { Call Range [$2, $4, $6] }
 
-  | expr 'measure' ident args             { Measure $1 $3 $4 [] }
+  | 'measure' '(' expr ',' ident args ')' { Measure $3 $5 $6 [] }
   | expr 'at' expr                        { At $1 $3 }
-  | 'sample' NUMBER '(' expr ')'          { Sample (floor $ snd $2) $4 }
+  | 'sample' '(' expr ',' NUMBER ')'      { Sample (floor $ snd $5) $3 }
+  | 'trace' '(' expr ')'                  { Trace $3 }
 
 fieldInit                              :: {(Label, Expr)}
   : IDENT '=' expr                        {(snd $1, $3)}
