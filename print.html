@@ -100,7 +100,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="about.html">About</a></li><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.</strong> EASEL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.1.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.2.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.3.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.4.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.5.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.6.</strong> effect</a></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">1.7.</strong> Example</a></li></ol></li><li class="chapter-item expanded "><a href="donu.html"><strong aria-hidden="true">2.</strong> Donu</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">3.</strong> Milestones</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="easel.html"><strong aria-hidden="true">1.</strong> EASEL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.1.</strong> model</a></li><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.2.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.3.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.4.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.5.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.6.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.7.</strong> effect</a></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">1.8.</strong> Example</a></li></ol></li><li class="chapter-item expanded "><a href="donu.html"><strong aria-hidden="true">2.</strong> Donu</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">3.</strong> Milestones</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -169,7 +169,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="about"><a class="header" href="#about">About</a></h1>
-<p>ASKEE is a modeling language, able to represent compartmental and other
+<p>EASEL is a modeling language, able to represent compartmental and other
 scientific models in a concise, human- and machine-readable way. It builds off
 Galois's experience with the AMIDOL IR, and is intended to supplant it in the
 long term. It, like the AMIDOL IR, is meant to represent stochastic Petri nets
@@ -184,7 +184,7 @@ events that may depend on or modify these variables, modulo some rules.</p>
 <p><code>model</code>s are constructed blockwise in a whitespace-sensitive way that should be
 familiar to users of YAML and other similar languages.</p>
 <h1 id="let-declared-variables"><a class="header" href="#let-declared-variables"><code>let</code>-Declared Variables</a></h1>
-<pre><code class="language-askee">  let s_Initial = 999.0
+<pre><code class="language-easel">  let s_Initial = 999.0
   ...
   let beta =
     cond:
@@ -199,7 +199,7 @@ inlined. It follows that the value of a <code>let</code> variable might not rema
 throughout a model (indeed, <code>beta</code> does not). It is also the case that <code>let</code>
 variables cannot be modified in an <code>event</code>'s <code>effect</code> section.</p>
 <h1 id="state-declared-variables"><a class="header" href="#state-declared-variables"><code>state</code>-Declared Variables</a></h1>
-<pre><code class="language-askee">  state Susceptible = s_Initial
+<pre><code class="language-easel">  state Susceptible = s_Initial
   state Infected    = i_Initial
   state Recovered   = r_Initial
 </code></pre>
@@ -208,7 +208,7 @@ in that they may be modified in an <code>event</code>'s <code>effect</code> bloc
 be used to represent what the <code>model</code> is actually modeling - that is, they may
 be the output of an execution/simulation of a model (though they needn't be).</p>
 <h1 id="events"><a class="header" href="#events"><code>event</code>s</a></h1>
-<pre><code class="language-askee">  event Infect:
+<pre><code class="language-easel">  event Infect:
   ...
 </code></pre>
 <p>An <code>event</code> consists of an enabling predicate (a <code>when</code> block), a <code>rate</code> (how
@@ -232,7 +232,7 @@ real, which represents the frequency with which an event fires. In simulation,
 events would be chosen stochastically based on this value - a rate of <code>0.8</code>
 means at any given time step an event would have an 80% chance of firing.</p>
 <h1 id="effect"><a class="header" href="#effect"><code>effect</code></a></h1>
-<pre><code class="language-askee">    effect:
+<pre><code class="language-easel">    effect:
       Susceptible -= 1.0
       Infected    = Infected + 1.0
 </code></pre>
@@ -295,6 +295,9 @@ order, that may change the value of some or all of the <code>state</code> variab
           
 </code></pre>
 <h1 id="donu-documentation"><a class="header" href="#donu-documentation">Donu Documentation</a></h1>
+<h2 id="about-donu"><a class="header" href="#about-donu">About Donu</a></h2>
+<p>Donu is the webservice that is able to run simulations and various kinds of analysis on models
+for the ASKE-E program.</p>
 <h2 id="calling-convention"><a class="header" href="#calling-convention">Calling Convention</a></h2>
 <p>All operations are implemented at path <code>/</code> and are indifferent to HTTP verb 
 (<code>GET</code>, <code>POST</code>, etc.)</p>
