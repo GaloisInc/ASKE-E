@@ -67,8 +67,8 @@ handleRequest r =
   print r >>
   case r of
     Simulate info ->
-      do eqs <- loadDiffEqs (simModelType info)
-                            (simModel info)
+      do eqs <- loadDiffEqs (modelDefType $ simModel info)
+                            (modelDefSource $ simModel info)
                             []
                             (simOverwrite info)
          let times = takeWhile (<= simEnd info)
@@ -80,21 +80,26 @@ handleRequest r =
          pure (OutputData res)
 
     CheckModel cmd ->
-      do  checkResult <- checkModel (checkModelModelType cmd) (checkModelModel cmd)
+      do  checkResult <- checkModel (modelDefType $ checkModelModel cmd)
+                                    (modelDefSource $ checkModelModel cmd)
           case checkResult of
             Nothing  -> pure $ OutputResult (SuccessResult ())
             Just err -> pure $ OutputResult (FailureResult (Text.pack err))
 
     ConvertModel cmd ->
-      do  eConverted <- convertModel (convertModelSourceType cmd)
-                                     (convertModelModel cmd)
+      do  eConverted <- convertModel (modelDefType $ convertModelSource cmd)
+                                     (modelDefSource $ convertModelSource cmd)
                                      (convertModelDestType cmd)
 
-          pure $ OutputResult (asResult eConverted)
+          case eConverted of
+            Right converted ->
+              pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) (convertModelDestType cmd))
+            Left err ->
+              pure $ OutputResult (FailureResult $ Text.pack err)
 
     Fit info ->
-      do  eqs <- loadDiffEqs (fitModelType info)
-                             (fitModel info)
+      do  eqs <- loadDiffEqs (modelDefType $ fitModel info)
+                             (modelDefSource $ fitModel info)
                              (fitParams info)
                              Map.empty
           print eqs
@@ -106,7 +111,8 @@ handleRequest r =
           pure (FitResult res)
 
     GenerateCPP cmd ->
-      OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
+      OutputResult . asResult <$> generateCPP (modelDefType $ generateCPPModel cmd)
+                                              (modelDefSource $ generateCPPModel cmd)
     Stratify info ->
       do  modelInfo <- stratifyModel  (stratModel info)
                                       (stratConnections info)
@@ -119,14 +125,19 @@ handleRequest r =
           pure $ OutputModelList results
 
     ModelSchemaGraph cmd ->
-      case modelSchemaGraphType cmd of
+      case modelDefType $ modelSchemaGraphModel cmd of
         AskeeModel ->
-          do  modelSource <- loadCoreModel' (modelSchemaGraphSource cmd)
+          do  modelSource <- loadCoreModel' (modelDefSource $ modelSchemaGraphModel cmd)
               case CoreViz.asSchematicGraph modelSource of
                 Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
                 Just g -> pure $ OutputResult (SuccessResult g)
 
         _ -> pure $ OutputResult (FailureResult "model type not supported")
+
+    GetModelSource cmd ->
+      do  d <- loadString (modelDefSource $ getModelSource cmd)
+          let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
+          pure $ OutputJSON (JS.toJSON result)
           
   where
     pack :: DataSource -> IO BS8.ByteString
@@ -201,12 +212,13 @@ generateCPP ty src =
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
 
-listModels :: FilePath -> IO [(FilePath, ModelType)]
+listModels :: FilePath -> IO [ModelDef]
 listModels modelBaseDir =
     list "easel" AskeeModel
   where
+    mdef ty n = ModelDef (FromFile n) ty
     list dir ty =
         do  files <- Directory.listDirectory (modelBaseDir </> dir)
-            pure $ (,ty) . ((modelBaseDir </> dir) </>) <$> files
+            pure $ mdef ty . ((modelBaseDir </> dir) </>) <$> files
 
 -------------------------------------------------------------------------

@@ -28,6 +28,7 @@ data Input =
   | Stratify StratifyCommand
   | ListModels ListModelsCommand
   | ModelSchemaGraph ModelSchemaGraphCommand
+  | GetModelSource GetModelSourceCommand
     deriving Show
 
 instance HasSpec Input where
@@ -39,6 +40,7 @@ instance HasSpec Input where
          <!> (Stratify <$> anySpec)
          <!> (ListModels <$> anySpec)
          <!> (ModelSchemaGraph <$> anySpec)
+         <!> (GetModelSource <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -48,8 +50,7 @@ instance JS.FromJSON Input where
 
 --------------------------------------------------------------------------------
 data FitCommand = FitCommand
-  { fitModelType :: ModelType
-  , fitModel     :: DataSource
+  { fitModel     :: ModelDef
   , fitData      :: DataSource
   , fitParams    :: [Text]
   } deriving Show
@@ -57,8 +58,7 @@ data FitCommand = FitCommand
 
 --------------------------------------------------------------------------------
 data SimulateCommand = SimulateCommand
-  { simModelType :: ModelType
-  , simModel     :: DataSource
+  { simModel     :: ModelDef
   , simStart     :: Double
   , simStep      :: Double
   , simEnd       :: Double
@@ -94,11 +94,8 @@ instance HasSpec SimulateCommand where
   anySpec =
     sectionsSpec "simulate-command"
     do reqSection' "command" (jsAtom "simulate") "Run a simulation"
-       simModelType <- reqSection "model"
-                       "Type of model to simulate"
-
-       simModel     <- reqSection' "definition" dataSource
-                       "Specification of the model"
+       simModel   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
 
        simStart     <- reqSection "start"
                        "Start time of simulation"
@@ -118,11 +115,8 @@ instance HasSpec FitCommand where
   anySpec =
     sectionsSpec "fit-command"
     do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
-        fitModelType  <- reqSection "model" 
-                         "Type of model to simulate"
-         
-        fitModel      <- reqSection' "definition" dataSource
-                         "Specification of the model"
+        fitModel      <- reqSection' "defintion" modelDef
+                         "Specificaiton of the model to simulate"
          
         fitData       <- reqSection' "data" dataSource
                          "Data to which to fit the model"
@@ -134,6 +128,26 @@ instance HasSpec FitCommand where
 
 data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
   deriving Show
+
+data ModelDef =
+    ModelDef { modelDefSource :: DataSource
+             , modelDefType   :: ModelType
+             }
+    deriving Show
+
+instance JS.ToJSON ModelDef where
+  toJSON m =
+    JS.object [ "source" .= dataSourceToJSON (modelDefSource m)
+              , "type" .= modelDefType m
+              ]
+
+dataSourceToJSON :: DataSource -> JS.Value
+dataSourceToJSON ds =
+  case ds of
+    FromFile f ->
+      JS.object [ "file" .= f ]
+    Inline s ->
+      JS.String s
 
 instance HasSpec ModelType where
   anySpec =  (jsAtom "easel"    $> AskeeModel)
@@ -159,6 +173,16 @@ dataSource =
   <!>
     Inline <$> anySpec
 
+modelDef :: ValueSpec ModelDef
+modelDef =
+  namedSpec "model-def" $
+  sectionsSpec "model-def"
+    do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
+        modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
+        pure ModelDef { .. }
+
+
+
 stratTypeSpec :: ValueSpec StratificationType 
 stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
              <!> (jsAtom "demographic" $> Demographic)
@@ -169,24 +193,21 @@ helpHTML = docsJSON (anySpec :: ValueSpec Input)
 data Output =
   OutputData (DataSeries Double)
   | OutputResult Result
-  | OutputModelList [(FilePath, ModelType)]
+  | OutputJSON JS.Value
+  | OutputModelList [ModelDef]
   | FitResult (Map Ident (Double, Double))
   | StratificationResult StratificationInfo
-
 
 instance JS.ToJSON Output where
   toJSON out =
     case out of
       OutputData d -> dsToJSON d
       OutputModelList ms ->
-        JS.object [ "models" .= (pathTypeResult <$> ms) ]
+        JS.object [ "models" .= ms ]
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
       StratificationResult info -> stratResultToJSON info
-    where
-      pathTypeResult (path, ty) =
-        JS.object [ "file" .= JS.toJSON path
-                  , "model" .= JS.toJSON ty]
+      OutputJSON json -> json
 
 -- XXX: how do we document this?
 dsToJSON :: DataSeries Double -> JS.Value
@@ -197,19 +218,15 @@ dsToJSON ds = JS.object
 
 -------------------------------------------------------------------------------
 
-data CheckModelCommand = CheckModelCommand
-  { checkModelModelType :: ModelType
-  , checkModelModel     :: DataSource
+newtype CheckModelCommand = CheckModelCommand
+  { checkModelModel     :: ModelDef
   } deriving Show
 
 instance HasSpec CheckModelCommand where
   anySpec =
     sectionsSpec "check-model"
     do  reqSection' "command" (jsAtom "check-model") "Validate that a model is runnable"
-        checkModelModelType <- reqSection "model"
-                       "Type of model to check"
-
-        checkModelModel     <- reqSection' "definition" dataSource
+        checkModelModel     <- reqSection' "definition" modelDef
                        "Specification of the model"
 
         pure CheckModelCommand { .. }
@@ -218,9 +235,8 @@ instance HasSpec CheckModelCommand where
 -------------------------------------------------------------------------------
 
 data ConvertModelCommand = ConvertModelCommand
-  { convertModelSourceType :: ModelType
+  { convertModelSource     :: ModelDef
   , convertModelDestType   :: ModelType
-  , convertModelModel      :: DataSource
   } deriving Show
 
 data Result where
@@ -258,13 +274,10 @@ instance HasSpec ConvertModelCommand where
   anySpec =
     sectionsSpec "convert-model"
     do  reqSection' "command" (jsAtom "convert-model") "Convert a model from one form to another"
-        convertModelSourceType <- reqSection "model"
-                       "Type of source model"
-
-        convertModelModel      <- reqSection' "definition" dataSource
+        convertModelSource      <- reqSection' "definition" modelDef
                        "Specification of the source model"
 
-        convertModelDestType <- reqSection "dest-model" "Type of model to produce"
+        convertModelDestType <- reqSection "dest-type" "Type of model to produce"
 
         pure ConvertModelCommand { .. }
 
@@ -277,17 +290,15 @@ pointsToJSON ps = JS.object
 -------------------------------------------------------------------------------
 
 -- TODO: maybe delete after demo?
-data GenerateCPPCommand = GenerateCPPCommand
-  { generateCPPModelType :: ModelType
-  , generateCPPModel     :: DataSource
+newtype GenerateCPPCommand = GenerateCPPCommand
+  { generateCPPModel     :: ModelDef
   } deriving Show
 
 instance HasSpec GenerateCPPCommand where
   anySpec =
     sectionsSpec "generate-cpp"
     do  reqSection' "command" (jsAtom "generate-cpp") "Render a model as C++ program implementing a simulator"
-        generateCPPModelType <- reqSection "model" "Type of model to render"
-        generateCPPModel <- reqSection' "definition" dataSource
+        generateCPPModel <- reqSection' "definition" modelDef
                             "Specification of the model to render"
 
         pure GenerateCPPCommand { .. }
@@ -316,9 +327,8 @@ instance HasSpec ListModelsCommand where
 
 ---------------------------------------------------------------------------
 
-data ModelSchemaGraphCommand = ModelSchemaGraphCommand
-  { modelSchemaGraphSource :: DataSource
-  , modelSchemaGraphType   :: ModelType
+newtype ModelSchemaGraphCommand = ModelSchemaGraphCommand
+  { modelSchemaGraphModel :: ModelDef
   }
   deriving Show
 instance HasSpec ModelSchemaGraphCommand where
@@ -326,9 +336,22 @@ instance HasSpec ModelSchemaGraphCommand where
     sectionsSpec "get-model-schematic"
     do  reqSection' "command" (jsAtom "get-model-schematic")
                     "Get simplified graph representation for a model"
-        modelSchemaGraphSource <- reqSection' "definition" dataSource
+        modelSchemaGraphModel <- reqSection' "definition" modelDef
                                               "Specification of the source model"
-        modelSchemaGraphType <- reqSection "model" "Type of source model"
 
         pure ModelSchemaGraphCommand { .. }
 
+---------------------------------------------------------------------------
+
+newtype GetModelSourceCommand = GetModelSourceCommand
+  { getModelSource :: ModelDef }
+  deriving Show
+
+instance HasSpec GetModelSourceCommand where
+  anySpec =
+    sectionsSpec "get-model-source"
+    do  reqSection' "command"  (jsAtom "get-model-source")
+                    "Get model source as a string"
+        getModelSource <- reqSection' "definition" modelDef "Specification of the source model"
+
+        pure GetModelSourceCommand { .. }
