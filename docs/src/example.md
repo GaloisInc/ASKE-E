@@ -1,5 +1,5 @@
 # Example
 
-```askee
+```easel
 {{#include ../../examples/askee/chime.askee}}
 ```
