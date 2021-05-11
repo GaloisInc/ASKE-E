@@ -141,13 +141,15 @@
                         </a>
                         
                         
+                        
+
                     </div>
                 </div>
 
                 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -177,13 +179,13 @@ with a form of inhibitor arcs.</p>
 <p>What follows is an explanation of this language's format and features by
 example, the example being an adapted, subset version of the CHIME
 epidemiological model from UPenn.</p>
-<h1 id="models"><a class="header" href="#models"><code>model</code>s</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="models"><a class="header" href="#models"><code>model</code>s</a></h1>
 <p>A <code>model</code> is a named entity (<code>CHIME</code> in the <a href="./example.html">example</a>), followed by a set of
 declarations of state and other variables, followed by a set of declarations of
 events that may depend on or modify these variables, modulo some rules.</p>
 <p><code>model</code>s are constructed blockwise in a whitespace-sensitive way that should be
 familiar to users of YAML and other similar languages.</p>
-<h1 id="let-declared-variables"><a class="header" href="#let-declared-variables"><code>let</code>-Declared Variables</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="let-declared-variables"><a class="header" href="#let-declared-variables"><code>let</code>-Declared Variables</a></h1>
 <pre><code class="language-easel">  let s_Initial = 999.0
   ...
   let beta =
@@ -198,7 +200,7 @@ simulation/execution, at use sites, <code>let</code> variable right-hand sides a
 inlined. It follows that the value of a <code>let</code> variable might not remain the same
 throughout a model (indeed, <code>beta</code> does not). It is also the case that <code>let</code>
 variables cannot be modified in an <code>event</code>'s <code>effect</code> section.</p>
-<h1 id="state-declared-variables"><a class="header" href="#state-declared-variables"><code>state</code>-Declared Variables</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="state-declared-variables"><a class="header" href="#state-declared-variables"><code>state</code>-Declared Variables</a></h1>
 <pre><code class="language-easel">  state Susceptible = s_Initial
   state Infected    = i_Initial
   state Recovered   = r_Initial
@@ -207,7 +209,7 @@ variables cannot be modified in an <code>event</code>'s <code>effect</code> sect
 in that they may be modified in an <code>event</code>'s <code>effect</code> block. These variables may
 be used to represent what the <code>model</code> is actually modeling - that is, they may
 be the output of an execution/simulation of a model (though they needn't be).</p>
-<h1 id="events"><a class="header" href="#events"><code>event</code>s</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="events"><a class="header" href="#events"><code>event</code>s</a></h1>
 <pre><code class="language-easel">  event Infect:
   ...
 </code></pre>
@@ -215,23 +217,23 @@ be the output of an execution/simulation of a model (though they needn't be).</p
 likely this event is to &quot;fire&quot;), and an <code>effect</code>, which describes what happens
 when the event fires (an &quot;output predicate&quot;, in some previous Galois
 literature).</p>
-<h1 id="when"><a class="header" href="#when"><code>when</code></a></h1>
-<pre><code class="language-askee">    when:
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="when"><a class="header" href="#when"><code>when</code></a></h1>
+<pre><code class="language-easel">    when:
       Susceptible &gt; 0.0 and Infected &gt; 0.0
 </code></pre>
 <p>An expression defined on <code>let</code> variables and <code>state</code> variables, evaluating to a
 Boolean, which determines whether or not an event is able to fire. An event must
 have a true <code>when</code> <em>and</em> be chosen stochastically based on its rate in order to
 fire.</p>
-<h1 id="rate"><a class="header" href="#rate"><code>rate</code></a></h1>
-<pre><code class="language-askee">    rate:
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="rate"><a class="header" href="#rate"><code>rate</code></a></h1>
+<pre><code class="language-easel">    rate:
       beta * (1 - contact_rate) * Susceptible * Infected / total_pop
 </code></pre>
 <p>An expression defined on <code>let</code> variables and <code>state</code> variables, evaluating to a
 real, which represents the frequency with which an event fires. In simulation,
 events would be chosen stochastically based on this value - a rate of <code>0.8</code>
 means at any given time step an event would have an 80% chance of firing.</p>
-<h1 id="effect"><a class="header" href="#effect"><code>effect</code></a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="effect"><a class="header" href="#effect"><code>effect</code></a></h1>
 <pre><code class="language-easel">    effect:
       Susceptible -= 1.0
       Infected    = Infected + 1.0
@@ -239,8 +241,8 @@ means at any given time step an event would have an 80% chance of firing.</p>
 <p>What happens when the model fires. This is a series of assignments, executed in
 order, that may change the value of some or all of the <code>state</code> variables in the
 <code>model</code>.</p>
-<h1 id="example"><a class="header" href="#example">Example</a></h1>
-<pre><code class="language-askee">model CHIME_GTRI_IR:
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="example"><a class="header" href="#example">Example</a></h1>
+<pre><code class="language-easel">model CHIME_GTRI_IR:
   let  s_Initial = 999.0
   let  i_Initial = 10.0
   let  r_Initial = 0.0
@@ -294,7 +296,7 @@ order, that may change the value of some or all of the <code>state</code> variab
 
           
 </code></pre>
-<h1 id="donu-documentation"><a class="header" href="#donu-documentation">Donu Documentation</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="donu-documentation"><a class="header" href="#donu-documentation">Donu Documentation</a></h1>
 <h2 id="about-donu"><a class="header" href="#about-donu">About Donu</a></h2>
 <p>Donu is the webservice that is able to run simulations and various kinds of analysis on models
 for the ASKE-E program.</p>
@@ -547,7 +549,7 @@ for the ASKE-E program.</p>
   }
 }
 </code></pre>
-<h1 id="milestones"><a class="header" href="#milestones">Milestones</a></h1>
+<div id="chapter_begin" style="break-before: page; page-break-before: always;"></div><h1 id="milestones"><a class="header" href="#milestones">Milestones</a></h1>
 <h2 id="m1b"><a class="header" href="#m1b">M1B</a></h2>
 <h3 id="galois"><a class="header" href="#galois">Galois</a></h3>
 <p><a href="https://owncloud.galois.com/index.php/f/672223">Initial integration plan</a></p>
