@@ -98,7 +98,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="about.html">About</a></li><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.</strong> models</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.1.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.2.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.3.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.4.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.5.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.6.</strong> effect</a></li></ol></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">2.</strong> Example</a></li><li class="chapter-item expanded "><a href="donu.html" class="active"><strong aria-hidden="true">3.</strong> Donu</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">4.</strong> Milestones</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="about.html">About</a></li><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.</strong> EASEL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.1.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.2.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.3.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.4.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.5.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.6.</strong> effect</a></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">1.7.</strong> Example</a></li></ol></li><li class="chapter-item expanded "><a href="donu.html" class="active"><strong aria-hidden="true">2.</strong> Donu</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">3.</strong> Milestones</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -182,6 +182,14 @@
 <p>Or a string containing the data itself:</p>
 <pre><code class="language-JSON">&quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n  let s_initial = 997...&quot;
 </code></pre>
+<h3 id="model-def"><a class="header" href="#model-def"><code>model-def</code></a></h3>
+<p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eq</code> with <code>gromet</code> coming soon.</p>
+<p>Example:</p>
+<pre><code>{
+  &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+  &quot;type&quot;: &quot;easel&quot;
+}
+</code></pre>
 <h2 id="operations"><a class="header" href="#operations">Operations</a></h2>
 <h3 id="list-models---list-the-available-models"><a class="header" href="#list-models---list-the-available-models"><code>list-models</code> - List the available models</a></h3>
 <p><strong>Request:</strong></p>
@@ -193,18 +201,23 @@
 </code></pre>
 <p><strong>Response:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>models</td><td>list of string pairs</td><td>list of model filenames and model type pairs</td></tr>
+<tr><td>models</td><td>list</td><td>list of model-def objects</td></tr>
 </tbody></table>
 <p>Example:</p>
-<pre><code class="language-JSON">{ &quot;models&quot;: [[&quot;SIR.easel&quot;, &quot;easel&quot;],
-             [&quot;CHIME.gromet&quot;, &quot;gromet&quot;]]}
+<pre><code class="language-JSON">{
+  &quot;models&quot;: [
+    {
+      &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+      &quot;type&quot;: &quot;easel&quot;
+    }
+  ]
+}
 </code></pre>
 <h3 id="simulate---simulate-a-model-using-odes"><a class="header" href="#simulate---simulate-a-model-using-odes"><code>simulate</code> - Simulate a model using ODEs</a></h3>
 <p><strong>Request:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;simulate&quot;</code></td></tr>
-<tr><td>model</td><td>string</td><td>Type of model to simulate, valid options are:  <code>&quot;easel&quot;</code>, <code>&quot;gromet&quot;</code> (coming soon!)</td></tr>
-<tr><td>definition</td><td>datasource</td><td>Reference to the implementation of the model</td></tr>
+<tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
 <tr><td>start</td><td>number</td><td>Start time of the simulation</td></tr>
 <tr><td>end</td><td>number</td><td>End time of the simulation</td></tr>
 <tr><td>step</td><td>number</td><td>Simulation time step size</td></tr>
@@ -212,11 +225,13 @@
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;command&quot;: &quot;simulate&quot;,
-  &quot;model&quot;: &quot;easel&quot;,
-  &quot;definition&quot;: &quot;SIR.easel&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+  },
   &quot;start&quot;: 0,
   &quot;end&quot;: 120.0,
-  &quot;step&quot;: 1.0
+  &quot;step&quot;: 30.0
 }
 </code></pre>
 <p><strong>Response:</strong></p>
@@ -227,11 +242,177 @@
 <p>The object in <code>values</code> is such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
-  &quot;times&quot;: [0.0, 30.0, 60.0, 90.0, 120.0],
   &quot;values&quot;: {
-    &quot;S&quot;: [997.0,  700.0, 300.0, 100.0, 50.0 ],
-    &quot;I&quot;: [3.0,    200.0, 50.0,  20.0,  10.0 ],
-    &quot;R&quot;: [0.0,    100.0, 650.0, 880.0, 940.0]
+    &quot;I&quot;: [
+      3,
+      570.9758710681082,
+      177.87795797377797,
+      53.663601453388395,
+      16.17524903479719
+    ],
+    &quot;S&quot;: [
+      997,
+      16.03663576555767,
+      0.2688016239687885,
+      7.747202089688689e-2,
+      5.323898868597058e-2
+    ],
+    &quot;R&quot;: [
+      0,
+      412.9874931663346,
+      821.8532404022534,
+      946.258926525715,
+      983.771511976517
+    ]
+  },
+  &quot;times&quot;: [
+    0,
+    30,
+    60,
+    90,
+    120
+  ]
+}
+</code></pre>
+<h2 id="get-model-schematic---get-schematic-description-of-a-model"><a class="header" href="#get-model-schematic---get-schematic-description-of-a-model"><code>get-model-schematic</code> - get schematic description of a model</a></h2>
+<p>This call gets a high level schematic description of a model as a graph.  Not all models support this visualization.</p>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;get-model-schematic&quot;</code></td></tr>
+<tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code>{
+  &quot;command&quot;: &quot;get-model-schematic&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+  }
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>status</td><td>string</td><td><code>&quot;success&quot;</code> or <code>&quot;failure&quot;</code> depending on if the operation was succcesful</td></tr>
+<tr><td>result</td><td>graph</td><td>Description of the schematic graph</td></tr>
+</tbody></table>
+<pre><code>{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;nodes&quot;: [
+      {
+        &quot;name&quot;: &quot;Infect&quot;,
+        &quot;type&quot;: &quot;event&quot;
+      },
+      {
+        &quot;name&quot;: &quot;S&quot;,
+        &quot;type&quot;: &quot;state&quot;
+      },
+      {
+        &quot;name&quot;: &quot;I&quot;,
+        &quot;type&quot;: &quot;state&quot;
+      },
+      {
+        &quot;name&quot;: &quot;Remove&quot;,
+        &quot;type&quot;: &quot;event&quot;
+      },
+      {
+        &quot;name&quot;: &quot;R&quot;,
+        &quot;type&quot;: &quot;state&quot;
+      }
+    ],
+    &quot;edges&quot;: [
+      [
+        {
+          &quot;name&quot;: &quot;Infect&quot;,
+          &quot;type&quot;: &quot;event&quot;
+        },
+        {
+          &quot;name&quot;: &quot;I&quot;,
+          &quot;type&quot;: &quot;state&quot;
+        }
+      ],
+      [
+        {
+          &quot;name&quot;: &quot;S&quot;,
+          &quot;type&quot;: &quot;state&quot;
+        },
+        {
+          &quot;name&quot;: &quot;Infect&quot;,
+          &quot;type&quot;: &quot;event&quot;
+        }
+      ],
+      [
+        {
+          &quot;name&quot;: &quot;I&quot;,
+          &quot;type&quot;: &quot;state&quot;
+        },
+        {
+          &quot;name&quot;: &quot;Remove&quot;,
+          &quot;type&quot;: &quot;event&quot;
+        }
+      ],
+      [
+        {
+          &quot;name&quot;: &quot;Remove&quot;,
+          &quot;type&quot;: &quot;event&quot;
+        },
+        {
+          &quot;name&quot;: &quot;R&quot;,
+          &quot;type&quot;: &quot;state&quot;
+        }
+      ]
+    ]
+  }
+}
+</code></pre>
+<h2 id="get-model-source---get-source-code-for-a-model"><a class="header" href="#get-model-source---get-source-code-for-a-model"><code>get-model-source</code> - get source code for a model</a></h2>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;get-model-source&quot;</code></td></tr>
+<tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
+</tbody></table>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;get-model-source&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+  }
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<p>The result, if successful, is a <code>model-def</code> object with the source inline.</p>
+<pre><code class="language-JSON">{
+  &quot;source&quot;: &quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S &gt; 0 and I &gt; 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I &gt; 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      &quot;,
+  &quot;type&quot;: &quot;easel&quot;
+}
+</code></pre>
+<h2 id="convert-model---convert-a-model-from-one-form-to-another"><a class="header" href="#convert-model---convert-a-model-from-one-form-to-another"><code>convert-model</code> - convert a model from one form to another</a></h2>
+<p>May fail if the conversion is not supported.</p>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;convert-model&quot;</code></td></tr>
+<tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
+<tr><td>dest-type</td><td>string</td><td>Model type to convert to - same fields <code>model-def</code>'s <code>type</code> field</td></tr>
+</tbody></table>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;convert-model&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+  },
+  &quot;dest-type&quot;:&quot;diff-eqs&quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>status</td><td>string</td><td>Either <code>success</code> or if the model conversion is not supported <code>failure</code></td></tr>
+<tr><td>result</td><td>model-def</td><td>Converted model (inline)</td></tr>
+</tbody></table>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;source&quot;: &quot;let beta = 0.4\nlet gamma = 0.04\nlet i_initial = 3.0\nlet r_initial = 0.0\nlet s_initial = 997.0\nlet total_population = S + I + R\nI(0) = 3.0\nR(0) = 0.0\nS(0) = 997.0\nd/dt I = (if 0.0 &lt; S and 0.0 &lt; I then 0.4 * S * I / (S + R + I) else 0.0) + (if 0.0 &lt; I then -0.04 * I else 0.0)\nd/dt R = if 0.0 &lt; I then 0.04 * I else 0.0\nd/dt S = if 0.0 &lt; S and 0.0 &lt; I then -0.4 * S * I / (S + R + I) else 0.0&quot;,
+    &quot;type&quot;: &quot;diff-eqs&quot;
   }
 }
 </code></pre>
