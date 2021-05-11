@@ -1,6 +1,6 @@
 # `effect`
 
-```askee
+```easel
     effect:
       Susceptible -= 1.0
       Infected    = Infected + 1.0
