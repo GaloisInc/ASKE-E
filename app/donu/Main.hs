@@ -33,7 +33,7 @@ main = quickHttpServe
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
-        Snap.modifyRequest (Snap.setHeader "Access-Control-Allow-Origin" "*")
+        Snap.modifyResponse (Snap.setHeader "Access-Control-Allow-Origin" "*")
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
           Right a ->
