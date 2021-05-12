@@ -33,6 +33,7 @@ main = quickHttpServe
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
+        Snap.modifyRequest (Snap.setHeader "Access-Control-Allow-Origin" "*")
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
           Right a ->
@@ -145,6 +146,8 @@ handleRequest r =
       case ds of
         FromFile fp -> BS8.pack <$> readFile fp
         Inline s -> pure $ BS8.pack $ Text.unpack s
+
+
 
 loadDiffEqs ::
   ModelType       {- ^ input file format -} ->
