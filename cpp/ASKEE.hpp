@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <functional>
 
 template<typename TModel>
 class Model {
@@ -23,10 +24,11 @@ public:
     next();
   }
 
-private:
+  // XXX: does this need to be private?
   void next() {
     model.next_event(next_event, next_time);
   }
+private:
 
   TModel& model;
   double next_time;
@@ -35,9 +37,9 @@ private:
 
 // Increasing range
 class Range {
-        double value;
-  const double vstep;
-  const double end;
+  double value;
+  double vstep; // this...
+  double end;   // ...and this were once `const`
 
 public:
   using Point = double;
@@ -118,5 +120,56 @@ Trace<Data> trace(Data& data) { return Trace<Data>(data); }
 
 template <typename Time, typename Data>
 Sample<Time,Data> sample(Time t, Data &d) { return Sample<Time,Data>(t,d); }
+
+template<typename T>
+T identity(T x) { return x; }
+
+template<typename A, typename B, typename C>
+std::function<C(A)> compose(std::function<C(B)> f, std::function<B(A)> g) {
+  return [=](A x) { return f(g(x)); };
+}
+
+// A special wrapper for `Model`s
+template<typename T, typename T1 = T> // ew
+class Random {
+public:
+  Random(Model<T>& m) : member(m), lens(identity<T>) {
+    member.next();
+  }
+
+  Random(Model<T>& m, std::function<T1(T)> l) : member(m), lens(l) {
+    member.next();
+  }
+
+  double getTime()           { return member.getTime(); }
+  T1     getPoint()    const { return lens(member.getPoint()); } // XXX is const correct?
+  double getNextTime()       { return member.next_time(); }
+  bool   done()              { return member.done(); }
+  void   step()              { member.step(); }
+
+  template<typename T2>
+  Random<T, T2> select(std::function<T2(T)> f) {
+    std::function<T2(T)> new_lens = compose(f, lens);
+    Random<T, T2> new_random(member, new_lens);
+    return new_random;
+  }
+
+  Random operator+(Random other) {
+    std::function<T1(T1)> adder = [=](T1 x){ return x + other.getPoint(); };
+    Random<T, T1> new_random(member, compose(adder, lens));
+    return new_random;
+  }
+  Random operator*(Random& other) {
+    std::function<T1(T1)> adder = [=](T1 x){ return x * other.getPoint(); };
+    Random<T, T1> new_random(member, compose(adder, lens));
+    return new_random;
+  }
+  // etc.
+
+private:
+  Model<T>& member;
+  std::function<T1(T)> lens;
+  // Range interval;
+};
 
 #endif
