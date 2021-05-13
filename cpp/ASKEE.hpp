@@ -130,45 +130,45 @@ std::function<C(A)> compose(std::function<C(B)> f, std::function<B(A)> g) {
 }
 
 // A special wrapper for `Model`s
-template<typename T, typename T1 = T> // ew
+template<typename Data, typename Product = Data> // ew
 class Random {
 public:
-  Random(Model<T>& m) : member(m), lens(identity<T>) {
+  Random(Model<Data>& m) : member(m), lens(identity<Data>) {
     member.next();
   }
 
-  Random(Model<T>& m, std::function<T1(T)> l) : member(m), lens(l) {
+  Random(Model<Data>& m, std::function<Product(Data)> l) : member(m), lens(l) {
     member.next();
   }
 
-  double getTime()           { return member.getTime(); }
-  T1     getPoint()    const { return lens(member.getPoint()); } // XXX is const correct?
-  double getNextTime()       { return member.next_time(); }
-  bool   done()              { return member.done(); }
-  void   step()              { member.step(); }
+  double  getTime()           { return member.getTime(); }
+  Product getPoint()    const { return lens(member.getPoint()); } // XXX is const correct?
+  double  getNextTime()       { return member.next_time(); }
+  bool    done()              { return member.done(); }
+  void    step()              { member.step(); }
 
-  template<typename T2>
-  Random<T, T2> select(std::function<T2(T)> f) {
-    std::function<T2(T)> new_lens = compose(f, lens);
-    Random<T, T2> new_random(member, new_lens);
+  template<typename NewProduct>
+  Random<Data, NewProduct> select(std::function<NewProduct(Data)> f) {
+    std::function<NewProduct(Data)> new_lens = compose(f, lens);
+    Random<Data, NewProduct> new_random(member, new_lens);
     return new_random;
   }
 
   Random operator+(Random other) {
-    std::function<T1(T1)> adder = [=](T1 x){ return x + other.getPoint(); };
-    Random<T, T1> new_random(member, compose(adder, lens));
+    std::function<Product(Product)> adder = [=](Product x){ return x + other.getPoint(); };
+    Random<Data, Product> new_random(member, compose(adder, lens));
     return new_random;
   }
   Random operator*(Random& other) {
-    std::function<T1(T1)> adder = [=](T1 x){ return x * other.getPoint(); };
-    Random<T, T1> new_random(member, compose(adder, lens));
+    std::function<Product(Product)> adder = [=](Product x){ return x * other.getPoint(); };
+    Random<Data, Product> new_random(member, compose(adder, lens));
     return new_random;
   }
   // etc.
 
 private:
-  Model<T>& member;
-  std::function<T1(T)> lens;
+  Model<Data>& member;
+  std::function<Product(Data)> lens;
   // Range interval;
 };
 
