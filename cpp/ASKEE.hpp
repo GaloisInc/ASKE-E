@@ -148,7 +148,7 @@ public:
   void    step()              { member.step(); }
 
   template<typename NewProduct>
-  Random<Data, NewProduct> select(std::function<NewProduct(Data)> f) {
+  Random<Data, NewProduct> select(std::function<NewProduct(Product)> f) {
     std::function<NewProduct(Data)> new_lens = compose(f, lens);
     Random<Data, NewProduct> new_random(member, new_lens);
     return new_random;
