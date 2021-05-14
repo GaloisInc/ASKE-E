@@ -28,6 +28,11 @@ public:
   void next() {
     model.next_event(next_event, next_time);
   }
+
+  void reset() {
+    model.reset();
+    next();
+  }
 private:
 
   TModel& model;
@@ -111,7 +116,7 @@ public:
     time.step();
     while (data.getNextTime() <= time.getTime()) data.step();
     point = data.getPoint();
-    point.time = time.getTime();
+    // point.time = time.getTime(); XXX might want to bring this back
   }
 };
 
@@ -133,17 +138,19 @@ std::function<C(A)> compose(std::function<C(B)> f, std::function<B(A)> g) {
 template<typename Data, typename Product = Data> // ew
 class Random {
 public:
-  Random(Model<Data>& m) : member(m), lens(identity<Data>) {
+  using Point = Product;
+
+  Random(Model<Data>& m) : member(m), lens(identity<Data>), time_domain(Range{0,0,0}) {
     member.next();
   }
 
-  Random(Model<Data>& m, std::function<Product(Data)> l) : member(m), lens(l) {
+  Random(Model<Data>& m, std::function<Product(Data)> l) : member(m), lens(l), time_domain(Range{0,0,0}) {
     member.next();
   }
 
   double  getTime()           { return member.getTime(); }
   Product getPoint()    const { return lens(member.getPoint()); } // XXX is const correct?
-  double  getNextTime()       { return member.next_time(); }
+  double  getNextTime()       { return member.getNextTime(); }
   bool    done()              { return member.done(); }
   void    step()              { member.step(); }
 
@@ -166,10 +173,37 @@ public:
   }
   // etc.
 
+  Random at(Range r) {
+    Random<Data, Product> new_random(member, lens);
+    new_random.time_domain = r;
+    return new_random;
+  }
+  Random at(double d) {
+    Random<Data, Product> new_random(member, lens);
+    new_random.time_domain = Range{d,d+1,1};
+    return new_random;
+  }
+
+  std::vector<std::vector<Product>> make_samples(int n) {
+    std::vector<std::vector<Product>> results;
+    while (n --> 0) {
+      std::vector<Product> result;
+      auto sampler = sample<Range, Random<Data, Product>>(time_domain, *this);
+      while (!sampler.done()) {
+        result.push_back(sampler.getPoint());
+        sampler.step();
+      }
+      results.push_back(result);
+      member.reset();
+    }
+    return results;
+  }
+
 private:
   Model<Data>& member;
   std::function<Product(Data)> lens;
-  // Range interval;
+  Range time_domain;
+  void* measure;
 };
 
 #endif
