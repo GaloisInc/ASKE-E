@@ -87,7 +87,8 @@ import Language.ASKEE.Expo.Lexer
 %name exprP expr
 %name blockP block
 
-%left    'sample'
+%left     'sample'
+%left     'measure' 'at'
 %left     '||'
 %left     '&&'
 %nonassoc '==' '!='
@@ -95,7 +96,6 @@ import Language.ASKEE.Expo.Lexer
 %left     '+' '-'
 %left     '*' '/'
 %left     '.'
-%left     'measure' 'at'
 %nonassoc '!' NEG
 
 %%
@@ -239,7 +239,7 @@ expr                                   :: { Expr }
   | 'measure' '(' expr ',' ident args ')' { Measure $3 $5 $6 [] }
   | expr 'at' expr                        { At $1 $3 }
   | 'sample' '(' expr ',' NUMBER ')'      { Sample (floor $ snd $5) $3 }
-  | 'trace' '(' expr ')'                  { Trace $3 }
+  -- | 'trace' '(' expr ')'                  { Trace $3 }
   | 'vmean' '(' expr ')'                  { Call VMean [$3] }
 
 fieldInit                              :: {(Label, Expr)}

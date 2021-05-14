@@ -59,7 +59,7 @@ instance TraverseType Expr where
       Measure thing with args tyArgs -> Measure <$> traverseType f thing <*> traverseType f with <*> traverseType f args <*> traverseType f tyArgs
       At thing when -> At <$> traverseType f thing <*> traverseType f when
       Sample num thing -> Sample num <$> traverseType f thing
-      Trace e -> Trace <$> traverseType f e
+      -- Trace e -> Trace <$> traverseType f e
     where
       traverseField (fname, fvalue) = (,) fname <$> traverseType f fvalue
 

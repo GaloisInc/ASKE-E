@@ -21,6 +21,7 @@ import Language.ASKEE.Expo.TypeOf(typeOf)
 import Language.ASKEE.Expo.TraverseType(TraverseType(traverseType), collect, mapType)
 import Language.ASKEE.Panic (panic)
 import Debug.Trace (traceShowId)
+import Control.Monad.Identity
 
 --------------
 
@@ -82,7 +83,7 @@ inferModel mdl =
                    , E.tconArgs   = []
                    , E.tconFields = E.mdFields mdl
                    }
-          ty = E.TypeStream (E.TypeRandomVar (E.TypeCon con))
+          ty = E.TypeRandomVar (E.TypeStream (E.TypeCon con))
       
       pure mdl { E.mdName = E.setType (E.mdName mdl) ty }
 
@@ -138,7 +139,7 @@ inferMeasure measure =
             subst = Map.fromList (zip (E.TVFree <$> freeVars) (E.TypeVar <$> bv))
 
         outTy <- zonk $ 
-          E.TypeRandomVar $
+          -- E.TypeRandomVar $
             E.TypeCon
               E.TCon  
                 { E.tconName = E.tnName (E.measureName measure)
@@ -364,7 +365,7 @@ inferExpr e0 =
           let name = E.tnName measuringTool
 
           (measuringTy, measuringTyArgs) <- lookupMeasure name
-          unify (E.TypeVector (E.TypeRandomVar (E.mtData measuringTy))) measuredThingTy
+          unify (E.TypeRandomVar (E.TypeVector (E.mtData measuringTy))) measuredThingTy
 
           measuringArgs' <- checkCall name measuringArgs (E.mtArgs measuringTy)
 
@@ -375,17 +376,22 @@ inferExpr e0 =
                 , E.measuringArgs = measuringArgs'
                 , E.measuringArgTys = measuringTyArgs
                  }
-            , E.mtResult measuringTy
+            , E.TypeRandomVar $ E.mtResult measuringTy
             )
 
     E.At slicedThing slicer ->
       do  (slicedThing', slicedThingTy) <- inferExpr slicedThing
           pointTy <- newTVar
-          unify (E.TypeStream (E.TypeRandomVar pointTy)) slicedThingTy
+          unify (E.TypeRandomVar (E.TypeStream pointTy)) slicedThingTy
 
           (slicer', slicerTy) <- inferExpr slicer
+          -- case slicerTy of
+          --   E.TypeVector E.TypeNumber -> pure (E.At slicedThing' slicer', E.TypeRandomVar (E.TypeVector pointTy))
+          --   E.TypeNumber -> pure (E.At slicedThing' slicer', E.TypeRandomVar pointTy)
+          --   -- What about TypeVar?
+          --   _ -> throwError $ pack $ "bad slicer type "<>show slicerTy
           addConstraint (E.IsTimeLike slicerTy)
-          pure (E.At slicedThing' slicer', E.TypeVector (E.TypeRandomVar pointTy))
+          pure (E.At slicedThing' slicer', E.TypeRandomVar (E.TypeVector pointTy))
 
     E.Sample sampleNum sampledThing ->
       do  (sampledThing', sampledThingTy) <- inferExpr sampledThing
@@ -393,11 +399,11 @@ inferExpr e0 =
           unify (E.TypeRandomVar pointTy) sampledThingTy
           pure (E.Sample sampleNum sampledThing', E.TypeVector pointTy)
 
-    E.Trace tracedThing ->
-      do  (tracedThing', tracedThingTy) <- inferExpr tracedThing
-          ty <- newTVar
-          unify (E.TypeVector (E.TypeRandomVar ty)) tracedThingTy
-          pure (E.Trace tracedThing', E.TypeVector ty)
+    -- E.Trace tracedThing ->
+    --   do  (tracedThing', tracedThingTy) <- inferExpr tracedThing
+    --       ty <- newTVar
+    --       unify (E.TypeRandomVar (E.TypeVector ty)) tracedThingTy
+    --       pure (E.Trace tracedThing', E.TypeVector ty)
 
   where
     checkPointField (n, v) =
@@ -442,36 +448,21 @@ inferExpr e0 =
     comparison tys = unifyAll E.TypeNumber tys >> pure E.TypeBool -- XXX ???
 
     unifyAll ty ts = permissiveUnify ty `traverse_` ts
+  
+setBaseTy :: E.Type -> E.Type -> TC E.Type
+setBaseTy want have = 
+  case have of
+    E.TypeNumber -> pure want
+    E.TypeBool -> pure want
+    E.TypePoint pts -> E.TypePoint <$> sequence (Map.map go pts)
+    E.TypeVar _ -> permissiveUnify have want >> pure want
+    E.TypeCon (E.TCon n as fs) -> E.TypeCon <$> (E.TCon n <$> mapM go as <*> sequence (Map.map go fs))
+    E.TypeVector t -> E.TypeVector <$> go t
+    E.TypeStream t -> E.TypeStream <$> go t
+    E.TypeRandomVar t -> E.TypeRandomVar <$> go t
+  where
+    go = setBaseTy want
 
--- stripRandom :: E.Type -> TC E.Type
--- stripRandom = traverseType go
---   where
---     go :: E.Type -> TC E.Type
---     go ty =
---       case ty of
---         E.TypeRandomVar t -> pure t
---         E.TypeBool -> pure ty
---         E.TypeNumber -> pure ty
---         (E.TypeVector t) -> E.TypeVector <$> go t
---         (E.TypePoint mp) -> undefined
---         (E.TypeCon tc) -> undefined
---         (E.TypeVar tv) -> undefined
---         (E.TypeMeasurable t) -> E.TypeMeasurable <$> go t
-
-
--- isMeasurable :: E.Type -> Bool
--- isMeasurable ty =
---   case ty of
---     E.TypeMeasurable _ -> True
---     E.TypeRandomVar (E.TypeMeasurable _) -> True
---     _ -> False
-
--- isRandom :: E.Type -> Bool
--- isRandom ty =
---   case ty of
---     E.TypeRandomVar _ -> True
---     E.TypeMeasurable (E.TypeRandomVar _) -> True
---     _ -> False
 
 
 

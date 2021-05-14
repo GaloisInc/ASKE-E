@@ -25,6 +25,9 @@ getType x = case tnType x of
               Just t  -> t
               Nothing -> panic "getType" ["Missing type on name", show x]
 
+getName :: TypedName -> Text
+getName = tnName
+
 type Binder = TypedName
 type Ident = TypedName
 type Label = Text
@@ -64,13 +67,13 @@ data MeasureExpr =
 --   | ESTrace Binder Expr
 --   deriving Show
 
--- data ExperimentDecl =
---   ExperimentDecl { experimentName :: Ident
---                  , experimentArgs :: [Binder]
---                  , experimentStmts :: [ExperimentStmt]
---                  -- , experimentReturn :: Expr
---                  }
---   deriving Show
+data ExperimentDecl =
+  ExperimentDecl { experimentName :: Maybe Ident
+                 , experimentArgs :: [Binder]
+                 , experimentStmts :: [Stmt]
+                 -- , experimentReturn :: Expr
+                 }
+  deriving Show
 
 -- XXX: add measure finalizer/initializers?
 data MeasureDecl =
@@ -176,7 +179,7 @@ data TypeConstraint =
 data Literal =
     LitBool Bool
   | LitNum Double
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 data Expr =
     Lit Literal
@@ -191,9 +194,9 @@ data Expr =
       }
   | At Expr Expr
   | Sample Int Expr
-  | Trace Expr
+  -- | Trace Expr
   | Point [(Text, Expr)]
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 data FunctionName =
     Add
@@ -212,4 +215,4 @@ data FunctionName =
   | And
   | Range -- should have three arguments (start, stop, step)
   | VMean
-  deriving Show
+  deriving (Show, Eq, Ord)
