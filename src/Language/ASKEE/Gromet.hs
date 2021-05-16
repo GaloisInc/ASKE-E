@@ -1,16 +1,20 @@
 {-# Language OverloadedStrings #-}
+{-# Language BlockArguments #-}
 module Language.ASKEE.Gromet where
 
 import Data.Text(Text, pack, unpack)
 import qualified Data.Text as Text
-import Language.ASKEE.Panic(panic)
-
 import qualified Data.Aeson as JSON
-import qualified Language.ASKEE.Syntax as Easel
 import qualified Control.Monad.State as State
+import Control.Monad(void)
 import Data.Foldable(traverse_)
 import Data.Map(Map)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
+import qualified Data.List as List
+
+import Language.ASKEE.Panic(panic)
+import qualified Language.ASKEE.Syntax as Easel
 import qualified Language.ASKEE.Core as Core
 
 type Uid = Text
@@ -152,22 +156,17 @@ addOutputPort bUid port =
 
 addInputPort :: Uid -> Uid -> GrometGen ()
 addInputPort bUid port =
-  modifyBox bUid (\box -> box { boxOutputPorts = port:boxInputPorts box })
+  do  modifyBox bUid (\box -> box { boxOutputPorts = port:boxInputPorts box })
+      addBoxArgIfOperator bUid (ArgPort port)
 
-addBoxArgs :: Uid -> [Arg] -> GrometGen ()
-addBoxArgs bUid args = addBoxArg bUid `traverse_` args
-
-addBoxArg :: Uid -> Arg -> GrometGen ()
-addBoxArg bUid arg =
-  do  modifyBox bUid (\box -> box { boxWiring = addArg (boxWiring box)})
-      case arg of
-        ArgPort p -> addInputPort bUid p
-        ArgLiteral _ _-> pure ()
+addBoxArgIfOperator :: Uid -> Arg -> GrometGen ()
+addBoxArgIfOperator bUid arg =
+  modifyBox bUid (\box -> box { boxWiring = addArg (boxWiring box)})
   where
     addArg wiring =
       case wiring of
-        Operator op args -> Operator op (args ++ [arg]) -- TODO: kinda sloppy
-        WireList _ -> panic "addBoxArg" ["tried to add wiring to the wrong kind of box"]
+        Operator o args -> Operator o (args ++ [arg]) -- TODO: kinda sloppy
+        WireList _ -> wiring
 
 mkWire :: Uid -> Uid -> GrometGen DirectedWire
 mkWire inPort outPort =
@@ -217,6 +216,24 @@ varPort t =
         Nothing -> panic "varPort" [unpack $ "no port for symbol '" <> t <> "'"]
         Just uid -> pure uid
 
+portMapScope :: GrometGen a -> GrometGen a
+portMapScope g =
+  do  cur <- State.gets gcPortMap
+      a <- g
+      State.modify (\s -> s { gcPortMap = cur })
+      pure a
+
+assocVarPort :: Core.Ident -> Uid -> GrometGen ()
+assocVarPort name port =
+  State.modify (\s -> s { gcPortMap = Map.insert name port (gcPortMap s) })
+
+getPortBox :: Uid -> GrometGen Uid
+getPortBox pid =
+  do  mbPort <- State.gets (fmap portBox . Map.lookup pid . gcPorts)
+      case mbPort of
+        Nothing -> panic "getPortBox" ["port does not exist"]
+        Just uid -> pure uid
+
 -------------------------------------------------------------------------------
 
 typeBool :: Uid
@@ -225,6 +242,8 @@ typeBool = "T:Boolean"
 typeFloat :: Uid
 typeFloat = "T:Float"
 
+typeUndef :: Uid
+typeUndef = "T:Undefined"
 
 describeOp1 :: Core.Op1 -> Text
 describeOp1 op = pack (show op)
@@ -232,77 +251,89 @@ describeOp1 op = pack (show op)
 describeOp2 :: Core.Op2 -> Text
 describeOp2 op = pack (show op)
 
--- eventToGromet :: Core.Event -> GrometGen Uid
--- eventToGromet evt =
---   do  evt' <- mkBoxWires ("Event " <> Core.eventName evt)
+asOutput :: Uid -> Uid -> Maybe Text -> GrometGen Uid
+asOutput boxId pSrcId name =
+  do  pSrc <- getPort pSrcId
+      pDstId <- mkPort boxId (portType pSrc) name
+      void $ mkWire pSrcId pDstId
+      addOutputPort boxId pDstId
+      pure pDstId
 
+connectIn :: Uid -> Uid -> Maybe Text -> GrometGen Uid
+connectIn boxId pSrcId label =
+  do  pSrc <- getPort pSrcId
+      pDstId <- mkPort boxId (portType pSrc) label
+      void $ mkWire pSrcId pDstId
+      addInputPort boxId pDstId
+      pure pDstId
 
-expToGromet :: Core.Expr -> GrometGen (Arg, [DirectedWire])
+connectIn' :: Uid -> Uid -> GrometGen ()
+connectIn' boxId pSrcId = void $ connectIn pSrcId boxId Nothing
+
+connectArg :: Uid -> Arg -> GrometGen ()
+connectArg boxId arg =
+  case arg of
+    ArgPort p -> connectIn' boxId p
+    ArgLiteral {} -> addBoxArgIfOperator boxId arg
+
+mkOpFromInputs :: Text -> Uid -> [Arg] -> GrometGen Uid
+mkOpFromInputs opname tyId args =
+  do  boxId <- mkBoxOp' opname
+      connectArg boxId `traverse_` args
+      mkOutputPort boxId tyId Nothing
+
+expToGrometPort :: Core.Expr -> GrometGen Uid
+expToGrometPort e0 =
+  do  arg <- expToGromet e0
+      case arg of
+        ArgPort p -> pure p
+        ArgLiteral ty _ -> mkOpFromInputs "const" ty [arg]
+
+expToGromet :: Core.Expr -> GrometGen Arg
 expToGromet e0 =
   case e0 of
-    Core.NumLit n -> pure (ArgLiteral (pack $ show n) typeFloat, [])
-    Core.BoolLit b -> pure (ArgLiteral (pack $ show b) typeBool, [])
+    Core.Literal (Core.Num n) -> pure $ ArgLiteral (pack $ show n) typeFloat
+    Core.Literal (Core.Bool b) -> pure $ ArgLiteral (pack $ show b) typeBool
     Core.Var name ->
       do  pid <- varPort name
-          pure (ArgPort pid, [])
+          pure $ ArgPort pid
 
-    Core.Op1 op e ->
-      do  (e', eWires) <- expToGromet e
-          box <- mkBoxOp' (describeOp1 op)
-          argWires <- args box [e']
-          out <- mkOutputPort box (typeOf1 op) Nothing
-          pure (ArgPort out, eWires ++ argWires)
+    Core.Op1 o e ->
+      ArgPort <$> op (describeOp1 o) (typeOf1 o) [e]
 
-    Core.Op2 op e1 e2 ->
-      do  (e1', e1Wires) <- expToGromet e1
-          (e2', e2Wires) <- expToGromet e2
-          box <- mkBoxOp' (describeOp2 op)
-          argWires <- args box [e1', e2']
-          out <- mkOutputPort box (typeOf2 op) Nothing
-          pure (ArgPort out, e1Wires ++ e2Wires ++ argWires)
+    Core.Op2 o e1 e2 ->
+      ArgPort <$> op (describeOp2 o) (typeOf2 o) [e1, e2]
 
     Core.If tst thn els ->
-      do  (tst', tstWires) <- expToGromet tst
-          (thn', thnWires) <- expToGromet thn
-          (els', elsWires) <- expToGromet els
-          box <- mkBoxOp' "if"
-          argWires <- args box [tst', thn', els']
-          ty <- typeOfArg thn'
-          out <- mkOutputPort box ty Nothing
-          pure (ArgPort out, tstWires ++ thnWires ++ elsWires ++ argWires)
+      do  tst' <- expToGromet tst
+          thn' <- expToGromet thn
+          els' <- expToGromet els
+          let args' = [tst', thn', els']
 
-    Core.Fail msg -> pure (ArgLiteral (pack msg) "T:exception", [])
+          boxId <- mkBoxOp' "if"
+          connectArg boxId `traverse_` args'
+          tyId <- typeOfArg thn'
+          ArgPort <$> mkOutputPort boxId tyId Nothing
 
-    _ -> undefined
+    Core.Fail msg -> pure $ ArgLiteral ("exception: " <> pack msg) typeUndef
   where
-    args bUid as =
-      do  pts <- mkInput bUid `traverse` as
-          pure $ concat (snd <$> pts)
-
-    mkInput bUid arg =
-      case arg of
-        a@ArgLiteral {} -> pure (a, [])
-        ArgPort fromPort ->
-          do  ty <- typeOfArg arg
-              toPort <- mkInputPort bUid ty Nothing
-              wire <- mkWire fromPort toPort
-              let arg' = ArgPort toPort
-              addBoxArg bUid arg'
-              pure (arg', [wire])
+    op opname tyId args =
+      (expToGromet `traverse` args) >>= mkOpFromInputs opname tyId
 
     typeOfArg a =
       case a of
         ArgLiteral t _ -> pure t
         ArgPort p -> portType <$> getPort p
-    typeOf1 op =
-      case op of
+
+    typeOf1 o =
+      case o of
         Core.Not -> typeBool
         Core.Neg -> typeFloat
         Core.Exp -> typeFloat
         Core.Log -> typeFloat
 
-    typeOf2 op =
-      case op of
+    typeOf2 o =
+      case o of
         Core.Add -> typeFloat
         Core.Sub -> typeFloat
         Core.Div -> typeFloat
@@ -313,9 +344,79 @@ expToGromet e0 =
         Core.And -> typeBool
         Core.Or -> typeBool
 
+withEnvBox :: Text -> [Core.Ident] -> (Uid -> GrometGen a) -> GrometGen a
+withEnvBox label vars action =
+  do  boxId <- mkBoxWires label
+      ips <- concat <$> (wireInputPort boxId `traverse` List.nub vars)
+      portMapScope (bind `traverse_` ips >> action boxId)
+  where
+    bind = uncurry assocVarPort
+    wireInputPort boxId v =
+      do  pid <- varPort v
+          pid' <- connectIn boxId pid (Just v)
+          pure [(v, pid')]
+
+modelToGromet :: Core.Model -> GrometGen ()
+modelToGromet model =
+  withEnvBox (Core.modelName model) (allvars [model]) \boxId ->
+    do  bindLet `traverse_` Map.toList (Core.modelLets model)
+        evtOutputs <- eventToGromet `traverse` Core.modelEvents model
+        outputPorts <- Map.fromList <$> outputPort boxId `traverse` Core.modelStateVars model
+        _ <- wireOutMap outputPorts `traverse` evtOutputs
+        pure ()
+  where
+    wireOutMap portMap outMap =
+      wireOut portMap `traverse` Map.toList outMap
+    wireOut portMap (v, srcPId) =
+      case Map.lookup v portMap of
+        Nothing -> panic "modelToGromet" ["unexpected output in event"]
+        Just destPId -> mkWire srcPId destPId
+
+    bindLet (v, e) =
+      do  expUid <- expToGrometPort e
+          assocVarPort v expUid
+
+    outputPort boxId s =
+      do  p <- mkOutputPort boxId typeFloat (Just s)
+          pure (s, p)
 
 
+eventToGromet :: Core.Event -> GrometGen (Map Ident Uid)
+eventToGromet evt =
+  withEnvBox name inputs \boxId ->
+    do  _ <- singleExpBox "rate" (Core.eventRate evt) "rate"
+        _ <- singleExpBox "when" (Core.eventWhen evt) "when"
+        outs <- eventEffectToGromet (Core.eventEffect evt)
+        wireOutputPortMap boxId outs
+  where
+    name = "Event " <> Core.eventName evt
+    inputs = allvars [evt]
 
+singleExpBox :: Text -> Core.Expr -> Text -> GrometGen Uid
+singleExpBox name expr out =
+  withEnvBox name (allvars [expr]) \boxId ->
+    do  pid <- expToGrometPort expr
+        asOutput boxId pid (Just out)
+
+eventEffectToGromet :: Map Ident Core.Expr -> GrometGen (Map Core.Ident Uid)
+eventEffectToGromet varMap =
+  withEnvBox "effect" vars \boxId ->
+    do  outMap <- expToGrometPort `traverse` varMap
+        wireOutputPortMap boxId outMap
+  where
+    vars = allvars ( snd <$> Map.toList varMap)
+
+allvars :: Core.TraverseExprs t => [t] -> [Core.Ident]
+allvars ts =
+  Set.toList $ Set.unions (Core.collectVars <$> ts)
+
+wireOutputPortMap :: Uid -> Map Core.Ident Uid -> GrometGen (Map Core.Ident Uid)
+wireOutputPortMap boxId pmap =
+    Map.unions <$> (out `traverse` Map.toList pmap)
+  where
+    out (n,uid) =
+      do  p <- asOutput boxId uid (Just n)
+          pure $ Map.singleton n p
 
 
 

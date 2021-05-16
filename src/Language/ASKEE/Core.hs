@@ -8,6 +8,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Functor.Identity(runIdentity)
+import qualified Data.Functor.Const as Const
 
 import Language.ASKEE.Panic (panic)
 
@@ -167,6 +168,17 @@ substExpr su expr =
     Var x | Just e <- Map.lookup x su -> e
     _ -> mapExprs (substExpr su) expr
 
+collect :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
+collect f t =
+  Const.getConst $ traverseExprs (Const.Const . f) t
+
+collectVars :: (TraverseExprs t) => t -> Set.Set Ident
+collectVars = collect var
+  where
+    var v =
+      case v of
+        Var n -> Set.singleton n
+        _ -> Set.empty
 
 ppExpr :: Expr -> PP.Doc
 ppExpr expr =
