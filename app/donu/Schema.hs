@@ -8,6 +8,7 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Data.Maybe(fromMaybe)
 import Data.Functor(($>))
+import Data.Functor.Alt ((<!>))
 
 import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
