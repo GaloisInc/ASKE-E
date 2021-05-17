@@ -69,14 +69,14 @@ library
                      , Language.ASKEE.Experiment.CodeGen
                      , Language.ASKEE.Experiment.TypeOf
 
-                     , Language.ASKEE.Expo.Syntax
-                     , Language.ASKEE.Expo.Parser
-                     , Language.ASKEE.Expo.Lexer
-                     , Language.ASKEE.Expo.TypeOf
-                     , Language.ASKEE.Expo.Typechecker
-                     , Language.ASKEE.Expo.TraverseType
-                     , Language.ASKEE.Expo.CodeGen
-                    --  , Language.ASKEE.Expo.EaselAdapter
+                     , Language.ASKEE.Exposure.Syntax
+                     , Language.ASKEE.Exposure.Parser
+                     , Language.ASKEE.Exposure.Lexer
+                     , Language.ASKEE.Exposure.TypeOf
+                     , Language.ASKEE.Exposure.Typechecker
+                     , Language.ASKEE.Exposure.TraverseType
+                     , Language.ASKEE.Exposure.CodeGen
+                    --  , Language.ASKEE.Exposure.EaselAdapter
 
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
@@ -94,6 +94,8 @@ library
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
                      , PetriNet
+
+                     , Language.ASKEE.Test
 
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,

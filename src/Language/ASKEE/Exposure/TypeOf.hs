@@ -1,8 +1,8 @@
-module Language.ASKEE.Expo.TypeOf where
+module Language.ASKEE.Exposure.TypeOf where
 
 import qualified Data.Map as Map
 
-import Language.ASKEE.Expo.Syntax
+import Language.ASKEE.Exposure.Syntax
 import Language.ASKEE.Panic(panic)
 
 

@@ -1,6 +1,6 @@
 {
 {-# Language TemplateHaskell, OverloadedStrings, BlockArguments #-}
-module Language.ASKEE.Expo.Lexer
+module Language.ASKEE.Exposure.Lexer
   ( Lexeme(..), Token(..)
   , lexer
   , SourceRange(..)

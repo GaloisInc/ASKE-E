@@ -1,5 +1,5 @@
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.Expo.Syntax where
+module Language.ASKEE.Exposure.Syntax where
 
 import Data.Text(Text)
 import Data.Map(Map)

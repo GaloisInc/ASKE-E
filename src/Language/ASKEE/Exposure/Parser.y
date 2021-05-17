@@ -1,6 +1,6 @@
 {
 {-# Language BlockArguments ,ViewPatterns, GeneralizedNewtypeDeriving #-}
-module Language.ASKEE.Expo.Parser
+module Language.ASKEE.Exposure.Parser
   ( ParseError(..)
   , parse
   , parseFromFile
@@ -16,8 +16,8 @@ import qualified Data.Map as Map
 import Control.Exception(Exception(..),throwIO)
 import MonadLib hiding(Label)
 
-import Language.ASKEE.Expo.Syntax
-import Language.ASKEE.Expo.Lexer
+import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.Lexer
 
 }
 

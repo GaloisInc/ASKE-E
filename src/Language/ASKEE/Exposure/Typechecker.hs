@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE BangPatterns #-}
-module Language.ASKEE.Expo.Typechecker where
+module Language.ASKEE.Exposure.Typechecker where
 
 import Data.Text(Text, pack)
 import Data.Map(Map)
@@ -16,9 +16,9 @@ import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
 import Control.Monad.Except(throwError)
 
-import qualified Language.ASKEE.Expo.Syntax as E
-import Language.ASKEE.Expo.TypeOf(typeOf)
-import Language.ASKEE.Expo.TraverseType(TraverseType(traverseType), collect, mapType)
+import qualified Language.ASKEE.Exposure.Syntax as E
+import Language.ASKEE.Exposure.TypeOf(typeOf)
+import Language.ASKEE.Exposure.TraverseType(TraverseType(traverseType), collect, mapType)
 import Language.ASKEE.Panic (panic)
 import Debug.Trace (traceShowId)
 import Control.Monad.Identity

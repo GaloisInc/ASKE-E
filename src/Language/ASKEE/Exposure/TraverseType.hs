@@ -1,10 +1,10 @@
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.Expo.TraverseType where
+module Language.ASKEE.Exposure.TraverseType where
 
 import Data.Text(Text)
 import Data.Functor.Identity(Identity(..), runIdentity)
 import Data.Functor.Const(Const(..), getConst)
-import Language.ASKEE.Expo.Syntax
+import Language.ASKEE.Exposure.Syntax
 
 collect :: (TraverseType t, Monoid m) => (Type -> m) -> t -> m
 collect f t =

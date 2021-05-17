@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
-module Language.ASKEE.Expo.EaselAdapter where
+module Language.ASKEE.Exposure.EaselAdapter where
 
 import qualified Language.ASKEE.Core as Core
-import qualified Language.ASKEE.Expo.Syntax as E
+import qualified Language.ASKEE.Exposure.Syntax as E
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Text(pack)

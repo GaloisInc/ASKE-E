@@ -1,6 +1,6 @@
 {-# Language OverloadedStrings, BlockArguments #-}
 {-# LANGUAGE RecordWildCards #-}
-module Language.ASKEE.Expo.CodeGen where
+module Language.ASKEE.Exposure.CodeGen where
 
 import Data.Text(Text, pack)
 import Data.Map(Map)
@@ -12,8 +12,8 @@ import qualified Prettyprinter as PP
 
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.C as C
-import Language.ASKEE.Expo.Syntax
-import Language.ASKEE.Expo.TypeOf(typeOf)
+import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.TypeOf(typeOf)
 
 
 compileDecls :: [Decl] -> C.Doc
