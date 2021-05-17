@@ -10,7 +10,6 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   exposed-modules:     Language.ASKEE
-                     , Language.ASKEE.Syntax
                      , Language.ASKEE.Expr
                      , Language.ASKEE.GenLexer
                      , Language.ASKEE.Lexer
@@ -32,6 +31,9 @@ library
                      , Language.ASKEE.APRAM.GenLexer
                      , Language.ASKEE.APRAM.GenParser
                      , Language.ASKEE.APRAM.Lexer
+
+                     , Language.ASKEE.Syntax
+
 
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
@@ -84,6 +86,8 @@ library
                      , Language.ASKEE.ModelStratify.Syntax
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
+
+                     , Language.ASKEE.Gromet
                      , PetriNet
 
   build-depends:       base >=4.13.0.0 && <5,
