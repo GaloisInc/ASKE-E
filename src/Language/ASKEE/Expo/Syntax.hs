@@ -174,6 +174,7 @@ data TCon = TCon
 data TypeConstraint =
     HasField Type Label Type
   | IsTimeLike Type
+  | IsFinite Type
   deriving (Show, Eq)
 
 data Literal =

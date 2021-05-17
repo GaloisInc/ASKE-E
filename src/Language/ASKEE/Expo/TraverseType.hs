@@ -141,6 +141,8 @@ instance TraverseType TypeConstraint where
         HasField <$> f recTy <*> pure label <*> f fieldTy
       IsTimeLike ty ->
         IsTimeLike <$> f ty
+      IsFinite ty ->
+        IsFinite <$> f ty
       
 
 instance TraverseType MeasureType where

@@ -397,6 +397,7 @@ inferExpr e0 =
       do  (sampledThing', sampledThingTy) <- inferExpr sampledThing
           pointTy <- newTVar
           unify (E.TypeRandomVar pointTy) sampledThingTy
+          addConstraint (E.IsFinite pointTy)
           pure (E.Sample sampleNum sampledThing', E.TypeVector pointTy)
 
     -- E.Trace tracedThing ->
@@ -795,6 +796,8 @@ solveConstraints cns = go [] cns False
                 Left us -> go (us:unsolved) cs hasChanges
                 Right changes -> go unsolved cs (hasChanges || changes)
 
+-- XXX may want to pipe variable names into this for more informative error 
+-- messages
 solveConstraint :: E.TypeConstraint -> TC (Either E.TypeConstraint Bool)
 solveConstraint = go id
   where
@@ -829,6 +832,11 @@ solveConstraint = go id
             E.TypeVector E.TypeNumber -> triv
             E.TypeVar _ -> pure $ Left constraint
             _ -> throwError $ pack $ "type "<>show ty<>" is not time-like"
+        E.IsFinite ty ->
+          case ty of
+            E.TypeStream _ -> throwError $ pack $ "type "<>show ty<>" is an infinite stream"
+            E.TypeVar _ -> pure $ Left constraint
+            _ -> triv
 
               
     triv = pure $ Right True
