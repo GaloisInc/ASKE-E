@@ -18,13 +18,18 @@ import Language.ASKEE.Expo.TypeOf(typeOf)
 
 compileDecls :: [Decl] -> C.Doc
 compileDecls ds =
-  vcat $
-    [modelInterface d | DModel d <- ds] ++
-    [compileMeasure d | DMeasure d <- ds] ++
-    [compileMain d | DMain d <- ds]
+  let models = [d | DModel d <- ds]
+      modelNames = [n | ModelDecl (TypedName n _) _ <- models]
+      measures = [d | DMeasure d <- ds]
+      [main] = [d | DMain d <- ds]
+  in  vcat $
+        map compileModelInterface models ++
+        map compileMeasure measures ++
+        [compileMain modelNames main]
 
-modelInterface :: ModelDecl -> C.Doc
-modelInterface (ModelDecl name fields) = 
+
+compileModelInterface :: ModelDecl -> C.Doc
+compileModelInterface (ModelDecl name fields) = 
   vcat $ modelMaker : modelAccessors
   where
     modelMaker = 
@@ -42,9 +47,11 @@ modelInterface (ModelDecl name fields) =
       | (f, t) <- Map.toList fields
       ]
 
-compileMain :: MainDecl -> C.Doc
-compileMain (MainDecl stmts output) =
+
+compileMain :: [Text] -> MainDecl -> C.Doc
+compileMain models (MainDecl stmts output) =
   C.main $ map compileStmt stmts
+
 
 inlineStatements :: [] Stmt -> [] Stmt
 inlineStatements statements = map inlineStatement statements
@@ -178,16 +185,12 @@ inlineStatements statements = map inlineStatement statements
 compileStmt :: Stmt -> C.Doc
 compileStmt s =
   case s of
-    Let b e -> C.declareInit (compileType $ getType b) (compileVar b) (compileExpr e)
+    Let b e -> C.declareInit {- (compileType $ getType b) -} C.auto (compileVar b) (compileExpr e)
     If sThens sElse -> head $ foldr doThen (doStmts sElse) sThens
       where
       doThen (b,stmts) es = [C.ifThenElse (compileExpr' 0 b) (doStmts stmts) es]
       doStmts             = map compileStmt
     Set b e -> C.assign (compileVar b) (compileExpr e)
-
-compileLet :: Binder -> Expr -> C.Doc
-compileLet b e =
-  C.declareInit (compileType $ getType b) (compileVar b) (compileExpr e)
 
 loop :: Int -> [C.Doc] -> C.Doc
 loop bound = 
@@ -207,6 +210,8 @@ compileType ty =
       pretty (tconName tcon) <>
         C.typeArgList (map compileType (tconArgs tcon))
     TypeVector tv -> vectorOfType (compileType tv)
+    TypeRandomVar (TypeVector ty') -> randomOfType (compileType ty')
+    TypeRandomVar (TypeStream ty') -> randomOfType (compileType ty')
     TypeRandomVar ty' -> randomOfType (compileType ty')
     TypeStream t@(TypeCon _) -> compileType t -- XXX: might want to move this case to another function
     -- TypeStream _ -> panic "compileType" ["cannot compile non constructed stream type (yet)"]
@@ -219,9 +224,6 @@ compileType ty =
     case tv of
       TVFree {} -> panic "compileTVar" ["Unexpteced free type variable"]
       TVBound n -> tvarName n
-
-  tvarName :: Int -> C.Doc
-  tvarName n = "T" <> C.intLit n
 
 vectorOfType :: C.Doc -> C.Doc
 vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
@@ -239,16 +241,32 @@ compileExpr' :: Int -> Expr -> C.Doc
 compileExpr' prec expr =
   case expr of
     Lit l     -> compileLiteral l
-    Var x     -> compileVar x
+    Var (TypedName n (Just (TypeRandomVar (TypeStream (TypeCon _))))) -> 
+      C.call ("make_" <> C.ident n) []
+    Var v -> compileVar v
     Call f es -> compileCall prec f es
     Dot e l _ -> 
       case typeOf e of
         TypeRandomVar t -> 
           C.member (compileExpr' prec e) 
-            (C.call ("select"<>C.angles [compileType $ typeOfField t l]) [C.lambda Nothing [] []])
+            (C.call ("select"<>C.angles [compileType $ typeOfField t l]) ["get_"<>C.ident l])
         _ -> C.member (compileExpr' prec e) (pretty l)
-    At e1 e2 -> undefined
+    At e1 e2 -> C.member (go e1) (C.call "at" [go e2])
+    Sample n e -> C.member (go e) (C.call "make_samples" [C.intLit n])
+    Measure e (TypedName measureName _) _ _ -> 
+      let measuredThing = measuredThingName e
+      in  C.member (go e) (C.call ("measure"<>C.typeArgList [C.ident measureName <> C.typeArgList [C.ident measuredThing]]) [])
     _ -> error $ show expr
+  where
+    go = compileExpr' prec
+
+measuredThingName :: Expr -> Text
+measuredThingName e =
+  case e of
+    Var v -> tnName v
+    At e1 _ -> measuredThingName e1
+    _ -> panic "measuredThingName" ["failed to treat expression "<>show e<>" as a measured thing"]
+
 
 typeOfField :: Type -> Label -> Type
 typeOfField t l =
