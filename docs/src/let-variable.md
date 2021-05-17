@@ -1,6 +1,6 @@
 # `let`-Declared Variables
 
-```askee
+```easel
   let s_Initial = 999.0
   ...
   let beta =

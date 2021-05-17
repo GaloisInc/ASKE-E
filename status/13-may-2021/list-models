@@ -1,0 +1,3 @@
+#!/bin/bash
+
+curl http://aske.galois.com:8000 -d '{"command": "list-models"}' | jq

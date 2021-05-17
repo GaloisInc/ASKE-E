@@ -1,0 +1,9 @@
+digraph agent {
+	rankdir=LR;
+	size="8,5"
+	node [shape = doublecircle]; init;
+	node [shape = circle];
+	init -> init [label="x"];
+	init -> S [label="y"];
+	init -> I [label="z"];	
+}

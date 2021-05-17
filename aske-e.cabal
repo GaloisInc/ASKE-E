@@ -21,9 +21,21 @@ library
                      , Language.ASKEE.Core.DiffEq
                      , Language.ASKEE.Core.Eval
                      , Language.ASKEE.Core.GSLODE
+                     , Language.ASKEE.Core.Visualization
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
                      , Language.ASKEE.AMIDOLIR
+                     , Language.ASKEE.APRAM.Syntax
+                     , Language.ASKEE.APRAM.Translate
+                     , Language.ASKEE.APRAM.Sample
+                     , Language.ASKEE.APRAM.Print
+                     , Language.ASKEE.APRAM.GenLexer
+                     , Language.ASKEE.APRAM.GenParser
+                     , Language.ASKEE.APRAM.Lexer
+
+                     , Language.ASKEE.ABM.Sample
+                     , Language.ASKEE.ABM.Syntax
+                     , Language.ASKEE.ABM.Translate
 
                     --  , Language.ASKEE.DiffEq.Lexer
                     --  , Language.ASKEE.DiffEq.GenLexer
@@ -71,6 +83,7 @@ library
                      , Language.ASKEE.Measure
                      , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
+                     , Language.ASKEE.CppCompiler
                      , Language.ASKEE.Panic
                      , Language.ASKEE.Check
                      , Language.ASKEE.Translate
@@ -108,8 +121,10 @@ library
                        process,
                        directory,
                        temporary,
+                       multiset,
                        alex-tools,
-                       monadLib
+                       monadLib,
+                       filepath
 
   build-tool-depends:  alex:alex, happy:happy
   hs-source-dirs:      src
@@ -133,7 +148,7 @@ executable donu
   build-depends:       base, containers, snap-server, snap-core, aske-e,
                        text, bytestring, aeson, config-value, config-schema,
                        scientific, pretty, vector, unordered-containers,
-                       semigroupoids
+                       semigroupoids, filepath, directory
   default-language:    Haskell2010
   ghc-options:         -Wall
 

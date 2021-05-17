@@ -130,7 +130,7 @@ model CHIME_GTRI_IR:
       beta * (1 - contact_rate) * Susceptible * Infected / total_pop
 
     effect:
-      Susceptible += 1.0
+      Susceptible -= 1.0
       Infected    = Infected + 1.0
 
   event Cure:

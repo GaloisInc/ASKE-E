@@ -37,12 +37,14 @@ BCLOSE          { Located _ _ Lexer.CloseBlock }
 'else'          { Located _ _ Lexer.Else }
 '=='            { Located _ _ Lexer.EQ }
 'event'         { Located _ _ Lexer.Event }
+'exp'           { Located _ _ Lexer.Exp }
 'false'         { Located _ _ (Lexer.Boolean False)}
 '>'             { Located _ _ Lexer.GT }
 '>='            { Located _ _ Lexer.GTE }
 'if'            { Located _ _ Lexer.If }
 '<'             { Located _ _ Lexer.LT }
 '<='            { Located _ _ Lexer.LTE }
+'log'           { Located _ _ Lexer.Log }
 'let'           { Located _ _ Lexer.Let }
 -- metadata        { Located _ _ Lexer.Metadata }
 '-'             { Located _ _ Lexer.Minus }
@@ -144,6 +146,8 @@ Exp                                   :: { Expr }
   | Exp '*' Exp                          { Mul  $1 $3 }
   | Exp '/' Exp                          { Div  $1 $3 }
   | '-' Exp                              { Neg  $2 }
+  | 'exp' '(' Exp ')'                    { Exp  $3 }
+  | 'log' '(' Exp ')'                    { Log  $3 }
   | Exp '>' Exp                          { GT  $1 $3 }
   | Exp '>=' Exp                         { GTE $1 $3 }
   | Exp '==' Exp                         { EQ  $1 $3 }
@@ -178,8 +182,8 @@ CondChoice                            :: { (Expr,Expr) }
 
 {
 parseError :: [Located Lexer.Token] -> Either String a
-parseError []     = fail $ "parse error at end of file"
-parseError (t:ts) = fail $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
+parseError []     = Left $ "parse error at end of file"
+parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
 mkModel :: Text -> [ Either Decl Event ] -> Model

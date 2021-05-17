@@ -11,6 +11,8 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import Data.List(mapAccumL)
 import qualified Data.Aeson as JS
 import Data.Aeson((.=))
+import Data.Char (isSpace)
+import Data.Maybe (mapMaybe)
 
 
 -- | Parse a graph, quick and diryt, we can improve on this later
@@ -22,10 +24,16 @@ parseGeoGraph = mapM parseEdge . zip [ 1 .. ] . lines
           do (a,xs) <- lex ln
              ("->",ys) <- lex xs
              (b,_) <- lex ys
-             pure (a,b)
+             pure (mapMaybe clean a,mapMaybe clean b)
     in case opts of
          [] -> Left ("Invalid edge on line: " ++ show (n::Int))
          x : _ -> pure x
+         
+  clean :: Char -> Maybe Char
+  clean c
+    | isSpace c = Just '_'
+    | c == '"' = Nothing
+    | otherwise = Just c
 
 
 -- | Returns: (number of nodes, edges, mapping from node to name)

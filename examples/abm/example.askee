@@ -1,0 +1,190 @@
+# Meant to be derived from `./example.abm`
+
+model SIR:
+    let pop_size = 100000
+    let beta = ...
+    let gamma = ...
+    ...
+
+    # One state for each element of the cross product of all statuses
+    # across all columns - 5 health statuses and 2 quarantine statuses
+    # yields 10 states
+    state susceptible_quarantined = ???
+    state exposed_quarantined = ???
+    state infected_quarantined = ???
+    state recovered_quarantined = ???
+    state dead_quarantined = ???
+    state susceptible_not_quarantined = ???
+    state exposed_not_quarantined = ???
+    state infected_not_quarantined = ???
+    state recovered_not_quarantined = ???
+    state dead_not_quarantined = ???
+
+    # Some sort of event macro might be nice, since almost all of these
+    # follow the same basic pattern
+
+    # As the `Expose` event in `example.abm` acts on the S cohort, whose
+    # only condition is that an individual be susceptible, we generate
+    # enough events to cover the space of what happens when they are
+    # susceptible _and_ any other combination of statuses.
+    event Expose_not_quarantined:
+        when: 
+            susceptible_not_quarantined > 0
+        rate:
+            # Original rates get scaled down by the fraction of the population
+            # to which they apply
+            beta * susceptible_not_quarantined / pop_size
+        effect:
+            susceptible_not_quarantined -= 1
+            exposed_not_quarantined += 1
+
+    # Many of these automatically-generated events' `when` clauses will
+    # prevent them from ever firing, as will their scaled `rate`s (scaled 
+    # to zero, since `susceptible_quarantined` is never populated) -
+    # such as this one's. We might be able to do some dataflow- or 
+    # reachability-type analysis to prune unreachable events.
+    event Expose_quarantined:
+        when: 
+            susceptible_quarantined > 0
+        rate:
+            beta * susceptible_quarantined / pop_size
+        effect:
+            susceptible_quarantined -= 1
+            exposed_quarantined += 1
+
+    event TakeIll_not_quarantined:
+        when: 
+            exposed_not_quarantined > 0
+        rate:
+            gamma * exposed_not_quarantined / pop_size
+        effect:
+            exposed_not_quarantined -= 1
+            infected_not_quarantined += 1
+
+    event TakeIll_quarantined:
+        when: 
+            exposed_quarantined > 0
+        rate:
+            gamma * exposed_quarantined / pop_size
+        effect:
+            exposed_quarantined -= 1
+            infected_quarantined += 1
+        
+    event RemainBlissfullyUnaware_not_quarantined:
+        when: 
+            exposed_not_quarantined > 0
+        rate:
+            alpha * exposed_not_quarantined / pop_size
+        effect:
+            exposed_not_quarantined -= 1
+            recovered_not_quarantined += 1
+
+    event RemainBlissfullyUnaware_quarantined:
+        when: 
+            exposed_quarantined > 0
+        rate:
+            alpha * exposed_quarantined / pop_size
+        effect:
+            exposed_quarantined -= 1
+            recovered_quarantined += 1
+
+    event Recover_not_quarantined:
+        when: 
+            infected_not_quarantined > 0
+        rate:
+            sigma * infected_not_quarantined / pop_size
+        effect:
+            infected_not_quarantined -= 1
+            recovered_not_quarantined += 1
+
+    event Recover_quarantined:
+        when: 
+            infected_quarantined > 0
+        rate:
+            sigma * infected_quarantined / pop_size
+        effect:
+            infected_quarantined -= 1
+            recovered_quarantined += 1
+
+    event Die_not_quarantined:
+        when: 
+            infected_not_quarantined > 0
+        rate:
+            omega * infected_not_quarantined / pop_size
+        effect:
+            infected_not_quarantined -= 1
+            dead_not_quarantined += 1
+
+    event Die_quarantined:
+        when: 
+            infected_quarantined > 0
+        rate:
+            omega * infected_quarantined / pop_size
+        effect:
+            infected_quarantined -= 1
+            dead_quarantined += 1
+
+    # Since the EnterQuarantine event operates on the F cohort, which is
+    # composed of "exposed" and "infected" individuals, we only generate
+    # events targeting those states - specifically, the `not_quarantined`
+    # versions of those states.
+    event EnterQuarantine_exposed:
+        when:
+            exposed_not_quarantined > 0
+        rate:
+            once_in_a_blue_moon * exposed_not_quarantined / pop_size
+        effect:
+            exposed_not_quarantined -= 1
+            exposed_quarantined += 1
+
+    event EnterQuarantine_infected:
+        when:
+            infected_not_quarantined > 0
+        rate:
+            once_in_a_blue_moon * infected_not_quarantined / pop_size
+        effect:
+            infected_not_quarantined -= 1
+            infected_quarantined += 1
+    
+    # Likewise, since the LeaveQuarantine event operates on the Q cohort 
+    #, which is composed of any health status but just one quarantine 
+    # status, we generate 5 events, 3 of which will never fire.
+    event LeaveQuarantine_susceptible:
+        when:
+            susceptible_quarantined > 0
+        rate:
+            pretty_often * susceptible_quarantined / pop_size
+        effect:
+            susceptible_quarantined -= 1
+
+    event LeaveQuarantine_exposed:
+        when:
+            exposed_quarantined > 0
+        rate:
+            pretty_often * exposed_quarantined / pop_size
+        effect:
+            exposed_quarantined -= 1
+
+    event LeaveQuarantine_infected:
+        when:
+            infected_quarantined > 0
+        rate:
+            pretty_often * infected_quarantined / pop_size
+        effect:
+            infected_quarantined -= 1
+
+    event LeaveQuarantine_recovered:
+        when:
+            recovered_quarantined > 0
+        rate:
+            pretty_often * recovered_quarantined / pop_size
+        effect:
+            recovered_quarantined -= 1
+
+    event LeaveQuarantine_dead:
+        when:
+            dead_quarantined > 0
+        rate:
+            pretty_often * dead_quarantined / pop_size
+        effect:
+            dead_quarantined -= 1

@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications #-}
 module Language.ASKEE.RNet.Reaction where
 
 import Data.Map(Map)
@@ -56,7 +59,7 @@ reactionRateExp r =
         ReactionTerms ts -> Mul (reactionRate r) (mulTerms $ rterm <$> ts)
   where
     rterm (ReactionTerm scaling v) = pow (Var v) scaling
-    pow x y = (iterate (Mul x) x) !! (y - 1)
+    pow x y = iterate (Mul x) x !! (y - 1)
     mulTerms terms =
       case terms of
         [] -> LitD 1
@@ -88,8 +91,11 @@ tsort dependsOn elts =
     noDeps e = not $ any (e `dependsOn`) elts 
 
 -- make a model with automatically generated names
-reactionsAsModel :: Text -> Map Text Expr -> [Reaction] -> Either String Syntax.Model 
-reactionsAsModel mname env rs = 
+reactionsAsModel :: ReactionNet -> Either String Syntax.Model
+reactionsAsModel ReactionNet{..} = reactionsAsModel' "foo" bindings reactions
+
+reactionsAsModel' :: Text -> Map Text Expr -> [Reaction] -> Either String Syntax.Model 
+reactionsAsModel' mname env rs = 
   do  stDecls <- stateDecls
       Right $ Syntax.Model mname (stDecls ++ letDecls) (map (uncurry reactionAsEvent) namedReactions) 
       
@@ -130,8 +136,8 @@ reactionsAsModel mname env rs =
         -- chrToTxt = pack . (:[])
 
         ltrs = map (pack . (:[])) ['a'..'z']
-        ids = map (pack . show) [1..]
-        names = concatMap (\id -> map (<> id) ltrs) ids
+        ids = map (pack . show @Int) [1..]
+        names = concatMap (\i -> map (<> i) ltrs) ids
         -- names = map (\i -> show (i+1) ++ [letters !! (i `mod` 26)]) [0..]
         -- idx i xs = xs !! 
 

@@ -1,6 +1,6 @@
 # `event`s
 
-```askee
+```easel
   event Infect:
   ...
 ```

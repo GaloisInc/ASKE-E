@@ -9,33 +9,43 @@ import Control.Monad ( (>=>) )
 
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy.Char8 as B
+import           Data.Char  ( isSpace )
 import           Data.Map   ( Map )
 import qualified Data.Map   as Map
+import           Data.Maybe ( mapMaybe )
 import           Data.Graph ( graphFromEdges, Edge, Graph, Vertex )
 
-import           Language.ASKEE.Core.DiffEq      ( asEquationSystem )
-import           Language.ASKEE.Core.ImportASKEE ( modelAsCore )
-import           Language.ASKEE.Graph            ( shortestPath )
-import qualified Language.ASKEE.DEQ.GenLexer     as DL
-import qualified Language.ASKEE.DEQ.GenParser    as DP
-import qualified Language.ASKEE.DEQ.Print        as DPr
-import qualified Language.ASKEE.DEQ.Syntax       as DEQ
-import qualified Language.ASKEE.GenLexer         as AL
-import qualified Language.ASKEE.GenParser        as AP
-import qualified Language.ASKEE.Latex.GenLexer   as LL
-import qualified Language.ASKEE.Latex.GenParser  as LP
-import qualified Language.ASKEE.Latex.Print      as LPr
-import           Language.ASKEE.Panic            ( panic )
-import qualified Language.ASKEE.Print            as APr
-import qualified Language.ASKEE.RNet.GenLexer    as RL 
-import qualified Language.ASKEE.RNet.GenParser   as RP
-import qualified Language.ASKEE.RNet.Syntax      as RNet
-import qualified Language.ASKEE.Syntax           as ESL
-import  Language.ASKEE.ModelStratify.Syntax ( Net(..) )
-import  Language.ASKEE.ModelStratify.Topology ( modelAsTopology )
+import Language.ASKEE.Core.DiffEq      ( asEquationSystem )
+import Language.ASKEE.Core.ImportASKEE ( modelAsCore )
+import Language.ASKEE.Graph            ( shortestPath )
+import Language.ASKEE.Panic            ( panic )
+
+import qualified Language.ASKEE.DEQ.GenLexer  as DEQLex
+import qualified Language.ASKEE.DEQ.GenParser as DEQParse
+import qualified Language.ASKEE.DEQ.Print     as DEQPrint
+import qualified Language.ASKEE.DEQ.Syntax    as DEQSyntax
+
+import qualified Language.ASKEE.GenLexer  as ESLLex
+import qualified Language.ASKEE.GenParser as ESLParse
+import qualified Language.ASKEE.Print     as ESLPrint
+import qualified Language.ASKEE.Syntax    as ESLSyntax
+
+import qualified Language.ASKEE.Latex.GenLexer  as LatexLex
+import qualified Language.ASKEE.Latex.GenParser as LatexParse
+import qualified Language.ASKEE.Latex.Print     as LatexPrint
+
+import qualified Language.ASKEE.RNet.GenLexer  as RNetLex
+import qualified Language.ASKEE.RNet.GenParser as RNetParse
+import qualified Language.ASKEE.RNet.Syntax    as RNetSyntax
+import           Language.ASKEE.RNet.Reaction  ( reactionsAsModel )
+
+import qualified Language.ASKEE.ModelStratify.Syntax   as TopoSyntax
+import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+                                                       , topologyAsModel )
+
+import Language.ASKEE.ModelStratify.Syntax ( Net(..) )
 
 import Language.Haskell.TH
-import Data.Maybe ( mapMaybe )
 
 data ModelType =
     ESL_C
@@ -50,15 +60,15 @@ data ModelType =
   deriving (Enum, Eq, Ord)
 
 instance Show ModelType where
-  show ESL_C = "ESL concrete syntax"
-  show ESL_A = "ESL abstract syntax"
-  show DEQ_C = "differential equation concrete syntax"
-  show DEQ_A = "differential equation abstract syntax"
-  show RNET_C = "reaction network concrete syntax"
-  show RNET_A = "reaction network abstract syntax"
-  show TOPO_A = "topology abstract syntax"
-  show TOPO_C = "topology concrete syntax"
-  show LATEX_C = "latex concrete syntax"
+  show ESL_C = "esl Concrete Syntax"
+  show ESL_A = "esl Abstract Syntax"
+  show DEQ_C = "diffEq Concrete Syntax"
+  show DEQ_A = "diffEq Abstract Syntax"
+  show RNET_C = "rNet Concrete Syntax"
+  show RNET_A = "rNet Abstract Syntax"
+  show TOPO_A = "topology Abstract Syntax"
+  show TOPO_C = "topology Concrete Syntax"
+  show LATEX_C = "latex Concrete Syntax"
 
 data Repr = Abstract | Concrete
   deriving (Eq, Show)
@@ -66,15 +76,15 @@ data Repr = Abstract | Concrete
 class Tagged m where
   tagOf :: Repr -> ModelType
 
-instance Tagged ESL.Model where
+instance Tagged ESLSyntax.Model where
   tagOf Abstract = ESL_A
   tagOf Concrete = ESL_C
 
-instance Tagged DEQ.DiffEqs where
+instance Tagged DEQSyntax.DiffEqs where
   tagOf Abstract = DEQ_A
   tagOf Concrete = DEQ_C
 
-instance Tagged RNet.ReactionNet where
+instance Tagged RNetSyntax.ReactionNet where
   tagOf Abstract = RNET_A
   tagOf Concrete = RNET_C
 
@@ -88,6 +98,28 @@ instance Tagged Net where
   tagOf Abstract = TOPO_A
   tagOf Concrete = TOPO_C
 
+typeOf :: ModelType -> Q Type
+typeOf m =
+  case m of
+    ESL_C -> [t| String |]
+    ESL_A -> [t| ESLSyntax.Model |]
+    DEQ_C -> [t| String |]
+    DEQ_A -> [t| DEQSyntax.DiffEqs |]
+    RNET_C -> [t| String |]
+    RNET_A -> [t| RNetSyntax.ReactionNet |]
+    TOPO_C -> [t| String |]
+    TOPO_A -> [t| TopoSyntax.Net |]
+    LATEX_C -> [t| String |]
+
+converter' :: String -> ModelType -> ModelType -> Q [Dec]
+converter' nm from to =
+  do  let conv = converter from to
+      funDec <- funD (mkName nm) [clause [] (normalB conv) []]
+      typeDec <- sigD (mkName nm) [t| $(typeOf from) -> Either String $(typeOf to) |]
+      pure [typeDec, funDec]
+
+-- | Synthesize a converter between the two provided ModelTypes,
+-- `panic`ing if no path exists between the two
 converter :: ModelType -> ModelType -> Q Exp 
 converter from to = 
   case pairToVertices (from, to) >>= uncurry sp of
@@ -96,8 +128,8 @@ converter from to =
 
   where
     functionFromPath :: [Edge] -> Q Exp
-    functionFromPath es = 
-      foldr (\(f, t) nxt -> [e| $(translator f t) >=> $nxt |]) [e| Right |] es
+    functionFromPath = 
+      foldr (\(f, t) nxt -> [e| $(translator f t) >=> $nxt |]) [e| Right |]
 
     translator :: Vertex -> Vertex -> Q Exp
     translator f t = 
@@ -139,23 +171,24 @@ vertexFromKey :: ModelType -> Maybe Vertex
             , mkNode deqATranslators   DEQ_A   [DEQ_C, LATEX_C]
             , mkNode latexCTranslators LATEX_C [DEQ_A]
             , mkNode rnetCTranslators  RNET_C  [RNET_A]
-            , mkNode rnetATranslators  RNET_A  []
+            , mkNode rnetATranslators  RNET_A  [ESL_A]
             , mkNode topoCTranslators  TOPO_C  [TOPO_A]
-            , mkNode topoATranslators  TOPO_A  [TOPO_C]
+            , mkNode topoATranslators  TOPO_A  [TOPO_C, ESL_A]
             ]
 
-    eslCTranslators =   Map.fromList [ (ESL_A,   [e| AL.lexModel >=> AP.parseModel |]) ]
+    eslCTranslators =   Map.fromList [ (ESL_A,   [e| ESLLex.lexModel >=> ESLParse.parseModel |]) ]
     eslATranslators =   Map.fromList [ (DEQ_A,   [e| fmap asEquationSystem . modelAsCore [] |])
-                                     , (ESL_C,   [e| Right . show . APr.printModel |])
+                                     , (ESL_C,   [e| Right . show . ESLPrint.printModel |])
                                      , (TOPO_A,  [e| Right . modelAsTopology |]) ]
-    deqCTranslators =   Map.fromList [ (DEQ_A,   [e| DL.lexDEQs >=> DP.parseDEQs |]) ]
-    deqATranslators =   Map.fromList [ (DEQ_C,   [e| Right . show . DPr.ppDiffEqs |])
-                                     , (LATEX_C, [e| Right . show . LPr.printLatex |]) ]
-    latexCTranslators = Map.fromList [ (DEQ_A,   [e| LL.lexLatex >=> LP.parseLatex |]) ]
-    rnetCTranslators =  Map.fromList [ (RNET_A,  [e| RL.lexRNet >=> RP.parseRNet |] ) ]
-    rnetATranslators =  Map.empty
-    topoCTranslators =  Map.fromList [ (TOPO_A,  [e| Aeson.eitherDecode @Net |]) ]
-    topoATranslators =  Map.fromList [ (TOPO_C,  [e| Right . B.unpack . Aeson.encode @Net |]) ]
+    deqCTranslators =   Map.fromList [ (DEQ_A,   [e| DEQLex.lexDEQs >=> DEQParse.parseDEQs |]) ]
+    deqATranslators =   Map.fromList [ (DEQ_C,   [e| Right . show . DEQPrint.ppDiffEqs |])
+                                     , (LATEX_C, [e| Right . show . LatexPrint.printLatex |]) ]
+    latexCTranslators = Map.fromList [ (DEQ_A,   [e| LatexLex.lexLatex >=> LatexParse.parseLatex |]) ]
+    rnetCTranslators =  Map.fromList [ (RNET_A,  [e| RNetLex.lexRNet >=> RNetParse.parseRNet |] ) ]
+    rnetATranslators =  Map.fromList [ (ESL_A,   [e| reactionsAsModel |]) ]
+    topoCTranslators =  Map.fromList [ (TOPO_A,  [e| Aeson.eitherDecode @Net . B.pack |]) ]
+    topoATranslators =  Map.fromList [ (TOPO_C,  [e| Right . B.unpack . Aeson.encode @Net |])
+                                     , (ESL_A,   [e| Right . topologyAsModel |]) ]
 
     mkNode :: Map ModelType (Q Exp) -> ModelType -> [ModelType] -> (Map ModelType (Q Exp), ModelType, [ModelType])
     mkNode translators model links
@@ -164,7 +197,7 @@ vertexFromKey :: ModelType -> Maybe Vertex
 
 
 -- | For testing - synthesize all possible model-to-model journeys and, for all
--- that produce a valid path, declare them with a fresh name. The only occurrence
+-- that produce a valid path, declare them with a relevant name. The only occurrence
 -- of `fail` that this `recover` would catch is triggered when no path can be
 -- found between the model types.
 allConverters :: Q [Dec]
@@ -172,11 +205,10 @@ allConverters = concat <$> mapM (\pair -> pure [] `recover` mkConv pair) pairs
   where
     mkConv :: (Vertex, Vertex) -> Q [Dec]
     mkConv pair =
-      do  conv <- uncurry converter (verticesToNodes pair)
-          name <- gensym "f"
-          pure [FunD name [Clause [] (NormalB conv) []]]
+      do  let (from, to) = verticesToNodes pair
+              name = mkName $ filter (not . isSpace) $ show from<>"_to_"<>show to
+          converter' (show name) from to
 
-    gensym pfx = mkName . show <$> newName pfx
     snd3 (_,y,_) = y
     pairs = mapMaybe pairToVertices $ allPairs allModels
 
@@ -184,7 +216,7 @@ allConverters = concat <$> mapM (\pair -> pure [] `recover` mkConv pair) pairs
     allPairs xs = concatMap (\x -> map (x,) xs) xs
 
     allModels :: [ModelType]
-    allModels = [ESL_C .. LATEX_C]
+    allModels = [ESL_C ..]
 
     verticesToNodes :: (Vertex, Vertex) -> (ModelType, ModelType)
     verticesToNodes (v1, v2) = (snd3 $ nodeFromVertex v1, snd3 $ nodeFromVertex v2)

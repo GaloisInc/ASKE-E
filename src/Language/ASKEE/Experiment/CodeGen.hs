@@ -27,16 +27,25 @@ data ExperimentDecl =
 vectorOfType :: C.Doc -> C.Doc
 vectorOfType ty = C.ident "std::vector" <> C.angles [ty]
 
+compileDecls :: [Decl] -> C.Doc
+compileDecls ds = PP.vcat (ds >>= compileDecl)
+  where
+  compileDecl d =
+    case d of
+      DMeasure m -> [compileMeasure m]
+      DModel _   -> []
+      DMain m -> [compileMain m]
+      DExperiment e -> [compileExperiment e]
+
 compileMain :: MainDecl -> C.Doc
 compileMain mndecl =
   vcat
-    [ C.main (map compileMainStmt (mainStmts mndecl)) ]
+    [ C.main $ declareOutput ++ map compileMainStmt (mainStmts mndecl) ]
   where
     compileMainStmt stmt =
       case stmt of
         MSSample samplesName samplesNum experName _ -> vcat $
           declareSamples experName samplesName :
-          map declareOutput (mainOutput mndecl) ++
           [ loop samplesNum $
             [ declareExper experName
             , runExper experName
@@ -72,13 +81,15 @@ compileMain mndecl =
     declareSamples experName samplesName = 
       C.declare (vectorOfType (compileVar experName)) (compileVar samplesName)
 
-    declareOutput :: Expr -> C.Doc
-    declareOutput e =
-      case e of
-        -- XXX: this is, at the very least, ugly
-        Dot (Var (TypedName _ (Just (TypeVector (TypeCon (TCon _ _ tcFields)))))) lbl _ -> 
-          C.declare (vectorOfType (compileType $ tcFields Map.! lbl)) (C.ident $ "_"<>lbl)
-        _ -> C.nop
+    declareOutput :: [C.Doc]
+    declareOutput = map declare (mainOutput mndecl)
+      where
+      declare e =
+        case e of
+          -- XXX: this is, at the very least, ugly
+          Dot (Var (TypedName _ (Just (TypeVector (TypeCon (TCon _ _ tcFields)))))) lbl _ -> 
+            C.declare (vectorOfType (compileType $ tcFields Map.! lbl)) (C.ident $ "_"<>lbl)
+          _ -> C.nop
 
     loop :: Int -> [C.Doc] -> C.Doc
     loop bound stmts = 

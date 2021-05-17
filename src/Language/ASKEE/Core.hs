@@ -8,6 +8,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Functor.Identity(runIdentity)
+import qualified Data.Functor.Const as Const
 
 import Language.ASKEE.Panic (panic)
 
@@ -46,18 +47,18 @@ data Expr =
   | Var Ident
   | If Expr Expr Expr
   | Fail String
-    deriving (Show,Eq)
+    deriving (Show,Eq, Ord)
 
-data Op1 = Not | Neg | Paren
-  deriving (Show,Eq)
+data Op1 = Not | Neg | Exp | Log
+  deriving (Show,Eq,Ord)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
-  deriving (Show,Eq)
+  deriving (Show,Eq,Ord)
 
 data Literal =
     Num Double
   | Bool Bool
-    deriving (Show,Eq)
+    deriving (Show,Eq,Ord)
 
 
 --------------------------------------------------------------------------------
@@ -167,15 +168,25 @@ substExpr su expr =
     Var x | Just e <- Map.lookup x su -> e
     _ -> mapExprs (substExpr su) expr
 
+collect :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
+collect f t =
+  Const.getConst $ traverseExprs (Const.Const . f) t
+
+collectVars :: (TraverseExprs t) => t -> Set.Set Ident
+collectVars = collect var
+  where
+    var v =
+      case v of
+        Var n -> Set.singleton n
+        _ -> Set.empty
 
 ppExpr :: Expr -> PP.Doc
 ppExpr expr =
   case expr of
     NumLit d -> PP.text $ printf "%f" d
     BoolLit b -> if b then "true" else "false"
-    Op1 Neg e' -> "-"PP.<>PP.parens (pp e')
-    Op1 Not e' -> "not"PP.<+>PP.parens (pp e')
-    Op1 Paren e' -> PP.parens (ppExpr e')
+    Op1 Neg e' -> "-"PP.<>pp e'
+    Op1 Not e' -> "not"PP.<+>pp e'
     e1 :+: e2 -> PP.hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
@@ -205,9 +216,8 @@ ppExpr expr =
       case e of
         NumLit  _ -> 10
         BoolLit _ -> 10
-        Op1 Neg _ -> 0
-        Op1 Not _ -> 0
-        Op1 Paren _ -> 10
+        Op1 Neg _ -> 10
+        Op1 Not _ -> 10
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7

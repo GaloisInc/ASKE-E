@@ -47,7 +47,7 @@ instance TypeOf Expr where
           And -> TypeBool
           Range -> TypeStream TypeNumber
 
-      Point fileds ->
-        TypePoint (Map.fromList [ (x,typeOf e) | (x,e) <- fileds ])
+      Point fields ->
+        TypePoint (Map.fromList [ (x,typeOf e) | (x,e) <- fields ])
 
 

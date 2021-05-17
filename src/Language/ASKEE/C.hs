@@ -73,7 +73,7 @@ callInfix :: Doc -> Doc -> Doc -> Doc
 callInfix op x y = x <+> op <+> y
 
 callPrefix :: Doc -> Doc -> Doc
-callPrefix op x = op <+> x
+callPrefix op x = op <+> parens x
 
 not :: Doc -> Doc
 not e = "!" <> e

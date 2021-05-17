@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.Check where
 
-import           Control.Monad (unless, forM_, mapM_)
+import           Control.Monad (unless, forM_)
 import           Control.Monad.State (StateT, evalStateT, get, put, lift)
 import           Control.Monad.Writer (Writer, execWriter, tell)
 
@@ -55,12 +55,15 @@ eventRepr = "event"
 
 -- | Perform scope- and type-checking of a `Model`
 checkModel :: Model -> Either String Model
-checkModel m@Model{..} = evalStateT go initExprInfo >> pure m
+checkModel m@Model{..} = evalCheck go >> pure m
   where
     go :: Check ()
     go = 
       do  checkDecls modelDecls
           checkEvents modelEvents
+
+evalCheck :: Check a -> Either String a
+evalCheck c = evalStateT c initExprInfo
 
 -- | Scope- and type-check model declarations
 checkDecls :: [Decl] -> Check ()
@@ -93,8 +96,8 @@ checkEvents = mapM_ checkEvent
           forM_ eventEffect $ 
             \(var, expr) ->
               do  scopeCheck eventRepr (Just var) expr
-                  ty <- typeCheck eventRate
-                  lift $ expect Nothing expr Double ty
+                  ty' <- typeCheck eventRate
+                  lift $ expect Nothing expr Double ty'
 
 -- | Scope- and type-check an expression being bound to a variable, adding
 -- the expression and type binding to state
@@ -123,7 +126,7 @@ scopeCheck thing varM expr =
       unless (eVars `Set.isSubsetOf` boundVars) $
         let unboundVars = show $ Set.toList $ eVars Set.\\ boundVars 
             exprStr = show $ printExpr expr
-        in  fail . unlines $
+        in  lift . Left . unlines $
               [ "in \'"<>thing<>maybe "" (\var -> " "<>Text.unpack var) varM<>"\', expression"
               , exprStr
               , "references unbound variables:"
@@ -133,13 +136,13 @@ scopeCheck thing varM expr =
         Nothing -> pure ()
         Just var
           | var `Set.member` boundVars && thing /= eventRepr -> 
-            fail . unlines $ 
+            lift . Left . unlines $ 
               [ "in \'"<>thing<>"\'-type (re)binding for \'"<>Text.unpack var<>"\':"
               , "binding cannot shadow an existing binding"
               ]
           -- the below branch may not be needed
           | var `Set.member` eVars && thing /= eventRepr -> 
-            fail . unlines $ 
+            lift . Left . unlines $ 
               [ "in \'"<>thing<>"\'-type binding for \'"<>Text.unpack var<>"\':"
               , "variable "<>Text.unpack var<>" cannot be referred to in its own expression:"
               , show (printExpr expr)
@@ -165,6 +168,8 @@ typeOf bindings orig = ty orig
         Mul e1 e2   -> arithTy e1 e2
         Div e1 e2   -> arithTy e1 e2
         Neg e1      -> ty e1 >>= expect' e1 Double >> pure Double
+        Exp e1      -> ty e1 >>= expect' e1 Double >> pure Double
+        Log e1      -> ty e1 >>= expect' e1 Double >> pure Double
         And e1 e2   -> logTy e1 e2
         Or e1 e2    -> logTy e1 e2
         Not e1      -> ty e1 >>= expect' e1 Boolean >> pure Boolean
@@ -247,7 +252,7 @@ expect context expr expected got =
     then pure ()
     else 
       case context of
-        Nothing -> fail . unlines $
+        Nothing -> Left . unlines $
           [ "type mismatch!"
           , "in:"
           , show (printExpr expr)
@@ -256,7 +261,7 @@ expect context expr expected got =
           , "but got type:"
           , "  "<>show got
           ]
-        Just orig -> fail . unlines $
+        Just orig -> Left . unlines $
           [ "type mismatch!"
           , "in:"
           , show (printExpr expr)

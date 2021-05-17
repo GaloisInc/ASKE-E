@@ -14,11 +14,11 @@ import Numeric(showGFloat)
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import           Language.ASKEE.DEQ.Print (ppDiffEqs)
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Print as PP
-import Language.ASKEE.RNet.Syntax (ReactionNet(..))
 import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
@@ -36,6 +36,10 @@ main =
        DumpCPP -> 
           forM_ (modelFiles opts) 
             (genCppRunner . FromFile)
+
+       DumpDEQs ->
+         do ds <- exactlyOne "model" =<< loadDiffEqs opts []
+            print (ppDiffEqs ds)
 
        SimulateODE x y z ->
          do m0 <- exactlyOne "model" =<< loadDiffEqs opts []
@@ -123,8 +127,8 @@ loadDiffEqs opts ps0 =
        pure (DiffEq.asEquationSystem m)
 
   fromRNet file =
-    do  ReactionNet bindings reactions <- loadReactions file
-        m <- case reactionsAsModel "foo" bindings reactions of
+    do  rnet <- loadReactions file
+        m <- case reactionsAsModel rnet of
           Right model -> pure model
           Left err -> fail err
         print (PP.printModel m)

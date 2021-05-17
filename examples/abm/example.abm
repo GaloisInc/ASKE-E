@@ -1,0 +1,86 @@
+# one or more statuses
+status Health:
+    susceptible
+    exposed
+    infected
+    recovered
+    dead
+
+status Quarantine:
+    quarantined
+    not_quarantined
+
+# exactly one agent
+agent:
+    health :: Health
+    quarantine :: Quarantine
+
+# one or more cohorts
+cohort S:
+    health == susceptible
+
+cohort E, I, R, D...
+
+cohort F:
+    (health == exposed || health == infected) && quarantine == not_quarantined
+
+cohort Q:
+    quarantine == quarantined
+
+# exactly one `model`
+model SIR:
+    let pop_size = 100000
+    let beta = ...
+    let gamma = ...
+    ...
+
+    # exactly one `init` block
+    init:
+        # these are probabilities
+        susceptible = 1
+        exposed = 0
+        infected = 0
+        recovered = 0
+        dead = 0
+        
+        quarantined = 0
+        not_quarantined = 1
+
+        # in aPRAM, the step of "seed infections" is a separate one,
+        # for some reason
+        exposed = 10 / pop_size
+
+    event Expose:
+        on:   S
+        do:   health = exposed
+        rate: beta
+
+    event TakeIll:
+        on:   E
+        do:   health = infected
+        rate: gamma
+
+    event RemainBlissfullyUnaware:
+        on:   E
+        do:   health = recovered
+        rate: alpha
+
+    event Recover:
+        on:   I
+        do:   health = recovered
+        rate: sigma
+
+    event Die:
+        on:   I
+        do:   health = dead
+        rate: omega
+
+    event EnterQuarantine:
+        on:   F
+        do:   quarantine = quarantined
+        rate: once_in_a_blue_moon
+
+    event LeaveQuarantine:
+        on:   Q
+        do:   quarantine = not_quarantined
+        rate: pretty_often
