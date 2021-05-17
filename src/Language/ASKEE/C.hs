@@ -171,6 +171,8 @@ bool = "bool"
 char :: Doc
 char = "char"
 
+static :: Doc
+static = "static"
 
 --------------------------------------------------------------------------------
 -- Statements
