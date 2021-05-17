@@ -184,26 +184,35 @@ public:
     return new_random;
   }
 
-  std::vector<std::vector<Product>> make_samples(int n) {
-    std::vector<std::vector<Product>> results;
-    while (n --> 0) {
-      std::vector<Product> result;
-      auto sampler = sample<Range, Random<Data, Product>>(time_domain, *this);
+  template <typename NewProduct>
+  Random<Data, NewProduct> measure() {
+    std::function<NewProduct(Product)> op = [=](Product p) {
+      NewProduct measurement;
+      Model<Product> product_model = {p};
+      auto sampler = sample<Range, Model<Product>>(time_domain, product_model);
       while (!sampler.done()) {
-        result.push_back(sampler.getPoint());
+        measurement.addPoint(sampler.getPoint());
         sampler.step();
       }
-      results.push_back(result);
       member.reset();
+      return measurement;
+    };
+    Random<Data, NewProduct> new_random(member, compose(op, lens));
+    return new_random;
+  }
+
+  std::vector<Product> make_samples(int n) {
+    std::vector<Product> result;
+    while (n --> 0) {
+      result.push_back(getPoint());
     }
-    return results;
+    return result;
   }
 
 private:
   Model<Data>& member;
   std::function<Product(Data)> lens;
   Range time_domain;
-  void* measure;
 };
 
 #endif
