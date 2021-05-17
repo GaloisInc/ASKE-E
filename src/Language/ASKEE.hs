@@ -21,7 +21,6 @@ import           Data.Text                  ( Text
 import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as TextIO
 import qualified Data.ByteString.Lazy.Char8 as B
-import Data.Aeson ( encode, decode )
 import qualified Data.Aeson as JSON
 import qualified Prettyprinter as PP
 
@@ -56,43 +55,17 @@ import qualified Language.ASKEE.RNet.GenParser         as RP
 import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen           as SG
 import qualified Language.ASKEE.Syntax                 as Syntax
+import qualified Language.ASKEE.Gromet                 as Gromet
 
 import System.Process   ( readProcess )
 import GHC.Generics (Generic)
 
 
-import qualified Language.ASKEE.Core as Core
-import qualified Language.ASKEE.DEQ.GenLexer as DL
-import qualified Language.ASKEE.DEQ.GenParser as DP
-import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import           Language.ASKEE.DEQ.Print ( ppDiffEqs )
-import           Language.ASKEE.Core.ImportASKEE (modelAsCore)
-import qualified Language.ASKEE.GenLexer as AL
-import qualified Language.ASKEE.GenParser as AP
-import qualified Language.ASKEE.Latex.GenLexer as LL
-import qualified Language.ASKEE.Latex.GenParser as LP
-import           Language.ASKEE.Lexer (Token, Located)
-import qualified Language.ASKEE.Measure as M
-import qualified Language.ASKEE.MeasureToCPP as MG
-import qualified Language.ASKEE.RNet.GenLexer as RL
-import qualified Language.ASKEE.RNet.GenParser as RP
-import           Language.ASKEE.RNet.Syntax ( ReactionNet(..) )
-import qualified Language.ASKEE.SimulatorGen as SG
-import qualified Language.ASKEE.Syntax as Syntax
-import qualified Language.ASKEE.ModelStratify.Syntax as MS
 import qualified Language.ASKEE.Experiment.Syntax as E
 import qualified Language.ASKEE.Experiment.CodeGen as EGen
 import qualified Language.ASKEE.Experiment.Parser as EP
 import qualified Language.ASKEE.C as C
 import qualified Language.ASKEE.CppCompiler as CC
-import Data.Word (Word8)
-
-
-import System.Directory ( withCurrentDirectory, makeAbsolute, removeFile )
-import System.Process ( readProcess )
-import System.IO.Temp ( withSystemTempFile, writeSystemTempFile )
-import System.Random ( randomIO )
-import System.IO (hPutStr, hSeek, SeekMode (AbsoluteSeek))
 
 newtype ParseError      = ParseError String deriving Show
 newtype ValidationError = ValidationError String deriving Show
@@ -379,3 +352,15 @@ runExp cores decls =
       case JSON.decode (B.pack str) of
         Nothing -> throwIO (ValidationError "could not parse generated experiment program output as json")
         Just j -> pure j
+
+
+coreToGromet :: Core.Model -> Gromet.Gromet
+coreToGromet = Gromet.convertCoreToGromet
+
+easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
+easelToGromet e = coreToGromet <$> modelAsCore [] e
+
+dsToGrometJSON :: DataSource -> IO JSON.Value
+dsToGrometJSON ds =
+  do  core <- loadCoreModel' ds
+      pure (JSON.toJSON $ coreToGromet core)
