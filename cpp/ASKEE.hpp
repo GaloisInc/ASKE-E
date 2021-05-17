@@ -162,13 +162,13 @@ public:
   }
 
   Random operator+(Random other) {
-    std::function<Product(Product)> adder = [=](Product x){ return x + other.getPoint(); };
-    Random<Data, Product> new_random(member, compose(adder, lens));
+    std::function<Product(Product)> op = [=](Product x){ return x + other.getPoint(); };
+    Random<Data, Product> new_random(member, compose(op, lens));
     return new_random;
   }
   Random operator*(Random& other) {
-    std::function<Product(Product)> adder = [=](Product x){ return x * other.getPoint(); };
-    Random<Data, Product> new_random(member, compose(adder, lens));
+    std::function<Product(Product)> op = [=](Product x){ return x * other.getPoint(); };
+    Random<Data, Product> new_random(member, compose(op, lens));
     return new_random;
   }
   // etc.
