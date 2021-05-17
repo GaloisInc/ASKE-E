@@ -1,27 +1,31 @@
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE BangPatterns #-}
 module Language.ASKEE.Exposure.Typechecker where
 
-import Data.Text(Text, pack)
-import Data.Map(Map)
-import qualified Data.Map as Map
-import Data.Set(Set)
-import qualified Data.Set as Set
-import qualified Data.List as List
-import Control.Monad(when, unless, forM, zipWithM, void)
-import Data.Foldable(traverse_)
-import qualified Control.Monad.State as State
-import qualified Control.Monad.Except as Except
-import Control.Monad.Except(throwError)
+import           Control.Monad          ( when
+                                        , unless
+                                        , forM
+                                        , zipWithM
+                                        , void
+                                        )
+import qualified Control.Monad.Except   as Except
+import           Control.Monad.Except   ( throwError )
+import qualified Control.Monad.State    as State
 
-import qualified Language.ASKEE.Exposure.Syntax as E
-import Language.ASKEE.Exposure.TypeOf(typeOf)
-import Language.ASKEE.Exposure.TraverseType(TraverseType(traverseType), collect, mapType)
-import Language.ASKEE.Panic (panic)
-import Debug.Trace (traceShowId)
-import Control.Monad.Identity
+import           Data.Foldable ( traverse_ )
+import qualified Data.List     as List
+import           Data.Map      ( Map )
+import qualified Data.Map      as Map
+import           Data.Set      ( Set )
+import qualified Data.Set      as Set
+import           Data.Text     ( Text, pack )
+
+import qualified Language.ASKEE.Exposure.Syntax       as E
+import           Language.ASKEE.Exposure.TraverseType ( TraverseType(traverseType)
+                                                      , collect
+                                                      , mapType
+                                                      )
 
 --------------
 

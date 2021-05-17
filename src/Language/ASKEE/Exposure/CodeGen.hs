@@ -2,19 +2,16 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.Exposure.CodeGen where
 
-import Data.Text(Text, pack)
-import Data.Map(Map)
-import qualified Data.Map as Map
-import Data.List(intersperse)
-import Prettyprinter(pretty,(<+>),vcat,hsep,punctuate,comma)
-import qualified Prettyprinter as PP
+import           Data.Map  ( Map )
+import qualified Data.Map  as Map
+import           Data.Text ( Text )
 
+import           Language.ASKEE.Panic           ( panic )
+import qualified Language.ASKEE.C               as C
+import           Language.ASKEE.Exposure.Syntax
+import           Language.ASKEE.Exposure.TypeOf ( typeOf )
 
-import Language.ASKEE.Panic(panic)
-import qualified Language.ASKEE.C as C
-import Language.ASKEE.Exposure.Syntax
-import Language.ASKEE.Exposure.TypeOf(typeOf)
-
+import Prettyprinter ( pretty, (<+>), vcat, hsep, punctuate, comma )
 
 compileDecls :: [Decl] -> C.Doc
 compileDecls ds =
@@ -48,8 +45,10 @@ compileModelInterface (ModelDecl name fields) =
       ]
 
 
+-- `models` passed as a parameter to generate correct types for let
+-- bindings, which we don't do at the moment
 compileMain :: [Text] -> MainDecl -> C.Doc
-compileMain models (MainDecl stmts output) =
+compileMain _models (MainDecl stmts _output) =
   C.main $ map compileStmt stmts
 
 
