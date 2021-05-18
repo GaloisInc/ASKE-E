@@ -33,6 +33,8 @@ library
                      , Language.ASKEE.APRAM.GenParser
                      , Language.ASKEE.APRAM.Lexer
 
+                     , Language.ASKEE.Gromet
+
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
                      , Language.ASKEE.ABM.Translate
