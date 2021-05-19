@@ -1,0 +1,5 @@
+packages:
+  aske-e.cabal
+
+package snap-server
+  flags: +openssl
