@@ -192,7 +192,11 @@ public:
       Model<Product> product_model = {p};
       auto sampler = sample<Range, Model<Product>>(time_domain, product_model);
       while (!sampler.done()) {
-        measurement.addPoint(sampler.getPoint());
+        Product point = sampler.getPoint();
+        if (measurement.done(point)) {
+          break;
+        }
+        measurement.addPoint(point);
         sampler.step();
       }
       member.reset();

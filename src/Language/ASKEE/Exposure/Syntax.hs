@@ -84,6 +84,7 @@ data MeasureDecl =
               , measureVars :: [(Binder, Expr)]
               , measureDataBinder :: Binder
               , measureImpl :: [Stmt]
+              , measureUntil :: Maybe (Binder, Expr)
               , measureFinal :: Maybe Expr  --XXX: should this be more stmty, ex conditional returns?
               }
   deriving Show

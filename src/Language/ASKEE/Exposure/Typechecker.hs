@@ -122,9 +122,18 @@ inferMeasure measure =
 
         -- binder
         binderTy <- newTVar
+
+        until' <- case E.measureUntil measure of
+          Nothing -> pure Nothing
+          Just (b, e) -> scope
+            do  --binderTy <- newTVar
+                let b' = E.setType b binderTy
+                bindVar (E.tnName b') binderTy
+                (e', _) <- inferExpr e
+                pure $ Just (b', e')
+
         let dataBinder' = E.setType (E.measureDataBinder measure) binderTy
         bindVar (E.tnName dataBinder') binderTy
-
         -- impl
         block' <- inferBlock (E.measureImpl measure)
 
@@ -135,6 +144,7 @@ inferMeasure measure =
                                  , E.measureVars = zip varNames' varExps'
                                  , E.measureDataBinder = dataBinder'
                                  , E.measureImpl = block'
+                                 , E.measureUntil = until'
                                  , E.measureFinal = Nothing -- XXX fexpr
                                  }
 

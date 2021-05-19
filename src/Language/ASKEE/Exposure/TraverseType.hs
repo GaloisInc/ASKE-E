@@ -93,6 +93,7 @@ instance TraverseType MeasureDecl where
                 <*> traverseType f (measureVars md)
                 <*> traverseType f (measureDataBinder md)
                 <*> traverseType f (measureImpl md)
+                <*> traverseType f (measureUntil md)
                 <*> (traverseType f `traverse` measureFinal md)
 
 -- instance TraverseType ExperimentDecl where

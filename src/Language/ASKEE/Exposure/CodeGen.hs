@@ -571,7 +571,7 @@ compileMeasure mdecl =
   , "struct" <+> name <+> "{"
   , C.nested $ map attr         (measureArgs mdecl) ++
                map (attr . fst) (measureVars mdecl)
-  , C.nested [ con, addPoint ]
+  , C.nested [ con, addPoint, done ]
   ,"};"
   ]
   where
@@ -600,6 +600,22 @@ compileMeasure mdecl =
     in C.function C.void "addPoint"
           [ C.refArg (compileType (getType vDB)) (compileVar vDB) ]
           (map compileStmt (measureImpl mdecl))
+
+  done = 
+    let pointBinder = 
+          case measureUntil mdecl of
+            Just (b, _) | b == measureDataBinder mdecl -> b
+            Just _ -> panic "" []
+            Nothing -> measureDataBinder mdecl
+        endCond =
+          case measureUntil mdecl of
+            Just (_, e) -> compileExpr e
+            Nothing -> C.boolLit False
+    in  C.function 
+          C.bool
+          "done" 
+          [C.refArg (compileType (getType pointBinder)) (compileVar pointBinder)] 
+          [C.returnWith endCond]
 {-
 --------------------------------------------------------------------------------
 -- Statements

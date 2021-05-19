@@ -79,6 +79,7 @@ import Language.ASKEE.Exposure.Lexer
   'at'          { Lexeme { lexemeRange = $$, lexemeToken = KWat         } }
   'main'        { Lexeme { lexemeRange = $$, lexemeToken = KWmain       } }
   'vmean'       { Lexeme { lexemeRange = $$, lexemeToken = KWvmean      } }
+  'until'       { Lexeme { lexemeRange = $$, lexemeToken = KWuntil      } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -145,7 +146,10 @@ measureExpr                            :: { MeasureExpr }
 measure                                :: { MeasureDecl }
   : 'measure' ident params
       listOf(measureVar)
-      'with' ident block finalizeBlock    { MeasureDecl
+      'with' ident 
+        block 
+        untilBlock 
+        finalizeBlock                     { MeasureDecl
                                               { measureName = $2
                                               , measureTArgs = []
                                               , measureConstraints = []
@@ -153,11 +157,16 @@ measure                                :: { MeasureDecl }
                                               , measureVars = $4
                                               , measureDataBinder = $6
                                               , measureImpl = $7
-                                              , measureFinal = $8
+                                              , measureUntil = $8
+                                              , measureFinal = $9
                                               } }
 
 measureVar                             :: { (Ident,Expr) }
   : ident '=' expr                        { ($1,$3) }
+
+untilBlock
+  :                                       { Nothing }
+  | 'until' ident expr                    { Just ($2, $3) }
 
 finalizeBlock                          :: { Maybe Expr }
   : {- empty -}                           { Nothing }
