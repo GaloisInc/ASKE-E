@@ -251,21 +251,20 @@ compileExpr' prec expr =
             (C.call ("select"<>C.angles [compileType $ typeOfField t l]) ["get_"<>C.ident l])
         _ -> C.member (compileExpr' prec e) (pretty l)
     At e1 e2 -> C.member (go e1) (C.call "at" [go e2])
-    Sample n e -> C.member (go e) (C.call "make_samples" [C.intLit n])
+    Sample n e -> 
+      case typeOf e of
+        TypeRandomVar (TypeVector _) -> C.member (go e) (C.call "take_non_measure_samples" [C.intLit n])
+        TypeRandomVar _ -> C.member (go e) (C.call "take_measure_samples" [C.intLit n])
+        _ -> panic "compileExpr'" ["tried to generate code for a measurement of a non-random thing"]
     Measure e (TypedName measureName _) _ _ -> 
-      let measuredThing = measuredThingName e
+      let measuredThing =
+            case typeOf e of
+              TypeRandomVar (TypeVector (TypeCon (TCon n _ _))) -> n
+              _ -> panic "compileExpr'" [show e]
       in  C.member (go e) (C.call ("measure"<>C.typeArgList [C.ident measureName <> C.typeArgList [C.ident measuredThing]]) [])
     _ -> error $ show expr
   where
     go = compileExpr' prec
-
-measuredThingName :: Expr -> Text
-measuredThingName e =
-  case e of
-    Var v -> tnName v
-    At e1 _ -> measuredThingName e1
-    _ -> panic "measuredThingName" ["failed to treat expression "<>show e<>" as a measured thing"]
-
 
 typeOfField :: Type -> Label -> Type
 typeOfField t l =

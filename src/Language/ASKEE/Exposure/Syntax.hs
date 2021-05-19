@@ -67,13 +67,13 @@ data MeasureExpr =
 --   | ESTrace Binder Expr
 --   deriving Show
 
-data ExperimentDecl =
-  ExperimentDecl { experimentName :: Maybe Ident
-                 , experimentArgs :: [Binder]
-                 , experimentStmts :: [Stmt]
-                 -- , experimentReturn :: Expr
-                 }
-  deriving Show
+-- data ExperimentDecl =
+--   ExperimentDecl { experimentName :: Maybe Ident
+--                  , experimentArgs :: [Binder]
+--                  , experimentStmts :: [Stmt]
+--                  -- , experimentReturn :: Expr
+--                  }
+--   deriving Show
 
 -- XXX: add measure finalizer/initializers?
 data MeasureDecl =

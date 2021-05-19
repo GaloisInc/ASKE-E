@@ -515,7 +515,7 @@ requireUnboundName name =
       when isBound (throwError $ "Symbol '" <> name <> "' is already bound")
   where
     isNameBound env =
-      Map.member name (ceVars env) -- || Map.member name (ceDecls env)
+      Map.member name (ceVars env) --  || Map.member name (ceDecls env)
 
 bindVar :: Text -> E.Type -> TC ()
 bindVar name ty =

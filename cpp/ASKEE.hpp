@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <functional>
+#include <assert.h>
 
 template<typename TModel>
 class Model {
@@ -198,16 +199,39 @@ public:
       return measurement;
     };
     Random<Data, NewProduct> new_random(member, compose(op, lens));
+    new_random.measured = true;
     return new_random;
   }
 
-  std::vector<Product> make_samples(int n) {
+  std::vector<Product> take_measure_samples(int n) {
+    assert(measured);
+
     std::vector<Product> result;
     while (n --> 0) {
       result.push_back(getPoint());
     }
     return result;
   }
+
+  std::vector<std::vector<Product>> take_non_measure_samples(int n) {
+    assert(!measured);
+
+    std::vector<std::vector<Product>> results;
+    while (n --> 0) {
+      std::vector<Product> result;
+      auto sampler = sample<Range, Random<Data, Product>>(time_domain, *this);
+      while (!sampler.done()) {
+        result.push_back(sampler.getPoint());
+        sampler.step();
+      }
+      results.push_back(result);
+      member.reset();
+    }
+    return results;
+  }
+
+public:
+  bool measured;
 
 private:
   Model<Data>& member;

@@ -29,7 +29,7 @@ instance TypeOf Expr where
           Just t -> t
           Nothing -> panic "typeOf" ["Missing type in selector"]
 
-      Call f es ->
+      Call f _es ->
         case f of
           Add -> TypeNumber
           Multiply -> TypeNumber
@@ -46,8 +46,31 @@ instance TypeOf Expr where
           Or -> TypeBool
           And -> TypeBool
           Range -> TypeVector TypeNumber
+          VMean -> TypeNumber
 
       Point fileds ->
         TypePoint (Map.fromList [ (x,typeOf e) | (x,e) <- fileds ])
+
+      At slicedThing _slicer -> 
+        case typeOf slicedThing of
+          TypeRandomVar (TypeStream ty) -> TypeRandomVar (TypeVector ty)
+          ty -> panic "typeOf"  [ "Expected sliced thing:"
+                                , show slicedThing
+                                , "to be a `TypeRandomVar (TypeStream a)`."
+                                , "Instead, it was:"
+                                , show ty
+                                ]
+
+      Measure _ mTool _ _ -> TypeRandomVar $ typeOf mTool
+
+      Sample _sampleNum sampledThing ->
+        case typeOf sampledThing of
+          TypeRandomVar ty -> TypeVector ty
+          ty -> panic "typeOf"  [ "Expected sampled thing:"
+                                , show sampledThing
+                                , "to be a `TypeRandomVar a`."
+                                , "Instead, it was:"
+                                , show ty
+                                ]
 
 
