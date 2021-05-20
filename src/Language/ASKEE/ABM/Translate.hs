@@ -9,7 +9,6 @@ import qualified Data.MultiSet as MSet
 import           Data.MultiSet ( MultiSet )
 import qualified Data.Set  as Set
 import           Data.Set  ( Set )
-import qualified Data.Text as Text
 import           Data.Text ( Text, pack )
 
 import qualified Language.ASKEE.ABM.Syntax as ABM

@@ -316,6 +316,7 @@ compileExpr prec expr =
     Var x     -> compileVar x
     Call f es -> compileCall prec f es
     Dot e l _ -> C.member (compileExpr 1 e) (labelName l)
+    Point _   -> undefined
     -- Point [(Text, Expr)]
 
 compileVar :: TypedName -> C.Doc
