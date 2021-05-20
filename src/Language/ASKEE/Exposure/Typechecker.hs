@@ -172,110 +172,6 @@ inferMeasure measure =
                                    }
 
 
-
--- inferMeasureExpr :: E.MeasureExpr -> TC (E.MeasureExpr, E.Type)
--- inferMeasureExpr mexpr =
---   do let name = E.tnName (E.meMeasureName mexpr)
---      (mty, tyArgs) <- lookupMeasure name
---      es  <- checkCall name (E.meArgs mexpr) (E.mtArgs mty)
---      dsTy <- getVarType (E.tnName (E.meDataset mexpr))
---      unify (E.TypeVector (E.mtData mty)) dsTy
-
---      let r = E.mtResult mty
-
---      pure ( E.MeasureExpr { E.meMeasureName = E.setType (E.meMeasureName mexpr) r
---                           , E.meDataset = E.setType (E.meDataset mexpr) dsTy
---                           , E.meArgs = es
---                           , E.meTypeArgs = tyArgs
---                           }
---           , r
---           )
-
--- inferSampleExpr :: E.SampleExpr -> TC (E.SampleExpr, E.Type)
--- inferSampleExpr sexpr =
---   do  let name = E.tnName (E.seName sexpr)
---       ety <- lookupSampleSource name
---       seRange' <- checkExpr (E.seRange sexpr) (E.TypeStream E.TypeNumber)
---           -- XXX: perhaps Stream should be a constraint instead of a type
-
---       seArgs' <- checkCall name (E.seArgs sexpr) (E.etArgs ety)
-
---       pure ( E.SampleExpr { E.seName = E.seName sexpr
---                           , E.seArgs = seArgs'
---                           , E.seRange = seRange'
---                           }
---            , E.TypeStream (E.etResult ety)
---            )
-
--- inferExperimentStmt :: E.ExperimentStmt -> TC E.ExperimentStmt
--- inferExperimentStmt stmt =
---   case stmt of
---     E.ESLet name e ->
---       do  (e', ty) <- inferExpr e
---           bindVar (E.tnName name) ty
---           pure $ E.ESLet (E.setType name ty) e'
-
---     E.ESMeasure name m ->
---       do  (m', ty) <- inferMeasureExpr m
---           bindVar (E.tnName name) ty
---           pure $ E.ESMeasure (E.setType name ty) m'
-
---     E.ESSample name se ->
---       do  (se', ty) <- inferSampleExpr se
---           bindVar (E.tnName name) ty
---           pure $ E.ESSample (E.setType name ty) se'
-
---     E.ESTrace name e ->
---       do  (e', ty) <- inferExpr e
---           var <- newTVar
---           unify ty (E.TypeStream var)
---           let vty = E.TypeVector var
---           pure $ E.ESTrace (E.setType name vty) e'
-
-
--- inferExperiment :: E.ExperimentDecl -> TC E.ExperimentDecl
--- inferExperiment ex =
---   inferArgs (E.experimentArgs ex) \args' ->
---     do  stmts' <- inferExperimentStmt `traverse` E.experimentStmts ex
-
--- {-
---         -- XXX: maybe add constraint to rty to ensure the type is 'simple'
---         (returnExp', rty) <- inferExpr (E.experimentReturn ex)
--- -}
-
---         cns <- extractConstraints >>= solveConstraints
-
---         let rty = E.TypeCon
---                   E.TCon { E.tconName = E.tnName (E.experimentName ex)
---                          , E.tconArgs = []
---                          , E.tconFields = Map.fromList
---                                                   (concatMap stmtToField stmts')
---                          }
-
---         let exName = E.experimentName ex
---         let ex' = E.ExperimentDecl { E.experimentName = E.setType exName rty
---                                    , E.experimentArgs = args'
---                                    , E.experimentStmts = stmts'
---                                    -- , E.experimentReturn = returnExp'
---                                    }
-
---         ex'' <- zonk ex'
---         let tvars = freeTVars ex''
-
---         -- XXX: errors are bad
---         unless (Set.null tvars) (throwError "experiment is polymorphic")
---         unless (null cns) (throwError "could not solve all constraints in experiment")
-
---         pure ex''
-
---   where
---   stmtToField s =
---     case s of
---       E.ESLet x e     -> [ (E.tnName x, typeOf e) ]
---       E.ESSample {}   -> []
---       E.ESMeasure x m -> [ (E.tnName x, E.getType (E.meMeasureName m)) ]
---       E.ESTrace x _   -> [ (E.tnName x, E.getType x) ]
-
 checkCall :: Text -> [E.Expr] -> [E.Type] -> TC [E.Expr]
 checkCall thing es ts =
   case compare have need of
@@ -553,19 +449,6 @@ lookupMeasure name =
            DTMeasure m -> instantiate m
            _ -> throwError $ "'" <> name <> "' is not a measure."
 
-
--- lookupSampleSource :: Text -> TC E.ExperimentType
--- lookupSampleSource name =
---   do mb <- State.gets (Map.lookup name . ceDecls)
---      case mb of
---        Nothing -> throwError $ "Undefined experiment '" <> name <> "'"
---        Just decl  ->
---          case decl of
---            DTExperiment e -> pure e
---            DTModel m -> pure E.ExperimentType { E.etArgs = []
---                                               , E.etResult = m
---                                               }
---            _ -> throwError $ "'" <> name <> "' is not a experiment."
 
 declName :: E.Decl -> Text
 declName decl =

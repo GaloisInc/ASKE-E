@@ -72,12 +72,6 @@ instance TraverseType Stmt where
       Let x e   -> Let <$> traverseType f x <*> traverseType f e
       If ts ys  -> If <$> traverseType f ts <*> traverseType f ys
 
--- instance TraverseType SampleExpr where
---   traverseType f se =
---     SampleExpr <$> traverseType f (seName se)
---                <*> traverseType f (seArgs se)
---                <*> traverseType f (seRange se)
-
 instance TraverseType MeasureExpr where
   traverseType f me =
     MeasureExpr <$> traverseType f (meMeasureName me)
@@ -97,20 +91,6 @@ instance TraverseType MeasureDecl where
                 <*> traverseType f (measureUntil md)
                 <*> (traverseType f `traverse` measureFinal md)
 
--- instance TraverseType ExperimentDecl where
---   traverseType f ed =
---     ExperimentDecl <$> traverseType f (experimentName ed)
---                    <*> traverseType f (experimentArgs ed)
---                    <*> traverseType f (experimentStmts ed)
-
--- instance TraverseType ExperimentStmt where
---   traverseType f stmt =
---     case stmt of
---       ESLet n e -> ESLet <$> traverseType f n <*> traverseType f e
---       ESSample n se -> ESSample <$> traverseType f n <*> traverseType f se
---       ESMeasure n me -> ESMeasure <$> traverseType f n <*> traverseType f me
---       ESTrace n e -> ESTrace <$> traverseType f n <*> traverseType f e
-
 instance TraverseType Decl where
   traverseType f decl =
     case decl of
@@ -122,15 +102,6 @@ instance TraverseType Decl where
 instance TraverseType MainDecl where
   traverseType f mn =
     MainDecl <$> traverseType f (mainStmts mn) <*> traverseType f (mainOutput mn)
-
--- instance TraverseType MainStmt where
---   traverseType f stmt =
---     case stmt of
---       MSSample bind num ident exprs ->
---         MSSample  <$> traverseType f bind 
---                   <*> pure num
---                   <*> traverseType f ident
---                   <*> traverseType f exprs
 
 instance TraverseType ModelDecl where
   traverseType f md =
