@@ -236,7 +236,7 @@ expr                                   :: { Expr }
   | expr '<=' expr                        { Call LessThanEqual    [$1, $3] }
   | expr '<'  expr                        { Call LessThan         [$1, $3] }
   | expr '>=' expr                        { Call GreaterThanEqual [$1, $3] }
-  | expr '>'  expr                        { Call GreaterThanEqual [$1, $3] }
+  | expr '>'  expr                        { Call GreaterThan      [$1, $3] }
 
   | expr '&&' expr                        { Call And [$1, $3] }
   | expr '||' expr                        { Call Or  [$1, $3] }
