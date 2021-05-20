@@ -234,6 +234,18 @@ public:
     return results;
   }
 
+  double probability(int n = 100) {
+    if (!measured) {
+      std::vector<std::vector<Product>> samples = take_non_measure_samples(n);
+      double count = 0;
+      for (std::vector<Product> sample : samples) {
+        assert(sample.size() == 1);
+        count += (int)sample[0];
+      }
+      return count / n;
+    }
+  }
+
 public:
   bool measured;
 

@@ -88,6 +88,7 @@ $ws+              ;
 "main"            { lexeme KWmain }
 "vmean"           { lexeme KWvmean }
 "until"           { lexeme KWuntil }
+"P"               { lexeme KWP }
 
 @ident            { lexeme Ident }
 @rational         { lexRational }
@@ -156,6 +157,7 @@ data Token =
   | KWmain
   | KWvmean
   | KWuntil
+  | KWP
   | StringLit Text
 
   | TokError String

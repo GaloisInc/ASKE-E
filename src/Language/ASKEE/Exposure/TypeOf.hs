@@ -73,4 +73,4 @@ instance TypeOf Expr where
                                 , show ty
                                 ]
 
-
+      Probability _ -> TypeNumber

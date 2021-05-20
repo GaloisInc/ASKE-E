@@ -80,6 +80,7 @@ import Language.ASKEE.Exposure.Lexer
   'main'        { Lexeme { lexemeRange = $$, lexemeToken = KWmain       } }
   'vmean'       { Lexeme { lexemeRange = $$, lexemeToken = KWvmean      } }
   'until'       { Lexeme { lexemeRange = $$, lexemeToken = KWuntil      } }
+  'P'           { Lexeme { lexemeRange = $$, lexemeToken = KWP          } }
 
 %monad { Parser }
 %lexer { nextToken } { Lexeme { lexemeToken = TokEOF } }
@@ -88,14 +89,13 @@ import Language.ASKEE.Exposure.Lexer
 %name exprP expr
 %name blockP block
 
-%left     'sample'
-%left     'measure' 'at'
 %left     '||'
 %left     '&&'
 %nonassoc '==' '!='
 %nonassoc '<' '>' '<=' '>='
 %left     '+' '-'
 %left     '*' '/'
+%left     'at'
 %left     '.'
 %nonassoc '!' NEG
 
@@ -250,6 +250,7 @@ expr                                   :: { Expr }
   | 'sample' '(' expr ',' NUMBER ')'      { Sample (floor $ snd $5) $3 }
   -- | 'trace' '(' expr ')'                  { Trace $3 }
   | 'vmean' '(' expr ')'                  { Call VMean [$3] }
+  | 'P' '(' expr ')'                      { Probability $3 }
 
 fieldInit                              :: {(Label, Expr)}
   : IDENT '=' expr                        {(snd $1, $3)}

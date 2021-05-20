@@ -196,6 +196,7 @@ data Expr =
       }
   | At Expr Expr
   | Sample Int Expr
+  | Probability Expr
   -- | Trace Expr
   | Point [(Text, Expr)]
   deriving (Show, Eq, Ord)

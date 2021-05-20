@@ -262,6 +262,8 @@ compileExpr' prec expr =
               TypeRandomVar (TypeVector (TypeCon (TCon n _ _))) -> n
               _ -> panic "compileExpr'" [show e]
       in  C.member (go e) (C.call ("measure"<>C.typeArgList [C.ident measureName <> C.typeArgList [C.ident measuredThing]]) [])
+    Probability e ->
+      C.member (go e) (C.call "probability" [])
     _ -> error $ show expr
   where
     go = compileExpr' prec

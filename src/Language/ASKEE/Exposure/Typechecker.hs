@@ -414,6 +414,11 @@ inferExpr e0 =
           addConstraint (E.IsFinite pointTy)
           pure (E.Sample sampleNum sampledThing', E.TypeVector pointTy)
 
+    E.Probability e ->
+      do  (e', ty) <- inferExpr e
+          unify ty (E.TypeRandomVar E.TypeBool)
+          pure (E.Probability e', E.TypeNumber)
+
     -- E.Trace tracedThing ->
     --   do  (tracedThing', tracedThingTy) <- inferExpr tracedThing
     --       ty <- newTVar
