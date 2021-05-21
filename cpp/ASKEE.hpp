@@ -136,7 +136,7 @@ std::function<C(A)> compose(std::function<C(B)> f, std::function<B(A)> g) {
 }
 
 // A special wrapper for `Model`s
-template<typename Data, typename Product = Data> // ew
+template<typename Data, typename Product = Data>
 class Random {
 public:
   using Point = Product;
@@ -145,7 +145,7 @@ public:
     member.next();
   }
 
-  Random(Model<Data>& m, std::function<Product(Data)> l) : member(m), lens(l), time_domain(Range{0,0,0}) {
+  Random(Model<Data>& m, std::function<Product(Data)> l, Range t) : member(m), lens(l), time_domain(t) {
     member.next();
   }
 
@@ -158,29 +158,54 @@ public:
   template<typename NewProduct>
   Random<Data, NewProduct> select(std::function<NewProduct(Product)> f) {
     std::function<NewProduct(Data)> new_lens = compose(f, lens);
-    Random<Data, NewProduct> new_random(member, new_lens);
+    Random<Data, NewProduct> new_random(member, new_lens, time_domain);
     return new_random;
   }
 
   Random operator+(Random other) {
     std::function<Product(Product)> op = [=](Product x){ return x + other.getPoint(); };
-    Random<Data, Product> new_random(member, compose(op, lens));
+    Random<Data, Product> new_random(member, compose(op, lens), time_domain);
+    return new_random;
+  }
+  Random operator+(double other) {
+    std::function<double(double)> op = [=](Product x){ return x + other; };
+    Random<Data, double> new_random(member, compose(op, lens), time_domain);
     return new_random;
   }
   Random operator*(Random& other) {
     std::function<Product(Product)> op = [=](Product x){ return x * other.getPoint(); };
-    Random<Data, Product> new_random(member, compose(op, lens));
+    Random<Data, Product> new_random(member, compose(op, lens), time_domain);
+    return new_random;
+  }
+  Random<Data, bool> operator<(Random& other) {
+    std::function<bool(Product)> op = [=](Product x){ return x < other.getPoint(); };
+    Random<Data, bool> new_random(member, compose(op, lens), time_domain);
+    return new_random;
+  }
+  Random<Data, bool> operator<(double other) {
+    std::function<bool(Product)> op = [=](Product x){ return x < other; };
+    Random<Data, bool> new_random(member, compose(op, lens), time_domain);
+    return new_random;
+  }
+  Random<Data, bool> operator<=(double other) {
+    std::function<bool(Product)> op = [=](Product x){ return x <= other; };
+    Random<Data, bool> new_random(member, compose(op, lens), time_domain);
+    return new_random;
+  }
+  Random<Data, bool> operator>(Random other) {
+    std::function<bool(Product)> op = [=](Product x){ return x > other.getPoint(); };
+    Random<Data, bool> new_random(member, compose(op, lens), time_domain);
     return new_random;
   }
   // etc.
 
   Random at(Range r) {
-    Random<Data, Product> new_random(member, lens);
+    Random<Data, Product> new_random(member, lens, time_domain);
     new_random.time_domain = r;
     return new_random;
   }
   Random at(double d) {
-    Random<Data, Product> new_random(member, lens);
+    Random<Data, Product> new_random(member, lens, time_domain);
     new_random.time_domain = Range{d,d+1,1};
     return new_random;
   }
@@ -202,7 +227,7 @@ public:
       member.reset();
       return measurement;
     };
-    Random<Data, NewProduct> new_random(member, compose(op, lens));
+    Random<Data, NewProduct> new_random(member, compose(op, lens), time_domain);
     new_random.measured = true;
     return new_random;
   }
