@@ -157,6 +157,8 @@ genModel mdl
            , setSeedFunc
            ]
 
+        ++ [mkReset (Map.toList (Core.modelInitState mdl))]
+
         ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
            | (v,val) <- Map.toList (Core.modelInitState mdl)
            ]
@@ -188,7 +190,14 @@ genModel mdl
     C.function C.void setSeed1Name  [ C.arg "uint32_t" "seed" ]
       [ C.stmt (C.call (C.member rngName "seed") ["seed"]) ]
 
-
+  mkReset :: [(Core.Ident, Core.Expr)] -> C.Doc
+  mkReset vs = C.function C.void "reset" [] resets
+    where
+      resets = 
+        C.assign "time" (C.doubleLit 0) :
+        [ C.assign (stateVarName v) (mkInit val)
+        | (v, val) <- vs 
+        ]
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
