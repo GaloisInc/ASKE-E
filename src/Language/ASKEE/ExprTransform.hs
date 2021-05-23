@@ -66,6 +66,8 @@ transformModelExprs exprT mdl =
     transformDecl (Syntax.Let n v) = Syntax.Let n <$> expr v
     transformDecl (Syntax.State n v) = Syntax.State n <$> expr v
     transformDecl (Syntax.Assert e) = Syntax.Assert <$> expr e
+    -- change this if `v` becomes an expr
+    transformDecl (Syntax.Parameter n v) = pure $ Syntax.Parameter n (v :: Maybe Double)
 
     transformStmt (n, v) = (,) n <$> expr v
     transformEvent evt =

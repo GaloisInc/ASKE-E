@@ -68,14 +68,14 @@ instance AsDiffEq ModelSyntax where
     case syntax of
       ASKEE ->
         do  model <- lexParse lexModel parseModel
-            coreModel <- modelAsCore [] model
+            coreModel <- modelAsCore model
             let eqs = asEquationSystem coreModel
             pure $ show $ ppDiffEqs eqs
       DiffEq -> Right s
       RNet -> 
         do  rnet <- lexParse lexRNet parseRNet
             model <- reactionsAsModel rnet
-            coreModel <- modelAsCore [] model 
+            coreModel <- modelAsCore model
             let eqs = asEquationSystem coreModel
             pure $ show $ ppDiffEqs eqs
       Latex -> 

@@ -34,7 +34,7 @@ main =
 replicateModel :: Int -> FilePath -> FilePath -> IO ()
 replicateModel n modelFile out =
   runTest
-  do  core <- Core.loadCoreModel (Core.FromFile modelFile) []
+  do  core <- Core.loadCoreModel' (Core.FromFile modelFile)
       let core' = Ex.replicateModel n core
           cpp   = Gen.genModel core'
       pPrint core'
@@ -44,7 +44,7 @@ replicateModel n modelFile out =
 measureModel :: FilePath -> FilePath -> FilePath -> IO ()
 measureModel modelFile experimentFile out =
   runTest
-  do core  <- Core.loadCoreModel (Core.FromFile modelFile) []
+  do core  <- Core.loadCoreModel' (Core.FromFile modelFile)
      exper <- loadExperiment experimentFile
      let measures = [ m | E.DMeasure m <- exper ]
          model    = foldr Ex.withMeasure core measures
@@ -73,7 +73,7 @@ testCodeGen' mdls experiment =
       mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
       mapM_ print [ GenX.compileMain m | E.DMain m <- exper ]
   where
-    loadModel fp = Core.loadCoreModel (Core.FromFile fp) []
+    loadModel fp = Core.loadCoreModel' (Core.FromFile fp)
     modelDecl c =
       E.DModel $ E.ModelDecl (E.untypedName $ C.modelName c)
                              (Map.fromList $ (, E.TypeNumber) <$> C.modelStateVars c)

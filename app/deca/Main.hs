@@ -123,7 +123,7 @@ loadDiffEqs opts ps0 =
   params = Map.keys (overwrite opts) ++ ps0
 
   fromModel file =
-    do m <- loadCoreModel file params
+    do m <- loadCoreModel' file
        pure (DiffEq.asEquationSystem m)
 
   fromRNet file =
@@ -132,7 +132,7 @@ loadDiffEqs opts ps0 =
           Right model -> pure model
           Left err -> fail err
         print (PP.printModel m)
-        m' <- loadCoreModel (Inline (Text.pack $ show $ PP.printModel m)) []
+        m' <- loadCoreModel' (Inline (Text.pack $ show $ PP.printModel m))
         pure (DiffEq.asEquationSystem m')
 
 simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double

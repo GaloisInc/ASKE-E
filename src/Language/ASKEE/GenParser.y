@@ -68,6 +68,7 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 '*='            { Located _ _ Lexer.TimesAssign }
 'when'          { Located _ _ Lexer.When }
 'assert'        { Located _ _ Lexer.Assert }
+'parameter'     { Located _ _ Lexer.Parameter }
 
 %left 'or'
 %left 'and'
@@ -99,6 +100,7 @@ Decl                                  :: { Decl }
   : 'let'    SYM '=' Exp                 { Let $2 $4 }
   | 'state'  SYM '=' Exp                 { State $2 $4 }
   | 'assert' Exp                         { Assert $2 }
+  | 'parameter' SYM '=' REAL             { Parameter $2 (Just $4) }
 
 Event                                 :: { Event }
   : 'event' SYM ':' BOPEN

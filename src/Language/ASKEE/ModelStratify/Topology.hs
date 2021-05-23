@@ -111,6 +111,8 @@ insertHoles Model{..} = evalRWS fill () 0
       Let t e -> Let t <$> maybeFreshen e
       State t e -> State t <$> maybeFreshen e
       Assert e -> Assert <$> maybeFreshen e
+      -- Change this if v becomes an Expr
+      Parameter t v -> pure $ Parameter t (v :: Maybe Double)
 
     newEvents :: RWS () [Text] Int [Event]
     newEvents = forM modelEvents $ \Event{..} ->
@@ -145,6 +147,8 @@ nameHoles names Model{..} = Model modelName renamedDecls renamedEvents
       Let t e -> Let (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
       State t e -> State (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
       Assert e -> Assert (updateExpr' e)
+      -- Change this if `v` becomes an expr
+      Parameter t v -> Parameter (updateText' t) (v :: Maybe Double)
     
     renamedEvents :: [Event]
     renamedEvents = flip map modelEvents $ \Event{..} ->

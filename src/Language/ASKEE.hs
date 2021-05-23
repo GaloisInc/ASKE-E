@@ -108,13 +108,19 @@ loadModel file =
         Left err -> throwIO (ValidationError err)
         Right m1 -> pure m1
 
--- | Load a model and translate it to core.
-loadCoreModel :: DataSource -> [Text] -> IO Core.Model
+-- | Load a model and translate it to core, applying any parameters in the process.
+loadCoreModel :: DataSource -> Map Text Double -> IO Core.Model
 loadCoreModel file ps =
   do  model <- loadModel file
-      case modelAsCore ps model of
+      let psExpr = Core.NumLit <$> ps'
+          ps' = ps `Map.union` Syntax.parameterMap model
+
+      case modelAsCore model of
         Left err -> throwIO (ValidationError err)
-        Right a  -> pure a
+        Right a  -> pure $ Core.applyParams psExpr a
+
+loadCoreModel' :: DataSource -> IO Core.Model
+loadCoreModel' = (`loadCoreModel` Map.empty)
 
 -- | Lex a set of differential equations, throwing `ParseError` on error
 lexEquations :: DataSource -> IO [Located DL.Token]
@@ -259,7 +265,7 @@ loadConnectionGraph d =
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =
-  do compiled <- loadCoreModel fp []
+  do compiled <- loadCoreModel' fp
      print $ MG.genSimulationRunnerCpp compiled 100.0 m4
   where
     _m1 :: M.Measure
@@ -288,7 +294,7 @@ genCppRunner fp =
 
 dumpCppModel :: DataSource -> FilePath -> IO ()
 dumpCppModel file output =
-  do  compiled <- loadCoreModel file []
+  do  compiled <- loadCoreModel' file
       let rendered = show (SG.genModel compiled)
       writeFile output rendered
       putStrLn "compiled!"
@@ -305,7 +311,7 @@ diffEqStringToLatexString :: String -> Either String String
 diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
 renderCppModel :: DataSource -> IO String
 renderCppModel file =
-  do  compiled <- loadCoreModel file []
+  do  compiled <- loadCoreModel' file
       pure $ show (SG.genModel compiled)
 
 toAPRAM :: FilePath -> FilePath -> IO ()
@@ -314,8 +320,6 @@ toAPRAM modelFile aPRAMFile =
       let a = modelToAPRAM m "health"
           a' = show $ printAPRAM a
       writeFile aPRAMFile a'
-loadCoreModel' :: DataSource -> IO Core.Model
-loadCoreModel' f = loadCoreModel f []
 
 withLoadExp :: [DataSource] -> DataSource -> ([Core.Model] -> [E.Decl] -> IO a) -> IO a
 withLoadExp modelFiles experiment action =
@@ -358,7 +362,7 @@ coreToGromet :: Core.Model -> Gromet.Gromet
 coreToGromet = Gromet.convertCoreToGromet
 
 easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
-easelToGromet e = coreToGromet <$> modelAsCore [] e
+easelToGromet e = coreToGromet <$> modelAsCore e
 
 dsToGrometJSON :: DataSource -> IO JSON.Value
 dsToGrometJSON ds =

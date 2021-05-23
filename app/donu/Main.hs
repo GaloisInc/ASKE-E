@@ -71,7 +71,7 @@ handleRequest r =
       do eqs <- loadDiffEqs (modelDefType $ simModel info)
                             (modelDefSource $ simModel info)
                             []
-                            (simOverwrite info)
+                            (simParameterValues info)
          let times = takeWhile (<= simEnd info)
                    $ iterate (+ simStep info)
                    $ simStart info
@@ -159,7 +159,7 @@ loadDiffEqs mt src ps0 overwrite =
   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
   case mt of
     Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
+    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel' src
     ReactionNet       -> notImplemented "Reaction net simulation"
     LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
   where

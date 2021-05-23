@@ -3,6 +3,7 @@ module Language.ASKEE.Syntax where
 import Data.Text (Text)
 
 import Prelude hiding (LT, EQ, GT)
+import qualified Data.Map as Map
 
 import Language.ASKEE.Expr
 
@@ -14,6 +15,7 @@ data Model = Model { modelName :: Text
 
 data Decl = Let   Text Expr
           | State Text Expr
+          | Parameter Text (Maybe Double)
           | Assert Expr
   deriving (Show, Eq)   
 
@@ -32,16 +34,10 @@ type Statement = (Text, Expr)
 -- utility functions
 
 stateDecls :: [Decl] -> [(Text, Expr)]
-stateDecls ds = ds >>= sd
-  where
-    sd (State n v) = [(n,v)]
-    sd _ = [] 
+stateDecls ds = [(n,v) | State n v <- ds ]
 
 letDecls :: [Decl] -> [(Text, Expr)]
-letDecls ds = ds >>= ld 
-  where
-    ld (Let n v) = [(n, v)]
-    ld _ = []
+letDecls ds = [(n,v) | Let n v <- ds ]
 
 varDecls :: [Decl] -> [(Text, Expr)]
 varDecls ds = ds >>= vd
@@ -49,5 +45,12 @@ varDecls ds = ds >>= vd
     vd (Let n v) = [(n, v)]
     vd (State n v) = [(n, v)]
     vd _ = []
+
+parameterDecls :: [Decl] -> [(Text, Maybe Double)]
+parameterDecls ds = [(n,v) | Parameter n v <- ds ]
+
+parameterMap :: Model -> Map.Map Text Double
+parameterMap mdl = Map.fromList [(n, v) | (n, Just v) <- parameterDecls (modelDecls mdl)]
+
     
     

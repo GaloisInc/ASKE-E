@@ -69,6 +69,7 @@ tokens :-
 "false"     { bool False }
 "log"       { atomic Log }
 "exp"       { atomic Exp }
+"parameter" { atomic Parameter }
 
 @upperID    { ident }
 @lowerID    { ident }

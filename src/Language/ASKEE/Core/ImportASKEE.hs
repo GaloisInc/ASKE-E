@@ -1,6 +1,5 @@
 module Language.ASKEE.Core.ImportASKEE where
 
-import Data.Text(Text)
 import qualified Data.Map as Map
 
 import qualified Language.ASKEE.Expr   as Src
@@ -8,8 +7,8 @@ import qualified Language.ASKEE.Syntax as Src
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Simplify(simplifyExpr)
 
-modelAsCore :: [Text] -> Src.Model -> Either String Model
-modelAsCore params mdl =
+modelAsCore :: Src.Model -> Either String Model
+modelAsCore mdl =
   do let inits = initState <$> Src.stateDecls decls
      pure modelNoInit { modelInitState = Map.fromList inits }
 
@@ -20,11 +19,10 @@ modelAsCore params mdl =
     mapExprs simplifyExpr $
     inlineLets
     Model { modelName      = Src.modelName mdl
-          , modelParams    = params
+          , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
           , modelLets      = Map.fromList
-                              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls
-                                                 , not (x `elem` params) ]
+                              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
           , modelInitState = Map.empty
           }
 

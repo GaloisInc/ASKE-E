@@ -58,11 +58,11 @@ data FitCommand = FitCommand
 
 --------------------------------------------------------------------------------
 data SimulateCommand = SimulateCommand
-  { simModel     :: ModelDef
-  , simStart     :: Double
-  , simStep      :: Double
-  , simEnd       :: Double
-  , simOverwrite :: Map Text Double
+  { simModel           :: ModelDef
+  , simStart           :: Double
+  , simStep            :: Double
+  , simEnd             :: Double
+  , simParameterValues :: Map Text Double
   } deriving Show
 
 data StratifyCommand = StratifyCommand
@@ -105,8 +105,8 @@ instance HasSpec SimulateCommand where
        simEnd       <- reqSection "end"
                        "End time of simulation"
 
-       simOverwrite <- maybe Map.empty Map.fromList <$>
-                       optSection' "overwrite" (assocSpec anySpec)
+       simParameterValues <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
                        "Use these values for model parameters"
 
        pure SimulateCommand { .. }
