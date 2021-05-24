@@ -141,11 +141,17 @@ class Random {
 public:
   using Point = Product;
 
-  Random(Model<Data>& m) : member(m), lens(identity<Data>), time_domain(Range{0,0,0}) {
+  Random(Model<Data>& m) 
+  : member(m)
+  , lens(identity<Data>)
+  , time_domain(Range{0,0,0}) {
     member.next();
   }
 
-  Random(Model<Data>& m, std::function<Product(Data)> l, Range t) : member(m), lens(l), time_domain(t) {
+  Random(Model<Data>& m, std::function<Product(Data)> l, Range t) 
+  : member(m)
+  , lens(l)
+  , time_domain(t) {
     member.next();
   }
 
