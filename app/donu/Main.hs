@@ -1,4 +1,7 @@
-{-# Language BlockArguments, OverloadedStrings, TupleSections #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 module Main(main) where
 
 import Data.Text(Text)
@@ -24,6 +27,7 @@ import qualified Language.ASKEE.Core.Visualization as CoreViz
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
+import Control.Monad (when)
 
 main :: IO ()
 main = quickHttpServe
@@ -122,7 +126,7 @@ handleRequest r =
           pure $ StratificationResult modelInfo
 
     ListModels _ ->
-      do  results <- listModels "modelRepo"
+      do  results <- listModels modelsDirectory
           pure $ OutputModelList results
 
     ModelSchemaGraph cmd ->
@@ -139,7 +143,18 @@ handleRequest r =
       do  d <- loadString (modelDefSource $ getModelSource cmd)
           let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
           pure $ OutputJSON (JS.toJSON result)
-          
+
+    UploadModel UploadModelCommand{..} ->
+      do  result <- checkModel uploadModelFormat (Inline uploadModelSource)
+          case result of
+            Just err -> 
+              pure $ OutputResult (FailureResult $ Text.pack $ "model failed to parse: "<>err)
+            Nothing -> 
+              do  addModel uploadModelName uploadModelFormat uploadModelSource
+                  pure $ OutputJSON success
+
+
+
   where
     pack :: DataSource -> IO BS8.ByteString
     pack ds = 
@@ -147,6 +162,8 @@ handleRequest r =
         FromFile fp -> BS8.pack <$> readFile fp
         Inline s -> pure $ BS8.pack $ Text.unpack s
 
+    success :: JS.Value
+    success = JS.object [ "status" JS..= ("success" :: Text) ]
 
 
 loadDiffEqs ::
@@ -223,5 +240,24 @@ listModels modelBaseDir =
     list dir ty =
         do  files <- Directory.listDirectory (modelBaseDir </> dir)
             pure $ mdef ty . ((modelBaseDir </> dir) </>) <$> files
+
+addModel :: Text -> ModelType -> Text -> IO ()
+addModel name format model =
+  do  let path = modelsDirectory </> formatLocation format </> Text.unpack name
+      when (".." `Text.isInfixOf` name) (error "rude!")
+      exists <- Directory.doesFileExist path
+      when exists (error "file exists")
+      writeFile path (Text.unpack model)
+
+modelsDirectory :: FilePath
+modelsDirectory = "modelRepo"
+
+formatLocation :: ModelType -> FilePath
+formatLocation mt =
+  case mt of
+    Schema.AskeeModel    -> "easel"
+    Schema.ReactionNet   -> "rnet"
+    Schema.DiffEqs       -> "deq"
+    Schema.LatexEqnarray -> "latex"
 
 -------------------------------------------------------------------------

@@ -29,6 +29,7 @@ data Input =
   | ListModels ListModelsCommand
   | ModelSchemaGraph ModelSchemaGraphCommand
   | GetModelSource GetModelSourceCommand
+  | UploadModel UploadModelCommand
     deriving Show
 
 instance HasSpec Input where
@@ -41,6 +42,7 @@ instance HasSpec Input where
          <!> (ListModels <$> anySpec)
          <!> (ModelSchemaGraph <$> anySpec)
          <!> (GetModelSource <$> anySpec)
+         <!> (UploadModel <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -355,3 +357,23 @@ instance HasSpec GetModelSourceCommand where
         getModelSource <- reqSection' "definition" modelDef "Specification of the source model"
 
         pure GetModelSourceCommand { .. }
+
+
+-------------------------------------------------------------------------------
+
+data UploadModelCommand = UploadModelCommand
+  { uploadModelName :: Text
+  , uploadModelFormat :: ModelType
+  , uploadModelSource :: Text
+  }
+  deriving (Show)
+
+instance HasSpec UploadModelCommand where
+  anySpec =
+    sectionsSpec "upload-model"
+    do  reqSection' "command" (jsAtom "upload-model") 
+                    "Upload new named model"
+        uploadModelName <- reqSection' "name" textSpec "Name of the model"
+        uploadModelFormat <- reqSection "format" "Format of the model"
+        uploadModelSource <- reqSection' "definition" textSpec "The model itself"
+        pure UploadModelCommand{..}
