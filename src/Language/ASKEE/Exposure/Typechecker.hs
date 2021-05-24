@@ -361,23 +361,32 @@ inferExpr e0 =
 
     arith tys = unifyAll E.TypeNumber tys >> pure (head tys) --E.TypeNumber
     logical tys = unifyAll E.TypeBool tys >> pure (head tys) --E.TypeBool
-    comparison tys = unifyAll E.TypeNumber tys >> pure E.TypeBool -- XXX ???
+    comparison tys = 
+      do  unifyAll E.TypeNumber tys
+          tys' <- mapM (modifyBaseTy E.TypeBool) tys
+          pure $ head tys'
 
     unifyAll ty ts = permissiveUnify ty `traverse_` ts
   
-setBaseTy :: E.Type -> E.Type -> TC E.Type
-setBaseTy want have = 
+modifyBaseTy :: E.Type -> E.Type -> TC E.Type
+modifyBaseTy (E.TypeVar _) _ = undefined
+modifyBaseTy want have = 
   case have of
     E.TypeNumber -> pure want
     E.TypeBool -> pure want
     E.TypePoint pts -> E.TypePoint <$> sequence (Map.map go pts)
-    E.TypeVar _ -> permissiveUnify have want >> pure want
+    E.TypeVar t -> 
+      do  s <- State.gets ceSubst
+          State.modify (\st -> st { ceSubst = Map.insert t want s })
+          unify have want
+          State.modify (\st -> st { ceSubst = s })
+          pure want
     E.TypeCon (E.TCon n as fs) -> E.TypeCon <$> (E.TCon n <$> mapM go as <*> sequence (Map.map go fs))
     E.TypeVector t -> E.TypeVector <$> go t
     E.TypeStream t -> E.TypeStream <$> go t
     E.TypeRandomVar t -> E.TypeRandomVar <$> go t
   where
-    go = setBaseTy want
+    go = modifyBaseTy want
 
 
 

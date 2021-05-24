@@ -77,6 +77,7 @@ inlineStatements statements = map inlineStatement statements
         Sample i e' -> Sample i (chase e')
         -- Trace e' -> Trace (chase e')
         Point pts -> Point [(t, chase e') | (t, e') <- pts]
+        Probability e' -> Probability (chase e')
 
     lets :: Map Binder Expr
     lets = Map.fromList [ (v, e) | Let v e <- statements ]
