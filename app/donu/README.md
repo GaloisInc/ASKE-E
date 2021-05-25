@@ -6,7 +6,7 @@ Stop `donu`
 
 ```sh
 $ ssh aske.galois.com
-aske:~$ sudo systemctl donu stop
+aske:~$ sudo systemctl stop donu
 ```
 
 Copy `donu` to `aske.galois.com:/opt/donu/deploy/donu`:
@@ -25,7 +25,7 @@ Restart `donu`
 
 ```sh
 $ ssh aske.galois.com
-aske:~$ sudo systemctl donu start
+aske:~$ sudo systemctl start donu
 ```
 
 ## Details
