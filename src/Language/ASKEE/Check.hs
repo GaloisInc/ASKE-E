@@ -47,11 +47,12 @@ initExprInfo = ExprInfo exprs types
 
 type Check = StateT ExprInfo (Either String)
 
-letRepr, stateRepr, assertRepr, eventRepr :: [Char]
+letRepr, stateRepr, assertRepr, eventRepr, parameterRepr :: [Char]
 letRepr = "let"
 stateRepr = "state"
 assertRepr = "assert"
 eventRepr = "event"
+parameterRepr = "parameter"
 
 -- | Perform scope- and type-checking of a `Model`
 checkModel :: Model -> Either String Model
@@ -75,6 +76,12 @@ checkDecls = mapM_ checkDecl
         Let v e -> bindCheck letRepr v e
         State v e -> bindCheck stateRepr v e
         Assert e -> exprCheck assertRepr Boolean e
+        Parameter n mbv ->
+          case mbv of
+            -- TODO: this is questionable, but this module needs some work to
+            --       support this correctly
+            Nothing -> bindCheck parameterRepr n (LitD 0)
+            Just v  -> bindCheck parameterRepr n (LitD v)
 
 -- Scope- and type-check model events
 checkEvents :: [Event] -> Check ()

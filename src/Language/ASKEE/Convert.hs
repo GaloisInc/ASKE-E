@@ -177,7 +177,7 @@ vertexFromKey :: ModelType -> Maybe Vertex
             ]
 
     eslCTranslators =   Map.fromList [ (ESL_A,   [e| ESLLex.lexModel >=> ESLParse.parseModel |]) ]
-    eslATranslators =   Map.fromList [ (DEQ_A,   [e| fmap asEquationSystem . modelAsCore [] |])
+    eslATranslators =   Map.fromList [ (DEQ_A,   [e| fmap asEquationSystem . modelAsCore |])
                                      , (ESL_C,   [e| Right . show . ESLPrint.printModel |])
                                      , (TOPO_A,  [e| Right . modelAsTopology |]) ]
     deqCTranslators =   Map.fromList [ (DEQ_A,   [e| DEQLex.lexDEQs >=> DEQParse.parseDEQs |]) ]

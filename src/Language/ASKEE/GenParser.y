@@ -14,11 +14,13 @@ import           Language.ASKEE.Expr
 import           Language.ASKEE.Lexer            ( Located(..) )
 import qualified Language.ASKEE.Lexer            as Lexer
 import           Language.ASKEE.Syntax
+import qualified Language.ASKEE.Metadata         as Meta
 
 import Prelude hiding (Ordering(..))
 }
 
 %name parseModel Model
+%name parseModelMeta ModelMeta
 
 %tokentype {Located Lexer.Token}
 %error {parseError}
@@ -46,7 +48,7 @@ BCLOSE          { Located _ _ Lexer.CloseBlock }
 '<='            { Located _ _ Lexer.LTE }
 'log'           { Located _ _ Lexer.Log }
 'let'           { Located _ _ Lexer.Let }
--- metadata        { Located _ _ Lexer.Metadata }
+meta            { Located _ _ (Lexer.Meta $$) }
 '-'             { Located _ _ Lexer.Minus }
 '-='            { Located _ _ Lexer.MinusAssign }
 'model'         { Located _ _ Lexer.Model }
@@ -68,6 +70,7 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 '*='            { Located _ _ Lexer.TimesAssign }
 'when'          { Located _ _ Lexer.When }
 'assert'        { Located _ _ Lexer.Assert }
+'parameter'     { Located _ _ Lexer.Parameter }
 
 %left 'or'
 %left 'and'
@@ -80,25 +83,33 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 %%
 
 Model                                 :: { Model }
+  : ModelMeta                            { stripMeta $1 }
+
+ModelMeta                             :: { ModelMeta }
   : 'model' SYM ':'
       BOPEN ModelDecls BCLOSE            { mkModel $2 $5 }
 
-ModelDecls                            :: { [Either Decl Event] }
+ModelDecls                            :: { [Either (Meta.MetaAnn Decl) Event] }
   :                                      { [] }
   | ModelDecls1                          { reverse $1 }
 
-ModelDecls1                           :: { [Either Decl Event] }
+ModelDecls1                           :: { [Either (Meta.MetaAnn Decl) Event] }
   : ModelDecl                            { [$1] }
   | ModelDecls1 BSEP ModelDecl           { $3 : $1 }
 
-ModelDecl                             :: { Either Decl Event }
-  : Decl                                 { Left $1 }
+ModelDecl                             :: { Either (Meta.MetaAnn Decl) Event }
+  : MetaDecl                             { Left $1 }
   | Event                                { Right $1 }
+
+MetaDecl                              :: { Meta.MetaAnn Decl }
+  : Decl                                 { Meta.fromValue $1 }
+  | meta BSEP MetaDecl                   { (uncurry Meta.withMeta) $1 $3 }
 
 Decl                                  :: { Decl }
   : 'let'    SYM '=' Exp                 { Let $2 $4 }
   | 'state'  SYM '=' Exp                 { State $2 $4 }
   | 'assert' Exp                         { Assert $2 }
+  | 'parameter' SYM '=' REAL             { Parameter $2 (Just $4) }
 
 Event                                 :: { Event }
   : 'event' SYM ':' BOPEN
@@ -186,11 +197,11 @@ parseError []     = Left $ "parse error at end of file"
 parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
-mkModel :: Text -> [ Either Decl Event ] -> Model
-mkModel nm ps = Model { modelName = nm
-                      , modelDecls = ds
-                      , modelEvents = es
-                      }
+mkModel :: Text -> [ Either (Meta.MetaAnn Decl) Event ] -> ModelMeta
+mkModel nm ps = ModelMeta { modelMetaName = nm
+                          , modelMetaDecls = ds
+                          , modelMetaEvents = es
+                          }
   where (ds,es) = partitionEithers ps
 }
 

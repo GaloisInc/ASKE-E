@@ -30,6 +30,7 @@ data Input =
   | ModelSchemaGraph ModelSchemaGraphCommand
   | GetModelSource GetModelSourceCommand
   | UploadModel UploadModelCommand
+  | DescribeModelInterface DescribeModelInterfaceCommand
     deriving Show
 
 instance HasSpec Input where
@@ -43,6 +44,7 @@ instance HasSpec Input where
          <!> (ModelSchemaGraph <$> anySpec)
          <!> (GetModelSource <$> anySpec)
          <!> (UploadModel <$> anySpec)
+         <!> (DescribeModelInterface <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -60,11 +62,11 @@ data FitCommand = FitCommand
 
 --------------------------------------------------------------------------------
 data SimulateCommand = SimulateCommand
-  { simModel     :: ModelDef
-  , simStart     :: Double
-  , simStep      :: Double
-  , simEnd       :: Double
-  , simOverwrite :: Map Text Double
+  { simModel           :: ModelDef
+  , simStart           :: Double
+  , simStep            :: Double
+  , simEnd             :: Double
+  , simParameterValues :: Map Text Double
   } deriving Show
 
 data StratifyCommand = StratifyCommand
@@ -107,8 +109,8 @@ instance HasSpec SimulateCommand where
        simEnd       <- reqSection "end"
                        "End time of simulation"
 
-       simOverwrite <- maybe Map.empty Map.fromList <$>
-                       optSection' "overwrite" (assocSpec anySpec)
+       simParameterValues <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
                        "Use these values for model parameters"
 
        pure SimulateCommand { .. }
@@ -129,13 +131,13 @@ instance HasSpec FitCommand where
         pure FitCommand {..}
 
 data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
-  deriving Show
+  deriving (Show, Eq)
 
 data ModelDef =
     ModelDef { modelDefSource :: DataSource
              , modelDefType   :: ModelType
              }
-    deriving Show
+    deriving (Show, Eq)
 
 instance JS.ToJSON ModelDef where
   toJSON m =
@@ -377,3 +379,15 @@ instance HasSpec UploadModelCommand where
         uploadModelFormat <- reqSection "format" "Format of the model"
         uploadModelSource <- reqSection' "definition" textSpec "The model itself"
         pure UploadModelCommand{..}
+newtype DescribeModelInterfaceCommand =
+  DescribeModelInterfaceCommand { describeModelInterfaceSource :: ModelDef  }
+  deriving Show
+
+instance HasSpec DescribeModelInterfaceCommand where
+  anySpec =
+    sectionsSpec "describe-model-interface"
+    do  reqSection' "command" (jsAtom "describe-model-interface")
+                    "Describe a model's parameters and state variables"
+        describeModelInterfaceSource  <- reqSection' "definition" modelDef "Specification of the model"
+
+        pure DescribeModelInterfaceCommand { .. }

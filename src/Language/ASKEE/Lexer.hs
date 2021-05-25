@@ -45,6 +45,8 @@ data Token = EOF
   | Not
   | OpenBlock
   | OpenP
+  | OpenB
+  | CloseB
   | Or
   | Otherwise
   | Plus
@@ -61,6 +63,8 @@ data Token = EOF
   | Whitespace
   | Wrap Token
   | Assert
+  | Parameter
+  | Meta (Text, Text)
   deriving (Eq, Show)
 
 
