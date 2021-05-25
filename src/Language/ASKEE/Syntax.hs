@@ -4,6 +4,8 @@ import Data.Text (Text)
 
 import Prelude hiding (LT, EQ, GT)
 import qualified Data.Map as Map
+import Language.ASKEE.Metadata(MetaAnn(..))
+import qualified Language.ASKEE.Metadata as Meta
 
 import Language.ASKEE.Expr
 
@@ -12,6 +14,18 @@ data Model = Model { modelName :: Text
                    , modelEvents :: [Event]
                    }
   deriving (Show, Eq)
+
+
+data ModelMeta = ModelMeta
+  { modelMetaName :: Text
+  , modelMetaDecls :: [MetaAnn Decl]
+  , modelMetaEvents :: [Event]
+  }
+
+stripMeta :: ModelMeta -> Model
+stripMeta mm = Model (modelMetaName mm)
+                     (Meta.metaValue <$> modelMetaDecls mm)
+                     (modelMetaEvents mm)
 
 data Decl = Let   Text Expr
           | State Text Expr

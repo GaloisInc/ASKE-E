@@ -33,7 +33,7 @@ library
                      , Language.ASKEE.APRAM.Lexer
 
                      , Language.ASKEE.Syntax
-
+                     , Language.ASKEE.Metadata
 
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax

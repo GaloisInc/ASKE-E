@@ -8,6 +8,7 @@ import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
+import Data.Aeson((.=))
 import Control.Monad.IO.Class(liftIO)
 import Control.Exception(throwIO, try,SomeException, Exception(..))
 import qualified Snap.Core as Snap
@@ -21,6 +22,8 @@ import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
 import qualified Language.ASKEE.Core.Visualization as CoreViz
+import qualified Language.ASKEE.Metadata as Meta
+import qualified Language.ASKEE.Syntax as Easel
 import Schema
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -136,10 +139,48 @@ handleRequest r =
         _ -> pure $ OutputResult (FailureResult "model type not supported")
 
     GetModelSource cmd ->
-      do  d <- loadString (modelDefSource $ getModelSource cmd)
-          let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-          pure $ OutputJSON (JS.toJSON result)
+      do  models <- listModels "modelRepo"
+          if getModelSource cmd `elem` models then
+            do  d <- loadString (modelDefSource $ getModelSource cmd)
+                let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
+                pure $ OutputJSON (JS.toJSON result)
+          else
+            pure $ OutputResult (FailureResult "model does not exist")
+
+    DescribeModelInterface cmd ->
+      case modelDefType (describeModelInterfaceSource cmd) of
+        AskeeModel ->
+          do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
+
+              let stateVars =
+                    [(n, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
+                                          , (Easel.State n _) <- [Meta.metaValue md]
+                                          ]
+                  params =
+                    [(n, d, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
+                                             , (Easel.Parameter n d) <- [Meta.metaValue md]
+                                             ]
+
+                  descParam (n, d, mp) =
+                    JS.object [ "name" .= n
+                              , "defaultValue" .= d
+                              , "metadata" .= mp
+                              ]
+                  descState (n, mp) =
+                    JS.object [ "name" .= n
+                              , "metadata" .= mp
+                              ]
+                  desc =
+                    JS.object [ "parameters" .= (descParam <$> params)
+                              , "stateVars"  .= (descState <$> stateVars)
+                              ]
+
+              pure $ OutputResult (SuccessResult desc)
+
+        _ -> pure $ OutputResult (FailureResult "model type not supported")
           
+
+
   where
     pack :: DataSource -> IO BS8.ByteString
     pack ds = 

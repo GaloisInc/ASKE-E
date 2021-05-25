@@ -76,7 +76,7 @@ instance Exception ValidationError
 data DataSource =
     FromFile FilePath
   | Inline Text
-    deriving Show
+    deriving (Show, Eq)
 
 loadString :: DataSource -> IO String
 loadString source =
@@ -100,6 +100,14 @@ parseModel file =
         Left err -> throwIO (ParseError err)
         Right a  -> pure a
 
+-- | parse model, including available metadata
+parseMetaModel :: DataSource -> IO Syntax.ModelMeta
+parseMetaModel file =
+  do  toks <- lexModel file
+      case AP.parseModelMeta toks of
+        Left err -> throwIO (ParseError err)
+        Right a -> pure a
+
 -- | Lex, parse, and validate a model.
 loadModel :: DataSource -> IO Syntax.Model
 loadModel file =
@@ -107,6 +115,14 @@ loadModel file =
       case Check.checkModel m of
         Left err -> throwIO (ValidationError err)
         Right m1 -> pure m1
+
+-- | Lex, parse, and validate a model, including available metadata
+loadMetaModel :: DataSource -> IO Syntax.ModelMeta
+loadMetaModel file =
+  do  m <- parseMetaModel file
+      case Check.checkModel (Syntax.stripMeta m) of
+        Left err -> throwIO (ValidationError err)
+        Right _ -> pure m
 
 -- | Load a model and translate it to core, applying any parameters in the process.
 loadCoreModel :: DataSource -> Map Text Double -> IO Core.Model

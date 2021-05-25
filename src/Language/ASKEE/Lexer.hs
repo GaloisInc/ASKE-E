@@ -64,6 +64,7 @@ data Token = EOF
   | Wrap Token
   | Assert
   | Parameter
+  | Meta (Text, Text)
   deriving (Eq, Show)
 
 

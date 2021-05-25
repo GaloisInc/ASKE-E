@@ -220,7 +220,7 @@ printModel Model{..} = decl $+$ nest 2 body
     body = vcat (state ++ events)
 
     state :: [Doc]
-    state = map printDecl modelDecls 
+    state = map printDecl modelDecls
 
     events :: [Doc]
     events = map printEvent modelEvents

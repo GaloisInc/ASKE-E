@@ -29,6 +29,7 @@ data Input =
   | ListModels ListModelsCommand
   | ModelSchemaGraph ModelSchemaGraphCommand
   | GetModelSource GetModelSourceCommand
+  | DescribeModelInterface DescribeModelInterfaceCommand
     deriving Show
 
 instance HasSpec Input where
@@ -41,6 +42,7 @@ instance HasSpec Input where
          <!> (ListModels <$> anySpec)
          <!> (ModelSchemaGraph <$> anySpec)
          <!> (GetModelSource <$> anySpec)
+         <!> (DescribeModelInterface <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -127,13 +129,13 @@ instance HasSpec FitCommand where
         pure FitCommand {..}
 
 data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
-  deriving Show
+  deriving (Show, Eq)
 
 data ModelDef =
     ModelDef { modelDefSource :: DataSource
              , modelDefType   :: ModelType
              }
-    deriving Show
+    deriving (Show, Eq)
 
 instance JS.ToJSON ModelDef where
   toJSON m =
@@ -355,3 +357,16 @@ instance HasSpec GetModelSourceCommand where
         getModelSource <- reqSection' "definition" modelDef "Specification of the source model"
 
         pure GetModelSourceCommand { .. }
+
+newtype DescribeModelInterfaceCommand =
+  DescribeModelInterfaceCommand { describeModelInterfaceSource :: ModelDef  }
+  deriving Show
+
+instance HasSpec DescribeModelInterfaceCommand where
+  anySpec =
+    sectionsSpec "describe-model-interface"
+    do  reqSection' "command" (jsAtom "describe-model-interface")
+                    "Describe a model's parameters and state variables"
+        describeModelInterfaceSource  <- reqSection' "definition" modelDef "Specification of the model"
+
+        pure DescribeModelInterfaceCommand { .. }

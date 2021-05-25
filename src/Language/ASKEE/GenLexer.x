@@ -24,6 +24,12 @@ $ws    = [\ ]
 @ident   = [A-Za-z0-9_]
 @lowerID = $lower @ident*
 @upperID = $upper @ident*
+@metakeychar = [^\-\:]|("-"[^\-])|("--"[^\]])
+@metavaluechar =  [^\-]|("-"[^\-])|("--"[^\]])
+-- non empty/whitespace metadata strings
+@metakeystring = @metakeychar*[^\ ]@metakeychar*
+@metavaluestring = @metavaluechar*[^\ ]@metavaluechar*
+@meta    = "[--" @metakeystring ":" @metavaluestring "--]"
 
 tokens :-
 
@@ -34,6 +40,7 @@ tokens :-
 "let"       { atomic Let }
 "event"     { atomic Event }
 @real       { real }
+@meta       { meta }
 "+="        { atomic PlusAssign }
 "-="        { atomic MinusAssign }
 "*="        { atomic TimesAssign }
@@ -86,6 +93,15 @@ $white+     { atomic Whitespace }
 -- use codes for expressions to promote more errors to lex time?
 
 type Action = AlexInput -> Int -> Alex Token
+
+meta :: Action
+meta (_,_,_,s) len = pure $ Meta (Text.pack $ strip key, Text.pack $ strip val)
+  where
+    mdTok = take len s
+    mdTokStripped = bothEnds (drop 3) mdTok
+    (key, _:val) = break ((==) ':') mdTokStripped
+    strip =    bothEnds (dropWhile ((==) ' '))
+    bothEnds f = reverse . f . reverse . f
 
 real :: Action
 real (_,_,_,s) len = (pure . Real . read . take len) s
