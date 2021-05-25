@@ -25,7 +25,7 @@ Restart `donu`
 
 ```sh
 $ ssh aske.galois.com
-aske:~$ sudo systemctl donu stop
+aske:~$ sudo systemctl donu start
 ```
 
 ## Details
