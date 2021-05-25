@@ -39,15 +39,18 @@ initStorage = mapM_ make dirs
 loadModel :: String -> ModelType -> IO String
 loadModel = undefined
 
-storeModel :: Text -> ModelType -> Text -> IO ()
+storeModel :: Text -> ModelType -> Text -> IO FilePath
 storeModel name format model =
   do  let path = baseDirectory </> formatLocation format </> Text.unpack name
       when (".." `isInfixOf` name || Text.singleton pathSeparator `isInfixOf` name) 
-        (die "rude!")
+        (die $ "invalid name for model: " <> name')
       exists <- Directory.doesFileExist path
       when exists 
-        (die "file exists")
+        (die $ "model " <> name' <> " already exists")
       writeFile path (Text.unpack model)
+      pure path
+  where
+    name' = Text.unpack name
 
 listAllModels :: IO [ModelDef]
 listAllModels = 

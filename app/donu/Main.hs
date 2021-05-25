@@ -143,8 +143,8 @@ handleRequest r =
 
     UploadModel UploadModelCommand{..} ->
       do  checkModel' uploadModelFormat (Inline uploadModelSource)
-          storeModel uploadModelName uploadModelFormat uploadModelSource
-          pure $ OutputResult (SuccessResult ("success" :: String))
+          loc <- storeModel uploadModelName uploadModelFormat uploadModelSource
+          pure $ OutputResult (SuccessResult loc)
 
     GetModelSource cmd ->
       do  models <- listAllModels
