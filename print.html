@@ -360,11 +360,14 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;simulate&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir-meta.easel&quot; }
   },
   &quot;start&quot;: 0,
   &quot;end&quot;: 120.0,
-  &quot;step&quot;: 30.0
+  &quot;step&quot;: 30.0,
+  &quot;parameters&quot;: {
+    &quot;beta&quot;: 0.6
+  }
 }
 </code></pre>
 <p><strong>Response:</strong></p>
@@ -378,24 +381,24 @@ for the ASKE-E program.</p>
   &quot;values&quot;: {
     &quot;I&quot;: [
       3,
-      570.9758710681082,
-      177.87795797377797,
-      53.663601453388395,
-      16.17524903479719
+      396.20766691080604,
+      119.33588838987737,
+      35.943279530151585,
+      10.825907756942332
     ],
     &quot;S&quot;: [
       997,
-      16.03663576555767,
-      0.2688016239687885,
-      7.747202089688689e-2,
-      5.323898868597058e-2
+      0.0012550867795002216,
+      2.4726152151230926e-06,
+      3.7868257221162325e-07,
+      2.151977671793774e-07
     ],
     &quot;R&quot;: [
       0,
-      412.9874931663346,
-      821.8532404022534,
-      946.258926525715,
-      983.771511976517
+      603.7910780024147,
+      880.6641091375077,
+      964.0567200911661,
+      989.1740920278602
     ]
   },
   &quot;times&quot;: [
@@ -407,7 +410,7 @@ for the ASKE-E program.</p>
   ]
 }
 </code></pre>
-<h2 id="get-model-schematic---get-schematic-description-of-a-model"><a class="header" href="#get-model-schematic---get-schematic-description-of-a-model"><code>get-model-schematic</code> - get schematic description of a model</a></h2>
+<h3 id="get-model-schematic---get-schematic-description-of-a-model"><a class="header" href="#get-model-schematic---get-schematic-description-of-a-model"><code>get-model-schematic</code> - get schematic description of a model</a></h3>
 <p>This call gets a high level schematic description of a model as a graph.  Not all models support this visualization.</p>
 <p><strong>Request:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -415,7 +418,7 @@ for the ASKE-E program.</p>
 <tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
 </tbody></table>
 <p>Example:</p>
-<pre><code>{
+<pre><code class="language-JSON">{
   &quot;command&quot;: &quot;get-model-schematic&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
@@ -428,7 +431,7 @@ for the ASKE-E program.</p>
 <tr><td>status</td><td>string</td><td><code>&quot;success&quot;</code> or <code>&quot;failure&quot;</code> depending on if the operation was succcesful</td></tr>
 <tr><td>result</td><td>graph</td><td>Description of the schematic graph</td></tr>
 </tbody></table>
-<pre><code>{
+<pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
   &quot;result&quot;: {
     &quot;nodes&quot;: [
@@ -498,7 +501,7 @@ for the ASKE-E program.</p>
   }
 }
 </code></pre>
-<h2 id="get-model-source---get-source-code-for-a-model"><a class="header" href="#get-model-source---get-source-code-for-a-model"><code>get-model-source</code> - get source code for a model</a></h2>
+<h3 id="get-model-source---get-source-code-for-a-model"><a class="header" href="#get-model-source---get-source-code-for-a-model"><code>get-model-source</code> - get source code for a model</a></h3>
 <p><strong>Request:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;get-model-source&quot;</code></td></tr>
@@ -519,7 +522,7 @@ for the ASKE-E program.</p>
   &quot;type&quot;: &quot;easel&quot;
 }
 </code></pre>
-<h2 id="convert-model---convert-a-model-from-one-form-to-another"><a class="header" href="#convert-model---convert-a-model-from-one-form-to-another"><code>convert-model</code> - convert a model from one form to another</a></h2>
+<h3 id="convert-model---convert-a-model-from-one-form-to-another"><a class="header" href="#convert-model---convert-a-model-from-one-form-to-another"><code>convert-model</code> - convert a model from one form to another</a></h3>
 <p>May fail if the conversion is not supported.</p>
 <p><strong>Request:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
@@ -546,6 +549,90 @@ for the ASKE-E program.</p>
   &quot;result&quot;: {
     &quot;source&quot;: &quot;let beta = 0.4\nlet gamma = 0.04\nlet i_initial = 3.0\nlet r_initial = 0.0\nlet s_initial = 997.0\nlet total_population = S + I + R\nI(0) = 3.0\nR(0) = 0.0\nS(0) = 997.0\nd/dt I = (if 0.0 &lt; S and 0.0 &lt; I then 0.4 * S * I / (S + R + I) else 0.0) + (if 0.0 &lt; I then -0.04 * I else 0.0)\nd/dt R = if 0.0 &lt; I then 0.04 * I else 0.0\nd/dt S = if 0.0 &lt; S and 0.0 &lt; I then -0.4 * S * I / (S + R + I) else 0.0&quot;,
     &quot;type&quot;: &quot;diff-eqs&quot;
+  }
+}
+</code></pre>
+<h3 id="describe-model-interface---describe-parameters-of-a-model"><a class="header" href="#describe-model-interface---describe-parameters-of-a-model"><code>describe-model-interface</code> - describe parameters of a model</a></h3>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;describe-model-interface&quot;</code></td></tr>
+<tr><td>definition</td><td>model-def</td><td>Definition of the model</td></tr>
+</tbody></table>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;describe-model-interface&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: {
+      &quot;file&quot;: &quot;modelRepo/easel/sir-meta.easel&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Response</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>status</td><td>string</td><td>Either <code>success</code> or if the model conversion is not supported <code>failure</code></td></tr>
+<tr><td>result</td><td>model-def</td><td>a list of parameters and state variable</td></tr>
+</tbody></table>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;stateVars&quot;: [
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Susceptible population&quot;
+        },
+        &quot;name&quot;: &quot;S&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Infected population&quot;
+        },
+        &quot;name&quot;: &quot;I&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Recovered population&quot;
+        },
+        &quot;name&quot;: &quot;R&quot;
+      }
+    ],
+    &quot;parameters&quot;: [
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;The average number of contacts per person per time, multiplied by the probability of disease transmission in a contact between a susceptible and an infectious subject&quot;
+        },
+        &quot;name&quot;: &quot;beta&quot;,
+        &quot;defaultValue&quot;: 0.4
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Rate of recovery from infection&quot;
+        },
+        &quot;name&quot;: &quot;gamma&quot;,
+        &quot;defaultValue&quot;: 0.04
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Initial population of suceptible people.&quot;
+        },
+        &quot;name&quot;: &quot;s_initial&quot;,
+        &quot;defaultValue&quot;: 997
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Initial population of infected people.&quot;
+        },
+        &quot;name&quot;: &quot;i_initial&quot;,
+        &quot;defaultValue&quot;: 3
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;Description&quot;: &quot;Initial population of recovered people.&quot;
+        },
+        &quot;name&quot;: &quot;r_initial&quot;,
+        &quot;defaultValue&quot;: 0
+      }
+    ]
   }
 }
 </code></pre>
