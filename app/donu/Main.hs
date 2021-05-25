@@ -147,11 +147,7 @@ handleRequest r =
           pure $ OutputResult (SuccessResult ("success" :: String))
 
     GetModelSource cmd ->
-      -- do  d <- loadString (modelDefSource $ getModelSource cmd)
-      --     let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-      --     pure $ OutputResult (SuccessResult result)
-
-      do  models <- listAllModels -- "modelRepo"
+      do  models <- listAllModels
           if getModelSource cmd `elem` models then
             do  d <- loadString (modelDefSource $ getModelSource cmd)
                 let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
