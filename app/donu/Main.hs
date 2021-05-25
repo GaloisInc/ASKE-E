@@ -5,8 +5,6 @@
 module Main(main) where
 
 import Data.Text(Text)
-import qualified System.Directory as Directory
-import System.FilePath((</>))
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -25,9 +23,10 @@ import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Translate as Translate
 import qualified Language.ASKEE.Core.Visualization as CoreViz
 import Schema
+import ModelStorage
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
-import Control.Monad (when)
+import Control.Monad (void)
 
 main :: IO ()
 main = quickHttpServe
@@ -126,7 +125,7 @@ handleRequest r =
           pure $ StratificationResult modelInfo
 
     ListModels _ ->
-      do  results <- listModels modelsDirectory
+      do  results <- listModels AskeeModel
           pure $ OutputModelList results
 
     ModelSchemaGraph cmd ->
@@ -142,16 +141,12 @@ handleRequest r =
     GetModelSource cmd ->
       do  d <- loadString (modelDefSource $ getModelSource cmd)
           let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-          pure $ OutputJSON (JS.toJSON result)
+          pure $ OutputResult (SuccessResult result)
 
     UploadModel UploadModelCommand{..} ->
-      do  result <- checkModel uploadModelFormat (Inline uploadModelSource)
-          case result of
-            Just err -> 
-              pure $ OutputResult (FailureResult $ Text.pack $ "model failed to parse: "<>err)
-            Nothing -> 
-              do  addModel uploadModelName uploadModelFormat uploadModelSource
-                  pure $ OutputJSON success
+      do  checkModel' uploadModelFormat (Inline uploadModelSource)
+          storeModel uploadModelName uploadModelFormat uploadModelSource
+          pure $ OutputResult (SuccessResult ("success" :: String))
 
 
 
@@ -196,6 +191,15 @@ checkModel mt src =
             Left (ParseError err) -> pure $ Just err
             Right _               -> pure Nothing
 
+-- Just throw an exception on failure
+checkModel' :: ModelType -> DataSource -> IO ()
+checkModel' format model =
+  case format of
+    Schema.DiffEqs -> void $ parseEquations model
+    AskeeModel     -> void $ parseModel model
+    ReactionNet    -> void $ parseReactions model
+    LatexEqnarray  -> void $ parseLatex model
+
 
 convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
@@ -231,33 +235,5 @@ generateCPP ty src =
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
-
-listModels :: FilePath -> IO [ModelDef]
-listModels modelBaseDir =
-    list "easel" AskeeModel
-  where
-    mdef ty n = ModelDef (FromFile n) ty
-    list dir ty =
-        do  files <- Directory.listDirectory (modelBaseDir </> dir)
-            pure $ mdef ty . ((modelBaseDir </> dir) </>) <$> files
-
-addModel :: Text -> ModelType -> Text -> IO ()
-addModel name format model =
-  do  let path = modelsDirectory </> formatLocation format </> Text.unpack name
-      when (".." `Text.isInfixOf` name) (error "rude!")
-      exists <- Directory.doesFileExist path
-      when exists (error "file exists")
-      writeFile path (Text.unpack model)
-
-modelsDirectory :: FilePath
-modelsDirectory = "modelRepo"
-
-formatLocation :: ModelType -> FilePath
-formatLocation mt =
-  case mt of
-    Schema.AskeeModel    -> "easel"
-    Schema.ReactionNet   -> "rnet"
-    Schema.DiffEqs       -> "deq"
-    Schema.LatexEqnarray -> "latex"
 
 -------------------------------------------------------------------------
