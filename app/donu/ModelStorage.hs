@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-module ModelStorage ( loadModel, storeModel, listModels ) where
+module ModelStorage ( initStorage, loadModel, storeModel, listAllModels ) where
 
-import Control.Monad     ( when, void )
+import Control.Monad     ( when )
 import Control.Exception ( Exception, throwIO )
 
 import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
-import Language.ASKEE ( DataSource(..), parseEquations, parseModel, parseReactions, parseLatex )
+import Language.ASKEE ( DataSource(..) )
 
 import Schema ( ModelType(..), ModelDef(..) )
 
@@ -23,6 +23,19 @@ instance Exception StorageError
 die :: String -> IO ()
 die = throwIO . StorageError
 
+initStorage :: IO ()
+initStorage = mapM_ make dirs
+  where
+    make = Directory.createDirectoryIfMissing True
+    dirs = 
+      [ baseDirectory </> formatLocation mt
+      | mt <- [ AskeeModel
+              , DiffEqs
+              , ReactionNet
+              , LatexEqnarray
+              ]
+      ]
+
 loadModel :: String -> ModelType -> IO String
 loadModel = undefined
 
@@ -35,6 +48,17 @@ storeModel name format model =
       when exists 
         (die "file exists")
       writeFile path (Text.unpack model)
+
+listAllModels :: IO [ModelDef]
+listAllModels = 
+  concat <$> sequence
+    [ listModels mt 
+    | mt <- [ AskeeModel
+            , DiffEqs
+            , ReactionNet
+            , LatexEqnarray
+            ]
+    ]
 
 listModels :: ModelType -> IO [ModelDef]
 listModels mt =

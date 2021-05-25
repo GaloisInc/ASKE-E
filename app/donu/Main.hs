@@ -29,10 +29,12 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import Control.Monad (void)
 
 main :: IO ()
-main = quickHttpServe
-  do  Snap.route [ ("/help", showHelp)
-                 , ("/", endpoint)
-                 ]
+main = 
+  do  initStorage
+      quickHttpServe $
+        do  Snap.route [ ("/help", showHelp)
+                       , ("/", endpoint)
+                       ]
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -124,18 +126,7 @@ handleRequest r =
                                       (stratType info)
           pure $ StratificationResult modelInfo
 
-    ListModels _ ->
-      do  results <- 
-            concat <$> 
-            sequence 
-              [ listModels mt 
-              | mt <- [ AskeeModel
-                      , Schema.DiffEqs
-                      , ReactionNet
-                      , LatexEqnarray
-                      ]
-              ]
-          pure $ OutputModelList results
+    ListModels _ -> OutputModelList <$> listAllModels
 
     ModelSchemaGraph cmd ->
       case modelDefType $ modelSchemaGraphModel cmd of
