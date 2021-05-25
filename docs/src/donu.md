@@ -101,11 +101,14 @@ Example:
   "command": "simulate",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir.easel" }
+    "source": { "file": "modelRepo/easel/sir-meta.easel" }
   },
   "start": 0,
   "end": 120.0,
-  "step": 30.0
+  "step": 30.0,
+  "parameters": {
+    "beta": 0.6
+  }
 }
 ```
 
@@ -126,24 +129,24 @@ Example:
   "values": {
     "I": [
       3,
-      570.9758710681082,
-      177.87795797377797,
-      53.663601453388395,
-      16.17524903479719
+      396.20766691080604,
+      119.33588838987737,
+      35.943279530151585,
+      10.825907756942332
     ],
     "S": [
       997,
-      16.03663576555767,
-      0.2688016239687885,
-      7.747202089688689e-2,
-      5.323898868597058e-2
+      0.0012550867795002216,
+      2.4726152151230926e-06,
+      3.7868257221162325e-07,
+      2.151977671793774e-07
     ],
     "R": [
       0,
-      412.9874931663346,
-      821.8532404022534,
-      946.258926525715,
-      983.771511976517
+      603.7910780024147,
+      880.6641091375077,
+      964.0567200911661,
+      989.1740920278602
     ]
   },
   "times": [
@@ -156,7 +159,7 @@ Example:
 }
 ```
 
-## `get-model-schematic` - get schematic description of a model
+### `get-model-schematic` - get schematic description of a model
 
 This call gets a high level schematic description of a model as a graph.  Not all models support this visualization.
 
@@ -169,7 +172,7 @@ This call gets a high level schematic description of a model as a graph.  Not al
 
 Example:
 
-```
+```JSON
 {
   "command": "get-model-schematic",
   "definition": {
@@ -187,7 +190,7 @@ Example:
 | result           | graph                    | Description of the schematic graph                                |
 
 
-```
+```JSON
 {
   "status": "success",
   "result": {
@@ -259,7 +262,7 @@ Example:
 }
 ```
 
-## `get-model-source` - get source code for a model
+### `get-model-source` - get source code for a model
 
 **Request:**
 
@@ -289,7 +292,7 @@ The result, if successful, is a `model-def` object with the source inline.
 }
 ```
 
-## `convert-model` - convert a model from one form to another
+### `convert-model` - convert a model from one form to another
 
 May fail if the conversion is not supported.
 
@@ -325,6 +328,99 @@ May fail if the conversion is not supported.
   "result": {
     "source": "let beta = 0.4\nlet gamma = 0.04\nlet i_initial = 3.0\nlet r_initial = 0.0\nlet s_initial = 997.0\nlet total_population = S + I + R\nI(0) = 3.0\nR(0) = 0.0\nS(0) = 997.0\nd/dt I = (if 0.0 < S and 0.0 < I then 0.4 * S * I / (S + R + I) else 0.0) + (if 0.0 < I then -0.04 * I else 0.0)\nd/dt R = if 0.0 < I then 0.04 * I else 0.0\nd/dt S = if 0.0 < S and 0.0 < I then -0.4 * S * I / (S + R + I) else 0.0",
     "type": "diff-eqs"
+  }
+}
+```
+
+### `describe-model-interface` - describe parameters of a model
+
+**Request:**
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"describe-model-interface"`   |
+| definition       | model-def                | Definition of the model                                           |
+
+```JSON
+{
+  "command": "describe-model-interface",
+  "definition": {
+    "type": "easel",
+    "source": {
+      "file": "modelRepo/easel/sir-meta.easel"
+    }
+  }
+}
+```
+
+**Response**
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| status           | string                   | Either `success` or if the model conversion is not supported `failure` |
+| result           | model-def                | a list of parameters and state variable                           |
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "stateVars": [
+      {
+        "metadata": {
+          "Description": "Susceptible population"
+        },
+        "name": "S"
+      },
+      {
+        "metadata": {
+          "Description": "Infected population"
+        },
+        "name": "I"
+      },
+      {
+        "metadata": {
+          "Description": "Recovered population"
+        },
+        "name": "R"
+      }
+    ],
+    "parameters": [
+      {
+        "metadata": {
+          "Description": "The average number of contacts per person per time, multiplied by the probability of disease transmission in a contact between a susceptible and an infectious subject"
+        },
+        "name": "beta",
+        "defaultValue": 0.4
+      },
+      {
+        "metadata": {
+          "Description": "Rate of recovery from infection"
+        },
+        "name": "gamma",
+        "defaultValue": 0.04
+      },
+      {
+        "metadata": {
+          "Description": "Initial population of suceptible people."
+        },
+        "name": "s_initial",
+        "defaultValue": 997
+      },
+      {
+        "metadata": {
+          "Description": "Initial population of infected people."
+        },
+        "name": "i_initial",
+        "defaultValue": 3
+      },
+      {
+        "metadata": {
+          "Description": "Initial population of recovered people."
+        },
+        "name": "r_initial",
+        "defaultValue": 0
+      }
+    ]
   }
 }
 ```

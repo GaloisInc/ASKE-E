@@ -200,7 +200,7 @@ loadDiffEqs mt src ps0 overwrite =
   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
   case mt of
     Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel' src
+    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
     ReactionNet       -> notImplemented "Reaction net simulation"
     LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
   where
