@@ -125,7 +125,16 @@ handleRequest r =
           pure $ StratificationResult modelInfo
 
     ListModels _ ->
-      do  results <- listModels AskeeModel
+      do  results <- 
+            concat <$> 
+            sequence 
+              [ listModels mt 
+              | mt <- [ AskeeModel
+                      , Schema.DiffEqs
+                      , ReactionNet
+                      , LatexEqnarray
+                      ]
+              ]
           pure $ OutputModelList results
 
     ModelSchemaGraph cmd ->
@@ -157,8 +166,6 @@ handleRequest r =
         FromFile fp -> BS8.pack <$> readFile fp
         Inline s -> pure $ BS8.pack $ Text.unpack s
 
-    success :: JS.Value
-    success = JS.object [ "status" JS..= ("success" :: Text) ]
 
 
 loadDiffEqs ::
