@@ -146,7 +146,7 @@ class Donu:
 
     @staticmethod
     def modelTypeESL():
-        return "askee"
+        return "easel"
 
     @staticmethod
     def modelTypeDEQ():
@@ -177,15 +177,19 @@ class Donu:
 
         raise IntepreterError(why, f"[BUG] unexpected response status from Donu {resp['status']}")
 
+    def mk_model(self, model:str, type: str):
+        return {
+            "type": type,
+            "source": model
+        }
 
     def deqSimulate(self, model: str, type: str, start: float, end: float, interval: float):
         req = {
             "command": "simulate",
             "start": start,
             "end": end,
-            "model": type,
             "step": interval,
-            "definition": model,
+            "definition": self.mk_model(model, type),
         }
 
         data = self.request(req)
@@ -196,8 +200,7 @@ class Donu:
     def checkModel(self, model: str, modelType: str, why: AST):
         req = {
             "command": "check-model",
-            "model": modelType,
-            "definition": model
+            "definition": self.mk_model(model, modelType)
         }
 
         self.decodeResponse(self.request(req), why)
@@ -205,9 +208,8 @@ class Donu:
     def convertModel(self, model:str, srcType:str, dstType:str, why: AST) -> List[str]:
         req = {
             "command": "convert-model",
-            "model": srcType,
-            "definition": model,
-            "dest-model": dstType
+            "definition": self.mk_model(model, srcType),
+            "dest-type": dstType
         }
 
         return self.decodeResponse(self.request(req), why)
@@ -215,8 +217,7 @@ class Donu:
     def genCpp(self, model:str, srcType:str, why:AST) -> str:
         req = {
             "command": "generate-cpp",
-            "model": srcType,
-            "definition": model,
+            "definition": self.mk_model(model, srcType),
         }
 
         return self.decodeResponse(self.request(req), why)
@@ -308,7 +309,7 @@ class ASKEECommandInterpreter:
             "loadCSV": self.loadCSV,
             "loadDiffEq": self.loadDiffEq,
             "plot": self.plot,
-            "simulate": self.simulate,
+            "simulateODE": self.simulate,
             "loadESL": self.loadESL,
             "loadLatexEqnArray": self.loadLatexEqnArray,
             "loadReactionNet": self.loadReactionNet,
@@ -318,6 +319,7 @@ class ASKEECommandInterpreter:
             "save": self.saveAsFile,
             "scatter":self.scatterPlot,
             "stratifySpatial":self.stratifySpatial,
+            "asEqnArray":self.asEqnArray,
         }
 
     def stratifySpatial(self, call:ExprCall, output:List[Dict]) -> Value:
@@ -336,17 +338,26 @@ class ASKEECommandInterpreter:
         points = [{xaxis: xval, yaxis: yval} for (xval, yval) in zip(xs, ys) ]
         chart = {
             "$schema": vega_lite_schema,
+            "width": 800,
+            "height":600,
             "description": "",
             "data": {"values": points},
             "mark": "point",
             "encoding": {
-                "x": {"field": xaxis, "type": "quantitative"},
-                "y": {"field": yaxis, "type": "quantitative"}
+                "x": {"field": xaxis, "type": "quantitative", "scale": {"zero": False}},
+                "y": {"field": yaxis, "type": "quantitative", "scale": {"zero": False}}
             }
         }
-
         self.outputChart(chart, output)
         return self.unit
+
+    def asEqnArray(self, call:ExprCall, output:List[Dict]) -> Value:
+        [model] = self.evalArgs(call, [ValueModel], output)
+        if isinstance(model, ValueLatexEqnArrayModel):
+            return model
+
+        eqn_model = self.donu.convertModel(model.source, model.getDonuType(), Donu.modelTypeLEQArr(), call)
+        return ValueLatexEqnArrayModel(eqn_model['source'])
 
     # TODO: this should check that paths don't escape the jupyter env
     def saveAsFile(self, call:ExprCall, output:List[Dict]) -> Value:
@@ -443,6 +454,8 @@ class ASKEECommandInterpreter:
 
         chart = {
             "$schema": vega_lite_schema,
+            "width": 800,
+            "height":600,
             "description": "Plot [TODO: real description]",
             "data": {"values": list(xyc)},
             "mark": "line",

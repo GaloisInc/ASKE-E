@@ -228,6 +228,10 @@ convertModel inputType source outputType =
       do  src <- loadString source
           pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
 
+    (_, Schema.LatexEqnarray) ->
+      do  src <- loadString source
+          pure $ Translate.asLatexConcrete (translateSyntax inputType) src
+
     (_, Schema.AskeeModel) ->
       do  src <- loadString source
           pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
