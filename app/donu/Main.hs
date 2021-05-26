@@ -147,9 +147,10 @@ handleRequest r =
 
     UploadModel UploadModelCommand{..} ->
       do  res <- try
-            do  checkModel' uploadModelFormat (Inline uploadModelSource)
-                loc <- storeModel uploadModelName uploadModelFormat uploadModelSource
-                pure $ OutputResult (SuccessResult loc)
+            do  checkModel' uploadModelType (Inline uploadModelSource)
+                loc <- storeModel uploadModelName uploadModelType uploadModelSource
+                let mdef = ModelDef (FromFile loc) uploadModelType
+                pure $ OutputResult (SuccessResult mdef)
           case res of
             Left err -> pure $ OutputResult $ FailureResult $ Text.pack $ show (err :: SomeException)
             Right ok -> pure ok

@@ -365,7 +365,7 @@ instance HasSpec GetModelSourceCommand where
 
 data UploadModelCommand = UploadModelCommand
   { uploadModelName :: Text
-  , uploadModelFormat :: ModelType
+  , uploadModelType :: ModelType
   , uploadModelSource :: Text
   }
   deriving (Show)
@@ -376,7 +376,7 @@ instance HasSpec UploadModelCommand where
     do  reqSection' "command" (jsAtom "upload-model") 
                     "Upload new named model"
         uploadModelName <- reqSection' "name" textSpec "Name of the model"
-        uploadModelFormat <- reqSection "format" "Format of the model"
+        uploadModelType <- reqSection "type" "Format of the model"
         uploadModelSource <- reqSection' "definition" textSpec "The model itself"
         pure UploadModelCommand{..}
 newtype DescribeModelInterfaceCommand =
