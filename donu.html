@@ -508,6 +508,43 @@ for the ASKE-E program.</p>
   }
 }
 </code></pre>
+<h3 id="upload-model---upload-a-new-model"><a class="header" href="#upload-model---upload-a-new-model"><code>upload-model</code> - Upload a new model</a></h3>
+<p>This command may fail if you attempt to overwrite an existing model, or if the model you attempt to upload is not syntactically valid.</p>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;upload-model&quot;</code></td></tr>
+<tr><td>name</td><td>string</td><td>The (base)name of the model in storage</td></tr>
+<tr><td>type</td><td>string</td><td>Model type - same options as <code>model-def</code>'s <code>type</code> field</td></tr>
+<tr><td>definition</td><td>string</td><td>The model itself, inlined as a string</td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-JSON">command = {
+    &quot;command&quot;: &quot;upload-model&quot;,
+    &quot;name&quot;: &quot;sir.easel&quot;,
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;definition&quot;: &quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S &gt; 0 and I &gt; 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I &gt; 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      &quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<p>On success:
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| status           | string                   | The literal <code>&quot;success&quot;</code>                                           |
+| result           | model-def                | Definition of the resultant model                                 |</p>
+<p>On failure:
+| Field       | Type        | Description                   |
+|-------------|-------------|-------------------------------|
+| status      | string      | The literal <code>&quot;error&quot;</code>         |
+| error       | string      | The reason for the error      |</p>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+    &quot;type&quot;: &quot;easel&quot;
+  }
+}
+</code></pre>
 
                     </main>
 
