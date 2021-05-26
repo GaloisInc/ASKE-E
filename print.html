@@ -654,16 +654,16 @@ for the ASKE-E program.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
-<p>On success:
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| status           | string                   | The literal <code>&quot;success&quot;</code>                                           |
-| result           | model-def                | Definition of the resultant model                                 |</p>
-<p>On failure:
-| Field       | Type        | Description                   |
-|-------------|-------------|-------------------------------|
-| status      | string      | The literal <code>&quot;error&quot;</code>         |
-| error       | string      | The reason for the error      |</p>
+<p>On success:</p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>status</td><td>string</td><td>The literal <code>&quot;success&quot;</code></td></tr>
+<tr><td>result</td><td>model-def</td><td>Definition of the resultant model</td></tr>
+</tbody></table>
+<p>On failure:</p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>status</td><td>string</td><td>The literal <code>&quot;error&quot;</code></td></tr>
+<tr><td>error</td><td>string</td><td>The reason for the error</td></tr>
+</tbody></table>
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
