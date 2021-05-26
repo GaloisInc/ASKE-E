@@ -47,9 +47,13 @@ main =
           Right a ->
             do  r <- liftIO $ try $ handleRequest a
                 case r of
-                  Right ok ->
-                    do  Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
-                        Snap.writeLBS (JS.encode ok)
+                  Right out ->
+                    do  let (code, msg) =
+                              case out of
+                                OutputResult (FailureResult _) -> (400, "Error")
+                                _ -> (200, "OK")
+                        Snap.modifyResponse (Snap.setResponseStatus code msg)
+                        Snap.writeLBS (JS.encode out)
                   Left err ->
                     do  Snap.modifyResponse
                                   (Snap.setResponseStatus 400 "Bad request")
@@ -142,9 +146,13 @@ handleRequest r =
         _ -> pure $ OutputResult (FailureResult "model type not supported")
 
     UploadModel UploadModelCommand{..} ->
-      do  checkModel' uploadModelFormat (Inline uploadModelSource)
-          loc <- storeModel uploadModelName uploadModelFormat uploadModelSource
-          pure $ OutputResult (SuccessResult loc)
+      do  res <- try
+            do  checkModel' uploadModelFormat (Inline uploadModelSource)
+                loc <- storeModel uploadModelName uploadModelFormat uploadModelSource
+                pure $ OutputResult (SuccessResult loc)
+          case res of
+            Left err -> pure $ OutputResult $ FailureResult $ Text.pack $ show (err :: SomeException)
+            Right ok -> pure ok
 
     GetModelSource cmd ->
       do  models <- listAllModels
