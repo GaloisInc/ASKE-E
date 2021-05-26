@@ -424,3 +424,53 @@ May fail if the conversion is not supported.
   }
 }
 ```
+
+### `upload-model` - Upload a new model
+
+This command may fail if you attempt to overwrite an existing model, or if the model you attempt to upload is not syntactically valid.
+
+**Request:**
+
+| Field            | Type                     | Description                                                        |
+|------------------|--------------------------|--------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"upload-model"`|
+| name             | string                   | The (base)name of the model in storage                             |
+| type             | string                   | Model type - same options as `model-def`'s `type` field            |
+| definition       | string                   | The model itself, inlined as a string                              |
+
+Example:
+
+```JSON
+command = {
+    "command": "upload-model",
+    "name": "sir.easel",
+    "type": "easel",
+    "definition": "model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S > 0 and I > 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I > 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      "
+}
+```
+
+**Response:**
+
+On success:
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| status           | string                   | The literal `"success"`                                           |
+| result           | model-def                | Definition of the resultant model                                 |
+
+On failure:
+| Field       | Type        | Description                   |
+|-------------|-------------|-------------------------------|
+| status      | string      | The literal `"error"`         |
+| error       | string      | The reason for the error      |
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "source": { "file": "modelRepo/easel/sir.easel" },
+    "type": "easel"
+  }
+}
+```
