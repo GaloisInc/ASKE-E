@@ -1,9 +1,10 @@
-{-# Language BlockArguments, OverloadedStrings, TupleSections #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 module Main(main) where
 
 import Data.Text(Text)
-import qualified System.Directory as Directory
-import System.FilePath((</>))
 import qualified Data.Text as Text
 import Data.Map(Map)
 import qualified Data.Map as Map
@@ -25,14 +26,18 @@ import qualified Language.ASKEE.Core.Visualization as CoreViz
 import qualified Language.ASKEE.Metadata as Meta
 import qualified Language.ASKEE.Syntax as Easel
 import Schema
+import ModelStorage
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
+import Control.Monad (void)
 
 main :: IO ()
-main = quickHttpServe
-  do  Snap.route [ ("/help", showHelp)
-                 , ("/", endpoint)
-                 ]
+main = 
+  do  initStorage
+      quickHttpServe $
+        do  Snap.route [ ("/help", showHelp)
+                       , ("/", endpoint)
+                       ]
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -42,9 +47,13 @@ main = quickHttpServe
           Right a ->
             do  r <- liftIO $ try $ handleRequest a
                 case r of
-                  Right ok ->
-                    do  Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
-                        Snap.writeLBS (JS.encode ok)
+                  Right out ->
+                    do  let (code, msg) =
+                              case out of
+                                OutputResult (FailureResult _) -> (400, "Error")
+                                _ -> (200, "OK")
+                        Snap.modifyResponse (Snap.setResponseStatus code msg)
+                        Snap.writeLBS (JS.encode out)
                   Left err ->
                     do  Snap.modifyResponse
                                   (Snap.setResponseStatus 400 "Bad request")
@@ -124,9 +133,7 @@ handleRequest r =
                                       (stratType info)
           pure $ StratificationResult modelInfo
 
-    ListModels _ ->
-      do  results <- listModels "modelRepo"
-          pure $ OutputModelList results
+    ListModels _ -> OutputModelList <$> listAllModels
 
     ModelSchemaGraph cmd ->
       case modelDefType $ modelSchemaGraphModel cmd of
@@ -138,12 +145,22 @@ handleRequest r =
 
         _ -> pure $ OutputResult (FailureResult "model type not supported")
 
+    UploadModel UploadModelCommand{..} ->
+      do  res <- try
+            do  checkModel' uploadModelType (Inline uploadModelSource)
+                loc <- storeModel uploadModelName uploadModelType uploadModelSource
+                let mdef = ModelDef (FromFile loc) uploadModelType
+                pure $ OutputResult (SuccessResult mdef)
+          case res of
+            Left err -> pure $ OutputResult $ FailureResult $ Text.pack $ show (err :: SomeException)
+            Right ok -> pure ok
+
     GetModelSource cmd ->
-      do  models <- listModels "modelRepo"
+      do  models <- listAllModels
           if getModelSource cmd `elem` models then
             do  d <- loadString (modelDefSource $ getModelSource cmd)
                 let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-                pure $ OutputJSON (JS.toJSON result)
+                pure $ OutputResult (SuccessResult result)
           else
             pure $ OutputResult (FailureResult "model does not exist")
 
@@ -220,6 +237,15 @@ checkModel mt src =
             Left (ParseError err) -> pure $ Just err
             Right _               -> pure Nothing
 
+-- Just throw an exception on failure
+checkModel' :: ModelType -> DataSource -> IO ()
+checkModel' format model =
+  case format of
+    Schema.DiffEqs -> void $ parseEquations model
+    AskeeModel     -> void $ parseModel model
+    ReactionNet    -> void $ parseReactions model
+    LatexEqnarray  -> void $ parseLatex model
+
 
 convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
@@ -259,14 +285,5 @@ generateCPP ty src =
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
 
-
-listModels :: FilePath -> IO [ModelDef]
-listModels modelBaseDir =
-    list "easel" AskeeModel
-  where
-    mdef ty n = ModelDef (FromFile n) ty
-    list dir ty =
-        do  files <- Directory.listDirectory (modelBaseDir </> dir)
-            pure $ mdef ty . ((modelBaseDir </> dir) </>) <$> files
 
 -------------------------------------------------------------------------
