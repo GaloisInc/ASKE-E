@@ -33,6 +33,7 @@ initStorage = mapM_ make dirs
               , DiffEqs
               , ReactionNet
               , LatexEqnarray
+              , Gromet
               ]
       ]
 
@@ -78,6 +79,7 @@ formatLocation mt =
     ReactionNet   -> "rnet"
     DiffEqs       -> "deq"
     LatexEqnarray -> "latex"
+    Gromet        -> "gromet"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

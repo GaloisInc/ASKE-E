@@ -130,7 +130,12 @@ instance HasSpec FitCommand where
 
         pure FitCommand {..}
 
-data ModelType = AskeeModel | DiffEqs | ReactionNet | LatexEqnarray
+data ModelType = 
+    AskeeModel 
+  | DiffEqs 
+  | Gromet
+  | ReactionNet
+  | LatexEqnarray
   deriving (Show, Eq)
 
 data ModelDef =
@@ -158,6 +163,7 @@ instance HasSpec ModelType where
          <!> (jsAtom "diff-eqs" $> DiffEqs)
          <!> (jsAtom "reaction-net" $> ReactionNet)
          <!> (jsAtom "latex-eqnarray" $> LatexEqnarray)
+         <!> (jsAtom "gromet" $> Gromet)
 
 instance JS.ToJSON ModelType where
   toJSON mt =
@@ -166,6 +172,7 @@ instance JS.ToJSON ModelType where
       DiffEqs -> JS.String "diff-eqs"
       ReactionNet -> JS.String "reaction-net"
       LatexEqnarray -> JS.String "latex-eqnarray"
+      Gromet -> JS.String "gromet"
 
 
 dataSource :: ValueSpec DataSource

@@ -30,6 +30,8 @@ import ModelStorage
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import Control.Monad (void)
+import System.Process ( readProcessWithExitCode )
+import System.Exit ( ExitCode(..) )
 
 main :: IO ()
 main = 
@@ -220,22 +222,16 @@ loadDiffEqs mt src ps0 overwrite =
     AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
     ReactionNet       -> notImplemented "Reaction net simulation"
     LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
+    Gromet            -> notImplemented "Gromet simulation"
   where
   allParams = Map.keys overwrite ++ ps0
 
 checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel mt src =
-  case mt of
-    Schema.DiffEqs     -> checkUsing parseEquations src
-    Schema.AskeeModel  -> checkUsing parseModel src
-    Schema.ReactionNet -> checkUsing parseReactions src
-    Schema.LatexEqnarray -> checkUsing parseLatex src
-  where
-    checkUsing parser ds =
-      do  mbMdl <- try (parser ds)
-          case mbMdl of
-            Left (ParseError err) -> pure $ Just err
-            Right _               -> pure Nothing
+  do  res <- try (checkModel' mt src)
+      case res of
+        Left err -> pure $ Just (show (err :: SomeException))
+        Right _ -> pure Nothing
 
 -- Just throw an exception on failure
 checkModel' :: ModelType -> DataSource -> IO ()
@@ -245,11 +241,19 @@ checkModel' format model =
     AskeeModel     -> void $ parseModel model
     ReactionNet    -> void $ parseReactions model
     LatexEqnarray  -> void $ parseLatex model
-
+    Gromet         -> 
+      do  m <- loadString model
+          (code, _out, _err) <- readProcessWithExitCode "jq" [] m
+          case code of
+            ExitSuccess -> pure ()
+            ExitFailure _ -> throwIO $ ParseError "invalid gromet"
 
 convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
   case (inputType, outputType) of
+    (Schema.Gromet, _) -> 
+      pure $ Left "conversion from gromet is not implemented"
+
     (_, Schema.DiffEqs) ->
       do  src <- loadString source
           pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
@@ -271,6 +275,7 @@ convertModel inputType source outputType =
         Schema.AskeeModel -> Translate.ASKEE
         Schema.DiffEqs -> Translate.DiffEq
         Schema.LatexEqnarray -> Translate.Latex
+        Schema.Gromet -> undefined
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP ty src =
@@ -284,6 +289,7 @@ generateCPP ty src =
       pure $ Left "Rendering diff-eq to C++ is not implemented"
     Schema.LatexEqnarray ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
-
+    Schema.Gromet ->
+      pure $ Left "Rendering gromet to C++ is not implemented"
 
 -------------------------------------------------------------------------
