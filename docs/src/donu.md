@@ -452,12 +452,14 @@ command = {
 **Response:**
 
 On success:
+
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
 | status           | string                   | The literal `"success"`                                           |
 | result           | model-def                | Definition of the resultant model                                 |
 
 On failure:
+
 | Field       | Type        | Description                   |
 |-------------|-------------|-------------------------------|
 | status      | string      | The literal `"error"`         |
