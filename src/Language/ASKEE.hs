@@ -30,7 +30,7 @@ import qualified Language.ASKEE.APRAM.GenLexer         as APL
 import qualified Language.ASKEE.APRAM.GenParser        as APP
 import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
 import qualified Language.ASKEE.Check                  as Check
-import           Language.ASKEE.Convert
+import           Language.ASKEE.Convert                ( converter, tagOf )
 import qualified Language.ASKEE.Core                   as Core
 import qualified Language.ASKEE.DEQ.GenLexer           as DL
 import qualified Language.ASKEE.DEQ.GenParser          as DP
@@ -40,6 +40,7 @@ import qualified Language.ASKEE.GenLexer               as AL
 import qualified Language.ASKEE.GenParser              as AP
 import qualified Language.ASKEE.Latex.GenLexer         as LL
 import qualified Language.ASKEE.Latex.GenParser        as LP
+import qualified Language.ASKEE.Latex.Syntax           as LS
 import           Language.ASKEE.Lexer                  ( Token
                                                        , Located )
 import qualified Language.ASKEE.Measure                as M
@@ -56,6 +57,7 @@ import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen           as SG
 import qualified Language.ASKEE.Syntax                 as Syntax
 import qualified Language.ASKEE.Gromet                 as Gromet
+import           Language.ASKEE.Types                 ( Representation(..) )
 
 import System.Process   ( readProcess )
 import GHC.Generics (Generic)
@@ -190,14 +192,14 @@ lexLatex file =
         Right toks -> pure toks
         Left err -> throwIO (ParseError $ "lexLatex: "<>err)
 
-parseLatex :: DataSource -> IO DiffEqs
+parseLatex :: DataSource -> IO LS.Latex
 parseLatex file =
   do  toks <- lexLatex file
       case LP.parseLatex toks of
         Right deqs -> pure deqs
         Left err -> throwIO (ParseError $ "parseLatex: "<>err)
 
-loadLatex :: DataSource -> IO DiffEqs 
+loadLatex :: DataSource -> IO LS.Latex 
 loadLatex = parseLatex
 
 
@@ -324,7 +326,7 @@ askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @D
 -- $allConverters
 
 diffEqStringToLatexString :: String -> Either String String
-diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
+diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @LS.Latex Concrete))
 renderCppModel :: DataSource -> IO String
 renderCppModel file =
   do  compiled <- loadCoreModel' file

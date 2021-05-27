@@ -17,6 +17,7 @@ import Language.ASKEE.Expr             as Expr
 import Language.ASKEE.Lexer            ( Located(..) )
 import Language.ASKEE.Latex.GenLexer  
 import Language.ASKEE.Latex.Lexer      as Lexer
+import Language.ASKEE.Latex.Syntax
 }
 
 %name        parseLatex Eqns
@@ -50,7 +51,7 @@ import Language.ASKEE.Latex.Lexer      as Lexer
 
 %%
 
-Eqns                                      :: { Syntax.DiffEqs }
+Eqns                                      :: { Latex }
   : Eqns1                                    { mkDiffEqs $1 }
 
 Eqns1                                     :: { [(EqnType, Ident, Expr)]}
@@ -106,14 +107,14 @@ parseError [] =
 parseError ((Located lin col t):ts) = 
   Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
-mkDiffEqs :: [(EqnType, Ident, Expr)] -> DiffEqs
+mkDiffEqs :: [(EqnType, Ident, Expr)] -> Latex
 mkDiffEqs decls =
   let deqLets    = Map.fromList $ mapMaybe (match Let) decls
       deqRates   = Map.fromList $ mapMaybe (match Rate) decls
       deqInitial = Map.fromList $ mapMaybe (match Init) decls
       -- deqLets    = Map.difference lets deqRates 
       deqParams  = []
-  in  DiffEqs{..}
+  in  Latex DiffEqs{..}
 
   where
     match s (s',i,e) = if s == s' then Just (i,expAsCore e) else Nothing

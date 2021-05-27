@@ -17,6 +17,7 @@ import Language.ASKEE(DataSource(..), StratificationType(..), StratificationInfo
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
 import Language.ASKEE.Print (printModel)
+import Language.ASKEE.Types
 
 
 data Input =
@@ -130,13 +131,13 @@ instance HasSpec FitCommand where
 
         pure FitCommand {..}
 
-data ModelType = 
-    AskeeModel 
-  | DiffEqs 
-  | Gromet
-  | ReactionNet
-  | LatexEqnarray
-  deriving (Show, Eq)
+-- data ModelType = 
+--     AskeeModel 
+--   | DiffEqs 
+--   | Gromet
+--   | ReactionNet
+--   | LatexEqnarray
+--   deriving (Show, Eq)
 
 data ModelDef =
     ModelDef { modelDefSource :: DataSource
@@ -159,20 +160,21 @@ dataSourceToJSON ds =
       JS.String s
 
 instance HasSpec ModelType where
-  anySpec =  (jsAtom "easel"    $> AskeeModel)
-         <!> (jsAtom "diff-eqs" $> DiffEqs)
-         <!> (jsAtom "reaction-net" $> ReactionNet)
-         <!> (jsAtom "latex-eqnarray" $> LatexEqnarray)
-         <!> (jsAtom "gromet" $> Gromet)
+  anySpec =  (jsAtom "easel"    $> ESL Concrete)
+         <!> (jsAtom "diff-eqs" $> DEQ Concrete)
+         <!> (jsAtom "reaction-net" $> RNET Concrete)
+         <!> (jsAtom "latex-eqnarray" $> LATEX Concrete)
+         <!> (jsAtom "gromet" $> GROMET Concrete)
 
 instance JS.ToJSON ModelType where
   toJSON mt =
     case mt of
-      AskeeModel -> JS.String "easel"
-      DiffEqs -> JS.String "diff-eqs"
-      ReactionNet -> JS.String "reaction-net"
-      LatexEqnarray -> JS.String "latex-eqnarray"
-      Gromet -> JS.String "gromet"
+      ESL _ -> JS.String "easel"
+      DEQ _ -> JS.String "diff-eqs"
+      RNET _ -> JS.String "reaction-net"
+      LATEX _ -> JS.String "latex-eqnarray"
+      GROMET _ -> JS.String "gromet"
+      TOPO _ -> JS.String "topology"
 
 
 dataSource :: ValueSpec DataSource

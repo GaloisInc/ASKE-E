@@ -23,6 +23,7 @@ library
                      , Language.ASKEE.Core.Visualization
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
+                     , Language.ASKEE.Types
                      , Language.ASKEE.AMIDOLIR
                      , Language.ASKEE.APRAM.Syntax
                      , Language.ASKEE.APRAM.Translate
@@ -61,6 +62,7 @@ library
                      , Language.ASKEE.Latex.GenParser
                      , Language.ASKEE.Latex.Lexer
                      , Language.ASKEE.Latex.Print
+                     , Language.ASKEE.Latex.Syntax
 
                      , Language.ASKEE.Experiment.Syntax
                      , Language.ASKEE.Experiment.Lexer

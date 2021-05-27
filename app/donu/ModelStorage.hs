@@ -8,8 +8,9 @@ import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
 import Language.ASKEE ( DataSource(..) )
+import Language.ASKEE.Types ( ModelType(..), Representation(..) )
 
-import Schema ( ModelType(..), ModelDef(..) )
+import Schema ( ModelDef(..) )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
@@ -29,11 +30,12 @@ initStorage = mapM_ make dirs
     make = Directory.createDirectoryIfMissing True
     dirs = 
       [ baseDirectory </> formatLocation mt
-      | mt <- [ AskeeModel
-              , DiffEqs
-              , ReactionNet
-              , LatexEqnarray
-              , Gromet
+      | mt <- [ ESL Concrete
+              , DEQ Concrete
+              , RNET Concrete
+              , LATEX Concrete
+              , GROMET Concrete
+              , TOPO Concrete
               ]
       ]
 
@@ -57,10 +59,12 @@ listAllModels :: IO [ModelDef]
 listAllModels = 
   concat <$> sequence
     [ listModels mt 
-    | mt <- [ AskeeModel
-            , DiffEqs
-            , ReactionNet
-            , LatexEqnarray
+    | mt <- [ ESL Concrete
+            , DEQ Concrete
+            , RNET Concrete
+            , LATEX Concrete
+            , GROMET Concrete
+            , TOPO Concrete
             ]
     ]
 
@@ -75,11 +79,12 @@ listModels mt =
 formatLocation :: ModelType -> FilePath
 formatLocation mt =
   case mt of
-    AskeeModel    -> "easel"
-    ReactionNet   -> "rnet"
-    DiffEqs       -> "deq"
-    LatexEqnarray -> "latex"
-    Gromet        -> "gromet"
+    ESL    _ -> "easel"
+    RNET   _ -> "rnet"
+    DEQ    _ -> "deq"
+    LATEX  _ -> "latex"
+    GROMET _ -> "gromet"
+    TOPO   _ -> "topology"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

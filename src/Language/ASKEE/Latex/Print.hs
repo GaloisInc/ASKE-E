@@ -7,14 +7,15 @@ import qualified Data.Map as Map
 import Data.Text ( unpack )
 
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
+import Language.ASKEE.Latex.Syntax
 import Language.ASKEE.Core
 import Language.ASKEE.Panic ( panic )
 
 import Text.PrettyPrint as PP
 import Text.Printf ( printf )
 
-printLatex :: DiffEqs -> Doc
-printLatex DiffEqs {..} = vcat [lets, initials, rates]
+printLatex :: Latex -> Doc
+printLatex (Latex DiffEqs{..}) = vcat [lets, initials, rates]
   where
     lets = vcat $ map binding (Map.toList deqLets)
     initials = vcat $ map initBinding (Map.toList deqInitial)

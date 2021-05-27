@@ -1,111 +1,111 @@
-{-# LANGUAGE OverloadedStrings #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module Language.ASKEE.Translate where
 
-import Control.Monad                    ( (>=>) )
+import           Language.ASKEE.Convert              ( converter )
+import           Language.ASKEE.Types
+import qualified Language.ASKEE.Syntax               as ESL
+import qualified Language.ASKEE.DEQ.Syntax           as DEQ
+import qualified Language.ASKEE.RNet.Syntax          as RNet
+import qualified Language.ASKEE.Latex.Syntax         as Latex
+import qualified Language.ASKEE.ModelStratify.Syntax as Topology
 
-import Language.ASKEE.Core.DiffEq       ( asEquationSystem )
-import Language.ASKEE.Core.ImportASKEE  ( modelAsCore )
+class ParseModel a where
+  parseModel :: String -> Either String a
 
-import Language.ASKEE.DEQ.Print         ( ppDiffEqs )
+instance ParseModel ESL.Model where
+  parseModel = $(converter (ESL Concrete) (ESL Abstract))
 
-import Language.ASKEE.GenLexer          ( lexModel )
-import Language.ASKEE.GenParser         ( parseModel )
+instance ParseModel DEQ.DiffEqs where
+  parseModel = $(converter (DEQ Concrete) (DEQ Abstract))
 
-import Language.ASKEE.Latex.GenLexer    ( lexLatex )
-import Language.ASKEE.Latex.GenParser   ( parseLatex )
-import Language.ASKEE.Latex.Print       ( printLatex )
+instance ParseModel RNet.ReactionNet where
+  parseModel = $(converter (RNET Concrete) (RNET Abstract))
 
-import Language.ASKEE.Print             ( printModel )
+instance ParseModel Latex.Latex where
+  parseModel = $(converter (LATEX Concrete) (LATEX Abstract))
 
-import Language.ASKEE.RNet.GenLexer     ( lexRNet )
-import Language.ASKEE.RNet.GenParser    ( parseRNet )
-import Language.ASKEE.RNet.Reaction     ( reactionsAsModel )
+instance ParseModel Topology.Net where
+  parseModel = $(converter (TOPO Concrete) (TOPO Abstract))
 
+-------------------------------------------------------------------------------
 
-{-
+class SerializeModel a where
+  serializeModel :: a -> Either String String
 
-A somewhat double-dispatch/OO-flavored approach to cross-format translation.
+instance SerializeModel ESL.Model where
+  serializeModel = $(converter (ESL Abstract) (ESL Concrete))
 
--}
+instance SerializeModel DEQ.DiffEqs where
+  serializeModel = $(converter (DEQ Abstract) (DEQ Concrete))
 
-data ModelSyntax = ASKEE | DiffEq | RNet | Latex
-  deriving Show
+-- XXX: This probably should work
+-- instance SerializeModel RNet.ReactionNet where
+--   serializeModel = $(converter (RNET Abstract) RNET (Concrete))
 
-type Translator a = String -> Either String a
+instance SerializeModel Latex.Latex where
+  serializeModel = $(converter (LATEX Abstract) (LATEX Concrete))
 
-class AsASKEE a where
-  asASKEEConcrete :: a -> Translator String
-  -- asASKEEAbstract :: a -> Translator ASKEE.Model
+instance SerializeModel Topology.Net where
+  serializeModel = $(converter (TOPO Abstract) (TOPO Concrete))
 
-class AsDiffEq a where
-  asDiffEqConcrete :: a -> Translator String
-  -- asDiffEqAbstract :: a -> Translator DEQ.DiffEqs
+-------------------------------------------------------------------------------
+
+class AsESL a where
+  asESL :: a -> Either String ESL.Model
+
+instance AsESL ESL.Model where
+  asESL = $(converter (ESL Abstract) (ESL Abstract))
+
+-- XXX: This could be made to work partially
+-- instance AsESL DEQ.DiffEqs where
+--   asESL = $(converter (DEQ Abstract) (ESL Abstract))
+
+instance AsESL RNet.ReactionNet where
+  asESL = $(converter (RNET Abstract) (ESL Abstract))
+
+-- XXX blocked by lack of DEQ -> ESL translation
+-- instance AsESL Latex.Latex where
+--   asESL = $(converter (LATEX Abstract) (ESL Abstract))
+
+instance AsESL Topology.Net where
+  asESL = $(converter (TOPO Abstract) (ESL Abstract))
+
+-------------------------------------------------------------------------------
+
+class AsDEQ a where
+  asDEQ :: a -> Either String DEQ.DiffEqs
+
+instance AsDEQ ESL.Model where
+  asDEQ = $(converter (ESL Abstract) (DEQ Abstract))
+
+instance AsDEQ DEQ.DiffEqs where
+  asDEQ = $(converter (DEQ Abstract) (DEQ Abstract))
+
+instance AsDEQ RNet.ReactionNet where
+  asDEQ = $(converter (RNET Abstract) (DEQ Abstract))
+
+instance AsDEQ Latex.Latex where
+  asDEQ = $(converter (LATEX Abstract) (DEQ Abstract))
+
+instance AsDEQ Topology.Net where
+  asDEQ = $(converter (TOPO Abstract) (DEQ Abstract))
+
+-------------------------------------------------------------------------------
 
 class AsRNet a where
-  asRNetConcrete :: a -> Translator String
-  -- asRNetAbstract :: a -> Translator ReactionNet
+  asRNet :: a -> Either String RNet.ReactionNet
 
-class AsLatex a where
-  asLatexConcrete :: a -> Translator String
+-- XXX: don't remember whether there are theoretical limitations here 
+-- instance AsRNet ESL.Model where
+--   asRNet = $(converter (ESL Abstract) (RNET Abstract))
 
-instance AsASKEE ModelSyntax where
-  asASKEEConcrete syntax s =
-    case syntax of
-      ASKEE -> Right s
-      DiffEq -> undefined
-      RNet ->
-        do  rnet <- lexParse lexRNet parseRNet
-            model <- reactionsAsModel rnet
-            pure $ show $ printModel model
-      Latex -> undefined
+-- XXX: blocked by lack of DEQ -> ESL translation
+-- instance AsRNet DEQ.DiffEqs where
+--   asRNet = $(converter (DEQ Abstract) (RNET Abstract))
 
-    where
-      lexParse :: (String -> Either String [a]) -> ([a] -> Either String b) -> Either String b
-      lexParse l p = (l >=> p) s
+instance AsRNet RNet.ReactionNet where
+  asRNet = $(converter (RNET Abstract) (RNET Abstract))
 
-instance AsDiffEq ModelSyntax where
-  asDiffEqConcrete syntax s =
-    case syntax of
-      ASKEE ->
-        do  model <- lexParse lexModel parseModel
-            coreModel <- modelAsCore model
-            let eqs = asEquationSystem coreModel
-            pure $ show $ ppDiffEqs eqs
-      DiffEq -> Right s
-      RNet -> 
-        do  rnet <- lexParse lexRNet parseRNet
-            model <- reactionsAsModel rnet
-            coreModel <- modelAsCore model
-            let eqs = asEquationSystem coreModel
-            pure $ show $ ppDiffEqs eqs
-      Latex -> 
-        do  eqs <- lexParse lexLatex parseLatex
-            pure $ show $ ppDiffEqs eqs
-
-    where
-      lexParse :: (String -> Either String [a]) -> ([a] -> Either String b) -> Either String b
-      lexParse l p = (l >=> p) s
-
-instance AsRNet ModelSyntax where
-  asRNetConcrete syntax s =
-    case syntax of
-      ASKEE -> undefined
-      DiffEq -> undefined
-      RNet -> Right s
-      Latex -> undefined
-
-instance AsLatex ModelSyntax where
-  asLatexConcrete syntax s =
-    case syntax of
-      ASKEE ->
-        do  model <- lexParse lexModel parseModel
-            coreModel <- modelAsCore model
-            let eqs = asEquationSystem coreModel -- ({ modelLets = Map.empty })
-            pure . show $ printLatex eqs
-      DiffEq -> undefined
-      RNet -> undefined
-      Latex -> Right s
-    where
-      lexParse :: (String -> Either String [a]) -> ([a] -> Either String b) -> Either String b
-      lexParse l p = (l >=> p) s
+-- XXX: blocked by lack of DEQ -> ESL translation
+-- instance AsRNet Latex.Latex where
+--   asRNet = $(converter (LATEX Abstract) (RNET Abstract))

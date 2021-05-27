@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -16,15 +17,16 @@ import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
 import Language.ASKEE
+import           Language.ASKEE.Convert ( converter )
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Translate as Translate
 import qualified Language.ASKEE.Core.Visualization as CoreViz
 import qualified Language.ASKEE.Metadata as Meta
 import qualified Language.ASKEE.Syntax as Easel
+import           Language.ASKEE.Types
 import Schema
 import ModelStorage
 
@@ -139,7 +141,7 @@ handleRequest r =
 
     ModelSchemaGraph cmd ->
       case modelDefType $ modelSchemaGraphModel cmd of
-        AskeeModel ->
+        ESL _ ->
           do  modelSource <- loadCoreModel' (modelDefSource $ modelSchemaGraphModel cmd)
               case CoreViz.asSchematicGraph modelSource of
                 Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
@@ -168,7 +170,7 @@ handleRequest r =
 
     DescribeModelInterface cmd ->
       case modelDefType (describeModelInterfaceSource cmd) of
-        AskeeModel ->
+        ESL _ ->
           do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
 
               let stateVars =
@@ -218,11 +220,12 @@ loadDiffEqs ::
 loadDiffEqs mt src ps0 overwrite =
   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
   case mt of
-    Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
-    ReactionNet       -> notImplemented "Reaction net simulation"
-    LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
-    Gromet            -> notImplemented "Gromet simulation"
+    DEQ _    -> loadEquations src allParams
+    ESL _        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
+    RNET _       -> notImplemented "Reaction net simulation"
+    LATEX _     -> notImplemented "Latex eqnarray simulation"
+    GROMET _            -> notImplemented "Gromet simulation"
+    TOPO _ -> notImplemented "Topology simulation"
   where
   allParams = Map.keys overwrite ++ ps0
 
@@ -237,59 +240,96 @@ checkModel mt src =
 checkModel' :: ModelType -> DataSource -> IO ()
 checkModel' format model =
   case format of
-    Schema.DiffEqs -> void $ parseEquations model
-    AskeeModel     -> void $ parseModel model
-    ReactionNet    -> void $ parseReactions model
-    LatexEqnarray  -> void $ parseLatex model
-    Gromet         -> 
+    DEQ _    -> void $ parseEquations model
+    ESL _    -> void $ parseModel model
+    RNET _   -> void $ parseReactions model
+    LATEX _  -> void $ parseLatex model
+    GROMET _ -> 
       do  m <- loadString model
           (code, _out, _err) <- readProcessWithExitCode "jq" [] m
           case code of
             ExitSuccess -> pure ()
             ExitFailure _ -> throwIO $ ParseError "invalid gromet"
+    TOPO _ -> notImplemented "topology checking"
 
 convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModel inputType source outputType =
-  case (inputType, outputType) of
-    (Schema.Gromet, _) -> 
-      pure $ Left "conversion from gromet is not implemented"
-
-    (_, Schema.DiffEqs) ->
-      do  src <- loadString source
-          pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
-
-    (_, Schema.LatexEqnarray) ->
-      do  src <- loadString source
-          pure $ Translate.asLatexConcrete (translateSyntax inputType) src
-
-    (_, Schema.AskeeModel) ->
-      do  src <- loadString source
-          pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
-
-    (_, _) ->
-      pure $ Left "Conversion is not implemented"
-  where
-    translateSyntax t =
-      case t of
-        Schema.ReactionNet -> Translate.RNet
-        Schema.AskeeModel -> Translate.ASKEE
-        Schema.DiffEqs -> Translate.DiffEq
-        Schema.LatexEqnarray -> Translate.Latex
-        Schema.Gromet -> undefined
+  do  model <- loadString source
+      conv <- 
+        case inputType of
+          ESL Concrete ->
+            case outputType of
+              ESL Concrete    -> pure $(converter (ESL Concrete) (ESL Concrete))
+              DEQ Concrete    -> pure $(converter (ESL Concrete) (DEQ Concrete))
+              RNET Concrete   -> pure $(converter (ESL Concrete) (LATEX Concrete))
+              LATEX Concrete  -> pure $(converter (ESL Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (ESL Concrete) (GROMET Concrete))
+              TOPO Concrete   -> pure $(converter (ESL Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          DEQ Concrete ->
+            case outputType of
+              -- ESL Concrete    -> pure $(converter (DEQ Concrete) (ESL Concrete))
+              DEQ Concrete    -> pure $(converter (DEQ Concrete) (DEQ Concrete))
+              -- RNET Concrete   -> pure $(converter (DEQ Concrete) (RNET Concrete))
+              LATEX Concrete  -> pure $(converter (DEQ Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (DEQ Concrete) (GROMET Concrete))
+              -- TOPO Concrete   -> pure $(converter (DEQ Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          RNET Concrete ->
+            case outputType of
+              ESL Concrete    -> pure $(converter (RNET Concrete) (ESL Concrete))
+              DEQ Concrete    -> pure $(converter (RNET Concrete) (DEQ Concrete))
+              RNET Concrete   -> pure $(converter (RNET Concrete) (RNET Concrete))
+              LATEX Concrete  -> pure $(converter (RNET Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (RNET Concrete) (GROMET Concrete))
+              TOPO Concrete   -> pure $(converter (RNET Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          LATEX Concrete ->
+            case outputType of
+              -- ESL Concrete    -> pure $(converter (LATEX Concrete) (ESL Concrete))
+              DEQ Concrete    -> pure $(converter (LATEX Concrete) (DEQ Concrete))
+              RNET Concrete   -> pure $(converter (LATEX Concrete) (LATEX Concrete))
+              LATEX Concrete  -> pure $(converter (LATEX Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (LATEX Concrete) (GROMET Concrete))
+              -- TOPO Concrete   -> pure $(converter (LATEX Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          GROMET Concrete ->
+            case outputType of
+              -- ESL Concrete    -> pure $(converter (GROMET Concrete) (ESL Concrete))
+              -- DEQ Concrete    -> pure $(converter (GROMET Concrete) (DEQ Concrete))
+              -- RNET Concrete   -> pure $(converter (GROMET Concrete) (LATEX Concrete))
+              -- LATEX Concrete  -> pure $(converter (GROMET Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (GROMET Concrete) (GROMET Concrete))
+              -- TOPO Concrete   -> pure $(converter (GROMET Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          TOPO Concrete ->
+            case outputType of
+              ESL Concrete    -> pure $(converter (TOPO Concrete) (ESL Concrete))
+              DEQ Concrete    -> pure $(converter (TOPO Concrete) (DEQ Concrete))
+              RNET Concrete   -> pure $(converter (TOPO Concrete) (LATEX Concrete))
+              LATEX Concrete  -> pure $(converter (TOPO Concrete) (LATEX Concrete))
+              -- GROMET Concrete -> pure $(converter (TOPO Concrete) (GROMET Concrete))
+              TOPO Concrete   -> pure $(converter (TOPO Concrete) (TOPO Concrete))
+              _ -> notImplemented (show outputType)
+          _ -> notImplemented (show inputType)
+          -- would be really really great to avoid this, but c'est la vie
+      pure $ conv model
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP ty src =
   case ty of
-    Schema.AskeeModel ->
+    ESL _ ->
       do  mdl <- renderCppModel src
           pure $ Right (Text.pack mdl)
-    Schema.ReactionNet ->
+    RNET _ ->
       pure $ Left "Rendering reaction networks to C++ is not implemented"
-    Schema.DiffEqs ->
+    DEQ _ ->
       pure $ Left "Rendering diff-eq to C++ is not implemented"
-    Schema.LatexEqnarray ->
+    LATEX _ ->
       pure $ Left "Rendering latex eqnarray to C++ is not implemented"
-    Schema.Gromet ->
+    GROMET _ ->
       pure $ Left "Rendering gromet to C++ is not implemented"
+    TOPO _ ->
+      pure $ Left "Rendering topology to C++ is not implemented"
 
 -------------------------------------------------------------------------
