@@ -10,10 +10,10 @@ module Language.ASKEE where
 import Control.Exception ( Exception(..)
                          , throwIO )
 
-import qualified Data.Aeson                 as Aeson
-import           Data.Aeson                 ( encode
-                                            , decode
-                                            , Value(..), (.=), object )
+-- import qualified Data.Aeson                 as Aeson
+-- import           Data.Aeson                 ( encode
+--                                             , decode
+--                                             , Value(..), (.=), object )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text
@@ -46,21 +46,21 @@ import           Language.ASKEE.Lexer                  ( Token
 import qualified Language.ASKEE.Measure                as M
 import qualified Language.ASKEE.MeasureToCPP           as MG
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Syntax   as MS
-import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
-                                                       , topologyAsModel
-                                                       , insertHoles
-                                                       , nameHoles )
+-- import qualified Language.ASKEE.ModelStratify.Syntax   as MS
+-- import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+--                                                        , topologyAsModel
+--                                                        , insertHoles
+--                                                        , nameHoles )
 import qualified Language.ASKEE.RNet.GenLexer          as RL
 import qualified Language.ASKEE.RNet.GenParser         as RP
 import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
 import qualified Language.ASKEE.SimulatorGen           as SG
 import qualified Language.ASKEE.Syntax                 as Syntax
 import qualified Language.ASKEE.Gromet                 as Gromet
-import           Language.ASKEE.Types                 ( Representation(..) )
+import           Language.ASKEE.Types                 ( Representation(..), DataSource(..) )
 
-import System.Process   ( readProcess )
-import GHC.Generics (Generic)
+-- import System.Process   ( readProcess )
+-- import GHC.Generics (Generic)
 
 
 import qualified Language.ASKEE.Experiment.Syntax as E
@@ -75,10 +75,10 @@ newtype ValidationError = ValidationError String deriving Show
 instance Exception ParseError
 instance Exception ValidationError
 
-data DataSource =
-    FromFile FilePath
-  | Inline Text
-    deriving (Show, Eq)
+-- data DataSource =
+--     FromFile FilePath
+--   | Inline Text
+--     deriving (Show, Eq)
 
 loadString :: DataSource -> IO String
 loadString source =
@@ -218,68 +218,68 @@ parseAPRAM file =
         Left err -> throwIO (ParseError $ "parseAPRAM: "<>err)
 -------------------------------------------------------------------------------
 
-data StratificationType = Demographic | Spatial
-  deriving Show
+-- data StratificationType = Demographic | Spatial
+--   deriving Show
 
-data StratificationInfo = StratificationInfo
-  { rawModel    :: Syntax.Model
-  , prettyModel :: Syntax.Model
-  , rawTopology :: MS.Net 
-  , holes       :: [Text]
-  , vertices    :: Map Int Text
-  }
-  deriving Show
+-- data StratificationInfo = StratificationInfo
+--   { rawModel    :: Syntax.Model
+--   , prettyModel :: Syntax.Model
+--   , rawTopology :: MS.Net 
+--   , holes       :: [Text]
+--   , vertices    :: Map Int Text
+--   }
+--   deriving Show
 
--- This and its Aeson instances might ought to live somewhere else
-data States = States
-  { sus :: Text
-  , exp :: Text
-  , inf :: [Text]
-  }
-  deriving (Generic, Show)
+-- -- This and its Aeson instances might ought to live somewhere else
+-- data States = States
+--   { sus :: Text
+--   , exp :: Text
+--   , inf :: [Text]
+--   }
+--   deriving (Generic, Show)
 
-instance Aeson.FromJSON States
-instance Aeson.ToJSON States
+-- instance Aeson.FromJSON States
+-- instance Aeson.ToJSON States
 
-stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
-stratifyModel model connections statesM strat =
-  do  topology <- modelAsTopology <$> loadModel model
-      (gtriConnections, vertices) <- loadConnectionGraph connections
-      states <- case statesM of 
-                  Just d -> Aeson.decode @States . B.pack <$> loadString d
-                  Nothing -> pure Nothing
-      let payload = object $  [ "top" .= topology 
-                              , "conn" .= gtriConnections
-                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
-                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
-      result <- readProcess "curl"  [ "-X", "POST"
-                                    , "-H", "Content-type: application/json"
-                                    , "-d", B.unpack $ encode payload
-                                    , "localhost:8001"
-                                    ] ""
-      rawTopology <- case decode (B.pack result) of
-        Just t -> pure t
-        Nothing -> error $ "failed to parse JSON of returned topology "++result
-      let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
-          prettyModel = nameHoles vertices rawModel
-      pure $ StratificationInfo{..}
+-- stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
+-- stratifyModel model connections statesM strat =
+--   do  topology <- modelAsTopology <$> loadModel model
+--       (gtriConnections, vertices) <- loadConnectionGraph connections
+--       states <- case statesM of 
+--                   Just d -> Aeson.decode @States . B.pack <$> loadString d
+--                   Nothing -> pure Nothing
+--       let payload = object $  [ "top" .= topology 
+--                               , "conn" .= gtriConnections
+--                               , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
+--                               ] ++ maybe [] (\s -> [ "states" .= s ]) states
+--       result <- readProcess "curl"  [ "-X", "POST"
+--                                     , "-H", "Content-type: application/json"
+--                                     , "-d", B.unpack $ encode payload
+--                                     , "localhost:8001"
+--                                     ] ""
+--       rawTopology <- case decode (B.pack result) of
+--         Just t -> pure t
+--         Nothing -> error $ "failed to parse JSON of returned topology "++result
+--       let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
+--           prettyModel = nameHoles vertices rawModel
+--       pure $ StratificationInfo{..}
 
 
-loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
-loadConnectionGraph d =
-  case d of
-    Inline t -> resultFromText t
-    FromFile f -> TextIO.readFile f >>= resultFromText
+-- loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
+-- loadConnectionGraph d =
+--   case d of
+--     Inline t -> resultFromText t
+--     FromFile f -> TextIO.readFile f >>= resultFromText
 
-  where
-    resultFromText t =
-      do  let result' = GG.parseGeoGraph (unpack t)
-          result <- case result' of
-            Right res -> pure res
-            Left err -> throwIO $ ParseError err
-          let (vertices, edges, mapping) = GG.intGraph result
-              mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
-          pure (GG.gtriJSON vertices edges, mapping')
+--   where
+--     resultFromText t =
+--       do  let result' = GG.parseGeoGraph (unpack t)
+--           result <- case result' of
+--             Right res -> pure res
+--             Left err -> throwIO $ ParseError err
+--           let (vertices, edges, mapping) = GG.intGraph result
+--               mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+--           pure (GG.gtriJSON vertices edges, mapping')
 
 genCppRunner :: DataSource -> IO ()
 genCppRunner fp =

@@ -10,6 +10,7 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   exposed-modules:     Language.ASKEE
+                     , Language.ASKEE2
                      , Language.ASKEE.Expr
                      , Language.ASKEE.GenLexer
                      , Language.ASKEE.Lexer
@@ -24,6 +25,8 @@ library
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.Print
                      , Language.ASKEE.Types
+                     , Language.ASKEE.Simulate
+                     , Language.ASKEE.Storage
                      , Language.ASKEE.AMIDOLIR
                      , Language.ASKEE.APRAM.Syntax
                      , Language.ASKEE.APRAM.Translate

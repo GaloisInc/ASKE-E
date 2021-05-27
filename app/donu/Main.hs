@@ -16,7 +16,8 @@ import Control.Exception(throwIO, try,SomeException, Exception(..))
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
-import Language.ASKEE
+-- import Language.ASKEE
+import Language.ASKEE2
 import           Language.ASKEE.Convert ( converter )
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
@@ -28,7 +29,7 @@ import qualified Language.ASKEE.Metadata as Meta
 import qualified Language.ASKEE.Syntax as Easel
 import           Language.ASKEE.Types
 import Schema
-import ModelStorage
+import Language.ASKEE.Storage
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import Control.Monad (void)
@@ -84,10 +85,10 @@ handleRequest r =
   print r >>
   case r of
     Simulate info ->
-      do eqs <- loadDiffEqs (modelDefType $ simModel info)
-                            (modelDefSource $ simModel info)
-                            []
+      do eqs <- loadDiffEqs --(modelDefType $ simModel info)
                             (simParameterValues info)
+                            []
+                            (modelDefSource $ simModel info)
          let times = takeWhile (<= simEnd info)
                    $ iterate (+ simStep info)
                    $ simStart info
@@ -104,7 +105,7 @@ handleRequest r =
             Just err -> pure $ OutputResult (FailureResult (Text.pack err))
 
     ConvertModel cmd ->
-      do  eConverted <- convertModel (modelDefType $ convertModelSource cmd)
+      do  eConverted <- convertConcrete (modelDefType $ convertModelSource cmd)
                                      (modelDefSource $ convertModelSource cmd)
                                      (convertModelDestType cmd)
 
@@ -115,10 +116,10 @@ handleRequest r =
               pure $ OutputResult (FailureResult $ Text.pack err)
 
     Fit info ->
-      do  eqs <- loadDiffEqs (modelDefType $ fitModel info)
-                             (modelDefSource $ fitModel info)
-                             (fitParams info)
+      do  eqs <- loadDiffEqs --(modelDefType $ fitModel info)
                              Map.empty
+                             (fitParams info)
+                             (modelDefSource $ fitModel info)
           print eqs
           rawData <- pack (fitData info)
           dataSeries <- case DS.parseDataSeries rawData of
@@ -131,18 +132,19 @@ handleRequest r =
       OutputResult . asResult <$> generateCPP (modelDefType $ generateCPPModel cmd)
                                               (modelDefSource $ generateCPPModel cmd)
     Stratify info ->
-      do  modelInfo <- stratifyModel  (stratModel info)
-                                      (stratConnections info)
-                                      (stratStates info)
-                                      (stratType info)
-          pure $ StratificationResult modelInfo
+      undefined
+      -- do  modelInfo <- stratifyModel  (stratModel info)
+      --                                 (stratConnections info)
+      --                                 (stratStates info)
+      --                                 (stratType info)
+      --     pure $ StratificationResult modelInfo
 
     ListModels _ -> OutputModelList <$> listAllModels
 
     ModelSchemaGraph cmd ->
       case modelDefType $ modelSchemaGraphModel cmd of
         ESL _ ->
-          do  modelSource <- loadCoreModel' (modelDefSource $ modelSchemaGraphModel cmd)
+          do  modelSource <- loadCore' (modelDefSource $ modelSchemaGraphModel cmd)
               case CoreViz.asSchematicGraph modelSource of
                 Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
                 Just g -> pure $ OutputResult (SuccessResult g)
@@ -160,13 +162,16 @@ handleRequest r =
             Right ok -> pure ok
 
     GetModelSource cmd ->
-      do  models <- listAllModels
-          if getModelSource cmd `elem` models then
-            do  d <- loadString (modelDefSource $ getModelSource cmd)
-                let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-                pure $ OutputResult (SuccessResult result)
-          else
-            pure $ OutputResult (FailureResult "model does not exist")
+      do  modelString <- loadModel (modelDefType (getModelSource cmd)) (modelDefSource (getModelSource cmd))
+          let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack modelString) }
+          pure $ OutputResult (SuccessResult result)
+      -- do  models <- listAllModels
+      --     if getModelSource cmd `elem` models then
+      --       do  d <- loadString (modelDefSource $ getModelSource cmd)
+      --           let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
+      --           pure $ OutputResult (SuccessResult result)
+      --     else
+      --       pure $ OutputResult (FailureResult "model does not exist")
 
     DescribeModelInterface cmd ->
       case modelDefType (describeModelInterfaceSource cmd) of
@@ -211,23 +216,23 @@ handleRequest r =
 
 
 
-loadDiffEqs ::
-  ModelType       {- ^ input file format -} ->
-  DataSource      {- ^ where to get the data from -} ->
-  [Text]          {- ^ parameters, if any -} ->
-  Map Text Double {- ^ overwrite these parameters -} ->
-  IO DiffEqs
-loadDiffEqs mt src ps0 overwrite =
-  fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
-  case mt of
-    DEQ _    -> loadEquations src allParams
-    ESL _        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
-    RNET _       -> notImplemented "Reaction net simulation"
-    LATEX _     -> notImplemented "Latex eqnarray simulation"
-    GROMET _            -> notImplemented "Gromet simulation"
-    TOPO _ -> notImplemented "Topology simulation"
-  where
-  allParams = Map.keys overwrite ++ ps0
+-- loadDiffEqs ::
+--   ModelType       {- ^ input file format -} ->
+--   DataSource      {- ^ where to get the data from -} ->
+--   [Text]          {- ^ parameters, if any -} ->
+--   Map Text Double {- ^ overwrite these parameters -} ->
+--   IO DiffEqs
+-- loadDiffEqs mt src ps0 overwrite =
+--   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
+--   case mt of
+--     DEQ _    -> loadEquations src allParams
+--     ESL _        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
+--     RNET _       -> notImplemented "Reaction net simulation"
+--     LATEX _     -> notImplemented "Latex eqnarray simulation"
+--     GROMET _            -> notImplemented "Gromet simulation"
+--     TOPO _ -> notImplemented "Topology simulation"
+--   where
+--   allParams = Map.keys overwrite ++ ps0
 
 checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel mt src =
@@ -240,80 +245,18 @@ checkModel mt src =
 checkModel' :: ModelType -> DataSource -> IO ()
 checkModel' format model =
   case format of
-    DEQ _    -> void $ parseEquations model
-    ESL _    -> void $ parseModel model
-    RNET _   -> void $ parseReactions model
-    LATEX _  -> void $ parseLatex model
+    DEQ _    -> void $ loadDiffEqs Map.empty [] model
+    ESL _    -> void $ loadESL model
+    RNET _   -> void $ loadReactions model
+    LATEX _  -> void $ loadLatex model
     GROMET _ -> 
-      do  m <- loadString model
+      do  m <- loadGromet model
           (code, _out, _err) <- readProcessWithExitCode "jq" [] m
           case code of
             ExitSuccess -> pure ()
             ExitFailure _ -> throwIO $ ParseError "invalid gromet"
     TOPO _ -> notImplemented "topology checking"
 
-convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertModel inputType source outputType =
-  do  model <- loadString source
-      conv <- 
-        case inputType of
-          ESL Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (ESL Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (ESL Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (ESL Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (ESL Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (ESL Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (ESL Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          DEQ Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (DEQ Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (DEQ Concrete) (DEQ Concrete))
-              -- RNET Concrete   -> pure $(converter (DEQ Concrete) (RNET Concrete))
-              LATEX Concrete  -> pure $(converter (DEQ Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (DEQ Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (DEQ Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          RNET Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (RNET Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (RNET Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (RNET Concrete) (RNET Concrete))
-              LATEX Concrete  -> pure $(converter (RNET Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (RNET Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (RNET Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          LATEX Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (LATEX Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (LATEX Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (LATEX Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (LATEX Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (LATEX Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (LATEX Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          GROMET Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (GROMET Concrete) (ESL Concrete))
-              -- DEQ Concrete    -> pure $(converter (GROMET Concrete) (DEQ Concrete))
-              -- RNET Concrete   -> pure $(converter (GROMET Concrete) (LATEX Concrete))
-              -- LATEX Concrete  -> pure $(converter (GROMET Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (GROMET Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (GROMET Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          TOPO Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (TOPO Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (TOPO Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (TOPO Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (TOPO Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (TOPO Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (TOPO Concrete) (TOPO Concrete))
-              _ -> notImplemented (show outputType)
-          _ -> notImplemented (show inputType)
-          -- would be really really great to avoid this, but c'est la vie
-      pure $ conv model
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP ty src =

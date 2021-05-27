@@ -13,7 +13,7 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE(DataSource(..), StratificationType(..), StratificationInfo(..))
+import Language.ASKEE( StratificationType(..), StratificationInfo(..))
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
 import Language.ASKEE.Print (printModel)
@@ -139,11 +139,11 @@ instance HasSpec FitCommand where
 --   | LatexEqnarray
 --   deriving (Show, Eq)
 
-data ModelDef =
-    ModelDef { modelDefSource :: DataSource
-             , modelDefType   :: ModelType
-             }
-    deriving (Show, Eq)
+-- data ModelDef =
+--     ModelDef { modelDefSource :: DataSource
+--              , modelDefType   :: ModelType
+--              }
+--     deriving (Show, Eq)
 
 instance JS.ToJSON ModelDef where
   toJSON m =
