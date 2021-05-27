@@ -173,9 +173,9 @@ class Donu:
             return resp['result']
 
         elif resp['status'] == 'error':
-            raise IntepreterError(why, resp['error'])
+            raise InterpreterError(why, resp['error'])
 
-        raise IntepreterError(why, f"[BUG] unexpected response status from Donu {resp['status']}")
+        raise InterpreterError(why, f"[BUG] unexpected response status from Donu {resp['status']}")
 
     def mk_model(self, model:str, type: str):
         return {
@@ -237,7 +237,7 @@ class Donu:
 # Interpreter
 # -----------------------------------------------------------------------------
 
-class IntepreterError(Exception):
+class InterpreterError(Exception):
     def __init__(self, why: AST, message: str):
         self.why = why
         self.message = message
@@ -472,7 +472,7 @@ class ASKEECommandInterpreter:
 
 
     def fail(self, msg:str, why:AST) -> any:
-        raise IntepreterError(msg, why)
+        raise InterpreterError(msg, why)
 
     def getVar(self, nm:str, why:AST) -> Value:
         if nm in self.env:
