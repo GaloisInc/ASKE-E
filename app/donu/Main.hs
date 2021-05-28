@@ -8,10 +8,8 @@ module Main(main) where
 
 import Data.Text(Text)
 import qualified Data.Text as Text
-import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
-import Data.Aeson((.=))
 import Control.Monad.IO.Class(liftIO)
 import Control.Exception(throwIO, try,SomeException, Exception(..))
 import qualified Snap.Core as Snap
@@ -19,15 +17,9 @@ import Snap.Http.Server (quickHttpServe)
 
 -- import Language.ASKEE
 import Language.ASKEE2
-import           Language.ASKEE.Convert ( converter )
-import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
 import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Core.Visualization as CoreViz
-import qualified Language.ASKEE.Metadata as Meta
-import qualified Language.ASKEE.Syntax as Easel
 import           Language.ASKEE.Types
 import Schema
 import Language.ASKEE.Storage
@@ -75,6 +67,7 @@ newtype ServerError = NotImplemented String
   deriving Show
 
 instance Exception ServerError
+
 notImplemented :: String -> IO a
 notImplemented what = throwIO (NotImplemented what)
 
@@ -165,37 +158,6 @@ handleRequest r =
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
       do  res <- describeModelInterface modelDefType modelDefSource
           pure $ OutputResult (SuccessResult res)
-      -- case modelDefType (describeModelInterfaceSource cmd) of
-      --   ESL _ ->
-      --     do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
-
-      --         let stateVars =
-      --               [(n, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-      --                                     , (Easel.State n _) <- [Meta.metaValue md]
-      --                                     ]
-      --             params =
-      --               [(n, d, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-      --                                        , (Easel.Parameter n d) <- [Meta.metaValue md]
-      --                                        ]
-
-      --             descParam (n, d, mp) =
-      --               JS.object [ "name" .= n
-      --                         , "defaultValue" .= d
-      --                         , "metadata" .= mp
-      --                         ]
-      --             descState (n, mp) =
-      --               JS.object [ "name" .= n
-      --                         , "metadata" .= mp
-      --                         ]
-      --             desc =
-      --               JS.object [ "parameters" .= (descParam <$> params)
-      --                         , "stateVars"  .= (descState <$> stateVars)
-      --                         ]
-
-      --         pure $ OutputResult (SuccessResult desc)
-
-      --   _ -> pure $ OutputResult (FailureResult "model type not supported")
-          
 
 
   where
@@ -205,25 +167,6 @@ handleRequest r =
         FromFile fp -> BS8.pack <$> readFile fp
         Inline s -> pure $ BS8.pack $ Text.unpack s
 
-
-
--- loadDiffEqs ::
---   ModelType       {- ^ input file format -} ->
---   DataSource      {- ^ where to get the data from -} ->
---   [Text]          {- ^ parameters, if any -} ->
---   Map Text Double {- ^ overwrite these parameters -} ->
---   IO DiffEqs
--- loadDiffEqs mt src ps0 overwrite =
---   fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
---   case mt of
---     DEQ _    -> loadEquations src allParams
---     ESL _        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
---     RNET _       -> notImplemented "Reaction net simulation"
---     LATEX _     -> notImplemented "Latex eqnarray simulation"
---     GROMET _            -> notImplemented "Gromet simulation"
---     TOPO _ -> notImplemented "Topology simulation"
---   where
---   allParams = Map.keys overwrite ++ ps0
 
 checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel mt src =
@@ -255,17 +198,5 @@ generateCPP format source =
   do  coreModel <- loadCore format source
       let mdl = renderCppModel coreModel
       pure $ Right (Text.pack mdl)
-    RNET _ ->
-      pure $ Left "Rendering reaction networks to C++ is not implemented"
-    DEQ _ ->
-      pure $ Left "Rendering diff-eq to C++ is not implemented"
-    LATEX _ ->
-      pure $ Left "Rendering latex eqnarray to C++ is not implemented"
-    GROMET _ ->
-      pure $ Left "Rendering gromet to C++ is not implemented"
-    TOPO _ ->
-      pure $ Left "Rendering topology to C++ is not implemented"
-    ESLMETA _ ->
-      pure $ Left "Rendering metadata ESL to C++ is not implemented"
 
 -------------------------------------------------------------------------
