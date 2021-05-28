@@ -178,12 +178,7 @@ checkModel' format model =
     RNET _   -> void $ loadReactions model
     LATEX _  -> void $ loadLatex model
     ESLMETA _ -> void $ loadMetaESL model
-    GROMET _ -> 
-      do  m <- loadGromet model
-          (code, _out, _err) <- readProcessWithExitCode "jq" [] m
-          case code of
-            ExitSuccess -> pure ()
-            ExitFailure _ -> throwIO $ ParseError "invalid gromet"
+    GROMET _ -> void $ loadGromet model
     TOPO _ -> notImplemented "topology checking"
 
 

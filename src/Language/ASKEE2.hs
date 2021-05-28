@@ -114,7 +114,12 @@ loadLatex source =
       parse "loadLatex" modelString
 
 loadGromet :: DataSource -> IO String
-loadGromet = loadModel (GROMET Concrete)
+loadGromet source = 
+  do  model <- loadModel (GROMET Concrete) source
+      (code, _out, _err) <- readProcessWithExitCode "jq" [] model
+      case code of
+        ExitSuccess -> pure model
+        ExitFailure _ -> throwIO $ ParseError "invalid gromet"
 
 loadMetaESL :: DataSource -> IO ESL.ModelMeta
 loadMetaESL source =
