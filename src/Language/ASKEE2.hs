@@ -4,39 +4,47 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE2 where
 
-import Control.Exception (throwIO)
+import Control.Exception (throwIO, try, SomeException(..))
 
-import           Data.Map  (Map)
-import qualified Data.Map  as Map
-import           Data.Text (Text)
-
-import           Language.ASKEE.Check        ( checkModel )
-import           Language.ASKEE.Convert      ( converter )
-import qualified Language.ASKEE.Core         as Core
-import           Language.ASKEE.Core.DiffEq  ( applyParams )
-import qualified Language.ASKEE.DEQ.Syntax   as DEQ
-import qualified Language.ASKEE.Latex.Syntax as Latex
-import qualified Language.ASKEE.RNet.Syntax  as RNet
-import           Language.ASKEE.SimulatorGen ( genModel )
-import qualified Language.ASKEE.Syntax       as ESL
-import           Language.ASKEE.Storage      ( loadModel )
-import qualified Language.ASKEE.ModelStratify.Stratify     as Stratify
-import           Language.ASKEE.Translate    ( ParseModel, parseModel )
-import           Language.ASKEE.Types        ( Representation(..)
-                                             , ModelType(..)
-                                             , DataSource(..)
-                                             , ParseError(..)
-                                             , ValidationError(..)
-                                             , ConversionError(..), StratificationInfo, StratificationType )
-import Language.ASKEE.Core.ImportASKEE (modelAsCore)
-import Data.Aeson (Value, decode, object, (.=))
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Data.Text as Text
+import           Data.Aeson                 ( Value
+                                            , decode
+                                            , object
+                                            , (.=) )
 import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Language.ASKEE.Metadata as Meta
-import Language.ASKEE.DataSeries ( DataSeries )
-import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.Core.Visualization as Viz
+import           Data.Map                   ( Map )
+import qualified Data.Map                   as Map
+import           Data.Text                  ( Text )
+import qualified Data.Text                  as Text
+
+import Control.Monad ( void )
+
+import qualified Language.ASKEE.Check                  as Check
+import           Language.ASKEE.Convert                ( converter )
+import qualified Language.ASKEE.Core                   as Core
+import           Language.ASKEE.Core.DiffEq            ( applyParams )
+import qualified Language.ASKEE.Core.GSLODE            as ODE
+import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
+import qualified Language.ASKEE.Core.Visualization     as Viz
+import           Language.ASKEE.DataSeries             ( DataSeries )
+import qualified Language.ASKEE.DEQ.Syntax             as DEQ
+import qualified Language.ASKEE.Latex.Syntax           as Latex
+import qualified Language.ASKEE.RNet.Syntax            as RNet
+import           Language.ASKEE.SimulatorGen           ( genModel )
+import qualified Language.ASKEE.Syntax                 as ESL
+import           Language.ASKEE.Storage                ( loadModel )
+import qualified Language.ASKEE.Metadata               as Meta
+import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
+import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
+import           Language.ASKEE.Translate              ( ParseModel, parseModel )
+import           Language.ASKEE.Types                  ( Representation(..)
+                                                       , ModelType(..)
+                                                       , DataSource(..)
+                                                       , ParseError(..)
+                                                       , ValidationError(..)
+                                                       , ConversionError(..), StratificationInfo, StratificationType, NotImplementedError(..) )
+
+import System.Exit    ( ExitCode(..) )
+import System.Process ( readProcessWithExitCode )
 
 parse :: ParseModel a => String -> String -> IO a
 parse why modelString = 
@@ -107,6 +115,8 @@ loadReactions :: DataSource -> IO RNet.ReactionNet
 loadReactions source =
   do  modelString <- loadModel (RNET Concrete) source
       parse "loadReactions" modelString
+
+-- XXX continue above pattern? How many places do we do this?
 
 loadLatex :: DataSource -> IO Latex.Latex
 loadLatex source =
