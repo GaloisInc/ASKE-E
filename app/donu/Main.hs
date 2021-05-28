@@ -2,20 +2,22 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main ( main ) where
 
-import Data.Text(Text)
+import Control.Monad          ( void )
+import Control.Monad.IO.Class ( liftIO )
+import Control.Exception      ( try, SomeException )
+
+import           Data.Text ( Text )
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
-import Control.Monad.IO.Class(liftIO)
-import Control.Exception( try, SomeException )
-import qualified Snap.Core as Snap
-import Snap.Http.Server (quickHttpServe)
 
 import Language.ASKEE2
 import Language.ASKEE.Types
-import Schema
 import Language.ASKEE.Storage
 
-import Control.Monad (void)
+import Schema
+
+import qualified Snap.Core as Snap
+import           Snap.Http.Server ( quickHttpServe )
 
 main :: IO ()
 main = 
