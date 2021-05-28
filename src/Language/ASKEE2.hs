@@ -31,7 +31,7 @@ import           Language.ASKEE.DataSeries             ( DataSeries
 import qualified Language.ASKEE.DEQ.Syntax             as DEQ
 import qualified Language.ASKEE.Latex.Syntax           as Latex
 import qualified Language.ASKEE.RNet.Syntax            as RNet
-import           Language.ASKEE.SimulatorGen           ( genModel )
+import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import qualified Language.ASKEE.Syntax                 as ESL
 import           Language.ASKEE.Storage                ( loadModel )
 import qualified Language.ASKEE.Metadata               as Meta
@@ -179,13 +179,11 @@ loadConnectionGraph s =
           mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
       pure (GG.gtriJSON vertices edges, mapping')
 
--------------------------------------------------------------------------------
--- Manipulators for models
-
-renderCppModel :: Core.Model -> String
-renderCppModel = show . genModel
-  -- do  compiled <- loadCore' file
-  --     pure $ show (genModel compiled)
+loadCPPFrom :: ModelType -> DataSource -> IO Text
+loadCPPFrom format source =
+  do  coreModel <- loadCoreFrom format source
+      let cppModel = SimulatorGen.genModel coreModel
+      pure $ Text.pack $ show cppModel
 
 -------------------------------------------------------------------------------
 

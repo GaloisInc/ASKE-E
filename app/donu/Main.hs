@@ -4,22 +4,17 @@ module Main ( main ) where
 
 import Data.Text(Text)
 import qualified Data.Text as Text
-import qualified Data.Map as Map
 import qualified Data.Aeson as JS
 import Control.Monad.IO.Class(liftIO)
-import Control.Exception( try, SomeException, throwIO )
+import Control.Exception( try, SomeException )
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
--- import Language.ASKEE
 import Language.ASKEE2
-import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.DataSeries as DS
-import           Language.ASKEE.Types
+import Language.ASKEE.Types
 import Schema
 import Language.ASKEE.Storage
 
-import qualified Data.ByteString.Lazy.Char8 as BS8
 import Control.Monad (void)
 
 main :: IO ()
@@ -105,9 +100,9 @@ handleRequest r =
               (modelDefSource fitModel)
           pure (FitResult res)
 
-    GenerateCPP GenerateCPPCommand{..} ->
-      OutputResult . asResult <$> generateCPP (modelDefType generateCPPModel)
-                                              (modelDefSource generateCPPModel)
+    GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
+      do  cpp <- loadCPPFrom modelDefType modelDefSource
+          pure $ OutputResult $ asResult (Right cpp :: Either Text Text)
 
     Stratify StratifyCommand{..} ->
         do  res <- stratifyModel stratModel stratConnections stratStates stratType
@@ -157,10 +152,10 @@ handleRequest r =
 --     TOPO _ -> notImplemented "topology checking"
 
 
-generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
-generateCPP format source =
-  do  coreModel <- loadCoreFrom format source
-      let mdl = renderCppModel coreModel
-      pure $ Right (Text.pack mdl)
+-- generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
+-- generateCPP format source =
+--   do  coreModel <- loadCoreFrom format source
+--       let mdl = renderCppModel coreModel
+--       pure $ Right (Text.pack mdl)
 
 -------------------------------------------------------------------------
