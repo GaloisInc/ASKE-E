@@ -1,10 +1,7 @@
 module Language.ASKEE.Types where
   
 import Data.Text ( Text )
-import Control.Exception (Exception)
-import qualified Language.ASKEE.Syntax as ESL
-import qualified Language.ASKEE.ModelStratify.Syntax as Topology
-import Data.Map (Map)
+import Control.Exception ( Exception )
 
 data Representation = Abstract | Concrete
   deriving (Eq, Ord, Show)
@@ -30,17 +27,7 @@ data ModelDef =
              }
   deriving (Eq, Show)
 
-data StratificationType = Demographic | Spatial
-  deriving Show
 
-data StratificationInfo = StratificationInfo
-  { rawModel    :: ESL.Model
-  , prettyModel :: ESL.Model
-  , rawTopology :: Topology.Net 
-  , holes       :: [Text]
-  , vertices    :: Map Int Text
-  }
-  deriving Show
 
 newtype ParseError = ParseError String
   deriving (Show)

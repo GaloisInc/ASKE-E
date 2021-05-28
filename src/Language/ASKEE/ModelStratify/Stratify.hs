@@ -25,6 +25,7 @@ import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
 import           Language.ASKEE.Types
 
 import System.Process ( readProcess )
+import qualified Language.ASKEE.ModelStratify.Syntax as Topology
 
 data States = States
   { sus :: Text
@@ -36,6 +37,18 @@ data States = States
 instance FromJSON States
 instance ToJSON States
 
+data StratificationType = Demographic | Spatial
+  deriving Show
+
+data StratificationInfo = StratificationInfo
+  { rawModel    :: ESL.Model
+  , prettyModel :: ESL.Model
+  , rawTopology :: Topology.Net 
+  , holes       :: [Text]
+  , vertices    :: Map Int Text
+  }
+  deriving Show
+  
 stratifyModel :: 
   ESL.Model -> 
   Value ->
