@@ -1,0 +1,31 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:aske-e"
+
+    - path: "app/deca/Main.hs"
+      component: "aske-e:exe:deca"
+
+    - path: "app/deca/Options.hs"
+      component: "aske-e:exe:deca"
+
+    - path: "app/donu/Main.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/SchemaJS.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/SchemaGeneric.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/Schema.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/HTML.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/ex/Main.hs"
+      component: "aske-e:exe:ex"
+
+    - path: "test"
+      component: "aske-e:test:tests"

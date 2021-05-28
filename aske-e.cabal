@@ -162,14 +162,15 @@ executable ex
 
 
 
-test-suite test-model-check
+test-suite tests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             ModelCheck.hs
+  main-is:             Main.hs
+  other-modules:       ModelCheck
   build-depends:       base
                      , aske-e
                      , containers
-                     , HUnit
+                     , tasty
+                     , tasty-hunit
                      , mtl
   default-language:    Haskell2010
-  ghc-options:         -main-is ModelCheck
