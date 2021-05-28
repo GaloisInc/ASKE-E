@@ -18,7 +18,7 @@ import qualified Language.ASKEE.Experiment.Typechecker as TC
 import qualified Language.ASKEE.Experiment.TraverseType as TC
 import qualified Language.ASKEE.Experiment.EaselAdapter as Ex
 import qualified Language.ASKEE.Experiment.CodeGen as GenX
-import qualified Language.ASKEE as Core
+import qualified Language.ASKEE2 as Core
 import qualified Language.ASKEE.Core as C
 import qualified Language.ASKEE.SimulatorGen as Gen
 import qualified Language.ASKEE.SimulatorGen as SG
@@ -35,7 +35,7 @@ main =
 replicateModel :: Int -> FilePath -> FilePath -> IO ()
 replicateModel n modelFile out =
   runTest
-  do  core <- Core.loadCoreModel' (FromFile modelFile)
+  do  core <- Core.loadCoreFrom (ESL Concrete) (FromFile modelFile)
       let core' = Ex.replicateModel n core
           cpp   = Gen.genModel core'
       pPrint core'
@@ -45,7 +45,7 @@ replicateModel n modelFile out =
 measureModel :: FilePath -> FilePath -> FilePath -> IO ()
 measureModel modelFile experimentFile out =
   runTest
-  do core  <- Core.loadCoreModel' (FromFile modelFile)
+  do core  <- Core.loadCoreFrom (ESL Concrete) (FromFile modelFile)
      exper <- loadExperiment experimentFile
      let measures = [ m | E.DMeasure m <- exper ]
          model    = foldr Ex.withMeasure core measures
@@ -74,7 +74,7 @@ testCodeGen' mdls experiment =
       mapM_ print [ GenX.compileExperiment m | E.DExperiment m <- exper ]
       mapM_ print [ GenX.compileMain m | E.DMain m <- exper ]
   where
-    loadModel fp = Core.loadCoreModel' (FromFile fp)
+    loadModel fp = Core.loadCoreFrom (ESL Concrete) (FromFile fp)
     modelDecl c =
       E.DModel $ E.ModelDecl (E.untypedName $ C.modelName c)
                              (Map.fromList $ (, E.TypeNumber) <$> C.modelStateVars c)

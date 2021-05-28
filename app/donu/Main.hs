@@ -186,7 +186,7 @@ checkModel' format model =
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP format source =
-  do  coreModel <- loadCore format source
+  do  coreModel <- loadCoreFrom format source
       let mdl = renderCppModel coreModel
       pure $ Right (Text.pack mdl)
 
