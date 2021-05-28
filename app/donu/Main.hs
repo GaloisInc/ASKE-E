@@ -1,17 +1,13 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-module Main(main) where
+module Main ( main ) where
 
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Map as Map
 import qualified Data.Aeson as JS
 import Control.Monad.IO.Class(liftIO)
-import Control.Exception(throwIO, try,SomeException, Exception(..))
+import Control.Exception( try, SomeException, throwIO )
 import qualified Snap.Core as Snap
 import Snap.Http.Server (quickHttpServe)
 
@@ -25,8 +21,6 @@ import Language.ASKEE.Storage
 
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import Control.Monad (void)
-import System.Process ( readProcessWithExitCode )
-import System.Exit ( ExitCode(..) )
 
 main :: IO ()
 main = 
@@ -60,18 +54,11 @@ main =
                 Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
                 -- showHelp
 
---------------------------------------------------------------------------------
-
-newtype ServerError = NotImplemented String
-  deriving Show
-
-instance Exception ServerError
-
-notImplemented :: String -> IO a
-notImplemented what = throwIO (NotImplemented what)
-
 showHelp :: Snap.Snap ()
 showHelp = Snap.writeLBS helpHTML
+
+--------------------------------------------------------------------------------
+
 
 handleRequest :: Input -> IO Output
 handleRequest r =
@@ -105,7 +92,7 @@ handleRequest r =
               convertModelDestType
           case eConverted of
             Right converted ->
-              pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) (convertModelDestType cmd))
+              pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) convertModelDestType)
             Left err ->
               pure $ OutputResult (FailureResult $ Text.pack err)
 
