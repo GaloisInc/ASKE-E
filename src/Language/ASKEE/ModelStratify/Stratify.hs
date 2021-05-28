@@ -22,7 +22,6 @@ import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
                                                        , topologyAsModel
                                                        , insertHoles
                                                        , nameHoles )
-import           Language.ASKEE.Types
 
 import System.Process ( readProcess )
 import qualified Language.ASKEE.ModelStratify.Syntax as Topology

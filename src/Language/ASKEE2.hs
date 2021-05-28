@@ -43,7 +43,7 @@ import           Language.ASKEE.Types                  ( Representation(..)
                                                        , DataSource(..)
                                                        , ParseError(..)
                                                        , ValidationError(..)
-                                                       , ConversionError(..), StratificationInfo, StratificationType, NotImplementedError(..) )
+                                                       , NotImplementedError(..) )
 
 import System.Exit    ( ExitCode(..) )
 import System.Process ( readProcessWithExitCode )
@@ -201,8 +201,8 @@ stratifyModel ::
   DataSource ->
   String ->
   Maybe String ->
-  StratificationType ->
-  IO StratificationInfo
+  Stratify.StratificationType ->
+  IO Stratify.StratificationInfo
 stratifyModel modelFile connectionGraph statesJSON stratificationType =
   do  model <- loadESL modelFile
       (connections, vertices) <- loadConnectionGraph connectionGraph
