@@ -10,7 +10,6 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   exposed-modules:     Language.ASKEE
-                    --  , Language.ASKEE2
                      , Language.ASKEE.Expr
                      , Language.ASKEE.GenLexer
                      , Language.ASKEE.Lexer
@@ -42,12 +41,6 @@ library
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
                      , Language.ASKEE.ABM.Translate
-
-                    --  , Language.ASKEE.DiffEq.Lexer
-                    --  , Language.ASKEE.DiffEq.GenLexer
-                    --  , Language.ASKEE.DiffEq.GenParser
-                    --  , Language.ASKEE.DiffEq.DiffEq
-                    --  , Language.ASKEE.DiffEq.DiffEqC
 
                      , Language.ASKEE.DEQ.GenLexer
                      , Language.ASKEE.DEQ.GenParser
