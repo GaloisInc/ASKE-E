@@ -141,14 +141,10 @@ handleRequest r =
         _ -> pure $ OutputResult (FailureResult "model type not supported")
 
     UploadModel UploadModelCommand{..} ->
-      do  res <- try
-            do  checkModel' uploadModelType (Inline uploadModelSource)
-                loc <- storeModel uploadModelName uploadModelType uploadModelSource
-                let mdef = ModelDef (FromFile loc) uploadModelType
-                pure $ OutputResult (SuccessResult mdef)
-          case res of
-            Left err -> pure $ OutputResult $ FailureResult $ Text.pack $ show (err :: SomeException)
-            Right ok -> pure ok
+      do  let check m = checkModel' uploadModelType (Inline m)
+          loc <- storeModel uploadModelName uploadModelType check uploadModelSource
+          let mdef = ModelDef (FromFile loc) uploadModelType
+          pure $ OutputResult (SuccessResult mdef)
 
     GetModelSource cmd ->
       do  modelString <- loadModel (modelDefType (getModelSource cmd)) (modelDefSource (getModelSource cmd))

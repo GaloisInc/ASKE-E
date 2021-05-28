@@ -50,14 +50,15 @@ loadModel format source =
   where
     mdef = ModelDef source format 
 
-storeModel :: Text -> ModelType -> Text -> IO FilePath
-storeModel name format model =
+storeModel :: Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
+storeModel name format check model =
   do  let path = baseDirectory </> formatLocation format </> Text.unpack name
       when (".." `isInfixOf` name || Text.singleton pathSeparator `isInfixOf` name) 
         (die $ "invalid name for model: " <> name')
       exists <- Directory.doesFileExist path
       when exists 
         (die $ "model " <> name' <> " already exists")
+      check model
       writeFile path (Text.unpack model)
       pure path
   where
