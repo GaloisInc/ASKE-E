@@ -43,10 +43,13 @@ initStorage = mapM_ make dirs
 
 loadModel :: ModelType -> DataSource -> IO String
 loadModel format source =
-  do  models <- listModels format
-      when (mdef `notElem` models)
-        (die $ "model "++show source++" doesn't exist")
-      (loadString . modelDefSource) mdef
+  case source of
+    Inline t -> pure $ Text.unpack t
+    _ ->
+      do  models <- listModels format
+          when (mdef `notElem` models)
+            (die $ "model "++show source++" doesn't exist")
+          (loadString . modelDefSource) mdef
   where
     mdef = ModelDef source format 
 
