@@ -82,16 +82,12 @@ handleRequest r =
             Just err -> pure $ OutputResult (FailureResult (Text.pack err))
 
     ConvertModel ConvertModelCommand{..} ->
-      do  eConverted <- 
-            convertConcrete 
-              (modelDefType convertModelSource)
-              (modelDefSource convertModelSource)
+      do  converted <- 
+            convertModel
+              (modelDefType convertModelSource) 
+              (modelDefSource convertModelSource) 
               convertModelDestType
-          case eConverted of
-            Right converted ->
-              pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) convertModelDestType)
-            Left err ->
-              pure $ OutputResult (FailureResult $ Text.pack err)
+          pure $ OutputResult $ asResult converted
 
     Fit FitCommand{..} ->
       do  res <- 
@@ -132,32 +128,3 @@ handleRequest r =
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
       do  res <- describeModelInterface modelDefType modelDefSource
           pure $ OutputResult (SuccessResult res)
-
-
--- checkModel :: ModelType -> DataSource -> IO (Maybe String)
--- checkModel mt src =
---   do  res <- try (checkModel' mt src)
---       case res of
---         Left err -> pure $ Just (show (err :: SomeException))
---         Right _ -> pure Nothing
-
--- -- Just throw an exception on failure
--- checkModel' :: ModelType -> DataSource -> IO ()
--- checkModel' format model =
---   case format of
---     DEQ _    -> void $ loadDiffEqs Map.empty [] model
---     ESL _    -> void $ loadESL model
---     RNET _   -> void $ loadReactions model
---     LATEX _  -> void $ loadLatex model
---     ESLMETA _ -> void $ loadMetaESL model
---     GROMET _ -> void $ loadGromet model
---     TOPO _ -> notImplemented "topology checking"
-
-
--- generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
--- generateCPP format source =
---   do  coreModel <- loadCoreFrom format source
---       let mdl = renderCppModel coreModel
---       pure $ Right (Text.pack mdl)
-
--------------------------------------------------------------------------

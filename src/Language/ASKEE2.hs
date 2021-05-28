@@ -37,7 +37,7 @@ import           Language.ASKEE.Storage                ( loadModel )
 import qualified Language.ASKEE.Metadata               as Meta
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import           Language.ASKEE.Translate              ( ParseModel, parseModel )
+import           Language.ASKEE.Translate              ( ParseModel, parseModel, SerializeModel (serializeModel) )
 import           Language.ASKEE.Types                  ( Representation(..)
                                                        , ModelType(..)
                                                        , DataSource(..)
@@ -65,12 +65,6 @@ foo why modelE =
 
 loadESL :: DataSource -> IO ESL.Model
 loadESL = loadESLFrom (ESL Concrete)
--- loadESL source = 
---   do  modelString <- loadModel (ESL Concrete) source
---       model <- parse "loadESL" modelString
---       case checkModel model of
---         Left err -> throwIO (ValidationError err)
---         Right m -> pure m
 
 loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
 loadESLFrom format source =
@@ -86,12 +80,6 @@ loadESLFrom format source =
 
 loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
 loadDiffEqs = loadDiffEqsFrom (DEQ Concrete)
--- loadDiffEqs overwrite params source = 
---   do  modelString <- loadModel (DEQ Concrete) source
---       eqns <- parse "loadDiffEqs" modelString
---       let eqns' = eqns { DEQ.deqParams = params }
---       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
---       pure $ replaceParams eqns'
 
 loadDiffEqsFrom :: 
   ModelType ->
@@ -114,16 +102,29 @@ loadDiffEqsFrom format overwrite params source =
       pure $ replaceParams eqns'
 
 loadReactions :: DataSource -> IO RNet.ReactionNet
-loadReactions source =
-  do  modelString <- loadModel (RNET Concrete) source
-      parse "loadReactions" modelString
+loadReactions = loadReactionsFrom (RNET Concrete)
 
--- XXX continue above pattern? How many places do we do this?
+loadReactionsFrom :: ModelType -> DataSource -> IO RNet.ReactionNet
+loadReactionsFrom format source =
+  do  modelString <- loadModel format source
+      let conv =
+            case format of
+              RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
+      foo "loadReactionsFrom" $ conv modelString
 
 loadLatex :: DataSource -> IO Latex.Latex
-loadLatex source =
-  do  modelString <- loadModel (LATEX Concrete) source
-      parse "loadLatex" modelString
+loadLatex = loadLatexFrom (LATEX Concrete)
+
+loadLatexFrom :: ModelType -> DataSource -> IO Latex.Latex
+loadLatexFrom format source =
+  do  modelString <- loadModel format source
+      let conv =
+            case format of
+              ESL Concrete   -> $(converter (ESL Concrete) (LATEX Abstract))
+              DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
+              RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
+              LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
+      foo "loadLatexFrom" $ conv modelString
 
 loadGromet :: DataSource -> IO String
 loadGromet source = 
@@ -187,69 +188,14 @@ loadCPPFrom format source =
 
 -------------------------------------------------------------------------------
 
-convertConcrete :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertConcrete inputType source outputType =
-  do  model <- loadModel inputType source
-      conv <- 
-        case inputType of
-          ESL Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (ESL Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (ESL Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (ESL Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (ESL Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (ESL Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (ESL Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          DEQ Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (DEQ Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (DEQ Concrete) (DEQ Concrete))
-              -- RNET Concrete   -> pure $(converter (DEQ Concrete) (RNET Concrete))
-              LATEX Concrete  -> pure $(converter (DEQ Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (DEQ Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (DEQ Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          RNET Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (RNET Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (RNET Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (RNET Concrete) (RNET Concrete))
-              LATEX Concrete  -> pure $(converter (RNET Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (RNET Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (RNET Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          LATEX Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (LATEX Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (LATEX Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (LATEX Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (LATEX Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (LATEX Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (LATEX Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          GROMET Concrete ->
-            case outputType of
-              -- ESL Concrete    -> pure $(converter (GROMET Concrete) (ESL Concrete))
-              -- DEQ Concrete    -> pure $(converter (GROMET Concrete) (DEQ Concrete))
-              -- RNET Concrete   -> pure $(converter (GROMET Concrete) (LATEX Concrete))
-              -- LATEX Concrete  -> pure $(converter (GROMET Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (GROMET Concrete) (GROMET Concrete))
-              -- TOPO Concrete   -> pure $(converter (GROMET Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          TOPO Concrete ->
-            case outputType of
-              ESL Concrete    -> pure $(converter (TOPO Concrete) (ESL Concrete))
-              DEQ Concrete    -> pure $(converter (TOPO Concrete) (DEQ Concrete))
-              RNET Concrete   -> pure $(converter (TOPO Concrete) (LATEX Concrete))
-              LATEX Concrete  -> pure $(converter (TOPO Concrete) (LATEX Concrete))
-              -- GROMET Concrete -> pure $(converter (TOPO Concrete) (GROMET Concrete))
-              TOPO Concrete   -> pure $(converter (TOPO Concrete) (TOPO Concrete))
-              _ -> die (show outputType)
-          _ -> die (show inputType)
-      pure $ conv model
-  where
-    die s = throwIO (ConversionError $ "convertConcrete: "<>s)
+convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModel srcTy src destTy =
+  case destTy of
+    ESL Concrete -> serializeModel <$> loadESLFrom srcTy src
+    DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src
+    -- RNET Concrete -> serializeModel <$> loadReactionsFrom srcTy src
+    LATEX Concrete -> serializeModel <$> loadLatexFrom srcTy src
+
 
 stratifyModel ::
   DataSource ->
