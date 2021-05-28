@@ -97,16 +97,12 @@ handleRequest r =
               pure $ OutputResult (FailureResult $ Text.pack err)
 
     Fit FitCommand{..} ->
-      do  eqs <- loadDiffEqs --(modelDefType $ fitModel info)
-                             Map.empty
-                             fitParams
-                             (modelDefSource fitModel)
-          print eqs
-          rawData <- pack fitData
-          dataSeries <- case DS.parseDataSeries rawData of
-            Right d -> pure d
-            Left err -> throwIO (DS.MalformedDataSeries err)
-          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
+      do  res <- 
+            fitModelToData
+              (modelDefType fitModel)
+              fitData
+              fitParams
+              (modelDefSource fitModel)
           pure (FitResult res)
 
     GenerateCPP GenerateCPPCommand{..} ->
@@ -139,14 +135,6 @@ handleRequest r =
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
       do  res <- describeModelInterface modelDefType modelDefSource
           pure $ OutputResult (SuccessResult res)
-
-
-  where
-    pack :: DataSource -> IO BS8.ByteString
-    pack ds = 
-      case ds of
-        FromFile fp -> BS8.pack <$> readFile fp
-        Inline s -> pure $ BS8.pack $ Text.unpack s
 
 
 -- checkModel :: ModelType -> DataSource -> IO (Maybe String)

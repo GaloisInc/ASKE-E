@@ -25,7 +25,9 @@ import           Language.ASKEE.Core.DiffEq            ( applyParams )
 import qualified Language.ASKEE.Core.GSLODE            as ODE
 import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
 import qualified Language.ASKEE.Core.Visualization     as Viz
-import           Language.ASKEE.DataSeries             ( DataSeries )
+import           Language.ASKEE.DataSeries             ( DataSeries
+                                                       , parseDataSeries
+                                                       , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ.Syntax             as DEQ
 import qualified Language.ASKEE.Latex.Syntax           as Latex
 import qualified Language.ASKEE.RNet.Syntax            as RNet
@@ -314,6 +316,30 @@ simulateModel modelType modelSource start end step overwrite =
       let times = takeWhile (<= end)
                    $ iterate (+ step) start
       pure $ ODE.simulate eqs Map.empty times
+
+fitModel ::
+  ModelType {- ^ the model's type -}-> 
+  DataSource {- ^ the data as ASKEE-produced CSV -} ->
+  [Text] {- ^ parameters to fit -} -> 
+  DataSource {- ^ the model -} -> 
+  IO (Map Core.Ident (Double, Double))
+fitModel modelFormat fitData fitParams modelSource = 
+  do  eqs <- 
+        loadDiffEqsFrom
+          modelFormat 
+          Map.empty
+          fitParams
+          modelSource
+      rawData <- 
+        case fitData of
+          Inline s -> pure s
+          FromFile _ -> throwIO (NotImplementedError "reading fit data from file")
+      dataSeries <- 
+        case parseDataSeries (B.pack $ Text.unpack rawData) of
+          Right d -> pure d
+          Left err -> throwIO (MalformedDataSeries err)
+      let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
+      pure res
 
 asSchematicGraph :: Core.Model -> Maybe Viz.Graph
 asSchematicGraph g =  Viz.Graph <$> sequence effs
