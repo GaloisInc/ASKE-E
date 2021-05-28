@@ -173,4 +173,6 @@ test-suite tests
                      , tasty
                      , tasty-hunit
                      , mtl
+                     , file-embed
+                     , text
   default-language:    Haskell2010

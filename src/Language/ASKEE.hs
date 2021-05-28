@@ -21,7 +21,12 @@ module Language.ASKEE
   , initStorage
   , listAllModels
   , loadModel
-  , storeModel ) where
+  , storeModel
+  , DataSource(..)
+  , DataSeries(..)
+  , ModelType(..)
+  , Representation(..)
+  ) where
 
 import Control.Exception (throwIO, try, SomeException(..))
 
@@ -44,7 +49,7 @@ import           Language.ASKEE.Core.DiffEq            ( applyParams )
 import qualified Language.ASKEE.Core.GSLODE            as ODE
 import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
 import qualified Language.ASKEE.Core.Visualization     as Viz
-import           Language.ASKEE.DataSeries             ( DataSeries
+import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ.Syntax             as DEQ
@@ -110,7 +115,7 @@ loadDiffEqsFrom ::
   DataSource -> 
   IO DEQ.DiffEqs
 loadDiffEqsFrom format overwrite params source = 
-  do  modelString <- loadModel (DEQ Concrete) source
+  do  modelString <- loadModel format source
       let conv =
             case format of
               ESL Concrete   -> $(converter (ESL Concrete) (DEQ Abstract))
