@@ -11,7 +11,7 @@ import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
-import qualified Language.ASKEE2 as A
+import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import           Language.ASKEE.DEQ.Print (ppDiffEqs)

@@ -18,7 +18,7 @@ import qualified Language.ASKEE.Experiment.Typechecker as TC
 import qualified Language.ASKEE.Experiment.TraverseType as TC
 import qualified Language.ASKEE.Experiment.EaselAdapter as Ex
 import qualified Language.ASKEE.Experiment.CodeGen as GenX
-import qualified Language.ASKEE2 as Core
+import qualified Language.ASKEE as Core
 import qualified Language.ASKEE.Core as C
 import qualified Language.ASKEE.SimulatorGen as Gen
 import qualified Language.ASKEE.SimulatorGen as SG

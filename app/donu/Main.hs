@@ -10,9 +10,8 @@ import           Data.Text ( Text )
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
-import Language.ASKEE2
+import Language.ASKEE
 import Language.ASKEE.Types
-import Language.ASKEE.Storage
 
 import Schema
 

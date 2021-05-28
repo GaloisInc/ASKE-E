@@ -10,7 +10,7 @@ extra-source-files:  CHANGELOG.md, README.md
 
 library
   exposed-modules:     Language.ASKEE
-                     , Language.ASKEE2
+                    --  , Language.ASKEE2
                      , Language.ASKEE.Expr
                      , Language.ASKEE.GenLexer
                      , Language.ASKEE.Lexer
