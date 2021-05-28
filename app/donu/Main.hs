@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -131,13 +132,10 @@ handleRequest r =
     GenerateCPP cmd ->
       OutputResult . asResult <$> generateCPP (modelDefType $ generateCPPModel cmd)
                                               (modelDefSource $ generateCPPModel cmd)
-    Stratify info ->
-      undefined
-      -- do  modelInfo <- stratifyModel  (stratModel info)
-      --                                 (stratConnections info)
-      --                                 (stratStates info)
-      --                                 (stratType info)
-      --     pure $ StratificationResult modelInfo
+
+    Stratify StratifyCommand{..} ->
+        do  res <- stratifyModel stratModel stratConnections stratStates stratType
+            pure $ StratificationResult res
 
     ListModels _ -> OutputModelList <$> listAllModels
 
@@ -165,45 +163,40 @@ handleRequest r =
       do  modelString <- loadModel (modelDefType (getModelSource cmd)) (modelDefSource (getModelSource cmd))
           let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack modelString) }
           pure $ OutputResult (SuccessResult result)
-      -- do  models <- listAllModels
-      --     if getModelSource cmd `elem` models then
-      --       do  d <- loadString (modelDefSource $ getModelSource cmd)
-      --           let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-      --           pure $ OutputResult (SuccessResult result)
-      --     else
-      --       pure $ OutputResult (FailureResult "model does not exist")
 
-    DescribeModelInterface cmd ->
-      case modelDefType (describeModelInterfaceSource cmd) of
-        ESL _ ->
-          do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
+    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
+      do  res <- describeModelInterface modelDefType modelDefSource
+          pure $ OutputResult (SuccessResult res)
+      -- case modelDefType (describeModelInterfaceSource cmd) of
+      --   ESL _ ->
+      --     do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
 
-              let stateVars =
-                    [(n, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-                                          , (Easel.State n _) <- [Meta.metaValue md]
-                                          ]
-                  params =
-                    [(n, d, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-                                             , (Easel.Parameter n d) <- [Meta.metaValue md]
-                                             ]
+      --         let stateVars =
+      --               [(n, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
+      --                                     , (Easel.State n _) <- [Meta.metaValue md]
+      --                                     ]
+      --             params =
+      --               [(n, d, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
+      --                                        , (Easel.Parameter n d) <- [Meta.metaValue md]
+      --                                        ]
 
-                  descParam (n, d, mp) =
-                    JS.object [ "name" .= n
-                              , "defaultValue" .= d
-                              , "metadata" .= mp
-                              ]
-                  descState (n, mp) =
-                    JS.object [ "name" .= n
-                              , "metadata" .= mp
-                              ]
-                  desc =
-                    JS.object [ "parameters" .= (descParam <$> params)
-                              , "stateVars"  .= (descState <$> stateVars)
-                              ]
+      --             descParam (n, d, mp) =
+      --               JS.object [ "name" .= n
+      --                         , "defaultValue" .= d
+      --                         , "metadata" .= mp
+      --                         ]
+      --             descState (n, mp) =
+      --               JS.object [ "name" .= n
+      --                         , "metadata" .= mp
+      --                         ]
+      --             desc =
+      --               JS.object [ "parameters" .= (descParam <$> params)
+      --                         , "stateVars"  .= (descState <$> stateVars)
+      --                         ]
 
-              pure $ OutputResult (SuccessResult desc)
+      --         pure $ OutputResult (SuccessResult desc)
 
-        _ -> pure $ OutputResult (FailureResult "model type not supported")
+      --   _ -> pure $ OutputResult (FailureResult "model type not supported")
           
 
 
@@ -249,6 +242,7 @@ checkModel' format model =
     ESL _    -> void $ loadESL model
     RNET _   -> void $ loadReactions model
     LATEX _  -> void $ loadLatex model
+    ESLMETA _ -> void $ loadMetaESL model
     GROMET _ -> 
       do  m <- loadGromet model
           (code, _out, _err) <- readProcessWithExitCode "jq" [] m
@@ -262,7 +256,8 @@ generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
 generateCPP ty src =
   case ty of
     ESL _ ->
-      do  mdl <- renderCppModel src
+      do  coreModel <- loadCore' src
+          let mdl = renderCppModel coreModel
           pure $ Right (Text.pack mdl)
     RNET _ ->
       pure $ Left "Rendering reaction networks to C++ is not implemented"
@@ -274,5 +269,7 @@ generateCPP ty src =
       pure $ Left "Rendering gromet to C++ is not implemented"
     TOPO _ ->
       pure $ Left "Rendering topology to C++ is not implemented"
+    ESLMETA _ ->
+      pure $ Left "Rendering metadata ESL to C++ is not implemented"
 
 -------------------------------------------------------------------------

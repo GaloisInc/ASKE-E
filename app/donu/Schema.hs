@@ -13,7 +13,7 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE( StratificationType(..), StratificationInfo(..))
+-- import Language.ASKEE( StratificationType(..), StratificationInfo(..))
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
 import Language.ASKEE.Print (printModel)
@@ -72,8 +72,8 @@ data SimulateCommand = SimulateCommand
 
 data StratifyCommand = StratifyCommand
   { stratModel       :: DataSource
-  , stratConnections :: DataSource
-  , stratStates      :: Maybe DataSource
+  , stratConnections :: String
+  , stratStates      :: Maybe String
   , stratType        :: StratificationType
   }
   deriving Show
@@ -85,10 +85,10 @@ instance HasSpec StratifyCommand where
         stratModel       <- reqSection' "definition" dataSource
                             "specification of the model"
 
-        stratConnections <- reqSection' "connection-graph" dataSource
+        stratConnections <- reqSection' "connection-graph" stringSpec
                             "JSON connection graph specifying stratification pattern"
 
-        stratStates      <- optSection' "state-metadata" dataSource 
+        stratStates      <- optSection' "state-metadata" stringSpec
                             "JSON metadata describing infectious states ??? document more"
 
         stratType        <- reqSection' "stratification-type" stratTypeSpec 

@@ -11,7 +11,7 @@ import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
-import Language.ASKEE
+import qualified Language.ASKEE2 as A
 import qualified Language.ASKEE.Core as Core
 import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import           Language.ASKEE.DEQ.Print (ppDiffEqs)
@@ -28,15 +28,15 @@ main :: IO ()
 main =
   do opts <- getOptions
      case command opts of
-       OnlyLex -> 
-          forM_ (modelFiles opts) (lexModel . FromFile)
-       OnlyParse -> 
-          forM_ (modelFiles opts) (parseModel . FromFile)
-       OnlyCheck ->
-          forM_ (modelFiles opts) (loadModel . FromFile)
-       DumpCPP -> 
-          forM_ (modelFiles opts) 
-            (genCppRunner . FromFile)
+      --  OnlyLex -> 
+      --     forM_ (modelFiles opts) (lexModel . FromFile)
+      --  OnlyParse -> 
+      --     forM_ (modelFiles opts) (parseModel . FromFile)
+      --  OnlyCheck ->
+      --     forM_ (modelFiles opts) (loadModel . FromFile)
+      --  DumpCPP -> 
+      --     forM_ (modelFiles opts) 
+      --       (genCppRunner . FromFile)
 
        DumpDEQs ->
          do ds <- exactlyOne "model" =<< loadDiffEqs opts []
@@ -115,26 +115,15 @@ exactlyOne thing xs =
 
 
 loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
-loadDiffEqs opts ps0 =
-  do ms1 <- mapM (`loadEquations` params) (map FromFile (deqFiles opts))
-     ms2 <- mapM fromModel                (map FromFile (modelFiles opts))
-     ms3 <- mapM fromRNet                 (map FromFile (rnetFiles opts))
-     pure (ms1 ++ ms2 ++ ms3)
+loadDiffEqs opts params =
+  do  ms1 <- mapM (fromEquations . FromFile) (deqFiles opts)
+      ms2 <- mapM (fromModel . FromFile)     (modelFiles opts)
+      ms3 <- mapM (fromRNet . FromFile)      (rnetFiles opts)
+      pure (ms1 ++ ms2 ++ ms3)
   where
-  params = Map.keys (overwrite opts) ++ ps0
-
-  fromModel file =
-    do m <- loadCoreModel' file
-       pure (DiffEq.asEquationSystem m)
-
-  fromRNet file =
-    do  rnet <- loadReactions file
-        m <- case reactionsAsModel rnet of
-          Right model -> pure model
-          Left err -> fail err
-        print (PP.printModel m)
-        m' <- loadCoreModel' (Inline (Text.pack $ show $ PP.printModel m))
-        pure (DiffEq.asEquationSystem m')
+    fromModel     = A.loadDiffEqs' (ESL Concrete) (overwrite opts) params
+    fromRNet      = A.loadDiffEqs' (RNET Concrete) (overwrite opts) params
+    fromEquations = A.loadDiffEqs' (DEQ Concrete) (overwrite opts) params
 
 simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
 simODE m start step end = ODE.simulate m Map.empty times

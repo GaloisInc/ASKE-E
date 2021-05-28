@@ -49,34 +49,6 @@ import Language.ASKEE.ModelStratify.Syntax ( Net(..) )
 
 import Language.Haskell.TH
 
--- data ModelType =
---     ESL Repr
---   -- | ESL_A
---   | DEQ Repr
---   -- | DEQ_A
---   | RNET Repr
---   -- | RNET_A
---   | TOPO Repr
---   -- | TOPO_A
---   | LATEX Repr
---   -- | LATEX_A
---   deriving (Eq, Ord)
-
--- instance Show ModelType where
---   show (ESL Concrete) = "esl concrete syntax"
---   show (ESL Abstract) = "esl abstract syntax"
---   show (DEQ Concrete) = "diffEq concrete syntax"
---   show (DEQ Abstract) = "diffEq abstract syntax"
---   show (RNET Concrete) = "rNet concrete syntax"
---   show (RNET Abstract) = "rNet abstract syntax"
---   show (TOPO Concrete) = "topology concrete syntax"
---   show (TOPO Abstract) = "topology abstract syntax"
---   show (LATEX Concrete) = "latex concrete syntax"
---   show (LATEX Abstract) = "latex abstract syntax"
-
--- data Repr = Abstract | Concrete
---   deriving (Eq, Ord, Show)
-
 class Tagged m where
   tagOf :: Representation -> ModelType
 
