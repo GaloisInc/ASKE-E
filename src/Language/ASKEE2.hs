@@ -51,7 +51,7 @@ foo why modelE =
 -- Loaders for "first class" models
 
 loadESL :: DataSource -> IO ESL.Model
-loadESL = loadESL' (ESL Concrete)
+loadESL = loadESLFrom (ESL Concrete)
 -- loadESL source = 
 --   do  modelString <- loadModel (ESL Concrete) source
 --       model <- parse "loadESL" modelString
@@ -59,20 +59,20 @@ loadESL = loadESL' (ESL Concrete)
 --         Left err -> throwIO (ValidationError err)
 --         Right m -> pure m
 
-loadESL' :: ModelType -> DataSource -> IO ESL.Model
-loadESL' format source =
+loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
+loadESLFrom format source =
   do  modelString <- loadModel format source
       let conv =
             case format of
               ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
               RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
-      model <- foo "loadESL'" $ conv modelString
+      model <- foo "loadESLFrom" $ conv modelString
       case checkModel model of
         Left err -> throwIO (ValidationError err)
         Right m -> pure m
 
 loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
-loadDiffEqs = loadDiffEqs' (DEQ Concrete)
+loadDiffEqs = loadDiffEqsFrom (DEQ Concrete)
 -- loadDiffEqs overwrite params source = 
 --   do  modelString <- loadModel (DEQ Concrete) source
 --       eqns <- parse "loadDiffEqs" modelString
@@ -80,8 +80,13 @@ loadDiffEqs = loadDiffEqs' (DEQ Concrete)
 --       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
 --       pure $ replaceParams eqns'
 
-loadDiffEqs' :: ModelType -> Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
-loadDiffEqs' format overwrite params source = 
+loadDiffEqsFrom :: 
+  ModelType ->
+  Map Text Double -> 
+  [Text] -> 
+  DataSource -> 
+  IO DEQ.DiffEqs
+loadDiffEqsFrom format overwrite params source = 
   do  modelString <- loadModel (DEQ Concrete) source
       let conv =
             case format of
@@ -89,7 +94,7 @@ loadDiffEqs' format overwrite params source =
               DEQ Concrete   -> $(converter (DEQ Concrete) (DEQ Abstract))
               RNET Concrete  -> $(converter (RNET Concrete) (DEQ Abstract))
               LATEX Concrete -> $(converter (LATEX Concrete) (DEQ Abstract))
-      eqns <- foo "loadDiffEqs'" $ conv modelString
+      eqns <- foo "loadDiffEqsFrom" $ conv modelString
       -- eqns <- parse "loadDiffEqs" modelString
       let eqns' = eqns { DEQ.deqParams = params }
       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
@@ -116,17 +121,17 @@ loadMetaESL source =
 -------------------------------------------------------------------------------
 -- Loaders for "second class" models and other entities
 
-loadCore :: DataSource -> Map Text Double -> IO Core.Model
-loadCore source parameters =
-  do  model <- loadESL source
+loadCoreFrom :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
+loadCoreFrom format source parameters =
+  do  model <- loadESLFrom format source
       let psExpr = Map.map Core.NumLit parameters'
           parameters' = parameters `Map.union` ESL.parameterMap model
       case modelAsCore model of
         Left err -> throwIO (ValidationError err)
         Right a  -> pure $ Core.applyParams psExpr a
 
-loadCore' :: DataSource -> IO Core.Model
-loadCore' = (`loadCore` Map.empty)
+loadCore :: ModelType -> DataSource -> IO Core.Model
+loadCore format source = loadCoreFrom format source Map.empty
 
 loadConnectionGraph :: String -> IO (Value, Map Int Text)
 loadConnectionGraph s = 

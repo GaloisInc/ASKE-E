@@ -253,12 +253,10 @@ checkModel' format model =
 
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
-generateCPP ty src =
-  case ty of
-    ESL _ ->
-      do  coreModel <- loadCore' src
-          let mdl = renderCppModel coreModel
-          pure $ Right (Text.pack mdl)
+generateCPP format source =
+  do  coreModel <- loadCore format source
+      let mdl = renderCppModel coreModel
+      pure $ Right (Text.pack mdl)
     RNET _ ->
       pure $ Left "Rendering reaction networks to C++ is not implemented"
     DEQ _ ->

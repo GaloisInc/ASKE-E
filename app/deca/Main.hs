@@ -121,9 +121,9 @@ loadDiffEqs opts params =
       ms3 <- mapM (fromRNet . FromFile)      (rnetFiles opts)
       pure (ms1 ++ ms2 ++ ms3)
   where
-    fromModel     = A.loadDiffEqs' (ESL Concrete) (overwrite opts) params
-    fromRNet      = A.loadDiffEqs' (RNET Concrete) (overwrite opts) params
-    fromEquations = A.loadDiffEqs' (DEQ Concrete) (overwrite opts) params
+    fromModel     = A.loadDiffEqsFrom (ESL Concrete) (overwrite opts) params
+    fromRNet      = A.loadDiffEqsFrom (RNET Concrete) (overwrite opts) params
+    fromEquations = A.loadDiffEqsFrom (DEQ Concrete) (overwrite opts) params
 
 simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
 simODE m start step end = ODE.simulate m Map.empty times
