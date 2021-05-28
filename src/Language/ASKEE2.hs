@@ -188,8 +188,8 @@ loadCPPFrom format source =
 
 -------------------------------------------------------------------------------
 
-convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertModel srcTy src destTy =
+convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString srcTy src destTy =
   case destTy of
     ESL Concrete -> serializeModel <$> loadESLFrom srcTy src
     DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src

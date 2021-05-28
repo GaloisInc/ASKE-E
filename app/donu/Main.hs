@@ -83,7 +83,7 @@ handleRequest r =
 
     ConvertModel ConvertModelCommand{..} ->
       do  converted <- 
-            convertModel
+            convertModelString
               (modelDefType convertModelSource) 
               (modelDefSource convertModelSource) 
               convertModelDestType
