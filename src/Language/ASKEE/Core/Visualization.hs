@@ -23,25 +23,6 @@ newtype Graph =
 nodes :: Graph -> [Node]
 nodes g = nub ((fst <$> edges g) ++ (snd <$> edges g))
 
-asSchematicGraph :: Core.Model -> Maybe Graph
-asSchematicGraph g =  Graph <$> sequence effs
-  where
-    effs =
-      [ mbEdge | evt <- Core.modelEvents g
-               , (var, expr) <- Map.toList $ Core.eventEffect evt
-               , let mbEdge = effectEdge evt var expr ]
-
-    eventNode evt = Node (Core.eventName evt) Event
-    stateNode name = Node name State
-    effectEdge evt var e0 =
-      case e0 of
-        Core.Var v Core.:+: Core.NumLit n | n > 0, v == var ->
-          Just (eventNode evt, stateNode var)
-        Core.Var v Core.:-: Core.NumLit n | n > 0, v == var ->
-          Just (stateNode var, eventNode evt)
-        _ ->
-          Nothing
-
 -------------------------------------------------------------------------------
 
 instance JSON.ToJSON Graph where

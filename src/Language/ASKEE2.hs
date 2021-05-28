@@ -36,6 +36,7 @@ import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Language.ASKEE.Metadata as Meta
 import Language.ASKEE.DataSeries ( DataSeries )
 import qualified Language.ASKEE.Core.GSLODE as ODE
+import qualified Language.ASKEE.Core.Visualization as Viz
 
 parse :: ParseModel a => String -> String -> IO a
 parse why modelString = 
@@ -123,8 +124,8 @@ loadMetaESL source =
 -------------------------------------------------------------------------------
 -- Loaders for "second class" models and other entities
 
-loadCoreFrom :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
-loadCoreFrom format source parameters =
+loadCoreFrom' :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
+loadCoreFrom' format source parameters =
   do  model <- loadESLFrom format source
       let psExpr = Map.map Core.NumLit parameters'
           parameters' = parameters `Map.union` ESL.parameterMap model
@@ -132,8 +133,8 @@ loadCoreFrom format source parameters =
         Left err -> throwIO (ValidationError err)
         Right a  -> pure $ Core.applyParams psExpr a
 
-loadCore :: ModelType -> DataSource -> IO Core.Model
-loadCore format source = loadCoreFrom format source Map.empty
+loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
+loadCoreFrom format source = loadCoreFrom' format source Map.empty
 
 loadConnectionGraph :: String -> IO (Value, Map Int Text)
 loadConnectionGraph s = 
@@ -281,3 +282,22 @@ simulateModel modelType modelSource start end step overwrite =
       let times = takeWhile (<= end)
                    $ iterate (+ step) start
       pure $ ODE.simulate eqs Map.empty times
+
+asSchematicGraph :: Core.Model -> Maybe Viz.Graph
+asSchematicGraph g =  Viz.Graph <$> sequence effs
+  where
+    effs =
+      [ mbEdge | evt <- Core.modelEvents g
+               , (var, expr) <- Map.toList $ Core.eventEffect evt
+               , let mbEdge = effectEdge evt var expr ]
+
+    eventNode evt = Viz.Node (Core.eventName evt) Viz.Event
+    stateNode name = Viz.Node name Viz.State
+    effectEdge evt var e0 =
+      case e0 of
+        Core.Var v Core.:+: Core.NumLit n | n > 0, v == var ->
+          Just (eventNode evt, stateNode var)
+        Core.Var v Core.:-: Core.NumLit n | n > 0, v == var ->
+          Just (stateNode var, eventNode evt)
+        _ ->
+          Nothing

@@ -19,7 +19,6 @@ import Snap.Http.Server (quickHttpServe)
 import Language.ASKEE2
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Core.Visualization as CoreViz
 import           Language.ASKEE.Types
 import Schema
 import Language.ASKEE.Storage
@@ -130,15 +129,11 @@ handleRequest r =
 
     ListModels _ -> OutputModelList <$> listAllModels
 
-    ModelSchemaGraph cmd ->
-      case modelDefType $ modelSchemaGraphModel cmd of
-        ESL _ ->
-          do  modelSource <- loadCore' (modelDefSource $ modelSchemaGraphModel cmd)
-              case CoreViz.asSchematicGraph modelSource of
-                Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
-                Just g -> pure $ OutputResult (SuccessResult g)
-
-        _ -> pure $ OutputResult (FailureResult "model type not supported")
+    ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
+      do  modelSource <- loadCoreFrom modelDefType modelDefSource
+          case asSchematicGraph modelSource of
+            Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
+            Just g -> pure $ OutputResult (SuccessResult g)
 
     UploadModel UploadModelCommand{..} ->
       do  let check m = checkModel' uploadModelType (Inline m)
