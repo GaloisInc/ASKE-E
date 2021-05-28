@@ -88,40 +88,43 @@ handleRequest r =
               simParameterValues
           pure (OutputData res)
 
-    CheckModel cmd ->
-      do  checkResult <- checkModel (modelDefType $ checkModelModel cmd)
-                                    (modelDefSource $ checkModelModel cmd)
+    CheckModel CheckModelCommand{..} ->
+      do  checkResult <- 
+            checkModel 
+              (modelDefType checkModelModel)
+              (modelDefSource checkModelModel)
           case checkResult of
             Nothing  -> pure $ OutputResult (SuccessResult ())
             Just err -> pure $ OutputResult (FailureResult (Text.pack err))
 
-    ConvertModel cmd ->
-      do  eConverted <- convertConcrete (modelDefType $ convertModelSource cmd)
-                                     (modelDefSource $ convertModelSource cmd)
-                                     (convertModelDestType cmd)
-
+    ConvertModel ConvertModelCommand{..} ->
+      do  eConverted <- 
+            convertConcrete 
+              (modelDefType convertModelSource)
+              (modelDefSource convertModelSource)
+              convertModelDestType
           case eConverted of
             Right converted ->
               pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) (convertModelDestType cmd))
             Left err ->
               pure $ OutputResult (FailureResult $ Text.pack err)
 
-    Fit info ->
+    Fit FitCommand{..} ->
       do  eqs <- loadDiffEqs --(modelDefType $ fitModel info)
                              Map.empty
-                             (fitParams info)
-                             (modelDefSource $ fitModel info)
+                             fitParams
+                             (modelDefSource fitModel)
           print eqs
-          rawData <- pack (fitData info)
+          rawData <- pack fitData
           dataSeries <- case DS.parseDataSeries rawData of
             Right d -> pure d
             Left err -> throwIO (DS.MalformedDataSeries err)
-          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
+          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
           pure (FitResult res)
 
-    GenerateCPP cmd ->
-      OutputResult . asResult <$> generateCPP (modelDefType $ generateCPPModel cmd)
-                                              (modelDefSource $ generateCPPModel cmd)
+    GenerateCPP GenerateCPPCommand{..} ->
+      OutputResult . asResult <$> generateCPP (modelDefType generateCPPModel)
+                                              (modelDefSource generateCPPModel)
 
     Stratify StratifyCommand{..} ->
         do  res <- stratifyModel stratModel stratConnections stratStates stratType
@@ -141,9 +144,9 @@ handleRequest r =
           let mdef = ModelDef (FromFile loc) uploadModelType
           pure $ OutputResult (SuccessResult mdef)
 
-    GetModelSource cmd ->
-      do  modelString <- loadModel (modelDefType (getModelSource cmd)) (modelDefSource (getModelSource cmd))
-          let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack modelString) }
+    GetModelSource GetModelSourceCommand{..} ->
+      do  modelString <- loadModel (modelDefType getModelSource) (modelDefSource getModelSource)
+          let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
           pure $ OutputResult (SuccessResult result)
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
