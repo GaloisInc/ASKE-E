@@ -85,18 +85,16 @@ handleRequest :: Input -> IO Output
 handleRequest r =
   print r >>
   case r of
-    Simulate info ->
-      do eqs <- loadDiffEqs --(modelDefType $ simModel info)
-                            (simParameterValues info)
-                            []
-                            (modelDefSource $ simModel info)
-         let times = takeWhile (<= simEnd info)
-                   $ iterate (+ simStep info)
-                   $ simStart info
-             res = ODE.simulate eqs Map.empty times
-
-         print eqs
-         pure (OutputData res)
+    Simulate SimulateCommand{..} ->
+      do  res <- 
+            simulateModel 
+              (modelDefType simModel)
+              (modelDefSource simModel)
+              simStart
+              simEnd
+              simStep
+              simParameterValues
+          pure (OutputData res)
 
     CheckModel cmd ->
       do  checkResult <- checkModel (modelDefType $ checkModelModel cmd)

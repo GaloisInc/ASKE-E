@@ -34,6 +34,8 @@ import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Language.ASKEE.Metadata as Meta
+import Language.ASKEE.DataSeries ( DataSeries )
+import qualified Language.ASKEE.Core.GSLODE as ODE
 
 parse :: ParseModel a => String -> String -> IO a
 parse why modelString = 
@@ -260,3 +262,22 @@ describeModelInterface modelType modelSource = undefined
                           ]
           pure desc
     _ -> undefined
+
+simulateModel :: 
+  ModelType -> 
+  DataSource -> 
+  Double -> 
+  Double ->
+  Double ->
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModel modelType modelSource start end step overwrite =
+  do  eqs <- 
+        loadDiffEqsFrom 
+          modelType
+          overwrite
+          []
+          modelSource
+      let times = takeWhile (<= end)
+                   $ iterate (+ step) start
+      pure $ ODE.simulate eqs Map.empty times
