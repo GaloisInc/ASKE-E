@@ -7,73 +7,73 @@
 
 module Language.ASKEE where
 
-import Control.Exception ( Exception(..)
-                         , throwIO )
+-- import Control.Exception ( Exception(..)
+--                          , throwIO )
 
--- import qualified Data.Aeson                 as Aeson
--- import           Data.Aeson                 ( encode
---                                             , decode
---                                             , Value(..), (.=), object )
-import           Data.Map                   ( Map )
-import qualified Data.Map                   as Map
-import           Data.Text                  ( Text
-                                            , unpack )
-import qualified Data.Text                  as Text
-import qualified Data.Text.IO               as TextIO
-import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.Aeson as JSON
-import qualified Prettyprinter as PP
+-- -- import qualified Data.Aeson                 as Aeson
+-- -- import           Data.Aeson                 ( encode
+-- --                                             , decode
+-- --                                             , Value(..), (.=), object )
+-- import           Data.Map                   ( Map )
+-- import qualified Data.Map                   as Map
+-- import           Data.Text                  ( Text
+--                                             , unpack )
+-- import qualified Data.Text                  as Text
+-- import qualified Data.Text.IO               as TextIO
+-- import qualified Data.ByteString.Lazy.Char8 as B
+-- import qualified Data.Aeson as JSON
+-- import qualified Prettyprinter as PP
 
-import           Language.ASKEE.APRAM.Print            ( printAPRAM )
-import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
-import qualified Language.ASKEE.APRAM.GenLexer         as APL
-import qualified Language.ASKEE.APRAM.GenParser        as APP
-import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
-import qualified Language.ASKEE.Check                  as Check
-import           Language.ASKEE.Convert                ( converter, tagOf )
-import qualified Language.ASKEE.Core                   as Core
-import qualified Language.ASKEE.DEQ.GenLexer           as DL
-import qualified Language.ASKEE.DEQ.GenParser          as DP
-import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
-import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
-import qualified Language.ASKEE.GenLexer               as AL
-import qualified Language.ASKEE.GenParser              as AP
-import qualified Language.ASKEE.Latex.GenLexer         as LL
-import qualified Language.ASKEE.Latex.GenParser        as LP
-import qualified Language.ASKEE.Latex.Syntax           as LS
-import           Language.ASKEE.Lexer                  ( Token
-                                                       , Located )
-import qualified Language.ASKEE.Measure                as M
-import qualified Language.ASKEE.MeasureToCPP           as MG
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
--- import qualified Language.ASKEE.ModelStratify.Syntax   as MS
--- import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
---                                                        , topologyAsModel
---                                                        , insertHoles
---                                                        , nameHoles )
-import qualified Language.ASKEE.RNet.GenLexer          as RL
-import qualified Language.ASKEE.RNet.GenParser         as RP
-import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
-import qualified Language.ASKEE.SimulatorGen           as SG
-import qualified Language.ASKEE.Syntax                 as Syntax
-import qualified Language.ASKEE.Gromet                 as Gromet
-import           Language.ASKEE.Types                 ( Representation(..), DataSource(..) )
+-- import           Language.ASKEE.APRAM.Print            ( printAPRAM )
+-- import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
+-- import qualified Language.ASKEE.APRAM.GenLexer         as APL
+-- import qualified Language.ASKEE.APRAM.GenParser        as APP
+-- import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
+-- import qualified Language.ASKEE.Check                  as Check
+-- import           Language.ASKEE.Convert                ( converter, tagOf )
+-- import qualified Language.ASKEE.Core                   as Core
+-- import qualified Language.ASKEE.DEQ.GenLexer           as DL
+-- import qualified Language.ASKEE.DEQ.GenParser          as DP
+-- import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
+-- import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
+-- import qualified Language.ASKEE.GenLexer               as AL
+-- import qualified Language.ASKEE.GenParser              as AP
+-- import qualified Language.ASKEE.Latex.GenLexer         as LL
+-- import qualified Language.ASKEE.Latex.GenParser        as LP
+-- import qualified Language.ASKEE.Latex.Syntax           as LS
+-- import           Language.ASKEE.Lexer                  ( Token
+--                                                        , Located )
+-- import qualified Language.ASKEE.Measure                as M
+-- import qualified Language.ASKEE.MeasureToCPP           as MG
+-- import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
+-- -- import qualified Language.ASKEE.ModelStratify.Syntax   as MS
+-- -- import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+-- --                                                        , topologyAsModel
+-- --                                                        , insertHoles
+-- --                                                        , nameHoles )
+-- import qualified Language.ASKEE.RNet.GenLexer          as RL
+-- import qualified Language.ASKEE.RNet.GenParser         as RP
+-- import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
+-- import qualified Language.ASKEE.SimulatorGen           as SG
+-- import qualified Language.ASKEE.Syntax                 as Syntax
+-- import qualified Language.ASKEE.Gromet                 as Gromet
+-- import           Language.ASKEE.Types                 ( Representation(..), DataSource(..) )
 
--- import System.Process   ( readProcess )
--- import GHC.Generics (Generic)
+-- -- import System.Process   ( readProcess )
+-- -- import GHC.Generics (Generic)
 
 
-import qualified Language.ASKEE.Experiment.Syntax as E
-import qualified Language.ASKEE.Experiment.CodeGen as EGen
-import qualified Language.ASKEE.Experiment.Parser as EP
-import qualified Language.ASKEE.C as C
-import qualified Language.ASKEE.CppCompiler as CC
+-- import qualified Language.ASKEE.Experiment.Syntax as E
+-- import qualified Language.ASKEE.Experiment.CodeGen as EGen
+-- import qualified Language.ASKEE.Experiment.Parser as EP
+-- import qualified Language.ASKEE.C as C
+-- import qualified Language.ASKEE.CppCompiler as CC
 
-newtype ParseError      = ParseError String deriving Show
-newtype ValidationError = ValidationError String deriving Show
+-- newtype ParseError      = ParseError String deriving Show
+-- newtype ValidationError = ValidationError String deriving Show
 
-instance Exception ParseError
-instance Exception ValidationError
+-- instance Exception ParseError
+-- instance Exception ValidationError
 
 -- data DataSource =
 --     FromFile FilePath
