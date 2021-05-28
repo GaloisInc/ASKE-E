@@ -70,7 +70,7 @@ loadESLFrom format source =
               ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
               RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
       model <- foo "loadESLFrom" $ conv modelString
-      case checkModel model of
+      case Check.checkModel model of
         Left err -> throwIO (ValidationError err)
         Right m -> pure m
 
@@ -125,6 +125,23 @@ loadMetaESL :: DataSource -> IO ESL.ModelMeta
 loadMetaESL source =
   do  modelString <- loadModel (ESLMETA Concrete) source
       parse "loadMetaESL" modelString
+
+-------------------------------------------------------------------------------
+
+checkModel :: ModelType -> DataSource -> IO (Maybe String)
+checkModel format source =
+  do  result <- try
+        case format of
+          ESL Concrete -> void $ loadESL source
+          ESLMETA Concrete -> void $ loadMetaESL source
+          DEQ Concrete -> void $ loadDiffEqs mempty mempty source
+          RNET Concrete -> void $ loadReactions source
+          LATEX Concrete -> void $ loadLatex source
+          GROMET Concrete -> void $ loadGromet source
+          _ -> throwIO (NotImplementedError "")
+      case result of
+        Left err -> pure $ Just (show (err :: SomeException))
+        Right _ -> pure Nothing
 
 -------------------------------------------------------------------------------
 -- Loaders for "second class" models and other entities

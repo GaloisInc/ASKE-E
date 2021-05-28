@@ -56,3 +56,8 @@ newtype ConversionError = ConversionError String
   deriving (Show)
 
 instance Exception ConversionError
+
+newtype NotImplementedError = NotImplementedError String
+  deriving (Show)
+
+instance Exception NotImplementedError

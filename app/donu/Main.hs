@@ -139,7 +139,7 @@ handleRequest r =
             Just g -> pure $ OutputResult (SuccessResult g)
 
     UploadModel UploadModelCommand{..} ->
-      do  let check m = checkModel' uploadModelType (Inline m)
+      do  let check m = void $ checkModel uploadModelType (Inline m)
           loc <- storeModel uploadModelName uploadModelType check uploadModelSource
           let mdef = ModelDef (FromFile loc) uploadModelType
           pure $ OutputResult (SuccessResult mdef)
@@ -162,24 +162,24 @@ handleRequest r =
         Inline s -> pure $ BS8.pack $ Text.unpack s
 
 
-checkModel :: ModelType -> DataSource -> IO (Maybe String)
-checkModel mt src =
-  do  res <- try (checkModel' mt src)
-      case res of
-        Left err -> pure $ Just (show (err :: SomeException))
-        Right _ -> pure Nothing
+-- checkModel :: ModelType -> DataSource -> IO (Maybe String)
+-- checkModel mt src =
+--   do  res <- try (checkModel' mt src)
+--       case res of
+--         Left err -> pure $ Just (show (err :: SomeException))
+--         Right _ -> pure Nothing
 
--- Just throw an exception on failure
-checkModel' :: ModelType -> DataSource -> IO ()
-checkModel' format model =
-  case format of
-    DEQ _    -> void $ loadDiffEqs Map.empty [] model
-    ESL _    -> void $ loadESL model
-    RNET _   -> void $ loadReactions model
-    LATEX _  -> void $ loadLatex model
-    ESLMETA _ -> void $ loadMetaESL model
-    GROMET _ -> void $ loadGromet model
-    TOPO _ -> notImplemented "topology checking"
+-- -- Just throw an exception on failure
+-- checkModel' :: ModelType -> DataSource -> IO ()
+-- checkModel' format model =
+--   case format of
+--     DEQ _    -> void $ loadDiffEqs Map.empty [] model
+--     ESL _    -> void $ loadESL model
+--     RNET _   -> void $ loadReactions model
+--     LATEX _  -> void $ loadLatex model
+--     ESLMETA _ -> void $ loadMetaESL model
+--     GROMET _ -> void $ loadGromet model
+--     TOPO _ -> notImplemented "topology checking"
 
 
 generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
