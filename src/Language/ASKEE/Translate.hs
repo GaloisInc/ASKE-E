@@ -27,6 +27,9 @@ instance ParseModel Latex.Latex where
 instance ParseModel Topology.Net where
   parseModel = $(converter (TOPO Concrete) (TOPO Abstract))
 
+instance ParseModel ESL.ModelMeta where
+  parseModel = $(converter (ESLMETA Concrete) (ESLMETA Abstract))
+
 -------------------------------------------------------------------------------
 
 class SerializeModel a where
@@ -47,6 +50,9 @@ instance SerializeModel Latex.Latex where
 
 instance SerializeModel Topology.Net where
   serializeModel = $(converter (TOPO Abstract) (TOPO Concrete))
+
+-- instance SerializeModel ESL.ModelMeta where
+--   serializeModel = $(converter (ESLMETA Abstract) (ESLMETA Concrete))
 
 -------------------------------------------------------------------------------
 

@@ -113,6 +113,8 @@ typeOf m =
     TOPO Abstract -> [t| TopoSyntax.Net |]
     LATEX Concrete -> [t| String |]
     LATEX Abstract -> [t| LatexSyntax.Latex |]
+    ESLMETA Concrete -> [t| String |]
+    ESLMETA Abstract -> [t| ESLSyntax.ModelMeta |]
     GROMET _ -> undefined
 
 converter' :: String -> ModelType -> ModelType -> Q [Dec]
@@ -123,7 +125,7 @@ converter' nm from to =
       pure [typeDec, funDec]
 
 -- | Synthesize a converter between the two provided ModelTypes,
--- `panic`ing if no path exists between the two
+-- `fail`ing if no path exists between the two
 converter :: ModelType -> ModelType -> Q Exp 
 converter from to = 
   case pairToVertices (from, to) >>= uncurry sp of
@@ -171,6 +173,8 @@ vertexFromKey :: ModelType -> Maybe Vertex
   where
     nodes = [ mkNode eslCTranslators   (ESL Concrete)   [ESL Abstract]
             , mkNode eslATranslators   (ESL Abstract)   [DEQ Abstract, ESL Concrete, TOPO Abstract]
+            , mkNode eslMetaCTranslators (ESLMETA Concrete) [ESLMETA Abstract]
+            , mkNode eslMetaATranslators (ESLMETA Abstract) []
             , mkNode deqCTranslators   (DEQ Concrete)   [DEQ Abstract]
             , mkNode deqATranslators   (DEQ Abstract)   [DEQ Concrete, LATEX Abstract]
             , mkNode latexCTranslators (LATEX Concrete) [LATEX Abstract]
@@ -185,6 +189,8 @@ vertexFromKey :: ModelType -> Maybe Vertex
     eslATranslators =   Map.fromList [ (DEQ Abstract,   [e| fmap asEquationSystem . modelAsCore |])
                                      , (ESL Concrete,   [e| Right . show . ESLPrint.printModel |])
                                      , (TOPO Abstract,  [e| Right . modelAsTopology |]) ]
+    eslMetaCTranslators = Map.fromList [ (ESLMETA Abstract, [e| ESLLex.lexModel >=> ESLParse.parseModelMeta |])]
+    eslMetaATranslators = Map.empty
     deqCTranslators =   Map.fromList [ (DEQ Abstract,   [e| DEQLex.lexDEQs >=> DEQParse.parseDEQs |]) ]
     deqATranslators =   Map.fromList [ (DEQ Concrete,   [e| Right . show . DEQPrint.ppDiffEqs |])
                                      , (LATEX Abstract, [e| Right . LatexSyntax.Latex |]) ]

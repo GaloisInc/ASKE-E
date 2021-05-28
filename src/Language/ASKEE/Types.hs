@@ -8,6 +8,7 @@ data Representation = Abstract | Concrete
 
 data ModelType =
     ESL Representation
+  | ESLMETA Representation
   | DEQ Representation
   | RNET Representation
   | TOPO Representation
