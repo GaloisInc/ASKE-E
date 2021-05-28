@@ -89,6 +89,7 @@ formatLocation :: ModelType -> FilePath
 formatLocation mt =
   case mt of
     ESL _    -> "easel"
+    ESLMETA _ -> "easel-meta"
     RNET _   -> "rnet"
     DEQ _    -> "deq"
     LATEX _  -> "latex"
