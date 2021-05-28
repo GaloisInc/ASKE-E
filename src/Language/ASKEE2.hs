@@ -317,13 +317,13 @@ simulateModel modelType modelSource start end step overwrite =
                    $ iterate (+ step) start
       pure $ ODE.simulate eqs Map.empty times
 
-fitModel ::
+fitModelToData ::
   ModelType {- ^ the model's type -}-> 
   DataSource {- ^ the data as ASKEE-produced CSV -} ->
   [Text] {- ^ parameters to fit -} -> 
   DataSource {- ^ the model -} -> 
   IO (Map Core.Ident (Double, Double))
-fitModel modelFormat fitData fitParams modelSource = 
+fitModelToData modelFormat fitData fitParams modelSource = 
   do  eqs <- 
         loadDiffEqsFrom
           modelFormat 
