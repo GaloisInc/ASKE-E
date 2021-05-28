@@ -6,7 +6,8 @@ name:                aske-e
 version:             0.1.0.0
 author:              Galois Inc.
 maintainer:          james.lamar@galois.com
-extra-source-files:  CHANGELOG.md, README.md
+extra-source-files:  README.md
+tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
   exposed-modules:     Language.ASKEE
@@ -159,7 +160,7 @@ executable ex
     containers
   default-language:    Haskell2010
   ghc-options:         -Wall
-    
+
 
 
 
