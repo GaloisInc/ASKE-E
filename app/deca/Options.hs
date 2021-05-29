@@ -25,6 +25,7 @@ data Command =
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
+  | ShowGromet
   deriving Show
 
 data Options = Options
@@ -71,6 +72,10 @@ options = OptSpec
       , Option [] ["dbg-dump-cpp"]
         "Dump some c++ code"
         $ NoArg \s -> Right s { command = DumpCPP }
+
+      , Option [] ["to-gromet"]
+        "Convert to GroMEt"
+        $ NoArg \s -> Right s { command = ShowGromet }
 
       , Option [] ["to-deq"]
         "Convert to differental equations"

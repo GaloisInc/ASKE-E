@@ -10,6 +10,7 @@ import System.Exit(exitSuccess,exitFailure)
 import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
+import qualified Data.Aeson as JS
 
 import Language.ASKEE
 import qualified Language.ASKEE.Core as Core
@@ -40,6 +41,11 @@ main =
        DumpDEQs ->
          do ds <- exactlyOne "model" =<< loadDiffEqs opts []
             print (ppDiffEqs ds)
+
+       ShowGromet ->
+          forM_ (modelFiles opts) \f ->
+            do js <- dsToGrometJSON (FromFile f)
+               LBS.putStrLn (JS.encode js)
 
        SimulateODE x y z ->
          do m0 <- exactlyOne "model" =<< loadDiffEqs opts []

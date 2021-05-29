@@ -132,7 +132,7 @@ executable deca
   main-is:             Main.hs
   other-modules:       Options
   build-depends:       base, containers, filepath, aske-e, simple-get-opt,
-                       text, bytestring
+                       text, bytestring, aeson
   default-language:    Haskell2010
   ghc-options:         -Wall
 

@@ -127,20 +127,31 @@ instance TraverseExprs Event where
        eff  <- traverse f (eventEffect ev)
        pure ev { eventRate = rate, eventWhen = cond, eventEffect = eff }
 
--- | Traverse the immediate children of an expression
 instance TraverseExprs Expr where
-  traverseExprs f expr =
-    case expr of
-      Literal {}   -> pure expr
-      Op1 op e     -> Op1 op <$> f e
-      Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
-      Var {}       -> pure expr
-      If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
-      Fail {}      -> pure expr
+  traverseExprs f expr = f expr
+
+exprChildren :: Applicative f => (Expr -> f Expr) -> Expr -> f Expr
+exprChildren f expr =
+  case expr of
+    Literal {}   -> pure expr
+    Op1 op e     -> Op1 op <$> f e
+    Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
+    Var {}       -> pure expr
+    If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
+    Fail {}      -> pure expr
+
+
+
+mapExprsWith ::
+  (forall f. Applicative f => (Expr -> f Expr) -> t -> f t) ->
+  (Expr -> Expr) -> t -> t
+mapExprsWith it f = runIdentity . it (pure . f)
 
 -- | Apply a function to expressions contained in something.
+-- Note that this does not go into the children of the expressions
+-- automatically.
 mapExprs :: TraverseExprs t => (Expr -> Expr) -> t -> t
-mapExprs f = runIdentity . traverseExprs (pure . f)
+mapExprs = mapExprsWith traverseExprs
 
 -- | Inline all occurances of let-bound variables.
 inlineLets :: Model -> Model
@@ -166,19 +177,28 @@ substExpr :: Map Ident Expr -> Expr -> Expr
 substExpr su expr =
   case expr of
     Var x | Just e <- Map.lookup x su -> e
-    _ -> mapExprs (substExpr su) expr
+    _ -> mapExprsWith exprChildren (substExpr su) expr
+
+
+collectWith ::
+  (Monoid m) =>
+  (forall f. Applicative f => (Expr -> f Expr) -> t -> f t) ->
+  (Expr -> m) -> t -> m
+collectWith it f t = Const.getConst (it (Const.Const . f) t)
 
 collect :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
-collect f t =
-  Const.getConst $ traverseExprs (Const.Const . f) t
+collect = collectWith traverseExprs
 
 collectVars :: (TraverseExprs t) => t -> Set.Set Ident
-collectVars = collect var
-  where
-    var v =
-      case v of
-        Var n -> Set.singleton n
-        _ -> Set.empty
+collectVars = collect collectExprVars
+
+collectExprVars :: Expr -> Set.Set Ident
+collectExprVars e =
+  case e of
+    Var n -> Set.singleton n
+    _     -> collectWith exprChildren collectExprVars e
+
+
 
 ppExpr :: Expr -> PP.Doc
 ppExpr expr =
