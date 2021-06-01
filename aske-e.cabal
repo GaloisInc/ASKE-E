@@ -88,6 +88,8 @@ library
                      , Language.ASKEE.ModelStratify.GeoGraph
 
                      , Language.ASKEE.Gromet
+                     , Language.ASKEE.Gromet.Syntax
+                     , Language.ASKEE.Gromet.FromEasel
                      , PetriNet
 
   build-depends:       base >=4.13.0.0 && <5,
