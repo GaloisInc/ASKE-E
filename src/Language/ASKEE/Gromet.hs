@@ -29,10 +29,6 @@ newtype BoxUid = BoxUid Uid
 newtype WireUid = WireUid Uid
   deriving (Show, Eq, Ord)
 
-newtype TypeUid = TypeUid Uid
-  deriving (Show, Eq, Ord)
-
-
 data Gromet =
   Gromet { grometName  :: Text
          , grometRoot  :: BoxUid
@@ -45,23 +41,27 @@ data Port =
   Port { portUid        :: PortUid
        , portBox        :: BoxUid
        , portType       :: PortType
-       , portValueType  :: TypeUid        -- type of value
+       , portValueType  :: ValueType
        , portName       :: Maybe Text
        }
   deriving(Show, Eq)
 
 data PortType =
-    ParameterPort     -- Used for a model parameter
-  | StatePort         -- Used for a state variable parameter
-  | InputPort         -- Generic input port
-  | OutputPort        -- Generic output port
+    ParameterPort     -- ^ Used for a model parameter
+  | StatePort         -- ^ Used for a state variable parameter
+  | InputPort         -- ^ Generic input port
+  | OutputPort        -- ^ Generic output port
     deriving (Show,Eq)
 
+data ValueType =
+    Bool
+  | Real
+    deriving (Show,Eq)
 
 data Wire = Wire
   { wireUid       :: WireUid
   , wireType      :: WireType
-  , wireValueType :: TypeUid
+  , wireValueType :: ValueType
   , wireSource    :: PortUid
   , wireTarget    :: PortUid
   }
@@ -74,7 +74,7 @@ data WireType =
 
 data Arg =
     ArgPort PortUid
-  | ArgLiteral Text TypeUid   -- value, type
+  | ArgLiteral Text ValueType -- value, type
   | ArgCall Text [Arg]        -- operator, arguments
   deriving(Show, Eq)
 
@@ -89,56 +89,25 @@ data Box = Box
 
 data BoxSyntax =
     BoxExpression Arg     -- value of `tree` field
-  | BoxRelation TypeUid   -- value of `type` field
+  | BoxRelation BoxRelType   -- value of `type` field
     deriving (Show,Eq)
 
-
---------------------------------------------------------------------------------
--- Predefined Types
-
-typeBool :: TypeUid
-typeBool = TypeUid "Boolean"
-
-typeReal :: TypeUid
-typeReal = TypeUid "Real"
-
-effectType :: TypeUid
-effectType = TypeUid "Effect"
-
-enableType :: TypeUid
-enableType = TypeUid "Enable"
-
-eventType :: TypeUid
-eventType = TypeUid "Event"
-
-rateType :: TypeUid
-rateType = TypeUid "Rate"
-
-petriNetType :: TypeUid
-petriNetType = TypeUid "PrTNet"
+data BoxRelType =
+    PrTNet
+  | EnableRel
+  | EventRel
+  | RateRel
+  | EffectRel
+    deriving (Show,Eq)
 
 
 
 ---------------------------------------------------------------------
 -- JSON
 
+-- | Helper to resolve overloaded string
 jsText :: Text -> JSON.Value
 jsText = JSON.toJSON
-
-instance JSON.ToJSON TypeUid where
-  toJSON (TypeUid uid) = JSON.toJSON ("T:" <> uid)
-
-instance JSON.ToJSON PortUid where
-  toJSON (PortUid uid) = JSON.toJSON ("P:" <> uid)
-
-instance JSON.ToJSON WireUid where
-  toJSON (WireUid uid) = JSON.toJSON ("W:" <> uid)
-
-instance JSON.ToJSON BoxUid where
-  toJSON (BoxUid uid) = JSON.toJSON ("B:" <> uid)
-
-
-
 
 instance JSON.ToJSON Gromet where
   toJSON g =
@@ -164,16 +133,6 @@ instance JSON.ToJSON Port where
                 , "box"        .= portBox p
                 ]
 
-
-instance JSON.ToJSON PortType where
-  toJSON pt =
-    case pt of
-      ParameterPort  -> "T:Parameter"
-      StatePort      -> "T:State"
-      InputPort      -> "T:Input"
-      OutputPort     -> "T:Output"
-
-
 instance JSON.ToJSON Wire where
   toJSON w =
     JSON.object [ "syntax"      .= jsText "Wire"
@@ -185,24 +144,9 @@ instance JSON.ToJSON Wire where
                 , "tgt"         .= wireTarget w
                 ]
 
-instance JSON.ToJSON WireType where
-  toJSON wt =
-    case wt of
-      Directed   -> "T:Directed"
-      Undirected -> "T:Undirected"
-
-
-
 instance JSON.ToJSON Box where
   toJSON b = JSON.object (stdFields ++ varFields)
     where
-    varFields =
-      case boxSyntax b of
-        BoxExpression arg -> [ "syntax" .= jsText "Expression"
-                             , "tree"   .= arg ]
-        BoxRelation t     -> [ "syntax" .= jsText "Relation"
-                             , "type"   .= t ]
-
     stdFields =
       [ "uid"     .= boxUid b
       , "name"    .= boxName b
@@ -210,6 +154,53 @@ instance JSON.ToJSON Box where
       , "boxes"   .= boxBoxes b
       , "ports"   .= boxPorts b
       ]
+
+    varFields =
+      case boxSyntax b of
+        BoxExpression arg -> [ "syntax" .= jsText "Expression"
+                             , "tree"   .= arg ]
+        BoxRelation t     -> [ "syntax" .= jsText "Relation"
+                             , "type"   .= t ]
+
+
+
+instance JSON.ToJSON ValueType where
+  toJSON ty =
+    case ty of
+      Real -> "T:Real"
+      Bool -> "T:Boolean"
+
+instance JSON.ToJSON BoxRelType where
+  toJSON ty =
+    case ty of
+      EnableRel -> "T:Enable"
+      EventRel  -> "T:Event"
+      RateRel   -> "T:Rate"
+      EffectRel -> "T:Effect"
+      PrTNet    -> "PrTNet"   -- for some reason this has no T: at the front?
+
+instance JSON.ToJSON PortUid where
+  toJSON (PortUid uid) = JSON.toJSON ("P:" <> uid)
+
+instance JSON.ToJSON WireUid where
+  toJSON (WireUid uid) = JSON.toJSON ("W:" <> uid)
+
+instance JSON.ToJSON BoxUid where
+  toJSON (BoxUid uid) = JSON.toJSON ("B:" <> uid)
+
+instance JSON.ToJSON PortType where
+  toJSON pt =
+    case pt of
+      ParameterPort  -> "T:Parameter"
+      StatePort      -> "T:State"
+      InputPort      -> "T:Input"
+      OutputPort     -> "T:Output"
+
+instance JSON.ToJSON WireType where
+  toJSON wt =
+    case wt of
+      Directed   -> "T:Directed"
+      Undirected -> "T:Undirected"
 
 instance JSON.ToJSON Arg where
   toJSON a =
@@ -262,7 +253,7 @@ convertModel model =
            let p = Port { portUid       = puid
                         , portBox       = uid
                         , portType      = ParameterPort
-                        , portValueType = typeReal
+                        , portValueType = Real
                         , portName      = Just paramName
                         }
            addPort p
@@ -273,7 +264,7 @@ convertModel model =
            let p = Port { portUid       = puid
                         , portBox       = uid
                         , portType      = StatePort
-                        , portValueType = typeReal
+                        , portValueType = Real
                         , portName      = Just x
                         }
            addPort p
@@ -282,7 +273,7 @@ convertModel model =
 
      let ports = Map.fromList (paramPorts ++ statePorts)
 
-     startNestedBox uid (Core.modelName model) petriNetType
+     startNestedBox uid (Core.modelName model) PrTNet
      allPorts <- foldM doLet ports (Map.toList (Core.modelLets model))
      mapM_ (convertEvent allPorts) (Core.modelEvents model)
      endNestedBox (map portUid (Map.elems ports))
@@ -298,7 +289,7 @@ convertModel model =
        let outP = Port { portUid = out
                        , portBox = uid
                        , portType = OutputPort
-                       , portValueType = typeReal -- XXX: infer from expr
+                       , portValueType = Real -- XXX: infer from expr
                        , portName = Just x
                        }
        addPort outP
@@ -318,7 +309,7 @@ convertEvent :: Map Core.Ident Port -> Core.Event -> GrometGen ()
 convertEvent inPorts ev =
   do evBoxUid <- BoxUid <$> newUid
      evPorts  <- connectInputPorts inPorts evBoxUid allVars
-     startNestedBox evBoxUid (Core.eventName ev) eventType
+     startNestedBox evBoxUid (Core.eventName ev) EventRel
      makeWhen evPorts
      makeRate evPorts
      makeEffect evPorts
@@ -335,7 +326,7 @@ convertEvent inPorts ev =
     do uid   <- BoxUid <$> newUid
        let name = "Enabling Condition"
        ports <- connectInputPorts evPorts uid enableVars
-       startNestedBox uid name enableType
+       startNestedBox uid name EnableRel
        mapM_ (convertExpr name ports Nothing) (splitAnd (Core.eventWhen ev))
        endNestedBox (map portUid (Map.elems ports))
 
@@ -343,7 +334,7 @@ convertEvent inPorts ev =
     do uid   <- BoxUid <$> newUid
        let name = "Event Rate"
        ports <- connectInputPorts evPorts uid rateVars
-       startNestedBox uid name rateType
+       startNestedBox uid name RateRel
        convertExpr name ports Nothing (Core.eventRate ev)
        endNestedBox (map portUid (Map.elems ports))
 
@@ -351,13 +342,13 @@ convertEvent inPorts ev =
     do uid <- BoxUid <$> newUid
        ports <- connectInputPorts evPorts uid effVars
        let name = "Event Effect"
-       startNestedBox uid name effectType
+       startNestedBox uid name EffectRel
        outPs <- forM (Map.toList (Core.eventEffect ev)) \(x,e) ->
                 do out <- PortUid <$> newUid
                    let p = Port { portUid        = out
                                 , portBox        = uid
                                 , portType       = StatePort
-                                , portValueType  = typeReal
+                                , portValueType  = Real
                                 , portName       = Just x
                                 }
                    addPort p
@@ -415,8 +406,8 @@ exprToArg vars expr =
 
     Core.Literal l ->
       case l of
-        Core.Num x  -> ArgLiteral (showText x) typeReal
-        Core.Bool x -> ArgLiteral (showText x) typeBool
+        Core.Num x  -> ArgLiteral (showText x) Real
+        Core.Bool x -> ArgLiteral (showText x) Bool
 
     Core.Var x ->
       case Map.lookup x vars of
@@ -531,7 +522,7 @@ popBox =
        [] -> panic "popBox" ["No box to pop"]
 
 
-startNestedBox :: BoxUid -> Text -> TypeUid -> GrometGen ()
+startNestedBox :: BoxUid -> Text -> BoxRelType -> GrometGen ()
 startNestedBox uid name ty =
   pushBox Box { boxUid = uid
               , boxName = name
