@@ -99,7 +99,7 @@ handleRequest r =
 
     GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
       do  cpp <- loadCPPFrom modelDefType modelDefSource
-          pure $ OutputResult $ asResult (Right cpp :: Either Text Text)
+          pure $ OutputResult $ asResult (Right (Text.pack $ show cpp) :: Either Text Text)
 
     Stratify StratifyCommand{..} ->
         do  res <- stratifyModel stratModel stratConnections stratStates stratType

@@ -207,11 +207,10 @@ loadConnectionGraph s =
           mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
       pure (GG.gtriJSON vertices edges, mapping')
 
-loadCPPFrom :: ModelType -> DataSource -> IO Text
+loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
   do  coreModel <- loadCoreFrom format source
-      let cppModel = SimulatorGen.genModel coreModel
-      pure $ Text.pack $ show cppModel
+      pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
 
