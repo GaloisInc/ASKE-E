@@ -23,14 +23,14 @@ data Gromet =
          , grometPorts :: [Port]
          , grometWires :: [Wire]
          , grometBoxes :: [Box]
-         }
+         } deriving (Show,Eq)
 
 data Port =
   Port { portUid        :: PortUid
        , portBox        :: BoxUid
        , portType       :: PortType
        , portValueType  :: ValueType
-       , portName       :: Maybe Text
+       , portName       :: Text
        }
   deriving(Show, Eq)
 

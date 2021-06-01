@@ -20,6 +20,7 @@ import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.Print as PP
+import qualified Language.ASKEE.Gromet.See as Gromet
 import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
@@ -42,10 +43,12 @@ main =
          do ds <- exactlyOne "model" =<< loadDiffEqs opts []
             print (ppDiffEqs ds)
 
-       ShowGromet ->
+       ShowGromet how ->
           forM_ (modelFiles opts) \f ->
-            do js <- dsToGrometJSON (FromFile f)
-               LBS.putStrLn (JS.encode js)
+            do gr <- dsToGromet (FromFile f)
+               case how of
+                 JSON -> LBS.putStrLn (JS.encode gr)
+                 PP   -> print (Gromet.pp gr)
 
        SimulateODE x y z ->
          do m0 <- exactlyOne "model" =<< loadDiffEqs opts []

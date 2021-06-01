@@ -90,6 +90,7 @@ library
                      , Language.ASKEE.Gromet
                      , Language.ASKEE.Gromet.Syntax
                      , Language.ASKEE.Gromet.FromEasel
+                     , Language.ASKEE.Gromet.See
                      , PetriNet
 
   build-depends:       base >=4.13.0.0 && <5,

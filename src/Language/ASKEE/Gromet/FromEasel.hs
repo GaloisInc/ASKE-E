@@ -50,7 +50,7 @@ convertModel model =
                         , portBox       = uid
                         , portType      = ParameterPort
                         , portValueType = Real
-                        , portName      = Just paramName
+                        , portName      = paramName
                         }
            addPort p
            pure (paramName, p)
@@ -61,7 +61,7 @@ convertModel model =
                         , portBox       = uid
                         , portType      = StatePort
                         , portValueType = Real
-                        , portName      = Just x
+                        , portName      = x
                         }
            addPort p
            pure (x, p)
@@ -86,7 +86,7 @@ convertModel model =
                        , portBox = uid
                        , portType = OutputPort
                        , portValueType = Real -- XXX: infer from expr
-                       , portName = Just x
+                       , portName = x
                        }
        addPort outP
        addBox Box { boxUid    = uid
@@ -145,7 +145,7 @@ convertEvent inPorts ev =
                                 , portBox        = uid
                                 , portType       = StatePort
                                 , portValueType  = Real
-                                , portName       = Just x
+                                , portName       = x
                                 }
                    addPort p
                    convertExpr name ports (Just p) e

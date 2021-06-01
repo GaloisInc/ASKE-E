@@ -380,7 +380,10 @@ coreToGromet = Gromet.convertCoreToGromet
 easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
 easelToGromet e = coreToGromet <$> modelAsCore e
 
+dsToGromet :: DataSource -> IO Gromet.Gromet
+dsToGromet ds =
+  do core <- loadCoreModel' ds
+     pure (coreToGromet core)
+
 dsToGrometJSON :: DataSource -> IO JSON.Value
-dsToGrometJSON ds =
-  do  core <- loadCoreModel' ds
-      pure (JSON.toJSON $ coreToGromet core)
+dsToGrometJSON ds = JSON.toJSON <$> dsToGromet ds
