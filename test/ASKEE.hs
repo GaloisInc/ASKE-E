@@ -1,6 +1,7 @@
 {-# Language TemplateHaskell #-}
 {-# Language OverloadedStrings #-}
-module ASKEE where
+{-# LANGUAGE RecordWildCards #-}
+module ASKEE ( tests ) where
 
 import Language.ASKEE
 import qualified Test.Tasty as Tasty
@@ -8,6 +9,8 @@ import Test.Tasty.HUnit(Assertion, assertBool, (@=?), assertFailure, testCase)
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map as Map
 import Data.Text(Text)
+import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Visualization as Viz
 
 sir :: Text
 sir = $(Embed.embedStringFile "modelRepo/easel/sir.easel")
@@ -53,9 +56,102 @@ assertDataClose actual expected =
     compareVars (_, as) (_, bs) = and $ zipWith isClose as bs
     asc = Map.toAscList . values
 
+-------------------------------------------------------------------------------
+-- asSchematicGraph
+
+-- coreModelGraphs :: [(Core.Model, Viz.Graph)]
+s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
+(s2s, s2e, e2s, e2e, n2n, s2sd) =
+  ( (stateToState, stateToStateGraph)
+  , (stateToEvent, stateToEventGraph)
+  , (eventToState, eventToStateGraph)
+  , (eventToEvent, eventToEventGraph)
+  , (noneToNone, noneToNoneGraph)
+  , (stateToStateWithDups, stateToStateWithDupsGraph)
+  )
+  where
+    -- E1 subtracts from X and adds to Y
+    stateToStateGraph = Viz.Graph [(xNode, e1Node), (e1Node, yNode)]
+    stateToState = Core.Model{..}
+      where
+        modelInitState = Map.fromList [xInit, yInit]
+        modelEvents = [event "E1" [xSub1, yAdd1]]
+
+    -- Two events named E1 subtract from X and add to Y
+    stateToStateWithDupsGraph = stateToStateGraph
+    stateToStateWithDups = Core.Model{..}
+      where
+        modelInitState = Map.fromList [xInit, yInit]
+        modelEvents = replicate 2 (event "E1" [xSub1, yAdd1])
+
+    -- E1 subtracts from X
+    stateToEventGraph = Viz.Graph [(xNode, e1Node)]
+    stateToEvent = Core.Model{..}
+      where
+        modelInitState = Map.fromList [xInit]
+        modelEvents = [event "E1" [xSub1]]
+
+    -- E1 adds to Y
+    eventToStateGraph = Viz.Graph [(e1Node, yNode)]
+    eventToState = Core.Model{..}
+      where
+        modelInitState = Map.fromList [yInit]
+        modelEvents = [event "E1" [yAdd1]]
+
+    -- E1 adds to X, E2 subtracts from X
+    eventToEventGraph = Viz.Graph [(e1Node, xNode), (xNode, e2Node)]
+    eventToEvent = Core.Model{..}
+      where
+        modelInitState = Map.fromList [xInit]
+        modelEvents = [ event "E1" [xAdd1]
+                      , event "E2" [xSub1]]
+
+    -- No actions
+    noneToNoneGraph = Viz.Graph []
+    noneToNone = Core.Model{..}
+      where
+        modelInitState = mempty
+        modelEvents = mempty
+    
+    -- Common parameters
+    modelName = "foo"
+    modelParams = mempty
+    modelLets = mempty
+
+    -- Schematic graphs don't care about event rates and enabling predicates
+    event name eff = 
+      Core.Event
+        { Core.eventName = name
+        , Core.eventRate = Core.NumLit 0
+        , Core.eventWhen = Core.BoolLit False
+        , Core.eventEffect = Map.fromList eff
+        }
+
+    xInit = ("X", Core.NumLit 10)
+    yInit = ("Y", Core.NumLit 0)
+
+    xSub1 = ("X", Core.Var "X" Core.:-: Core.NumLit 1)
+    xAdd1 = ("X", Core.Var "X" Core.:+: Core.NumLit 1)
+    yAdd1 = ("Y", Core.Var "Y" Core.:+: Core.NumLit 1)
+
+    xNode = Viz.Node "X" Viz.State
+    e1Node = Viz.Node "E1" Viz.Event
+    e2Node = Viz.Node "E2" Viz.Event
+    yNode = Viz.Node "Y" Viz.State
+
+
+testAsSchematicGraph :: (Core.Model, Viz.Graph) -> Assertion
+testAsSchematicGraph (model, graph) =
+  Just graph @=? asSchematicGraph model
 
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
     [ testCase "Basic SIR test" $ testSimulateEsl (Inline sir) series1
+    , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
+    , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e
+    , testCase "Event-to-state flow schematic" $ testAsSchematicGraph e2s
+    , testCase "Event-to-event flow schematic" $ testAsSchematicGraph e2e
+    , testCase "No-flow schematic" $ testAsSchematicGraph n2n
+    , testCase "State-to-state flow schematic, no dups" $ testAsSchematicGraph s2sd
     ]

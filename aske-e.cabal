@@ -166,7 +166,8 @@ test-suite tests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Main.hs
-  other-modules:       ModelCheck
+  other-modules:       ASKEE
+                     , ModelCheck
   build-depends:       base
                      , aske-e
                      , containers
@@ -176,3 +177,4 @@ test-suite tests
                      , file-embed
                      , text
   default-language:    Haskell2010
+  ghc-options:         -Wall
