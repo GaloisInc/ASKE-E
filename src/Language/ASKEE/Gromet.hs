@@ -17,7 +17,6 @@ import qualified Data.Set as Set
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.Core as Core
 
-import Debug.Trace
 
 type Uid = Text
 
@@ -282,8 +281,6 @@ convertModel model =
 
 
      let ports = Map.fromList (paramPorts ++ statePorts)
-     traceM (show ports)
-
 
      startNestedBox uid (Core.modelName model) petriNetType
      allPorts <- foldM doLet ports (Map.toList (Core.modelLets model))
@@ -294,12 +291,9 @@ convertModel model =
 
   where
   doLet ports (x,e) =
-    do traceM ("EXPR: " ++ show e)
-       uid    <- BoxUid <$> newUid
+    do uid    <- BoxUid <$> newUid
        lports <- fmap portUid <$>
-                 connectInputPorts ports uid (Core.collectVars e)
-       traceM ("VARS: " ++ show (Core.collectVars e))
-       traceM ("LPORTS: " ++ show lports)
+                 connectInputPorts ports uid (Core.collectExprVars e)
        out    <- PortUid <$> newUid
        let outP = Port { portUid = out
                        , portBox = uid
@@ -332,9 +326,10 @@ convertEvent inPorts ev =
 
   where
   allVars    = Set.unions [ enableVars, rateVars, effVars ]
-  enableVars = Core.collectVars (Core.eventWhen ev)
-  rateVars   = Core.collectVars (Core.eventRate ev)
-  effVars    = Set.unions (Core.collectVars <$> Map.elems (Core.eventEffect ev))
+  enableVars = Core.collectExprVars (Core.eventWhen ev)
+  rateVars   = Core.collectExprVars (Core.eventRate ev)
+  effVars    = Set.unions (Core.collectExprVars <$>
+                                    Map.elems (Core.eventEffect ev))
 
   makeWhen evPorts =
     do uid   <- BoxUid <$> newUid
@@ -402,7 +397,7 @@ convertExpr ::
 convertExpr name inPorts mbOutPort expr =
   do uid    <- BoxUid <$> newUid
      varMap <- fmap portUid <$>
-               connectInputPorts inPorts uid (Core.collectVars expr)
+               connectInputPorts inPorts uid (Core.collectExprVars expr)
      ourOut <- traverse (freshOutputPort uid) mbOutPort
 
      addBox Box { boxUid    = uid

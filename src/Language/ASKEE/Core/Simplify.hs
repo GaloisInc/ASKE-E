@@ -10,7 +10,7 @@ import Language.ASKEE.Core
 
 simplifyExpr :: Expr -> Expr
 simplifyExpr expr =
-  case mapExprs (toFrom . simplifyExpr . toFrom) expr of
+  case mapAt exprChildren (toFrom . simplifyExpr . toFrom) expr of
     If (BoolLit b) e1 e2          -> if b then e1 else e2
 
     -- Numerics

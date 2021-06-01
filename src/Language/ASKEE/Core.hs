@@ -109,9 +109,38 @@ isStateVar x m = Map.member x (modelInitState m)
 --------------------------------------------------------------------------------
 -- One level traversals
 
--- | Traverse the expressions in `t`
+-- | Apply a function to the "locations" specified by the first argument.
+mapAt ::
+  (forall f. Applicative f => (a -> f b) -> x -> f y)
+  {- ^ locatiosn where to map -} ->
+
+  (a -> b) -> x -> y
+mapAt it f = runIdentity . it (pure . f)
+
+-- | Collect the values at the "locations" specified by the first argument.
+collectFrom ::
+  (Monoid m) =>
+  (forall f. Applicative f => (a -> f b) -> x -> f y) ->
+  (a -> m) -> x -> m
+collectFrom it f t = Const.getConst (it (Const.Const . f) t)
+
+
+
+
+-- | Locations of expressions in a structure
 class TraverseExprs t where
   traverseExprs :: Applicative f => (Expr -> f Expr) -> t -> f t
+
+-- | Apply a function to expressions contained in something.
+mapExprs :: TraverseExprs t => (Expr -> Expr) -> t -> t
+mapExprs = mapAt traverseExprs
+
+-- | Collect stuff from expressions contained in something
+collectExprs :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
+collectExprs = collectFrom traverseExprs
+
+
+
 
 instance TraverseExprs Model where
   traverseExprs f m =
@@ -127,31 +156,16 @@ instance TraverseExprs Event where
        eff  <- traverse f (eventEffect ev)
        pure ev { eventRate = rate, eventWhen = cond, eventEffect = eff }
 
-instance TraverseExprs Expr where
-  traverseExprs f expr = f expr
 
 exprChildren :: Applicative f => (Expr -> f Expr) -> Expr -> f Expr
 exprChildren f expr =
-  case expr of
-    Literal {}   -> pure expr
-    Op1 op e     -> Op1 op <$> f e
-    Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
-    Var {}       -> pure expr
-    If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
-    Fail {}      -> pure expr
-
-
-
-mapExprsWith ::
-  (forall f. Applicative f => (Expr -> f Expr) -> t -> f t) ->
-  (Expr -> Expr) -> t -> t
-mapExprsWith it f = runIdentity . it (pure . f)
-
--- | Apply a function to expressions contained in something.
--- Note that this does not go into the children of the expressions
--- automatically.
-mapExprs :: TraverseExprs t => (Expr -> Expr) -> t -> t
-mapExprs = mapExprsWith traverseExprs
+    case expr of
+      Literal {}   -> pure expr
+      Op1 op e     -> Op1 op <$> f e
+      Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
+      Var {}       -> pure expr
+      If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
+      Fail {}      -> pure expr
 
 -- | Inline all occurances of let-bound variables.
 inlineLets :: Model -> Model
@@ -177,26 +191,17 @@ substExpr :: Map Ident Expr -> Expr -> Expr
 substExpr su expr =
   case expr of
     Var x | Just e <- Map.lookup x su -> e
-    _ -> mapExprsWith exprChildren (substExpr su) expr
+    _ -> mapAt exprChildren (substExpr su) expr
 
-
-collectWith ::
-  (Monoid m) =>
-  (forall f. Applicative f => (Expr -> f Expr) -> t -> f t) ->
-  (Expr -> m) -> t -> m
-collectWith it f t = Const.getConst (it (Const.Const . f) t)
-
-collect :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
-collect = collectWith traverseExprs
 
 collectVars :: (TraverseExprs t) => t -> Set.Set Ident
-collectVars = collect collectExprVars
+collectVars = collectExprs collectExprVars
 
 collectExprVars :: Expr -> Set.Set Ident
 collectExprVars e =
   case e of
     Var n -> Set.singleton n
-    _     -> collectWith exprChildren collectExprVars e
+    _     -> collectFrom exprChildren collectExprVars e
 
 
 
