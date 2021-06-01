@@ -32,9 +32,11 @@ import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
 import qualified Language.ASKEE.Check                  as Check
 import           Language.ASKEE.Convert
 import qualified Language.ASKEE.Core                   as Core
+import qualified Language.ASKEE.Core.DiffEq            as CDQ
 import qualified Language.ASKEE.DEQ.GenLexer           as DL
 import qualified Language.ASKEE.DEQ.GenParser          as DP
 import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
+import           Language.ASKEE.Latex.Print            ( printLatex )
 import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
 import qualified Language.ASKEE.GenLexer               as AL
 import qualified Language.ASKEE.GenParser              as AP
@@ -380,7 +382,12 @@ coreToGromet = Gromet.convertCoreToGromet
 easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
 easelToGromet e = coreToGromet <$> modelAsCore e
 
+easelToLatex :: Syntax.Model -> Either String String
+easelToLatex e = show . printLatex . CDQ.asEquationSystem <$> modelAsCore e
+
 dsToGrometJSON :: DataSource -> IO JSON.Value
 dsToGrometJSON ds =
   do  core <- loadCoreModel' ds
       pure (JSON.toJSON $ coreToGromet core)
+
+
