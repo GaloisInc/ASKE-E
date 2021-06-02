@@ -62,7 +62,7 @@ data Literal =
 
 
 --------------------------------------------------------------------------------
--- Conveninece
+-- Convenience
 
 pattern (:+:) :: Expr -> Expr -> Expr
 pattern (:+:) e1 e2 = Op2 Add e1 e2
@@ -224,14 +224,14 @@ ppExpr expr =
     Var v -> PP.text $ Text.unpack v
     If e1 e2 e3 -> PP.hsep ["if", pp e1, "then", pp e2, "else", pp e3]
     Fail s -> error s -- XXX
-    _ -> 
-      panic 
-        "encountered unknown Core expression when pretty-printing" 
+    _ ->
+      panic
+        "encountered unknown Core expression when pretty-printing"
         [ show expr ]
 
   where
     pp :: Expr -> PP.Doc
-    pp e = 
+    pp e =
       if prec e < prec expr
         then PP.parens (ppExpr e)
         else            ppExpr e
@@ -255,7 +255,7 @@ ppExpr expr =
         Var     _ -> 10
         If     {} -> 0
         Fail s    -> error s -- XXX
-        _ -> 
-          panic 
-            "encountered unknown Core expression when pretty-printing" 
+        _ ->
+          panic
+            "encountered unknown Core expression when pretty-printing"
             [ "while determining precedence", show e ]

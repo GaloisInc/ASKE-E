@@ -230,7 +230,7 @@ class Donu:
             "stratification-type": "spatial",
         }
 
-        return self.request(req)['model']
+        return self.request(req)['raw-model']
 
 
 # -----------------------------------------------------------------------------
