@@ -77,8 +77,6 @@ import           Language.ASKEE.Types                  ( Representation(..)
 import System.Exit    ( ExitCode(..) )
 import System.Process ( readProcessWithExitCode )
 
-import Data.MultiSet (MultiSet)
-import qualified Data.MultiSet as MSet
 import Control.Monad.Identity (runIdentity)
 
 parse :: ParseModel a => String -> String -> IO a
