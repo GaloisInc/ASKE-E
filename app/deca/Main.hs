@@ -18,7 +18,7 @@ import           Language.ASKEE.DEQ.Print (ppDiffEqs)
 import qualified Language.ASKEE.Core.DiffEq as DiffEq
 import qualified Language.ASKEE.Core.GSLODE as ODE
 import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Print as PP
+import qualified Language.ASKEE.ESL.Print as PP
 import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 import Language.ASKEE.Types
 

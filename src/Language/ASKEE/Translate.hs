@@ -4,7 +4,7 @@ module Language.ASKEE.Translate where
 import           Language.ASKEE.Convert              ( converter )
 import           Language.ASKEE.Types                ( ModelType(..)
                                                      , Representation(..) )
-import qualified Language.ASKEE.Syntax               as ESL
+import qualified Language.ASKEE.ESL.Syntax           as ESL
 import qualified Language.ASKEE.DEQ.Syntax           as DEQ
 import qualified Language.ASKEE.RNet.Syntax          as RNet
 import qualified Language.ASKEE.Latex.Syntax         as Latex

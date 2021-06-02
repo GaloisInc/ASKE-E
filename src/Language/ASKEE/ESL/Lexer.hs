@@ -1,6 +1,6 @@
 {-# Language MultiWayIf #-}
 
-module Language.ASKEE.Lexer where
+module Language.ASKEE.ESL.Lexer where
 
 import Data.Text (Text)
 

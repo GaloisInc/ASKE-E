@@ -17,7 +17,7 @@ import           Data.Text  ( Text )
 
 import GHC.Generics ( Generic )
 
-import qualified Language.ASKEE.Syntax as ESL
+import qualified Language.ASKEE.ESL.Syntax as ESL
 import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
                                                        , topologyAsModel
                                                        , insertHoles

@@ -2,6 +2,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
   ( loadESLFrom
   , loadDiffEqsFrom
@@ -40,9 +41,7 @@ import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 
-import Control.Monad ( void )
-
-import qualified Language.ASKEE.Check                  as Check
+import qualified Language.ASKEE.ESL.Check              as Check
 import           Language.ASKEE.Convert                ( converter )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.Core.DiffEq            ( applyParams )
@@ -56,7 +55,7 @@ import qualified Language.ASKEE.DEQ.Syntax             as DEQ
 import qualified Language.ASKEE.Latex.Syntax           as Latex
 import qualified Language.ASKEE.RNet.Syntax            as RNet
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
-import qualified Language.ASKEE.Syntax                 as ESL
+import qualified Language.ASKEE.ESL.Syntax             as ESL
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel

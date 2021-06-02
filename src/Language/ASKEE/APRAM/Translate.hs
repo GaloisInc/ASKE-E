@@ -18,7 +18,7 @@ import           Language.ASKEE.APRAM.Syntax as APRAMSyntax
 import           Language.ASKEE.APRAM.Sample ()
 import qualified Language.ASKEE.Expr as Expr
 import           Language.ASKEE.ExprTransform
-import           Language.ASKEE.Syntax as ESLSyntax
+import           Language.ASKEE.ESL.Syntax as ESLSyntax
 
 modelToAPRAM :: Model -> Text -> APRAM
 modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods

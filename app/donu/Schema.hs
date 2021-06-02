@@ -16,7 +16,7 @@ import SchemaJS
 -- import Language.ASKEE( StratificationType(..), StratificationInfo(..))
 import Language.ASKEE.DataSeries
 import Language.ASKEE.Core ( Ident )
-import Language.ASKEE.Print (printModel)
+import Language.ASKEE.ESL.Print (printModel)
 import Language.ASKEE.Types
 import Language.ASKEE.ModelStratify.Stratify
 

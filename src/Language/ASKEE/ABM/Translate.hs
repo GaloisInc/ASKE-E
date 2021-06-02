@@ -14,7 +14,7 @@ import           Data.Text ( Text, pack )
 
 import qualified Language.ASKEE.ABM.Syntax as ABM
 import           Language.ASKEE.Expr
-import qualified Language.ASKEE.Syntax as ESL
+import qualified Language.ASKEE.ESL.Syntax as ESL
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)

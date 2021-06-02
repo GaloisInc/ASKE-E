@@ -2,13 +2,13 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Language.ASKEE.GenLexer where
+module Language.ASKEE.ESL.GenLexer where
 
 
 import qualified Data.Text as Text
 
 import Prelude hiding (LT,GT,EQ)
-import Language.ASKEE.Lexer
+import Language.ASKEE.ESL.Lexer
 
 }
 

@@ -1,4 +1,4 @@
-module Language.ASKEE.Syntax where
+module Language.ASKEE.ESL.Syntax where
 
 import Data.Text (Text)
 

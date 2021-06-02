@@ -7,7 +7,7 @@ import Language.ASKEE.APRAM.Lexer as Lexer
 import Language.ASKEE.APRAM.Syntax as Syntax
 
 import Language.ASKEE.Expr as Expr
-import Language.ASKEE.Lexer ( Located(..) )
+import Language.ASKEE.ESL.Lexer ( Located(..) )
 
 import qualified Data.Map as Map
 import Data.Map ( Map )

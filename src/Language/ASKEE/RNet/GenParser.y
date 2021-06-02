@@ -9,7 +9,7 @@ import           Data.Map ( Map )
 import qualified Data.Map as Map
 
 import Language.ASKEE.Expr ( Expr(..) )
-import Language.ASKEE.Lexer ( Located(..) )
+import Language.ASKEE.ESL.Lexer ( Located(..) )
 import Language.ASKEE.RNet.Lexer as Lexer
 import Language.ASKEE.RNet.Syntax as Syntax
 

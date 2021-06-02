@@ -14,7 +14,7 @@ import qualified Data.Text as Text
 import Language.ASKEE.APRAM.Syntax as APRAM
 import Language.ASKEE.Expr as Expr hiding ( And, Or, Not ) 
 import Language.ASKEE.ExprTransform ( transformExpr )
-import Language.ASKEE.Print ( pyPrintExpr )
+import Language.ASKEE.ESL.Print ( pyPrintExpr )
 
 import Text.PrettyPrint
 

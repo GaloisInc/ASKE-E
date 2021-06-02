@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-module Language.ASKEE.Check where
+module Language.ASKEE.ESL.Check where
 
 import           Control.Monad (unless, forM_)
 import           Control.Monad.State (StateT, evalStateT, get, put, lift)
@@ -16,8 +16,8 @@ import qualified Data.Text as Text
 import           Language.ASKEE.Expr (Expr(..))
 import           Language.ASKEE.ExprTransform (transformExpr)
 import           Language.ASKEE.Panic (panic)
-import           Language.ASKEE.Print (printExpr)
-import           Language.ASKEE.Syntax (Event(..), Decl(..), Model(..))
+import           Language.ASKEE.ESL.Print (printExpr)
+import           Language.ASKEE.ESL.Syntax (Event(..), Decl(..), Model(..))
 
 import Prelude hiding (GT, EQ, LT, exp)
 

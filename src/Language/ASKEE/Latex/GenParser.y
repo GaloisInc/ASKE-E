@@ -14,7 +14,7 @@ import Language.ASKEE.Core             ( Ident )
 import Language.ASKEE.Core.ImportASKEE ( expAsCore )
 import Language.ASKEE.DEQ.Syntax       as Syntax
 import Language.ASKEE.Expr             as Expr
-import Language.ASKEE.Lexer            ( Located(..) )
+import Language.ASKEE.ESL.Lexer        ( Located(..) )
 import Language.ASKEE.Latex.GenLexer  
 import Language.ASKEE.Latex.Lexer      as Lexer
 import Language.ASKEE.Latex.Syntax

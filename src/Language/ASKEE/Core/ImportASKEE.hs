@@ -3,7 +3,7 @@ module Language.ASKEE.Core.ImportASKEE where
 import qualified Data.Map as Map
 
 import qualified Language.ASKEE.Expr   as Src
-import qualified Language.ASKEE.Syntax as Src
+import qualified Language.ASKEE.ESL.Syntax as Src
 import Language.ASKEE.Core
 import Language.ASKEE.Core.Simplify(simplifyExpr)
 

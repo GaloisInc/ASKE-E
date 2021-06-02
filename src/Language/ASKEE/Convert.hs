@@ -26,10 +26,10 @@ import qualified Language.ASKEE.DEQ.GenParser as DEQParse
 import qualified Language.ASKEE.DEQ.Print     as DEQPrint
 import qualified Language.ASKEE.DEQ.Syntax    as DEQSyntax
 
-import qualified Language.ASKEE.GenLexer  as ESLLex
-import qualified Language.ASKEE.GenParser as ESLParse
-import qualified Language.ASKEE.Print     as ESLPrint
-import qualified Language.ASKEE.Syntax    as ESLSyntax
+import qualified Language.ASKEE.ESL.GenLexer  as ESLLex
+import qualified Language.ASKEE.ESL.GenParser as ESLParse
+import qualified Language.ASKEE.ESL.Print     as ESLPrint
+import qualified Language.ASKEE.ESL.Syntax    as ESLSyntax
 
 import qualified Language.ASKEE.Latex.GenLexer  as LatexLex
 import qualified Language.ASKEE.Latex.GenParser as LatexParse

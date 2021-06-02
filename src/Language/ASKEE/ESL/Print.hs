@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Language.ASKEE.Print where
+module Language.ASKEE.ESL.Print where
 
 import Data.Text (unpack,  Text )
 
-import Language.ASKEE.Syntax as Syntax
+import Language.ASKEE.ESL.Syntax as Syntax
 import Language.ASKEE.Expr as Expr
 
 import Prelude hiding (GT, EQ, LT, (<>))

@@ -8,7 +8,7 @@ import qualified Data.Map as Map
 import Data.Text(Text, pack)
 import Language.ASKEE.Expr ( Expr(..) )
 import qualified Data.Set as Set
-import qualified Language.ASKEE.Syntax as Syntax
+import qualified Language.ASKEE.ESL.Syntax as Syntax
 import Language.ASKEE.RNet.Syntax
 import qualified Data.List as List
 

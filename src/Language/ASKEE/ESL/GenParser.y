@@ -1,6 +1,6 @@
 {
 {-# LANGUAGE RecordWildCards #-}
-module Language.ASKEE.GenParser where
+module Language.ASKEE.ESL.GenParser where
 
 import           Data.Either ( partitionEithers )
 import qualified Data.Map    as Map
@@ -11,9 +11,9 @@ import           Language.ASKEE.Core             ( Ident, substExpr )
 import           Language.ASKEE.Core.ImportASKEE ( expAsCore )
 import           Language.ASKEE.DEQ.Syntax       ( DiffEqs(..) )
 import           Language.ASKEE.Expr
-import           Language.ASKEE.Lexer            ( Located(..) )
-import qualified Language.ASKEE.Lexer            as Lexer
-import           Language.ASKEE.Syntax
+import           Language.ASKEE.ESL.Lexer        ( Located(..) )
+import qualified Language.ASKEE.ESL.Lexer        as Lexer
+import           Language.ASKEE.ESL.Syntax
 import qualified Language.ASKEE.Metadata         as Meta
 
 import Prelude hiding (Ordering(..))

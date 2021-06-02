@@ -5,7 +5,7 @@ module Language.ASKEE.RNet.GenLexer ( lexRNet, Token(..) ) where
 
 import Data.Text ( pack )
 
-import Language.ASKEE.Lexer      ( Located(..) )
+import Language.ASKEE.ESL.Lexer   ( Located(..) )
 import Language.ASKEE.RNet.Lexer  ( Token(..) )
 }
 
