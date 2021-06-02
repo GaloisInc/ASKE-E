@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
-  ( loadESLFrom
+  ( ESL.loadESLFrom
   , loadDiffEqsFrom
   , loadReactionsFrom
   , loadLatexFrom
@@ -43,6 +43,7 @@ import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 
+import qualified Language.ASKEE.ESL                    as ESL
 import qualified Language.ASKEE.ESL.Check              as Check
 import           Language.ASKEE.C                      ( Doc )
 import           Language.ASKEE.Convert                ( converter )
@@ -94,20 +95,20 @@ toIO why modelE =
 -------------------------------------------------------------------------------
 -- Loaders for "first class" models
 
-loadESL :: DataSource -> IO ESL.Model
-loadESL = loadESLFrom (ESL Concrete)
+-- loadESL :: DataSource -> IO ESL.Model
+-- loadESL = loadESLFrom (ESL Concrete)
 
-loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
-loadESLFrom format source =
-  do  modelString <- loadModel format source
-      let conv =
-            case format of
-              ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
-              RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
-      model <- toIO "loadESLFrom" $ conv modelString
-      case Check.checkModel model of
-        Left err -> throwIO (ValidationError err)
-        Right m -> pure m
+-- loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
+-- loadESLFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
+--               RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
+--       model <- toIO "loadESLFrom" $ conv modelString
+--       case Check.checkModel model of
+--         Left err -> throwIO (ValidationError err)
+--         Right m -> pure m
 
 loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
 loadDiffEqs = loadDiffEqsFrom (DEQ Concrete)
@@ -176,7 +177,7 @@ checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel format source =
   do  result <- try
         case format of
-          ESL Concrete -> void $ loadESL source
+          ESL Concrete -> void $ ESL.loadESL source
           ESLMETA Concrete -> void $ loadMetaESL source
           DEQ Concrete -> void $ loadDiffEqs mempty mempty source
           RNET Concrete -> void $ loadReactions source
@@ -192,7 +193,7 @@ checkModel format source =
 
 loadCoreFrom' :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
 loadCoreFrom' format source parameters =
-  do  model <- loadESLFrom format source
+  do  model <- ESL.loadESLFrom format source
       let psExpr = Map.map Core.NumLit parameters'
           parameters' = parameters `Map.union` ESL.parameterMap model
       case modelAsCore model of
@@ -221,7 +222,7 @@ loadCPPFrom format source =
 convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
   case destTy of
-    ESL Concrete -> serializeModel <$> loadESLFrom srcTy src
+    ESL Concrete -> serializeModel <$> ESL.loadESLFrom srcTy src
     DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src
     -- RNET Concrete -> serializeModel <$> loadReactionsFrom srcTy src
     LATEX Concrete -> serializeModel <$> loadLatexFrom srcTy src
@@ -234,7 +235,7 @@ stratifyModel ::
   Stratify.StratificationType ->
   IO Stratify.StratificationInfo
 stratifyModel modelFile connectionGraph statesJSON stratificationType =
-  do  model <- loadESL modelFile
+  do  model <- ESL.loadESL modelFile
       (connections, vertices) <- loadConnectionGraph connectionGraph
       states <- 
         case statesJSON of 

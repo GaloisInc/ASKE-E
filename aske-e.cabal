@@ -38,6 +38,8 @@ library
                      , Language.ASKEE.ESL.Syntax
                      , Language.ASKEE.Metadata
 
+                     , Language.ASKEE.Error
+                     
                      , Language.ASKEE.ABM.Sample
                      , Language.ASKEE.ABM.Syntax
                      , Language.ASKEE.ABM.Translate
@@ -85,6 +87,8 @@ library
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
                      , Language.ASKEE.ModelStratify.Stratify
+
+                     , Language.ASKEE.ESL
 
                      , Language.ASKEE.Gromet
                      , PetriNet
