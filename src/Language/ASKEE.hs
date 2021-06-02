@@ -81,8 +81,8 @@ parse why modelString =
     Left err -> throwIO (ParseError $ why <> err)
     Right m -> pure m
 
-foo :: String -> Either String a -> IO a
-foo why modelE =
+toIO :: String -> Either String a -> IO a
+toIO why modelE =
   case modelE of
     Left err -> throwIO (ParseError $ why <> " " <> err)
     Right m -> pure m 
@@ -100,7 +100,7 @@ loadESLFrom format source =
             case format of
               ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
               RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
-      model <- foo "loadESLFrom" $ conv modelString
+      model <- toIO "loadESLFrom" $ conv modelString
       case Check.checkModel model of
         Left err -> throwIO (ValidationError err)
         Right m -> pure m
@@ -122,7 +122,7 @@ loadDiffEqsFrom format overwrite params source =
               DEQ Concrete   -> $(converter (DEQ Concrete) (DEQ Abstract))
               RNET Concrete  -> $(converter (RNET Concrete) (DEQ Abstract))
               LATEX Concrete -> $(converter (LATEX Concrete) (DEQ Abstract))
-      eqns <- foo "loadDiffEqsFrom" $ conv modelString
+      eqns <- toIO "loadDiffEqsFrom" $ conv modelString
       -- eqns <- parse "loadDiffEqs" modelString
       let eqns' = eqns { DEQ.deqParams = params }
       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
@@ -137,7 +137,7 @@ loadReactionsFrom format source =
       let conv =
             case format of
               RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
-      foo "loadReactionsFrom" $ conv modelString
+      toIO "loadReactionsFrom" $ conv modelString
 
 loadLatex :: DataSource -> IO Latex.Latex
 loadLatex = loadLatexFrom (LATEX Concrete)
@@ -151,7 +151,7 @@ loadLatexFrom format source =
               DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
               RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
-      foo "loadLatexFrom" $ conv modelString
+      toIO "loadLatexFrom" $ conv modelString
 
 loadGromet :: DataSource -> IO String
 loadGromet source = 
