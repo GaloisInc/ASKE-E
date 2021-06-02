@@ -29,19 +29,22 @@ module Language.ASKEE
   , Representation(..)
   ) where
 
-import Control.Exception (throwIO, try, SomeException(..))
+import Control.Exception (throwIO, try, SomeException(..), Exception)
+import Control.Monad ( void )
 
 import           Data.Aeson                 ( Value
                                             , decode
                                             , object
                                             , (.=) )
 import qualified Data.ByteString.Lazy.Char8 as B
+import           Data.List                  ( nub )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 
 import qualified Language.ASKEE.ESL.Check              as Check
+import           Language.ASKEE.C                      ( Doc )
 import           Language.ASKEE.Convert                ( converter )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.Core.DiffEq            ( applyParams )
@@ -52,6 +55,9 @@ import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ.Syntax             as DEQ
+import qualified Language.ASKEE.Metadata               as Meta
+import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
+import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.Latex.Syntax           as Latex
 import qualified Language.ASKEE.RNet.Syntax            as RNet
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
@@ -60,9 +66,6 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
                                                        , storeModel )
-import qualified Language.ASKEE.Metadata               as Meta
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import           Language.ASKEE.Translate              ( ParseModel, parseModel, SerializeModel (serializeModel) )
 import           Language.ASKEE.Types                  ( Representation(..)
                                                        , ModelType(..)
@@ -73,6 +76,10 @@ import           Language.ASKEE.Types                  ( Representation(..)
 
 import System.Exit    ( ExitCode(..) )
 import System.Process ( readProcessWithExitCode )
+
+import Data.MultiSet (MultiSet)
+import qualified Data.MultiSet as MSet
+import Control.Monad.Identity (runIdentity)
 
 parse :: ParseModel a => String -> String -> IO a
 parse why modelString = 
