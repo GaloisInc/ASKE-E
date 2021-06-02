@@ -28,7 +28,6 @@ library
                      , Language.ASKEE.Types
                      , Language.ASKEE.Simulate
                      , Language.ASKEE.Storage
-                     , Language.ASKEE.AMIDOLIR
                      , Language.ASKEE.APRAM.Syntax
                      , Language.ASKEE.APRAM.Translate
                      , Language.ASKEE.APRAM.Sample
@@ -75,8 +74,6 @@ library
 
                      , Language.ASKEE.SimulatorGen
                      , Language.ASKEE.ExprTransform
-                     , Language.ASKEE.Measure
-                     , Language.ASKEE.MeasureToCPP
                      , Language.ASKEE.C
                      , Language.ASKEE.CppCompiler
                      , Language.ASKEE.Panic
@@ -84,7 +81,6 @@ library
                      , Language.ASKEE.Translate
                      , Language.ASKEE.Graph
                      , Language.ASKEE.Convert
-                     , Language.ASKEE.Experiments
                      , Language.ASKEE.ModelStratify.Syntax
                      , Language.ASKEE.ModelStratify.Topology
                      , Language.ASKEE.ModelStratify.GeoGraph
@@ -93,7 +89,6 @@ library
                      , Language.ASKEE.ESL
 
                      , Language.ASKEE.Gromet
-                     , PetriNet
 
   build-depends:       base >=4.13.0.0 && <5,
                        aeson,
