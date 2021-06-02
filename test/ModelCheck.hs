@@ -7,9 +7,9 @@ import Control.Monad.State (evalStateT)
 
 import Data.Either (isLeft)
 
-import Language.ASKEE.Check
+import Language.ASKEE.ESL.Check
 import Language.ASKEE.Expr as Expr
-import Language.ASKEE.Syntax
+import Language.ASKEE.ESL.Syntax
 
 import Test.Tasty(TestTree, TestName)
 import Test.Tasty.HUnit hiding (State)
