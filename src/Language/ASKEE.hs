@@ -312,7 +312,7 @@ fitModelToData modelFormat fitData fitParams modelSource =
       pure res
 
 asSchematicGraph :: Core.Model -> Maybe Viz.Graph
-asSchematicGraph g =  Viz.Graph <$> sequence effs
+asSchematicGraph g =  Viz.Graph . nub <$> sequence effs
   where
     effs =
       [ mbEdge | evt <- Core.modelEvents g
