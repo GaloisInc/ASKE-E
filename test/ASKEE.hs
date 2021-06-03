@@ -3,14 +3,19 @@
 {-# LANGUAGE RecordWildCards #-}
 module ASKEE ( tests ) where
 
-import Language.ASKEE
-import qualified Test.Tasty as Tasty
-import Test.Tasty.HUnit(Assertion, assertBool, (@=?), assertFailure, testCase)
 import qualified Data.FileEmbed as Embed
-import qualified Data.Map as Map
-import Data.Text(Text)
-import qualified Language.ASKEE.Core as Core
+import qualified Data.Map       as Map
+import           Data.Text      ( Text )
+import           Language.ASKEE
+import qualified Language.ASKEE.Core.Syntax        as Core
 import qualified Language.ASKEE.Core.Visualization as Viz
+
+import qualified Test.Tasty       as Tasty
+import           Test.Tasty.HUnit ( Assertion
+                                  , assertBool
+                                  , (@=?)
+                                  , assertFailure
+                                  , testCase )
 
 sir :: Text
 sir = $(Embed.embedStringFile "modelRepo/easel/sir.easel")
@@ -28,7 +33,7 @@ series1 =
 testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModel (ESL Concrete) mdlSrc start stop step Map.empty
+      actual <- simulateModel EaselType mdlSrc start stop step Map.empty
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
