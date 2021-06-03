@@ -4,7 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
-  ( DEQ.loadDiffEqsFrom
+  ( loadDiffEqsFrom
+  , loadESLMetaFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
   , loadCPPFrom
@@ -54,7 +55,7 @@ import           Language.ASKEE.Model                  --( convertModelString )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import           Language.ASKEE.Simulate               ( simulateModel )
+-- import           Language.ASKEE.Simulate               ( simulateModel )
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
@@ -96,6 +97,39 @@ loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
 loadCoreFrom format source =
   do  model <- loadESLFrom format source
       throwLeft ValidationError (ESL.modelAsCore model)
+
+-------------------------------------------------------------------------------
+-- DEQs
+
+loadDiffEqs :: DataSource -> IO DEQ.DiffEqs
+loadDiffEqs = loadDiffEqsFrom DeqType
+
+loadDiffEqsFrom :: ModelType -> DataSource -> IO DEQ.DiffEqs
+loadDiffEqsFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toDeqs model)
+
+-- loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
+-- loadDiffEqs = loadDiffEqsFrom DeqType
+
+
+-- loadDiffEqsFrom :: 
+--   ModelType ->
+--   Map Text Double -> 
+--   [Text] -> 
+--   DataSource -> 
+--   IO DEQ.DiffEqs
+-- loadDiffEqsFrom format overwrite params source = 
+--   do  modelString <- loadModel format source
+--       model <- throwLeft ParseError (parseModel format modelString)
+--       undefined
+--       -- Core core <- throwLeft ConversionError (toCore model)
+--       -- let model' = Core.parameterize overwrite core
+--       -- equations <- throwLeft ConversionError (toDeqs model')
+--       -- -- let eqns' = equations { deqParams = params }
+--       -- -- let replaceParams = applyParams (Map.map NumLit overwrite)
+--       -- pure equations
 
 -------------------------------------------------------------------------------
 -- Loaders for "first class" models
@@ -141,7 +175,7 @@ checkModel format source =
         case format of
           EaselType -> void $ loadESL source
           CoreType -> void $ loadCore source
-          DeqType -> void $ DEQ.loadDiffEqs mempty mempty source
+          DeqType -> void $ loadDiffEqs source
       case result of
         Left err -> pure $ Just (show (err :: SomeException))
         Right _ -> pure Nothing
@@ -186,13 +220,8 @@ fitModelToData ::
   [Text] {- ^ parameters to fit -} -> 
   DataSource {- ^ the model -} -> 
   IO (Map Core.Ident (Double, Double))
-fitModelToData modelFormat fitData fitParams modelSource = 
-  do  eqs <- 
-        DEQ.loadDiffEqsFrom
-          modelFormat 
-          Map.empty
-          fitParams
-          modelSource
+fitModelToData format fitData fitParams source = 
+  do  eqs <- loadDiffEqsFrom format source
       rawData <- 
         case fitData of
           Inline s -> pure s
@@ -204,3 +233,17 @@ fitModelToData modelFormat fitData fitParams modelSource =
       let (res, _) = DEQ.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
       pure res
 
+simulateModel :: 
+  ModelType -> 
+  DataSource -> 
+  Double -> 
+  Double ->
+  Double ->
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModel format source start end step overwrite =
+  do  equations <- loadDiffEqsFrom format source
+      let equations' = DEQ.overwriteParameters overwrite equations
+      let times' = takeWhile (<= end)
+                 $ iterate (+ step) start
+      pure $ DEQ.simulate equations' Map.empty times'

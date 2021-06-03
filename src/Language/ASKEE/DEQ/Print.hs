@@ -11,9 +11,8 @@ import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 
 import Text.PrettyPrint          ( Doc, hsep, hcat, parens, int, text, vcat )
 
-
-ppDiffEqs :: DiffEqs -> Doc
-ppDiffEqs DiffEqs{..} = vcat [lets, initial, rates]
+printDiffEqs :: DiffEqs -> Doc
+printDiffEqs DiffEqs{..} = vcat [lets, initial, rates]
   where
     lets    = vcat $ map (binding "let") (toList deqLets)
     initial = vcat $ map initBinding (toList deqInitial)

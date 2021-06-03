@@ -18,7 +18,7 @@ import Language.ASKEE.ESL.Lexer            ( Located(..) )
 import Language.ASKEE.Panic                ( panic )
 }
 
-%name        parseDEQs
+%name        parseDiffEqs
 %tokentype { Located Lexer.Token }
 %error     { parseError }
 %monad     { Either String }

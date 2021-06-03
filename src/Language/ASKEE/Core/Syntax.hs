@@ -168,3 +168,8 @@ collectVars = collect var
       case v of
         Var n -> Set.singleton n
         _ -> Set.empty
+
+overwriteParameters :: Map Text Double -> Model -> Model
+overwriteParameters parameters = applyParams parameters'
+  where
+    parameters' = Map.map NumLit parameters

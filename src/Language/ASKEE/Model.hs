@@ -14,13 +14,8 @@ module Language.ASKEE.Model
 
 import Control.Monad((>=>))
 
-import qualified Language.ASKEE.Core.Syntax as Core
-import qualified Language.ASKEE.Core.Convert as CoreConvert
-
-import qualified Language.ASKEE.DEQ.GenParser as DEQParser
-import qualified Language.ASKEE.DEQ.GenLexer as DEQLexer
-import qualified Language.ASKEE.DEQ.Syntax as DEQ
-
+import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
 import           Language.ASKEE.Error     ( throwLeft
@@ -55,7 +50,7 @@ asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist "core" ]
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
   where
-    coreToDeqs c = pure $ CoreConvert.asEquationSystem c
+    coreToDeqs c = pure $ Core.asDiffEqs c
 
 notExist :: String -> Model -> ConversionResult a
 notExist tgt mdl =
@@ -136,18 +131,20 @@ parseModel mt s =
     MT.EaselType ->
       Easel <$> (ESL.lexModel s >>= ESL.parseModelMeta)
     MT.DeqType ->
-      Deq <$> (DEQLexer.lexDEQs s >>= DEQParser.parseDEQs)
+      Deq <$> (DEQ.lexDiffEqs s >>= DEQ.parseDiffEqs)
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
 
 convertModelString :: MT.ModelType -> DataSource -> MT.ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
   do  modelString <- loadModel srcTy src
-      model <- throwLeft ParseError (parseModel srcTy modelString)
-      let model' =
-            case destTy of
-              MT.EaselType -> Easel <$> toEasel model
-              MT.DeqType -> Deq <$> toDeqs model
-              MT.CoreType -> Left ""
-      -- print??
-      undefined
+      pure $ fromModelString modelString
+
+  where
+    fromModelString :: String -> Either String String
+    fromModelString modelString =
+      do  model <- parseModel srcTy modelString
+          case destTy of
+            MT.EaselType -> show . ESL.printModel . ESL.stripMeta <$> toEasel model
+            MT.DeqType -> show . DEQ.printDiffEqs <$> toDeqs model
+            MT.CoreType -> Left "Can't print core syntax"

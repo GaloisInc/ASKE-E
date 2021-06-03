@@ -9,8 +9,8 @@ import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Core.Simplify ( simplifyExpr )
 import Language.ASKEE.DEQ.Syntax    ( DiffEqs(..) )
 
-asEquationSystem :: Model -> DiffEqs
-asEquationSystem mdl =
+asDiffEqs :: Model -> DiffEqs
+asDiffEqs mdl =
   DiffEqs { deqParams  = modelParams mdl
           , deqInitial = modelInitState mdl
           , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
