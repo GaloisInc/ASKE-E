@@ -18,8 +18,6 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
-import           Language.ASKEE.Error     ( throwLeft
-                                          , ASKEEError(ParseError) )
 import qualified Language.ASKEE.ModelType as MT
 import           Language.ASKEE.Storage   ( DataSource
                                           , loadModel )

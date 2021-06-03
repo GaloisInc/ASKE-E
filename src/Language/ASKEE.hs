@@ -51,11 +51,13 @@ import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
-import           Language.ASKEE.Model                  --( convertModelString )
+import           Language.ASKEE.Model                  ( convertModelString
+                                                       , parseModel
+                                                       , toDeqs
+                                                       , toEasel )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
--- import           Language.ASKEE.Simulate               ( simulateModel )
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels

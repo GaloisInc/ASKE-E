@@ -29,13 +29,15 @@ instance TraverseExprs DiffEqs where
        deqLets     <- traverse f deqLets
        pure DiffEqs { .. }
 
-overwriteParameters :: Map Text Double -> DiffEqs -> DiffEqs
-overwriteParameters parameters = applyParams parameters'
+applyParams :: Map Text Double -> DiffEqs -> DiffEqs
+applyParams parameters = applyParams' parameters'
   where
     parameters' = Map.map Core.NumLit parameters
 
-applyParams :: Map Ident Expr -> DiffEqs -> DiffEqs
-applyParams su = dropParams . Core.mapExprs (Core.substExpr su)
+-- XXX may want to check and/or panic if we try to overwrite something
+-- that isn't a parameter
+applyParams' :: Map Ident Expr -> DiffEqs -> DiffEqs
+applyParams' su = dropParams . Core.mapExprs (Core.substExpr su)
   where
   dropParams m = m { deqParams = [ x | x <- deqParams m
                                      , not (x `Set.member` pSet) ] }

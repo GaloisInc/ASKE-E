@@ -143,8 +143,8 @@ inlineLets model = model { modelEvents = map substEvent (modelEvents model)
 
 
 -- | Instantiate some of the model parameters
-applyParams :: Map Ident Expr -> Model -> Model
-applyParams su = dropParams . mapExprs (substExpr su)
+applyParams' :: Map Ident Expr -> Model -> Model
+applyParams' su = dropParams . mapExprs (substExpr su)
   where
   dropParams m = m { modelParams = [ x | x <- modelParams m
                                        , not (x `Set.member` pSet) ] }
@@ -169,7 +169,7 @@ collectVars = collect var
         Var n -> Set.singleton n
         _ -> Set.empty
 
-overwriteParameters :: Map Text Double -> Model -> Model
-overwriteParameters parameters = applyParams parameters'
+applyParams :: Map Text Double -> Model -> Model
+applyParams parameters = applyParams' parameters'
   where
     parameters' = Map.map NumLit parameters
