@@ -243,9 +243,8 @@ simulateModel ::
   Double ->
   Map Text Double ->
   IO (DataSeries Double)
-simulateModel format source start end step overwrite =
+simulateModel format source start end step parameters =
   do  equations <- loadDiffEqsFrom format source
-      let equations' = DEQ.overwriteParameters overwrite equations
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ DEQ.simulate equations' Map.empty times'
+      pure $ DEQ.simulate equations parameters times'
