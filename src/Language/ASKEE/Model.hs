@@ -21,10 +21,7 @@ import qualified Language.ASKEE.DEQ.GenParser as DEQParser
 import qualified Language.ASKEE.DEQ.GenLexer as DEQLexer
 import qualified Language.ASKEE.DEQ.Syntax as DEQ
 
-import qualified Language.ASKEE.ESL.Convert as EaselConvert
-import qualified Language.ASKEE.ESL.GenLexer as ESLLexer
-import qualified Language.ASKEE.ESL.GenParser as ESLParser
-import qualified Language.ASKEE.ESL.Syntax as Easel
+import qualified Language.ASKEE.ESL as ESL
 
 import           Language.ASKEE.Error     ( throwLeft
                                           , ASKEEError(ParseError) )
@@ -33,7 +30,7 @@ import           Language.ASKEE.Storage   ( DataSource
                                           , loadModel )
 
 data Model =
-    Easel Easel.ModelMeta
+    Easel ESL.ModelMeta
   | Core  Core.Model
   | Deq   DEQ.DiffEqs
 
@@ -47,13 +44,13 @@ describeModelType m =
 
 -------------------------------------------------------------------------------
 
-asEasel :: Model -> ConversionResult Easel.ModelMeta
+asEasel :: Model -> ConversionResult ESL.ModelMeta
 asEasel = tryConvs [ unEasel, notExist "easel" ]
 
 asCore :: Model -> ConversionResult Core.Model
 asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist "core" ]
   where
-    easelToCore e = fromEither (EaselConvert.modelAsCore $ Easel.stripMeta e)
+    easelToCore e = fromEither (ESL.modelAsCore $ ESL.stripMeta e)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
@@ -64,7 +61,7 @@ notExist :: String -> Model -> ConversionResult a
 notExist tgt mdl =
   ConversionFailed ("could not convert model '" ++ describeModelType mdl ++ "' to '" ++ tgt ++ "'")
 
-unEasel :: Model -> ConversionResult Easel.ModelMeta
+unEasel :: Model -> ConversionResult ESL.ModelMeta
 unEasel (Easel e) = ConversionSucceded e
 unEasel _ = ConversionPass
 
@@ -124,7 +121,7 @@ fromEither e =
 -------------------------------------------------------------------------------
 -- API
 
-toEasel :: Model -> Either String Easel.ModelMeta
+toEasel :: Model -> Either String ESL.ModelMeta
 toEasel = asEither asEasel
 
 toDeqs :: Model -> Either String DEQ.DiffEqs
@@ -137,7 +134,7 @@ parseModel :: MT.ModelType -> String -> Either String Model
 parseModel mt s =
   case mt of
     MT.EaselType ->
-      Easel <$> (ESLLexer.lexModel s >>= ESLParser.parseModelMeta)
+      Easel <$> (ESL.lexModel s >>= ESL.parseModelMeta)
     MT.DeqType ->
       Deq <$> (DEQLexer.lexDEQs s >>= DEQParser.parseDEQs)
     MT.CoreType ->

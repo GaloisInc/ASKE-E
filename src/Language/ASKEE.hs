@@ -4,12 +4,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
-  ( ESL.loadESLFrom
-  , DEQ.loadDiffEqsFrom
+  ( DEQ.loadDiffEqsFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
   , loadCPPFrom
-  , Core.loadCoreFrom
+  , loadCoreFrom
   
   , checkModel
   , simulateModel
@@ -48,9 +47,10 @@ import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Error                  ( ASKEEError(NotImplementedError, ParseError)
+import           Language.ASKEE.Error                  ( ASKEEError(..)
+                                                       , throwLeft
                                                        , die )
-import           Language.ASKEE.Model                  ( convertModelString )
+import           Language.ASKEE.Model                  --( convertModelString )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
@@ -63,6 +63,39 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 
+-------------------------------------------------------------------------------
+-- ESL with Metadata
+
+loadESLMeta :: DataSource -> IO ESL.ModelMeta 
+loadESLMeta = loadESLMetaFrom EaselType
+
+loadESLMetaFrom :: ModelType -> DataSource -> IO ESL.ModelMeta
+loadESLMetaFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      esl <- throwLeft ConversionError (toEasel model)
+      _ <- throwLeft ValidationError (ESL.checkModel $ ESL.stripMeta esl)
+      pure esl
+
+-------------------------------------------------------------------------------
+-- Plain ESL
+
+loadESL :: DataSource -> IO ESL.Model
+loadESL = loadESLFrom EaselType
+
+loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
+loadESLFrom format source = ESL.stripMeta <$> loadESLMetaFrom format source
+
+-------------------------------------------------------------------------------
+-- Core
+
+loadCore :: DataSource -> IO Core.Model
+loadCore = loadCoreFrom EaselType
+
+loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
+loadCoreFrom format source =
+  do  model <- loadESLFrom format source
+      throwLeft ValidationError (ESL.modelAsCore model)
 
 -------------------------------------------------------------------------------
 -- Loaders for "first class" models
@@ -101,22 +134,17 @@ import           Language.ASKEE.Storage                ( initStorage
 --         ExitFailure _ -> throwIO $ ParseError "invalid gromet"
 
 
--------------------------------------------------------------------------------
 
 checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel format source =
   do  result <- try
         case format of
-          EaselType -> void $ ESL.loadESL source
-          CoreType -> void $ Core.loadCore source
+          EaselType -> void $ loadESL source
+          CoreType -> void $ loadCore source
           DeqType -> void $ DEQ.loadDiffEqs mempty mempty source
       case result of
         Left err -> pure $ Just (show (err :: SomeException))
         Right _ -> pure Nothing
-
--------------------------------------------------------------------------------
--- Loaders for "second class" models and other entities
-
 
 loadConnectionGraph :: String -> IO (Value, Map Int Text)
 loadConnectionGraph s = 
@@ -129,7 +157,7 @@ loadConnectionGraph s =
 
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
-  do  coreModel <- Core.loadCoreFrom format source
+  do  coreModel <- loadCoreFrom format source
       pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
@@ -142,7 +170,7 @@ stratifyModel ::
   Stratify.StratificationType ->
   IO Stratify.StratificationInfo
 stratifyModel modelFile connectionGraph statesJSON stratificationType =
-  do  model <- ESL.loadESL modelFile
+  do  model <- loadESL modelFile
       (connections, vertices) <- loadConnectionGraph connectionGraph
       states <- 
         case statesJSON of 
