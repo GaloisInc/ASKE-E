@@ -32,7 +32,7 @@ loadDiffEqsFrom ::
   IO DiffEqs
 loadDiffEqsFrom format overwrite params source = 
   do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel DeqType modelString)
+      model <- throwLeft ParseError (parseModel format modelString)
       equations <- throwLeft ConversionError (toDeqs model)
       let eqns' = equations { deqParams = params }
       let replaceParams = applyParams (Map.map NumLit overwrite)
