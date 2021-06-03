@@ -16,7 +16,8 @@ module Language.ASKEE
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
-  -- , convertModelString
+  , convertModelString
+  , ESL.describeModelInterface
 
   , initStorage
   , listAllModels
@@ -24,7 +25,8 @@ module Language.ASKEE
   , storeModel
   , DataSource(..)
   , DataSeries(..)
-  -- , ModelType(..)
+  , ModelDef(..)
+  , ModelType(..)
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..) )
@@ -48,6 +50,7 @@ import           Language.ASKEE.DataSeries             ( DataSeries(..)
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(NotImplementedError, ParseError)
                                                        , die )
+import           Language.ASKEE.Model                  ( convertModelString )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
@@ -57,7 +60,8 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
                                                        , storeModel
-                                                       , DataSource(..) )
+                                                       , DataSource(..)
+                                                       , ModelDef(..) )
 
 
 -------------------------------------------------------------------------------
@@ -129,14 +133,6 @@ loadCPPFrom format source =
       pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
-
--- convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
--- convertModelString srcTy src destTy =
---   case destTy of
---     ESL Concrete -> serializeModel <$> ESL.loadESLFrom srcTy src
---     DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src
---     -- RNET Concrete -> serializeModel <$> loadReactionsFrom srcTy src
---     LATEX Concrete -> serializeModel <$> loadLatexFrom srcTy src
 
 
 stratifyModel ::

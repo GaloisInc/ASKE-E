@@ -6,6 +6,7 @@ module Language.ASKEE.Storage
   , listAllModels 
 
   , DataSource(..)
+  , ModelDef(..)
   ) where
 
 import Control.Monad     ( when )
@@ -14,7 +15,6 @@ import Control.Exception ( Exception, throwIO )
 import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
--- import Language.ASKEE.Types ( DataSource(..), ModelDef(..) )
 import Language.ASKEE.ModelType ( ModelType(..), describeModelType', allModelTypes )
 
 import qualified System.Directory as Directory

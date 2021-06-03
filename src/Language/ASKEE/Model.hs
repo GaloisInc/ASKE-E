@@ -9,24 +9,28 @@ module Language.ASKEE.Model
 , toCore
 , toEasel
 , parseModel
+, convertModelString
 ) where
 
 import Control.Monad((>=>))
 
-import qualified Language.ASKEE.ESL.Syntax as Easel
-import qualified Language.ASKEE.ESL.GenParser as ESLParser
-import qualified Language.ASKEE.ESL.GenLexer as ESLLexer
+import qualified Language.ASKEE.Core.Syntax as Core
+import qualified Language.ASKEE.Core.Convert as CoreConvert
 
 import qualified Language.ASKEE.DEQ.GenParser as DEQParser
 import qualified Language.ASKEE.DEQ.GenLexer as DEQLexer
-
-import qualified Language.ASKEE.Core.Syntax as Core
-import qualified Language.ASKEE.ESL.Convert as EaselConvert
-import qualified Language.ASKEE.Core.Convert as CoreConvert
 import qualified Language.ASKEE.DEQ.Syntax as DEQ
--- import qualified Language.ASKEE.DEQ as DEQ
--- import qualified Language.ASKEE.Core.DiffEq as CDEQ
+
+import qualified Language.ASKEE.ESL.Convert as EaselConvert
+import qualified Language.ASKEE.ESL.GenLexer as ESLLexer
+import qualified Language.ASKEE.ESL.GenParser as ESLParser
+import qualified Language.ASKEE.ESL.Syntax as Easel
+
+import           Language.ASKEE.Error     ( throwLeft
+                                          , ASKEEError(ParseError) )
 import qualified Language.ASKEE.ModelType as MT
+import           Language.ASKEE.Storage   ( DataSource
+                                          , loadModel )
 
 data Model =
     Easel Easel.ModelMeta
@@ -138,3 +142,15 @@ parseModel mt s =
       Deq <$> (DEQLexer.lexDEQs s >>= DEQParser.parseDEQs)
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
+
+convertModelString :: MT.ModelType -> DataSource -> MT.ModelType -> IO (Either String String)
+convertModelString srcTy src destTy =
+  do  modelString <- loadModel srcTy src
+      model <- throwLeft ParseError (parseModel srcTy modelString)
+      let model' =
+            case destTy of
+              MT.EaselType -> Easel <$> toEasel model
+              MT.DeqType -> Deq <$> toDeqs model
+              MT.CoreType -> Left ""
+      -- print??
+      undefined

@@ -22,6 +22,7 @@ data ModelMeta = ModelMeta
   , modelMetaDecls :: [MetaAnn Decl]
   , modelMetaEvents :: [Event]
   }
+  deriving Show
 
 stripMeta :: ModelMeta -> Model
 stripMeta mm = Model (modelMetaName mm)
