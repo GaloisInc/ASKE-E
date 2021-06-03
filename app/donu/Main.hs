@@ -11,7 +11,6 @@ import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
 import Language.ASKEE
-import Language.ASKEE.Types
 
 import Schema
 

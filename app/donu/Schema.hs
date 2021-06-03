@@ -13,12 +13,12 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
--- import Language.ASKEE( StratificationType(..), StratificationInfo(..))
+import Language.ASKEE
 import Language.ASKEE.DataSeries
-import Language.ASKEE.Core ( Ident )
+import Language.ASKEE.Core.Syntax ( Ident )
 import Language.ASKEE.ESL.Print (printModel)
-import Language.ASKEE.Types
 import Language.ASKEE.ModelStratify.Stratify
+import Language.ASKEE.ModelType (describeModelType)
 
 
 data Input =
@@ -161,21 +161,21 @@ dataSourceToJSON ds =
       JS.String s
 
 instance HasSpec ModelType where
-  anySpec =  (jsAtom "easel"    $> ESL Concrete)
-         <!> (jsAtom "diff-eqs" $> DEQ Concrete)
-         <!> (jsAtom "reaction-net" $> RNET Concrete)
-         <!> (jsAtom "latex-eqnarray" $> LATEX Concrete)
-         <!> (jsAtom "gromet" $> GROMET Concrete)
+  anySpec =  (jsAtom "easel"    $> EaselType)
+         <!> (jsAtom "diff-eqs" $> DeqType )
+        --  <!> (jsAtom "reaction-net" $> RNET Concrete)
+        --  <!> (jsAtom "latex-eqnarray" $> LATEX Concrete)
+        --  <!> (jsAtom "gromet" $> GROMET Concrete)
 
 instance JS.ToJSON ModelType where
-  toJSON mt =
-    case mt of
-      ESL _ -> JS.String "easel"
-      DEQ _ -> JS.String "diff-eqs"
-      RNET _ -> JS.String "reaction-net"
-      LATEX _ -> JS.String "latex-eqnarray"
-      GROMET _ -> JS.String "gromet"
-      TOPO _ -> JS.String "topology"
+  toJSON = JS.String . describeModelType
+    -- case mt of
+    --   ESL _ -> JS.String "easel"
+    --   DEQ _ -> JS.String "diff-eqs"
+    --   RNET _ -> JS.String "reaction-net"
+    --   LATEX _ -> JS.String "latex-eqnarray"
+    --   GROMET _ -> JS.String "gromet"
+    --   TOPO _ -> JS.String "topology"
 
 
 dataSource :: ValueSpec DataSource
