@@ -21,8 +21,10 @@ modelAsCore mdl =
     Model { modelName      = Src.modelName mdl
           , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
-          , modelLets      = Map.fromList
-                              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
+          , modelLets      = 
+            Map.fromList $
+              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ] ++
+              [ (x, expAsCore (Src.LitD d)) | (x,Just d) <- Src.parameterDecls decls ]
           , modelInitState = Map.empty
           }
 
