@@ -1,11 +1,11 @@
 module Language.ASKEE.Core.Eval where
 
-import Data.Map(Map)
-import qualified Data.Map as Map
+import           Data.Map  ( Map )
+import qualified Data.Map  as Map
+import           Data.Text ( unpack )
 
-import Language.ASKEE.Panic(panic)
 import Language.ASKEE.Core.Syntax
-import Data.Text(unpack)
+import Language.ASKEE.Panic       ( panic )
 
 evalDouble :: Expr -> Map Ident Double -> Double
 evalDouble expr env =

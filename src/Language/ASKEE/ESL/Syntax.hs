@@ -1,13 +1,14 @@
 module Language.ASKEE.ESL.Syntax where
 
-import Data.Text (Text)
+import qualified Data.Map  as Map
+import           Data.Text ( Text )
 
-import Prelude hiding (LT, EQ, GT)
-import qualified Data.Map as Map
-import Language.ASKEE.Metadata(MetaAnn(..))
+import           Language.ASKEE.Metadata ( MetaAnn(..) )
 import qualified Language.ASKEE.Metadata as Meta
 
-import Language.ASKEE.Expr
+import Language.ASKEE.Expr ( Expr )
+
+import Prelude hiding (LT, EQ, GT)
 
 data Model = Model { modelName :: Text
                    , modelDecls :: [Decl]

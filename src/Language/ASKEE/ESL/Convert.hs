@@ -2,10 +2,10 @@ module Language.ASKEE.ESL.Convert where
 
 import qualified Data.Map as Map
 
-import qualified Language.ASKEE.Expr   as Src
-import qualified Language.ASKEE.ESL.Syntax as Src
-import Language.ASKEE.Core.Syntax
-import Language.ASKEE.Core.Simplify(simplifyExpr)
+import           Language.ASKEE.Core.Simplify ( simplifyExpr )
+import           Language.ASKEE.Core.Syntax
+import qualified Language.ASKEE.ESL.Syntax    as Src
+import qualified Language.ASKEE.Expr          as Src
 
 modelAsCore :: Src.Model -> Either String Model
 modelAsCore mdl =

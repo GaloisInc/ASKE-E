@@ -2,18 +2,24 @@
 module Language.ASKEE.DEQ.Simulate where
 
 
-import Data.Map(Map)
-import qualified Data.Map as Map
-import Data.List(transpose)
+import           Data.Map  ( Map )
+import qualified Data.Map  as Map
+import           Data.List ( transpose )
+
+import Language.ASKEE.Core.Syntax ( mapExprs
+                                  , substExpr
+                                  , Expr
+                                  , Ident )
+import Language.ASKEE.Core.Eval   ( evalDouble )
+import Language.ASKEE.DataSeries  ( foldDataSeries
+                                  , zipAligned
+                                  , zipAlignedWithTimeAndLabel
+                                  , DataSeries(..) )
+import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..) )
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
-import qualified Numeric.GSL.ODE as ODE
-import qualified Numeric.GSL.Fitting as FIT
-
-import Language.ASKEE.Core.Syntax
-import Language.ASKEE.Core.Eval(evalDouble)
-import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import Language.ASKEE.DataSeries
+import qualified Numeric.GSL.ODE            as ODE
+import qualified Numeric.GSL.Fitting        as Fit
 
 evalDiffEqs ::
   [Ident] -> [Expr] -> Map Ident Double -> Double -> [Double] -> [Double]
@@ -88,7 +94,7 @@ fitModel eqs ds scaled start =
   , map (psFromVec . LinAlg.toList) (LinAlg.toColumns path)
   )
   where
-  (slns,path)   = FIT.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
+  (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
   ps            = deqParams eqs
   initParams    = psToVec start
   psToVec vs    = [ vs Map.! p | p <- ps ]

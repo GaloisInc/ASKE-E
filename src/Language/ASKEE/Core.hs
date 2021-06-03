@@ -3,23 +3,26 @@
 module Language.ASKEE.Core
   ( loadCore
   , loadCoreFrom
+  , loadCoreFrom'
   , asSchematicGraph
+
+  , Core.Model
   ) 
   where
 
-import Data.Text(Text)
+import           Data.Map  ( Map )
+import qualified Data.Map  as Map
+import           Data.Text ( Text )
 
-import Data.Map(Map)
-import qualified Data.Map as Map
-
-import Language.ASKEE.ModelType
-import qualified Language.ASKEE.Core.Syntax as Core
-import Language.ASKEE.Core.Visualization ( asSchematicGraph )
-import qualified Language.ASKEE.ESL as ESL
-import qualified Language.ASKEE.ESL.Syntax as ESL
-import Language.ASKEE.ESL.Convert (modelAsCore)
-import Language.ASKEE.Error (throwLeft, ASKEEError (ValidationError))
-import Language.ASKEE.Storage ( DataSource )
+import qualified Language.ASKEE.Core.Syntax        as Core
+import           Language.ASKEE.Core.Visualization ( asSchematicGraph )
+import           Language.ASKEE.Error              ( throwLeft
+                                                   , ASKEEError(ValidationError) )
+import qualified Language.ASKEE.ESL                as ESL
+import           Language.ASKEE.ESL.Convert        ( modelAsCore )
+import qualified Language.ASKEE.ESL.Syntax         as ESL
+import           Language.ASKEE.ModelType          ( ModelType(EaselType) )
+import           Language.ASKEE.Storage            ( DataSource )
 
 loadCoreFrom' :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
 loadCoreFrom' format source parameters =

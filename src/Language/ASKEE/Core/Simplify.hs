@@ -1,9 +1,9 @@
 module Language.ASKEE.Core.Simplify where
 
-import Data.List(foldl',sortBy)
-import Data.Ord(comparing)
-import Data.Map(Map)
-import qualified Data.Map as Map
+import           Data.List ( foldl', sortBy )
+import           Data.Map  ( Map )
+import qualified Data.Map  as Map
+import           Data.Ord  ( comparing )
 
 import Language.ASKEE.Core.Syntax
 

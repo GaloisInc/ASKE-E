@@ -5,13 +5,12 @@ import qualified Data.Map  as Map
 import           Data.Map  ( Map )
 import           Data.Text ( Text )
 
+import           Language.ASKEE.DataSeries   ( DataSeries(..) )
 import qualified Language.ASKEE.DEQ.Simulate as Sim
-import           Language.ASKEE.DataSeries ( DataSeries(..) )
--- import           Language.ASKEE.Types ( DataSource )
-import           Language.ASKEE.Storage ( loadModel, DataSource )
-import Language.ASKEE.ModelType
-import Language.ASKEE.Model ( parseModel, toDeqs )
-import Language.ASKEE.Error ( ASKEEError(..), throwLeft )
+import           Language.ASKEE.Error        ( ASKEEError(..), throwLeft )
+import           Language.ASKEE.Model        ( parseModel, toDeqs )
+import           Language.ASKEE.ModelType    ( ModelType(DeqType) )
+import           Language.ASKEE.Storage      ( loadModel, DataSource )
 
 simulateModel :: 
   ModelType -> 

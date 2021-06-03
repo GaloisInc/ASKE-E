@@ -1,15 +1,13 @@
 module Language.ASKEE.Core.Convert where
 
-import Data.Map(Map)
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import Data.Maybe(mapMaybe)
+import           Data.Map   ( Map )
+import qualified Data.Map   as Map
+import           Data.Maybe ( mapMaybe )
+import qualified Data.Set   as Set
 
 import Language.ASKEE.Core.Syntax
-import qualified Language.ASKEE.Core.Visualization as Viz
-import Language.ASKEE.Core.Simplify(simplifyExpr)
-import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import Data.List (nub)
+import Language.ASKEE.Core.Simplify ( simplifyExpr )
+import Language.ASKEE.DEQ.Syntax    ( DiffEqs(..) )
 
 asEquationSystem :: Model -> DiffEqs
 asEquationSystem mdl =

@@ -27,13 +27,11 @@ module Language.ASKEE
   -- , ModelType(..)
   ) where
 
-import Control.Exception (throwIO, try, SomeException(..), Exception)
+import Control.Exception (throwIO, try, SomeException(..) )
 import Control.Monad ( void )
 
 import           Data.Aeson                 ( Value
-                                            , decode
-                                            , object
-                                            , (.=) )
+                                            , decode )
 import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
@@ -42,17 +40,18 @@ import qualified Data.Text                  as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.C                      ( Doc )
-import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core                   as Core
 import qualified Language.ASKEE.Core.Syntax            as Core
 import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Error
+import           Language.ASKEE.Error                  ( ASKEEError(NotImplementedError, ParseError)
+                                                       , die )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import           Language.ASKEE.Simulate
+import           Language.ASKEE.Simulate               ( simulateModel )
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels

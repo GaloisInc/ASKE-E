@@ -4,12 +4,12 @@
 
 module Language.ASKEE.Core.Syntax where
 
+import qualified Data.Functor.Const as Const
+import           Data.Functor.Identity (runIdentity)
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import qualified Data.Set  as Set
 import           Data.Text ( Text )
-import qualified Data.Functor.Const as Const
-import Data.Functor.Identity (runIdentity)
 
 type Ident = Text
 

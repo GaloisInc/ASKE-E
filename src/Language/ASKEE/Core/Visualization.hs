@@ -2,11 +2,12 @@
 module Language.ASKEE.Core.Visualization where
 
 -- import qualified Language.ASKEE.Core as Core
-import Data.Text(Text)
-import Data.List(nub)
-import qualified Data.Map as Map
+import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
-import Data.Aeson((.=))
+import           Data.List  ( nub )
+import qualified Data.Map   as Map
+import           Data.Text  ( Text )
+
 import Language.ASKEE.Core.Syntax hiding ( Event )
 
 data NodeType = Event | State

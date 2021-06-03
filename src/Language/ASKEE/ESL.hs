@@ -15,7 +15,7 @@ module Language.ASKEE.ESL
   )
   where
 
-import Data.Aeson
+import Data.Aeson ( object, (.=), Value )
 
 import           Language.ASKEE.Error        ( ASKEEError(..), throwLeft )
 import           Language.ASKEE.ESL.Check    ( checkModel )
@@ -26,7 +26,6 @@ import qualified Language.ASKEE.Metadata     as Meta
 import           Language.ASKEE.ModelType    ( ModelType(..) )
 import           Language.ASKEE.Model        ( parseModel, toEasel )
 import           Language.ASKEE.Storage      ( loadModel, DataSource )
--- import           Language.ASKEE.Types        ( DataSource )
 
 loadESLMeta :: DataSource -> IO ESL.ModelMeta 
 loadESLMeta = loadESLMetaFrom EaselType
