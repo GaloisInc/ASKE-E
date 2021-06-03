@@ -16,6 +16,7 @@ library
                      , Language.ASKEE.ESL.GenLexer
                      , Language.ASKEE.ESL.Lexer
                      , Language.ASKEE.ESL.GenParser
+                     , Language.ASKEE.ESL.Convert
                      , Language.ASKEE.Core
                      , Language.ASKEE.Core.ImportASKEE
                      , Language.ASKEE.Core.Simplify
@@ -23,6 +24,9 @@ library
                      , Language.ASKEE.Core.Eval
                      , Language.ASKEE.Core.GSLODE
                      , Language.ASKEE.Core.Visualization
+                     , Language.ASKEE.Core.Syntax
+                     , Language.ASKEE.Core.Print
+                     , Language.ASKEE.Core.Convert
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.ESL.Print
                      , Language.ASKEE.Types
@@ -50,6 +54,8 @@ library
                      , Language.ASKEE.DEQ.Lexer
                      , Language.ASKEE.DEQ.Syntax
                      , Language.ASKEE.DEQ.Print
+                     , Language.ASKEE.DEQ
+                     , Language.ASKEE.DEQ.Simulate
 
                      , Language.ASKEE.RNet.Reaction
                      , Language.ASKEE.RNet.GenLexer

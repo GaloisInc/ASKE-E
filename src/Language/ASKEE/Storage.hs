@@ -4,6 +4,8 @@ module Language.ASKEE.Storage
   , loadModel
   , storeModel
   , listAllModels 
+
+  , DataSource(..)
   ) where
 
 import Control.Monad     ( when )
@@ -12,12 +14,22 @@ import Control.Exception ( Exception, throwIO )
 import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
-import Language.ASKEE.Types ( DataSource(..), Representation(..), ModelDef(..) )
+-- import Language.ASKEE.Types ( DataSource(..), ModelDef(..) )
 import Language.ASKEE.ModelType ( ModelType(..), describeModelType', allModelTypes )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
 
+data DataSource =
+    FromFile FilePath
+  | Inline Text
+  deriving (Eq, Show)
+
+data ModelDef =
+    ModelDef { modelDefSource :: DataSource
+             , modelDefType   :: ModelType
+             }
+  deriving (Eq, Show)
 
 newtype StorageError = StorageError String
   deriving Show

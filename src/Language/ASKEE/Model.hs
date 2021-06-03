@@ -20,10 +20,12 @@ import qualified Language.ASKEE.ESL.GenLexer as ESLLexer
 import qualified Language.ASKEE.DEQ.GenParser as DEQParser
 import qualified Language.ASKEE.DEQ.GenLexer as DEQLexer
 
-import qualified Language.ASKEE.Core as Core
-import qualified Language.ASKEE.Core.ImportASKEE as CoreImport
+import qualified Language.ASKEE.Core.Syntax as Core
+import qualified Language.ASKEE.ESL.Convert as EaselConvert
+import qualified Language.ASKEE.Core.Convert as CoreConvert
 import qualified Language.ASKEE.DEQ.Syntax as DEQ
-import qualified Language.ASKEE.Core.DiffEq as CDEQ
+-- import qualified Language.ASKEE.DEQ as DEQ
+-- import qualified Language.ASKEE.Core.DiffEq as CDEQ
 import qualified Language.ASKEE.ModelType as MT
 
 data Model =
@@ -47,12 +49,12 @@ asEasel = tryConvs [ unEasel, notExist "easel" ]
 asCore :: Model -> ConversionResult Core.Model
 asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist "core" ]
   where
-    easelToCore e = fromEither (CoreImport.modelAsCore $ Easel.stripMeta e)
+    easelToCore e = fromEither (EaselConvert.modelAsCore $ Easel.stripMeta e)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
   where
-    coreToDeqs c = pure $ CDEQ.asEquationSystem c
+    coreToDeqs c = pure $ CoreConvert.asEquationSystem c
 
 notExist :: String -> Model -> ConversionResult a
 notExist tgt mdl =

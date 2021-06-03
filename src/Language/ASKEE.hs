@@ -5,17 +5,17 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
   ( ESL.loadESLFrom
-  , loadDiffEqsFrom
+  , DEQ.loadDiffEqsFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
   , loadCPPFrom
-  , loadCoreFrom
+  , Core.loadCoreFrom
   
   , checkModel
   , simulateModel
   , stratifyModel
   , fitModelToData
-  , asSchematicGraph
+  , Core.asSchematicGraph
   -- , convertModelString
 
   , initStorage
@@ -24,8 +24,7 @@ module Language.ASKEE
   , storeModel
   , DataSource(..)
   , DataSeries(..)
-  , ModelType(..)
-  , Representation(..)
+  -- , ModelType(..)
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..), Exception)
@@ -36,51 +35,33 @@ import           Data.Aeson                 ( Value
                                             , object
                                             , (.=) )
 import qualified Data.ByteString.Lazy.Char8 as B
-import           Data.List                  ( nub )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import qualified Language.ASKEE.ESL.Check              as Check
 import           Language.ASKEE.C                      ( Doc )
--- import           Language.ASKEE.Convert                ( converter )
-import qualified Language.ASKEE.Core                   as Core
-import           Language.ASKEE.Core.DiffEq            ( applyParams )
-import qualified Language.ASKEE.Core.GSLODE            as ODE
-import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
-import qualified Language.ASKEE.Core.Visualization     as Viz
+import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax            as Core
 import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
-import qualified Language.ASKEE.DEQ.Syntax             as DEQ
+import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error
-import qualified Language.ASKEE.Metadata               as Meta
-import           Language.ASKEE.Model                  ( parseModel, toDeqs )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import qualified Language.ASKEE.Latex.Syntax           as Latex
-import qualified Language.ASKEE.RNet.Syntax            as RNet
+import           Language.ASKEE.Simulate
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
-import qualified Language.ASKEE.ESL.Syntax             as ESL
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
-                                                       , storeModel )
--- import           Language.ASKEE.Translate              ( ParseModel, parseModel, SerializeModel (serializeModel) )
-import           Language.ASKEE.Types                  ( Representation(..)
-                                                      --  , ModelType(..)
-                                                       , DataSource(..)
-                                                      --  , ParseError(..)
-                                                      --  , ValidationError(..)
-                                                       , NotImplementedError(..) )
+                                                       , storeModel
+                                                       , DataSource(..) )
+-- import           Language.ASKEE.Types                  ( DataSource(..) )
 
-import System.Exit    ( ExitCode(..) )
-import System.Process ( readProcessWithExitCode )
-
-import Control.Monad.Identity (runIdentity)
+-- import qualified Language.ASKEE.DEQ.Simulate as Sim
 
 -- parse :: ParseModel a => String -> String -> IO a
 -- parse why modelString = 
@@ -112,22 +93,22 @@ import Control.Monad.Identity (runIdentity)
 --         Left err -> throwIO (ValidationError err)
 --         Right m -> pure m
 
-loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
-loadDiffEqs = loadDiffEqsFrom DeqType
+-- loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
+-- loadDiffEqs = loadDiffEqsFrom DeqType
 
-loadDiffEqsFrom :: 
-  ModelType ->
-  Map Text Double -> 
-  [Text] -> 
-  DataSource -> 
-  IO DEQ.DiffEqs
-loadDiffEqsFrom format overwrite params source = 
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel DeqType modelString)
-      equations <- throwLeft ConversionError (toDeqs model)
-      let eqns' = equations { DEQ.deqParams = params }
-      let replaceParams = applyParams (Map.map Core.NumLit overwrite)
-      pure $ replaceParams eqns'
+-- loadDiffEqsFrom :: 
+--   ModelType ->
+--   Map Text Double -> 
+--   [Text] -> 
+--   DataSource -> 
+--   IO DEQ.DiffEqs
+-- loadDiffEqsFrom format overwrite params source = 
+--   do  modelString <- loadModel format source
+--       model <- throwLeft ParseError (parseModel DeqType modelString)
+--       equations <- throwLeft ConversionError (toDeqs model)
+--       let eqns' = equations { DEQ.deqParams = params }
+--       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
+--       pure $ replaceParams eqns'
 
 -- loadReactions :: DataSource -> IO RNet.ReactionNet
 -- loadReactions = loadReactionsFrom (RNET Concrete)
@@ -170,12 +151,8 @@ checkModel format source =
   do  result <- try
         case format of
           EaselType -> void $ ESL.loadESL source
-          -- ESLMETA Concrete -> void $ loadMetaESL source
-          -- DEQ Concrete -> void $ loadDiffEqs mempty mempty source
-          -- RNET Concrete -> void $ loadReactions source
-          -- LATEX Concrete -> void $ loadLatex source
-          -- GROMET Concrete -> void $ loadGromet source
-          -- _ -> throwIO (NotImplementedError "")
+          CoreType -> void $ Core.loadCore source
+          DeqType -> void $ DEQ.loadDiffEqs mempty mempty source
       case result of
         Left err -> pure $ Just (show (err :: SomeException))
         Right _ -> pure Nothing
@@ -183,17 +160,6 @@ checkModel format source =
 -------------------------------------------------------------------------------
 -- Loaders for "second class" models and other entities
 
-loadCoreFrom' :: ModelType -> DataSource -> Map Text Double -> IO Core.Model
-loadCoreFrom' format source parameters =
-  do  model <- ESL.loadESLFrom format source
-      let psExpr = Map.map Core.NumLit parameters'
-          parameters' = parameters `Map.union` ESL.parameterMap model
-      case modelAsCore model of
-        Left err -> throwIO (ValidationError err)
-        Right a  -> pure $ Core.applyParams psExpr a
-
-loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
-loadCoreFrom format source = loadCoreFrom' format source Map.empty
 
 loadConnectionGraph :: String -> IO (Value, Map Int Text)
 loadConnectionGraph s = 
@@ -206,7 +172,7 @@ loadConnectionGraph s =
 
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
-  do  coreModel <- loadCoreFrom format source
+  do  coreModel <- Core.loadCoreFrom format source
       pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
@@ -235,54 +201,7 @@ stratifyModel modelFile connectionGraph statesJSON stratificationType =
           Nothing -> pure Nothing
       Stratify.stratifyModel model connections vertices states stratificationType
 
--- describeModelInterface :: ModelType -> DataSource -> IO Value
--- describeModelInterface modelType modelSource = undefined
---   case modelType of
---     ESL _ ->
---       do  mdl <- loadMetaESL modelSource
---           let stateVars =
---                 [(n, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
---                                       , (ESL.State n _) <- [Meta.metaValue md]
---                                       ]
---               params =
---                 [(n, d, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
---                                           , (ESL.Parameter n d) <- [Meta.metaValue md]
---                                           ]
 
---               descParam (n, d, mp) =
---                 object [ "name" .= n
---                           , "defaultValue" .= d
---                           , "metadata" .= mp
---                           ]
---               descState (n, mp) =
---                 object [ "name" .= n
---                           , "metadata" .= mp
---                           ]
---               desc =
---                 object [ "parameters" .= (descParam <$> params)
---                           , "stateVars"  .= (descState <$> stateVars)
---                           ]
---           pure desc
---     _ -> undefined
-
-simulateModel :: 
-  ModelType -> 
-  DataSource -> 
-  Double -> 
-  Double ->
-  Double ->
-  Map Text Double ->
-  IO (DataSeries Double)
-simulateModel modelType modelSource start end step overwrite =
-  do  eqs <- 
-        loadDiffEqsFrom 
-          modelType
-          overwrite
-          []
-          modelSource
-      let times = takeWhile (<= end)
-                   $ iterate (+ step) start
-      pure $ ODE.simulate eqs Map.empty times
 
 fitModelToData ::
   ModelType {- ^ the model's type -}-> 
@@ -292,7 +211,7 @@ fitModelToData ::
   IO (Map Core.Ident (Double, Double))
 fitModelToData modelFormat fitData fitParams modelSource = 
   do  eqs <- 
-        loadDiffEqsFrom
+        DEQ.loadDiffEqsFrom
           modelFormat 
           Map.empty
           fitParams
@@ -300,29 +219,11 @@ fitModelToData modelFormat fitData fitParams modelSource =
       rawData <- 
         case fitData of
           Inline s -> pure s
-          FromFile _ -> throwIO (NotImplementedError "reading fit data from file")
+          FromFile _ -> die (NotImplementedError "reading fit data from file")
       dataSeries <- 
         case parseDataSeries (B.pack $ Text.unpack rawData) of
           Right d -> pure d
           Left err -> throwIO (MalformedDataSeries err)
-      let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
+      let (res, _) = DEQ.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
       pure res
 
-asSchematicGraph :: Core.Model -> Maybe Viz.Graph
-asSchematicGraph g =  Viz.Graph . nub <$> sequence effs
-  where
-    effs =
-      [ mbEdge | evt <- Core.modelEvents g
-               , (var, expr) <- Map.toList $ Core.eventEffect evt
-               , let mbEdge = effectEdge evt var expr ]
-
-    eventNode evt = Viz.Node (Core.eventName evt) Viz.Event
-    stateNode name = Viz.Node name Viz.State
-    effectEdge evt var e0 =
-      case e0 of
-        Core.Var v Core.:+: Core.NumLit n | n > 0, v == var ->
-          Just (eventNode evt, stateNode var)
-        Core.Var v Core.:-: Core.NumLit n | n > 0, v == var ->
-          Just (stateNode var, eventNode evt)
-        _ ->
-          Nothing

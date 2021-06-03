@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Core.Visualization where
 
-import qualified Language.ASKEE.Core as Core
+-- import qualified Language.ASKEE.Core as Core
 import Data.Text(Text)
 import Data.List(nub)
 import qualified Data.Map as Map
 import qualified Data.Aeson as JSON
 import Data.Aeson((.=))
+import Language.ASKEE.Core.Syntax hiding ( Event )
 
 data NodeType = Event | State
   deriving(Show, Eq, Ord)
@@ -42,5 +43,21 @@ instance JSON.ToJSON Node where
           State -> JSON.String "state"
           Event -> JSON.String "event"
 
+asSchematicGraph :: Model -> Maybe Graph
+asSchematicGraph g =  Graph . nub <$> sequence effs
+  where
+    effs =
+      [ mbEdge | evt <- modelEvents g
+               , (var, expr) <- Map.toList $ eventEffect evt
+               , let mbEdge = effectEdge evt var expr ]
 
-
+    eventNode evt = Node (eventName evt) Event
+    stateNode name = Node name State
+    effectEdge evt var e0 =
+      case e0 of
+        Var v :+: NumLit n | n > 0, v == var ->
+          Just (eventNode evt, stateNode var)
+        Var v :-: NumLit n | n > 0, v == var ->
+          Just (stateNode var, eventNode evt)
+        _ ->
+          Nothing

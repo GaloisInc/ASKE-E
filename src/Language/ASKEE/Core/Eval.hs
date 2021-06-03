@@ -4,7 +4,7 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 
 import Language.ASKEE.Panic(panic)
-import Language.ASKEE.Core
+import Language.ASKEE.Core.Syntax
 import Data.Text(unpack)
 
 evalDouble :: Expr -> Map Ident Double -> Double

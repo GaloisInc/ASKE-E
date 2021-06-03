@@ -10,8 +10,8 @@ import qualified Data.Text  as Text
 import qualified Data.Map   as Map
 import           Data.Maybe ( mapMaybe )
 
-import Language.ASKEE.Core             ( Ident )
-import Language.ASKEE.Core.ImportASKEE ( expAsCore )
+import Language.ASKEE.Core.Syntax      ( Ident )
+import Language.ASKEE.ESL.Convert      ( expAsCore )
 import Language.ASKEE.DEQ.Syntax       as Syntax
 import Language.ASKEE.Expr             as Expr
 import Language.ASKEE.ESL.Lexer        ( Located(..) )

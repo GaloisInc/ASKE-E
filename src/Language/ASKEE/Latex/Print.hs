@@ -8,7 +8,7 @@ import Data.Text ( unpack )
 
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import Language.ASKEE.Latex.Syntax
-import Language.ASKEE.Core
+import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Panic ( panic )
 
 import Text.PrettyPrint as PP
@@ -26,7 +26,7 @@ printLatex (Latex DiffEqs{..}) = vcat [lets, initials, rates]
     initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", printExpr e]
 
   
--- | Specialized version of `ppExpr` in Language.ASKEE.Core
+-- | Specialized version of `ppExpr` in Language.ASKEE.Core.Print
 printExpr :: Expr -> Doc
 printExpr expr =
   case expr of

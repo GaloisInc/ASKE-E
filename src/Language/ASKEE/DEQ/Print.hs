@@ -6,7 +6,7 @@ module Language.ASKEE.DEQ.Print where
 import Data.Map                  ( toList )
 import Data.Text                 ( unpack )
 
-import Language.ASKEE.Core       ( ppExpr )
+import Language.ASKEE.Core.Print ( ppExpr )
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 
 import Text.PrettyPrint          ( Doc, hsep, hcat, parens, int, text, vcat )

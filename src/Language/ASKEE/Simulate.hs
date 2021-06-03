@@ -5,10 +5,10 @@ import qualified Data.Map  as Map
 import           Data.Map  ( Map )
 import           Data.Text ( Text )
 
-import qualified Language.ASKEE.Core.GSLODE as ODE
+import qualified Language.ASKEE.DEQ.Simulate as Sim
 import           Language.ASKEE.DataSeries ( DataSeries(..) )
-import           Language.ASKEE.Types ( DataSource )
-import           Language.ASKEE.Storage ( loadModel )
+-- import           Language.ASKEE.Types ( DataSource )
+import           Language.ASKEE.Storage ( loadModel, DataSource )
 import Language.ASKEE.ModelType
 import Language.ASKEE.Model ( parseModel, toDeqs )
 import Language.ASKEE.Error ( ASKEEError(..), throwLeft )
@@ -27,4 +27,4 @@ simulateModel modelType modelSource start end step overwrite =
       equations <- throwLeft ConversionError (toDeqs model)
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ ODE.simulate equations Map.empty times'
+      pure $ Sim.simulate equations Map.empty times'

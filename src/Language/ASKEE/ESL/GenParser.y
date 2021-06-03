@@ -7,8 +7,8 @@ import qualified Data.Map    as Map
 import           Data.Maybe  ( mapMaybe )
 import           Data.Text   ( Text )
 
-import           Language.ASKEE.Core             ( Ident, substExpr )
-import           Language.ASKEE.Core.ImportASKEE ( expAsCore )
+import           Language.ASKEE.Core.Syntax      ( Ident, substExpr )
+import           Language.ASKEE.ESL.Convert      ( expAsCore )
 import           Language.ASKEE.DEQ.Syntax       ( DiffEqs(..) )
 import           Language.ASKEE.Expr
 import           Language.ASKEE.ESL.Lexer        ( Located(..) )

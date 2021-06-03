@@ -7,7 +7,7 @@ module Language.ASKEE.DEQ.Syntax where
 
 import Data.Map ( Map )
 
-import Language.ASKEE.Core (TraverseExprs, traverseExprs, Ident, Expr(..))
+import Language.ASKEE.Core.Syntax (TraverseExprs, traverseExprs, Ident, Expr(..))
 
 -- | A system of differential equations.
 data DiffEqs = DiffEqs

@@ -9,6 +9,7 @@ data ASKEEError =
     ParseError      String
   | ValidationError String
   | ConversionError String
+  | NotImplementedError String
   deriving (Show)
 
 instance Exception ASKEEError
@@ -33,7 +34,8 @@ throwLeft mkErr action =
     Right a -> pure a
 
 
-
+die :: ASKEEError -> IO a
+die = throwIO
 -- data ASKEEError where
 --   ParseError      :: Show a => { context :: Maybe String, artifact :: Maybe a } -> ASKEEError
 --   ValidationError :: Show a => { context :: Maybe String, artifact :: Maybe a } -> ASKEEError

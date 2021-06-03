@@ -5,7 +5,7 @@ import Data.Ord(comparing)
 import Data.Map(Map)
 import qualified Data.Map as Map
 
-import Language.ASKEE.Core
+import Language.ASKEE.Core.Syntax
 
 
 simplifyExpr :: Expr -> Expr
