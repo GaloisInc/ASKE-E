@@ -18,18 +18,18 @@ library
                      , Language.ASKEE.ESL.GenParser
                      , Language.ASKEE.ESL.Convert
                      , Language.ASKEE.Core
-                     , Language.ASKEE.Core.ImportASKEE
+                     
                      , Language.ASKEE.Core.Simplify
-                     , Language.ASKEE.Core.DiffEq
+                     
                      , Language.ASKEE.Core.Eval
-                     , Language.ASKEE.Core.GSLODE
+                     
                      , Language.ASKEE.Core.Visualization
                      , Language.ASKEE.Core.Syntax
                      , Language.ASKEE.Core.Print
                      , Language.ASKEE.Core.Convert
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.ESL.Print
-                     , Language.ASKEE.Types
+                     
                      , Language.ASKEE.Simulate
                      , Language.ASKEE.Storage
                      , Language.ASKEE.APRAM.Syntax
@@ -84,7 +84,7 @@ library
                      , Language.ASKEE.CppCompiler
                      , Language.ASKEE.Panic
                      , Language.ASKEE.ESL.Check
-                     , Language.ASKEE.Translate
+                     
                      , Language.ASKEE.Graph
                      , Language.ASKEE.Convert
                      , Language.ASKEE.ModelStratify.Syntax
