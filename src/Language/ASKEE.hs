@@ -59,56 +59,10 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , loadModel
                                                        , storeModel
                                                        , DataSource(..) )
--- import           Language.ASKEE.Types                  ( DataSource(..) )
 
--- import qualified Language.ASKEE.DEQ.Simulate as Sim
-
--- parse :: ParseModel a => String -> String -> IO a
--- parse why modelString = 
---   case parseModel modelString of
---     Left err -> throwIO (ParseError $ why <> err)
---     Right m -> pure m
-
--- toIO :: String -> Either String a -> IO a
--- toIO why modelE =
---   case modelE of
---     Left err -> throwIO (ParseError $ why <> " " <> err)
---     Right m -> pure m 
 
 -------------------------------------------------------------------------------
 -- Loaders for "first class" models
-
--- loadESL :: DataSource -> IO ESL.Model
--- loadESL = loadESLFrom (ESL Concrete)
-
--- loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
--- loadESLFrom format source =
---   do  modelString <- loadModel format source
---       let conv =
---             case format of
---               ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
---               RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
---       model <- toIO "loadESLFrom" $ conv modelString
---       case Check.checkModel model of
---         Left err -> throwIO (ValidationError err)
---         Right m -> pure m
-
--- loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
--- loadDiffEqs = loadDiffEqsFrom DeqType
-
--- loadDiffEqsFrom :: 
---   ModelType ->
---   Map Text Double -> 
---   [Text] -> 
---   DataSource -> 
---   IO DEQ.DiffEqs
--- loadDiffEqsFrom format overwrite params source = 
---   do  modelString <- loadModel format source
---       model <- throwLeft ParseError (parseModel DeqType modelString)
---       equations <- throwLeft ConversionError (toDeqs model)
---       let eqns' = equations { DEQ.deqParams = params }
---       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
---       pure $ replaceParams eqns'
 
 -- loadReactions :: DataSource -> IO RNet.ReactionNet
 -- loadReactions = loadReactionsFrom (RNET Concrete)

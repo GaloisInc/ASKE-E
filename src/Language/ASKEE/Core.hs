@@ -13,7 +13,6 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 
 import Language.ASKEE.ModelType
-import Language.ASKEE.Types
 import qualified Language.ASKEE.Core.Syntax as Core
 import Language.ASKEE.Core.Visualization ( asSchematicGraph )
 import qualified Language.ASKEE.ESL as ESL

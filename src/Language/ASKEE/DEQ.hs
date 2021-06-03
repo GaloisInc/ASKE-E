@@ -12,7 +12,6 @@ import           Data.Text ( Text )
 import Language.ASKEE.DEQ.Syntax as DEQ
 import qualified Language.ASKEE.Core.Syntax as Core
 import Language.ASKEE.Core.Convert ( applyParams )
--- import Language.ASKEE.Types ( DataSource(..) )
 import Language.ASKEE.ModelType ( ModelType(..) )
 import Language.ASKEE.Storage (loadModel, DataSource)
 import Language.ASKEE.Error
