@@ -6,8 +6,8 @@
 module Language.ASKEE
   ( ESL.loadESLFrom
   , loadDiffEqsFrom
-  , loadReactionsFrom
-  , loadLatexFrom
+  -- , loadReactionsFrom
+  -- , loadLatexFrom
   , loadCPPFrom
   , loadCoreFrom
   
@@ -16,8 +16,7 @@ module Language.ASKEE
   , stratifyModel
   , fitModelToData
   , asSchematicGraph
-  , describeModelInterface
-  , convertModelString
+  -- , convertModelString
 
   , initStorage
   , listAllModels
@@ -46,7 +45,7 @@ import qualified Data.Text                  as Text
 import qualified Language.ASKEE.ESL                    as ESL
 import qualified Language.ASKEE.ESL.Check              as Check
 import           Language.ASKEE.C                      ( Doc )
-import           Language.ASKEE.Convert                ( converter )
+-- import           Language.ASKEE.Convert                ( converter )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.Core.DiffEq            ( applyParams )
 import qualified Language.ASKEE.Core.GSLODE            as ODE
@@ -56,7 +55,10 @@ import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )
 import qualified Language.ASKEE.DEQ.Syntax             as DEQ
+import           Language.ASKEE.Error
 import qualified Language.ASKEE.Metadata               as Meta
+import           Language.ASKEE.Model                  ( parseModel, toDeqs )
+import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.Latex.Syntax           as Latex
@@ -67,12 +69,12 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
                                                        , storeModel )
-import           Language.ASKEE.Translate              ( ParseModel, parseModel, SerializeModel (serializeModel) )
+-- import           Language.ASKEE.Translate              ( ParseModel, parseModel, SerializeModel (serializeModel) )
 import           Language.ASKEE.Types                  ( Representation(..)
-                                                       , ModelType(..)
+                                                      --  , ModelType(..)
                                                        , DataSource(..)
-                                                       , ParseError(..)
-                                                       , ValidationError(..)
+                                                      --  , ParseError(..)
+                                                      --  , ValidationError(..)
                                                        , NotImplementedError(..) )
 
 import System.Exit    ( ExitCode(..) )
@@ -80,17 +82,17 @@ import System.Process ( readProcessWithExitCode )
 
 import Control.Monad.Identity (runIdentity)
 
-parse :: ParseModel a => String -> String -> IO a
-parse why modelString = 
-  case parseModel modelString of
-    Left err -> throwIO (ParseError $ why <> err)
-    Right m -> pure m
+-- parse :: ParseModel a => String -> String -> IO a
+-- parse why modelString = 
+--   case parseModel modelString of
+--     Left err -> throwIO (ParseError $ why <> err)
+--     Right m -> pure m
 
-toIO :: String -> Either String a -> IO a
-toIO why modelE =
-  case modelE of
-    Left err -> throwIO (ParseError $ why <> " " <> err)
-    Right m -> pure m 
+-- toIO :: String -> Either String a -> IO a
+-- toIO why modelE =
+--   case modelE of
+--     Left err -> throwIO (ParseError $ why <> " " <> err)
+--     Right m -> pure m 
 
 -------------------------------------------------------------------------------
 -- Loaders for "first class" models
@@ -111,7 +113,7 @@ toIO why modelE =
 --         Right m -> pure m
 
 loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
-loadDiffEqs = loadDiffEqsFrom (DEQ Concrete)
+loadDiffEqs = loadDiffEqsFrom DeqType
 
 loadDiffEqsFrom :: 
   ModelType ->
@@ -121,55 +123,45 @@ loadDiffEqsFrom ::
   IO DEQ.DiffEqs
 loadDiffEqsFrom format overwrite params source = 
   do  modelString <- loadModel format source
-      let conv =
-            case format of
-              ESL Concrete   -> $(converter (ESL Concrete) (DEQ Abstract))
-              DEQ Concrete   -> $(converter (DEQ Concrete) (DEQ Abstract))
-              RNET Concrete  -> $(converter (RNET Concrete) (DEQ Abstract))
-              LATEX Concrete -> $(converter (LATEX Concrete) (DEQ Abstract))
-      eqns <- toIO "loadDiffEqsFrom" $ conv modelString
-      -- eqns <- parse "loadDiffEqs" modelString
-      let eqns' = eqns { DEQ.deqParams = params }
+      model <- throwLeft ParseError (parseModel DeqType modelString)
+      equations <- throwLeft ConversionError (toDeqs model)
+      let eqns' = equations { DEQ.deqParams = params }
       let replaceParams = applyParams (Map.map Core.NumLit overwrite)
       pure $ replaceParams eqns'
 
-loadReactions :: DataSource -> IO RNet.ReactionNet
-loadReactions = loadReactionsFrom (RNET Concrete)
+-- loadReactions :: DataSource -> IO RNet.ReactionNet
+-- loadReactions = loadReactionsFrom (RNET Concrete)
 
-loadReactionsFrom :: ModelType -> DataSource -> IO RNet.ReactionNet
-loadReactionsFrom format source =
-  do  modelString <- loadModel format source
-      let conv =
-            case format of
-              RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
-      toIO "loadReactionsFrom" $ conv modelString
+-- loadReactionsFrom :: ModelType -> DataSource -> IO RNet.ReactionNet
+-- loadReactionsFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
+--       toIO "loadReactionsFrom" $ conv modelString
 
-loadLatex :: DataSource -> IO Latex.Latex
-loadLatex = loadLatexFrom (LATEX Concrete)
+-- loadLatex :: DataSource -> IO Latex.Latex
+-- loadLatex = loadLatexFrom (LATEX Concrete)
 
-loadLatexFrom :: ModelType -> DataSource -> IO Latex.Latex
-loadLatexFrom format source =
-  do  modelString <- loadModel format source
-      let conv =
-            case format of
-              ESL Concrete   -> $(converter (ESL Concrete) (LATEX Abstract))
-              DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
-              RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
-              LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
-      toIO "loadLatexFrom" $ conv modelString
+-- loadLatexFrom :: ModelType -> DataSource -> IO Latex.Latex
+-- loadLatexFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               ESL Concrete   -> $(converter (ESL Concrete) (LATEX Abstract))
+--               DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
+--               RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
+--               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
+--       toIO "loadLatexFrom" $ conv modelString
 
-loadGromet :: DataSource -> IO String
-loadGromet source = 
-  do  model <- loadModel (GROMET Concrete) source
-      (code, _out, _err) <- readProcessWithExitCode "jq" [] model
-      case code of
-        ExitSuccess -> pure model
-        ExitFailure _ -> throwIO $ ParseError "invalid gromet"
+-- loadGromet :: DataSource -> IO String
+-- loadGromet source = 
+--   do  model <- loadModel (GROMET Concrete) source
+--       (code, _out, _err) <- readProcessWithExitCode "jq" [] model
+--       case code of
+--         ExitSuccess -> pure model
+--         ExitFailure _ -> throwIO $ ParseError "invalid gromet"
 
-loadMetaESL :: DataSource -> IO ESL.ModelMeta
-loadMetaESL source =
-  do  modelString <- loadModel (ESLMETA Concrete) source
-      parse "loadMetaESL" modelString
 
 -------------------------------------------------------------------------------
 
@@ -177,13 +169,13 @@ checkModel :: ModelType -> DataSource -> IO (Maybe String)
 checkModel format source =
   do  result <- try
         case format of
-          ESL Concrete -> void $ ESL.loadESL source
-          ESLMETA Concrete -> void $ loadMetaESL source
-          DEQ Concrete -> void $ loadDiffEqs mempty mempty source
-          RNET Concrete -> void $ loadReactions source
-          LATEX Concrete -> void $ loadLatex source
-          GROMET Concrete -> void $ loadGromet source
-          _ -> throwIO (NotImplementedError "")
+          EaselType -> void $ ESL.loadESL source
+          -- ESLMETA Concrete -> void $ loadMetaESL source
+          -- DEQ Concrete -> void $ loadDiffEqs mempty mempty source
+          -- RNET Concrete -> void $ loadReactions source
+          -- LATEX Concrete -> void $ loadLatex source
+          -- GROMET Concrete -> void $ loadGromet source
+          -- _ -> throwIO (NotImplementedError "")
       case result of
         Left err -> pure $ Just (show (err :: SomeException))
         Right _ -> pure Nothing
@@ -219,13 +211,13 @@ loadCPPFrom format source =
 
 -------------------------------------------------------------------------------
 
-convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertModelString srcTy src destTy =
-  case destTy of
-    ESL Concrete -> serializeModel <$> ESL.loadESLFrom srcTy src
-    DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src
-    -- RNET Concrete -> serializeModel <$> loadReactionsFrom srcTy src
-    LATEX Concrete -> serializeModel <$> loadLatexFrom srcTy src
+-- convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+-- convertModelString srcTy src destTy =
+--   case destTy of
+--     ESL Concrete -> serializeModel <$> ESL.loadESLFrom srcTy src
+--     DEQ Concrete -> serializeModel <$> loadDiffEqsFrom srcTy mempty mempty src
+--     -- RNET Concrete -> serializeModel <$> loadReactionsFrom srcTy src
+--     LATEX Concrete -> serializeModel <$> loadLatexFrom srcTy src
 
 
 stratifyModel ::
@@ -243,35 +235,35 @@ stratifyModel modelFile connectionGraph statesJSON stratificationType =
           Nothing -> pure Nothing
       Stratify.stratifyModel model connections vertices states stratificationType
 
-describeModelInterface :: ModelType -> DataSource -> IO Value
-describeModelInterface modelType modelSource = undefined
-  case modelType of
-    ESL _ ->
-      do  mdl <- loadMetaESL modelSource
-          let stateVars =
-                [(n, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
-                                      , (ESL.State n _) <- [Meta.metaValue md]
-                                      ]
-              params =
-                [(n, d, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
-                                          , (ESL.Parameter n d) <- [Meta.metaValue md]
-                                          ]
+-- describeModelInterface :: ModelType -> DataSource -> IO Value
+-- describeModelInterface modelType modelSource = undefined
+--   case modelType of
+--     ESL _ ->
+--       do  mdl <- loadMetaESL modelSource
+--           let stateVars =
+--                 [(n, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
+--                                       , (ESL.State n _) <- [Meta.metaValue md]
+--                                       ]
+--               params =
+--                 [(n, d, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
+--                                           , (ESL.Parameter n d) <- [Meta.metaValue md]
+--                                           ]
 
-              descParam (n, d, mp) =
-                object [ "name" .= n
-                          , "defaultValue" .= d
-                          , "metadata" .= mp
-                          ]
-              descState (n, mp) =
-                object [ "name" .= n
-                          , "metadata" .= mp
-                          ]
-              desc =
-                object [ "parameters" .= (descParam <$> params)
-                          , "stateVars"  .= (descState <$> stateVars)
-                          ]
-          pure desc
-    _ -> undefined
+--               descParam (n, d, mp) =
+--                 object [ "name" .= n
+--                           , "defaultValue" .= d
+--                           , "metadata" .= mp
+--                           ]
+--               descState (n, mp) =
+--                 object [ "name" .= n
+--                           , "metadata" .= mp
+--                           ]
+--               desc =
+--                 object [ "parameters" .= (descParam <$> params)
+--                           , "stateVars"  .= (descState <$> stateVars)
+--                           ]
+--           pure desc
+--     _ -> undefined
 
 simulateModel :: 
   ModelType -> 

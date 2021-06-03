@@ -6,24 +6,31 @@ module Language.ASKEE.Error where
 import Control.Exception ( throwIO, Exception )
 
 data ASKEEError =
-    ParseError { context :: String, artifact :: String }
-  | ValidationError { context :: String, artifact :: String }
+    ParseError      String
+  | ValidationError String
+  | ConversionError String
   deriving (Show)
 
 instance Exception ASKEEError
 
-tryParse :: String -> Maybe String -> Either String a -> IO a
-tryParse = tryWith ParseError
+-- tryParse :: String -> Maybe String -> Either String a -> IO a
+-- tryParse = tryWithArtifact ParseError
 
-tryValidate :: String -> Maybe String -> Either String a -> IO a
-tryValidate = tryWith ValidationError
+-- tryValidate :: String -> Maybe String -> Either String a -> IO a
+-- tryValidate = tryWithArtifact ValidationError
 
-tryWith :: (String -> String -> ASKEEError) -> String -> Maybe String -> Either String a -> IO a
-tryWith mkErr context artifactM action =
-  case (action, artifactM) of
-    (Left err, Nothing) -> throwIO (mkErr context err)
-    (Left _, Just artifact) -> throwIO (mkErr context artifact)
-    (Right a, _) -> pure a
+-- tryWithArtifact :: (String -> String -> ASKEEError) -> String -> Maybe String -> Either String a -> IO a
+-- tryWithArtifact mkErr context artifactM action =
+--   case (action, artifactM) of
+--     (Left err, Nothing) -> throwIO (mkErr context err)
+--     (Left _, Just artifact) -> throwIO (mkErr context artifact)
+--     (Right a, _) -> pure a
+
+throwLeft :: (String -> ASKEEError) -> Either String a -> IO a
+throwLeft mkErr action =
+  case action of
+    Left err -> throwIO (mkErr err)
+    Right a -> pure a
 
 
 

@@ -3,12 +3,12 @@
 
 module Language.ASKEE.ESL 
   ( checkModel
-  , lexModel
-  , parseModel
   , printModel
   , loadESL
   , loadESLFrom
-  , loadMetaESL
+  , loadESLMeta
+  , loadESLMetaFrom
+  , describeModelInterface
 
   , Model
   , ModelMeta
@@ -17,43 +17,40 @@ module Language.ASKEE.ESL
 
 import Data.Aeson
 
-import Language.ASKEE.ESL.Check ( checkModel )
-import Language.ASKEE.ESL.GenLexer ( lexModel )
-import Language.ASKEE.ESL.GenParser ( parseModel )
-import Language.ASKEE.ESL.Print ( printModel )
-import Language.ASKEE.ESL.Syntax ( Model, ModelMeta )
-import qualified Language.ASKEE.ESL.Syntax as ESL
-import qualified Language.ASKEE.Metadata as Meta
+import           Language.ASKEE.Error        ( ASKEEError(..), throwLeft )
+import           Language.ASKEE.ESL.Check    ( checkModel )
+import           Language.ASKEE.ESL.Print    ( printModel )
+import           Language.ASKEE.ESL.Syntax   ( Model, ModelMeta, stripMeta )
+import qualified Language.ASKEE.ESL.Syntax   as ESL
+import qualified Language.ASKEE.Metadata     as Meta
+import           Language.ASKEE.ModelType    ( ModelType(..) )
+import           Language.ASKEE.Model        ( parseModel, toEasel )
+import           Language.ASKEE.Storage      ( loadModel )
+import           Language.ASKEE.Types        ( DataSource )
 
-import Language.ASKEE.Types ( DataSource, ModelType(..), Representation(..) )
-import Language.ASKEE.Convert (converter)
-import Language.ASKEE.Storage (loadModel)
-import Language.ASKEE.Error
+loadESLMeta :: DataSource -> IO ESL.ModelMeta 
+loadESLMeta = loadESLMetaFrom EaselType
+
+loadESLMetaFrom :: ModelType -> DataSource -> IO ESL.ModelMeta
+loadESLMetaFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      esl <- throwLeft ConversionError (toEasel model)
+      _ <- throwLeft ValidationError (checkModel $ stripMeta esl)
+      pure esl
+
 
 loadESL :: DataSource -> IO ESL.Model
-loadESL = loadESLFrom (ESL Concrete)
+loadESL = loadESLFrom EaselType
 
 loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
-loadESLFrom format source =
-  do  modelString <- loadModel format source
-      let conv =
-            case format of
-              ESL Concrete -> $(converter (ESL Concrete) (ESL Abstract))
-              RNET Concrete -> $(converter (RNET Concrete) (ESL Abstract))
-      model <- tryParse "loadESLFrom" Nothing $ conv modelString
-      tryValidate "loadESLFrom" Nothing (checkModel model)
-
-loadMetaESL :: DataSource -> IO ESL.ModelMeta
-loadMetaESL source =
-  do  modelString <- loadModel (ESLMETA Concrete) source
-      let conv = $(converter (ESLMETA Concrete) (ESLMETA Abstract))
-      tryParse "loadMetaESL" Nothing (conv modelString)
+loadESLFrom format source = stripMeta <$> loadESLMetaFrom format source
 
 describeModelInterface :: ModelType -> DataSource -> IO Value
 describeModelInterface modelType modelSource =
   case modelType of
-    ESL _ ->
-      do  mdl <- loadMetaESL modelSource
+    EaselType ->
+      do  mdl <- loadESLMeta modelSource
           let stateVars =
                 [(n, Meta.metaMap md) | md <- ESL.modelMetaDecls mdl
                                       , (ESL.State n _) <- [Meta.metaValue md]

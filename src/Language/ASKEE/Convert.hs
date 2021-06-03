@@ -4,7 +4,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Language.ASKEE.Convert where
-
+{-
 import Control.Monad ( (>=>) )
 
 import qualified Data.Aeson as Aeson
@@ -224,3 +224,4 @@ allConverters = concat <$> mapM (\pair -> pure [] `recover` mkConv pair) pairs
         (Just _, Nothing) -> Nothing
         (Nothing, Just _) -> Nothing
         (Just fromV, Just toV) -> Just (fromV, toV)
+-}

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Language.ASKEE.Translate where
-
+{-
 import           Language.ASKEE.Convert              ( converter )
 import           Language.ASKEE.Types                ( ModelType(..)
                                                      , Representation(..) )
@@ -116,3 +116,4 @@ instance SerializeModel Topology.Net where
 -- -- XXX: blocked by lack of DEQ -> ESL translation
 -- -- instance AsRNet Latex.Latex where
 -- --   asRNet = $(converter (LATEX Abstract) (RNET Abstract))
+-}

@@ -12,7 +12,8 @@ import Control.Exception ( Exception, throwIO )
 import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
-import Language.ASKEE.Types ( DataSource(..), ModelType(..), Representation(..), ModelDef(..) )
+import Language.ASKEE.Types ( DataSource(..), Representation(..), ModelDef(..) )
+import Language.ASKEE.ModelType ( ModelType(..), describeModelType', allModelTypes )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
@@ -32,13 +33,7 @@ initStorage = mapM_ make dirs
     make = Directory.createDirectoryIfMissing True
     dirs = 
       [ baseDirectory </> formatLocation mt
-      | mt <- [ ESL Concrete
-              , DEQ Concrete
-              , RNET Concrete
-              , LATEX Concrete
-              , GROMET Concrete
-              , TOPO Concrete
-              ]
+      | mt <- allModelTypes 
       ]
 
 loadModel :: ModelType -> DataSource -> IO String
@@ -71,13 +66,7 @@ listAllModels :: IO [ModelDef]
 listAllModels = 
   concat <$> sequence
     [ listModels mt 
-    | mt <- [ ESL Concrete
-            , DEQ Concrete
-            , RNET Concrete
-            , LATEX Concrete
-            , GROMET Concrete
-            , TOPO Concrete
-            ]
+    | mt <- allModelTypes 
     ]
 
 listModels :: ModelType -> IO [ModelDef]
@@ -89,15 +78,15 @@ listModels mt =
     loc = formatLocation mt
 
 formatLocation :: ModelType -> FilePath
-formatLocation mt =
-  case mt of
-    ESL _    -> "easel"
-    ESLMETA _ -> "easel-meta"
-    RNET _   -> "rnet"
-    DEQ _    -> "deq"
-    LATEX _  -> "latex"
-    GROMET _ -> "gromet"
-    TOPO _   -> "topology"
+formatLocation = describeModelType'
+  -- case mt of
+  --   ESL _    -> "easel"
+  --   ESLMETA _ -> "easel-meta"
+  --   RNET _   -> "rnet"
+  --   DEQ _    -> "deq"
+  --   LATEX _  -> "latex"
+  --   GROMET _ -> "gromet"
+  --   TOPO _   -> "topology"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

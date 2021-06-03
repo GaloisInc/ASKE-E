@@ -2,8 +2,14 @@
 module Language.ASKEE.ModelType where
 import Data.Text(Text, pack, unpack)
 
-data ModelType = EaselType | DeqType | CoreType
-  deriving(Eq, Ord, Show)
+data ModelType = 
+    EaselType 
+  | DeqType 
+  | CoreType
+  deriving(Eq, Ord, Show, Enum)
+
+allModelTypes :: [ModelType]
+allModelTypes = [EaselType ..]
 
 parseModelType :: Text -> Maybe ModelType
 parseModelType t =

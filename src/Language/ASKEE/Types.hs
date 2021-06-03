@@ -3,18 +3,20 @@ module Language.ASKEE.Types where
 import Data.Text ( Text )
 import Control.Exception ( Exception )
 
+import Language.ASKEE.ModelType
+
 data Representation = Abstract | Concrete
   deriving (Eq, Ord, Show)
 
-data ModelType =
-    ESL Representation
-  | ESLMETA Representation
-  | DEQ Representation
-  | RNET Representation
-  | TOPO Representation
-  | LATEX Representation
-  | GROMET Representation
-  deriving (Eq, Ord, Show)
+-- data ModelType =
+--     ESL Representation
+--   | ESLMETA Representation
+--   | DEQ Representation
+--   | RNET Representation
+--   | TOPO Representation
+--   | LATEX Representation
+--   | GROMET Representation
+--   deriving (Eq, Ord, Show)
 
 data DataSource =
     FromFile FilePath
