@@ -1,6 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 module Language.ASKEE.ESL 
   ( checkModel
   , lexModel

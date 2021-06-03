@@ -6,7 +6,7 @@ import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import           Data.List ( transpose )
 
-import Language.ASKEE.Core.Syntax ( mapExprs
+import Language.ASKEE.Core.Expr   ( mapExprs
                                   , substExpr
                                   , Expr
                                   , Ident )

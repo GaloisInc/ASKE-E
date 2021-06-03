@@ -4,7 +4,7 @@ module Language.ASKEE.Core.Print where
 
 import qualified Data.Text as Text
 
-import Language.ASKEE.Core.Syntax
+import Language.ASKEE.Core.Expr
 import Language.ASKEE.Panic       ( panic )
 
 import qualified Text.PrettyPrint as PP

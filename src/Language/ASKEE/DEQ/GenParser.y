@@ -9,7 +9,7 @@ import           Data.Maybe ( mapMaybe )
 import           Data.Text ( Text )
 import qualified Data.Text as T
 
-import Language.ASKEE.Core.Syntax          ( Ident )
+import Language.ASKEE.Core.Expr            ( Ident )
 import Language.ASKEE.ESL.Convert          ( expAsCore )
 import qualified Language.ASKEE.DEQ.Lexer  as Lexer
 import Language.ASKEE.DEQ.Syntax           as Syntax

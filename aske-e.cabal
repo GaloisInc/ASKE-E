@@ -20,7 +20,7 @@ library
                      , Language.ASKEE.ESL.Interface
                      , Language.ASKEE.Core
                      
-                     , Language.ASKEE.Core.Simplify
+                     
                      
                      , Language.ASKEE.Core.Eval
                      
@@ -28,6 +28,7 @@ library
                      , Language.ASKEE.Core.Syntax
                      , Language.ASKEE.Core.Print
                      , Language.ASKEE.Core.Convert
+                     , Language.ASKEE.Core.Expr
                      , Language.ASKEE.DataSeries
                      , Language.ASKEE.ESL.Print
                      

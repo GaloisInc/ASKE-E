@@ -10,8 +10,13 @@ import qualified Data.Map  as Map
 import qualified Data.Set  as Set
 import           Data.Text (Text)
 
-import           Language.ASKEE.Core.Syntax (TraverseExprs, traverseExprs, Ident, Expr(..))
-import qualified Language.ASKEE.Core.Syntax as Core
+import           Language.ASKEE.Core.Expr ( traverseExprs
+                                          , mapExprs
+                                          , substExpr
+                                          , TraverseExprs
+                                          , Ident
+                                          , Expr(..))
+import qualified Language.ASKEE.Core.Expr as CoreExpr
 
 -- | A system of differential equations.
 data DiffEqs = DiffEqs
@@ -32,12 +37,12 @@ instance TraverseExprs DiffEqs where
 applyParams :: Map Text Double -> DiffEqs -> DiffEqs
 applyParams parameters = applyParams' parameters'
   where
-    parameters' = Map.map Core.NumLit parameters
+    parameters' = Map.map CoreExpr.NumLit parameters
 
 -- XXX may want to check and/or panic if we try to overwrite something
 -- that isn't a parameter
 applyParams' :: Map Ident Expr -> DiffEqs -> DiffEqs
-applyParams' su = dropParams . Core.mapExprs (Core.substExpr su)
+applyParams' su = dropParams . mapExprs (substExpr su)
   where
   dropParams m = m { deqParams = [ x | x <- deqParams m
                                      , not (x `Set.member` pSet) ] }

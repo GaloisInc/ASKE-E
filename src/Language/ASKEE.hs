@@ -43,7 +43,7 @@ import qualified Data.Text                  as Text
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.C                      ( Doc )
 import qualified Language.ASKEE.Core                   as Core
-import qualified Language.ASKEE.Core.Syntax            as Core
+import qualified Language.ASKEE.Core.Expr              as Core
 import           Language.ASKEE.DataSeries             ( DataSeries(..)
                                                        , parseDataSeries
                                                        , MalformedDataSeries(..) )

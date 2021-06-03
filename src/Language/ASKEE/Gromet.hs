@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 import qualified Data.List as List
 
 import Language.ASKEE.Panic(panic)
+import qualified Language.ASKEE.Core.Expr as Core
 import qualified Language.ASKEE.Core.Syntax as Core
 
 type Uid = Text

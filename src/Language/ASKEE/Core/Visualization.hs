@@ -9,6 +9,7 @@ import qualified Data.Map   as Map
 import           Data.Text  ( Text )
 
 import Language.ASKEE.Core.Syntax hiding ( Event )
+import Language.ASKEE.Core.Expr
 
 data NodeType = Event | State
   deriving(Show, Eq, Ord)

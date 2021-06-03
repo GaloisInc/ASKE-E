@@ -4,7 +4,7 @@ import qualified Data.Map   as Map
 import           Data.Maybe ( mapMaybe )
 
 import Language.ASKEE.Core.Syntax
-import Language.ASKEE.Core.Simplify ( simplifyExpr )
+import Language.ASKEE.Core.Expr
 import Language.ASKEE.DEQ.Syntax    ( DiffEqs(..) )
 
 asDiffEqs :: Model -> DiffEqs
