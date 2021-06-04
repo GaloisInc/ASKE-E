@@ -93,6 +93,7 @@ handleRequest r =
               (modelDefType fitModel)
               fitData
               fitParams
+              mempty
               (modelDefSource fitModel)
           pure (FitResult res)
 
