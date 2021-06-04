@@ -15,7 +15,7 @@ import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
-import Language.ASKEE.ModelType ( ModelType(..), allModelTypes )
+import Language.ASKEE.ModelType ( ModelType(..) )
 import Language.ASKEE.Panic ( panic )
 
 import qualified System.Directory as Directory
@@ -39,7 +39,7 @@ initStorage = mapM_ make dirs
     make = Directory.createDirectoryIfMissing True
     dirs = 
       [ baseDirectory </> formatLocation mt
-      | mt <- allModelTypes 
+      | mt <- [EaselType, DeqType] 
       ]
 
 loadModel :: ModelType -> DataSource -> IO String
@@ -72,7 +72,7 @@ listAllModels :: IO [ModelDef]
 listAllModels = 
   concat <$> sequence
     [ listModels mt 
-    | mt <- allModelTypes 
+    | mt <- [EaselType, DeqType] 
     ]
 
 listModels :: ModelType -> IO [ModelDef]
