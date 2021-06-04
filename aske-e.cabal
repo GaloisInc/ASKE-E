@@ -60,6 +60,8 @@ library
                         Language.ASKEE.Experiment.TypeOf
 
                         Language.ASKEE.Gromet
+                        Language.ASKEE.Gromet.Conversion
+                        Language.ASKEE.Gromet.Syntax
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
