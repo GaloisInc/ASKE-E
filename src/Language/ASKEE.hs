@@ -6,6 +6,7 @@
 module Language.ASKEE
   ( loadDiffEqs
   , loadDiffEqsFrom
+  , loadESL
   , loadESLMetaFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
@@ -33,6 +34,7 @@ module Language.ASKEE
 
   , DataSource(..)
   , DataSeries(..)
+  , DEQ.DiffEqs
   , ModelDef(..)
   , ModelType(..)
   , Stratify.StratificationInfo(..)
@@ -219,17 +221,18 @@ fitModelToData ::
   ModelType {- ^ the model's type -}-> 
   DataSource {- ^ the data as ASKEE-produced CSV -} ->
   [Text] {- ^ parameters to fit -} -> 
+  Map Text Double {- ^ ??? -} ->
   DataSource {- ^ the model -} -> 
   IO (Map Text (Double, Double), [Map Text Double])
   -- IO (Map Text (Double, Double))
-fitModelToData format fitData fitParams source = 
+fitModelToData format fitData fitParams fitScale source = 
   do  eqs <- loadDiffEqsFrom format source
       rawData <- 
         case fitData of
           Inline s -> pure s
-          FromFile _ -> die (NotImplementedError "reading fit data from file")
+          FromFile f -> Text.pack <$> readFile f
       dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
-      pure $ DEQ.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
+      pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
       
 
 simulateModel :: 
