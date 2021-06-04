@@ -10,15 +10,17 @@ module Language.ASKEE.Storage
   ) where
 
 import Control.Monad     ( when )
-import Control.Exception ( Exception, throwIO )
 
 import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
-import Language.ASKEE.ModelType ( ModelType(..), describeModelType', allModelTypes )
+import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
+import Language.ASKEE.ModelType ( ModelType(..), allModelTypes )
+import Language.ASKEE.Panic ( panic )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
+
 
 data DataSource =
     FromFile FilePath
@@ -30,14 +32,6 @@ data ModelDef =
              , modelDefType   :: ModelType
              }
   deriving (Eq, Show)
-
-newtype StorageError = StorageError String
-  deriving Show
-
-instance Exception StorageError
-
-die :: String -> IO ()
-die = throwIO . StorageError
 
 initStorage :: IO ()
 initStorage = mapM_ make dirs
@@ -55,7 +49,7 @@ loadModel format source =
     _ ->
       do  models <- listModels format
           when (mdef `notElem` models)
-            (die $ "model "++show source++" doesn't exist")
+            (die $ StorageError $ "model "++show source++" doesn't exist")
           (loadString . modelDefSource) mdef
   where
     mdef = ModelDef source format 
@@ -64,10 +58,10 @@ storeModel :: Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
 storeModel name format check model =
   do  let path = baseDirectory </> formatLocation format </> Text.unpack name
       when (".." `isInfixOf` name || Text.singleton pathSeparator `isInfixOf` name) 
-        (die $ "invalid name for model: " <> name')
+        (die $ StorageError $ "invalid name for model: " <> name')
       exists <- Directory.doesFileExist path
       when exists 
-        (die $ "model " <> name' <> " already exists")
+        (die $ StorageError $ "model " <> name' <> " already exists")
       check model
       writeFile path (Text.unpack model)
       pure path
@@ -90,15 +84,11 @@ listModels mt =
     loc = formatLocation mt
 
 formatLocation :: ModelType -> FilePath
-formatLocation = describeModelType'
-  -- case mt of
-  --   ESL _    -> "easel"
-  --   ESLMETA _ -> "easel-meta"
-  --   RNET _   -> "rnet"
-  --   DEQ _    -> "deq"
-  --   LATEX _  -> "latex"
-  --   GROMET _ -> "gromet"
-  --   TOPO _   -> "topology"
+formatLocation mt =
+  case mt of
+    EaselType -> "easel-meta"
+    DeqType -> "deq"
+    CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

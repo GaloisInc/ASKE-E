@@ -9,7 +9,7 @@ import           Data.List ( transpose )
 import Language.ASKEE.Core.Expr   ( mapExprs
                                   , substExpr
                                   , Expr
-                                  , Ident )
+                                  , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
 import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAligned
@@ -20,6 +20,7 @@ import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..) )
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
 import qualified Numeric.GSL.Fitting        as Fit
+import Data.Text (Text)
 
 evalDiffEqs ::
   [Ident] -> [Expr] -> Map Ident Double -> Double -> [Double] -> [Double]
@@ -85,7 +86,7 @@ fitModel ::
   DataSeries Double {- ^ Data to fit -} ->
   Map Ident Double  {- ^ Scaling for resudals, assumed to be 1 if missing -} ->
   Map Ident Double  {- ^ Initial parameter values -} ->
-  (Map Ident (Double,Double), [ Map Ident Double ])
+  (Map Text (Double,Double), [ Map Text Double ])
   -- ^ Returns (result, search path)
   -- where result is the computed value for each parameter,
   -- and the corresponding errror
@@ -95,7 +96,7 @@ fitModel eqs ds scaled start =
   )
   where
   (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
-  ps            = deqParams eqs
+  ps            = map asText $ deqParams eqs
   initParams    = psToVec start
   psToVec vs    = [ vs Map.! p | p <- ps ]
   psFromVec vs  = Map.fromList (ps `zip` vs)

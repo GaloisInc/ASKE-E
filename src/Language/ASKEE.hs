@@ -4,7 +4,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
-  ( loadDiffEqsFrom
+  ( loadDiffEqs
+  , loadDiffEqsFrom
   , loadESLMetaFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
@@ -12,6 +13,7 @@ module Language.ASKEE
   , loadCoreFrom
   
   , checkModel
+    
   , simulateModel
   , stratifyModel
   , fitModelToData
@@ -19,14 +21,22 @@ module Language.ASKEE
   , convertModelString
   , ESL.describeModelInterface
 
+  , gnuPlotScript
+  , dataSeriesAsCSV
+  , dataSeriesAsJSON
+  , parseDataSeriesFromFile
+
   , initStorage
   , listAllModels
   , loadModel
   , storeModel
+
   , DataSource(..)
   , DataSeries(..)
   , ModelDef(..)
   , ModelType(..)
+  , Stratify.StratificationInfo(..)
+  , Stratify.StratificationType(..)
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..) )
@@ -43,10 +53,12 @@ import qualified Data.Text                  as Text
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.C                      ( Doc )
 import qualified Language.ASKEE.Core                   as Core
-import qualified Language.ASKEE.Core.Expr              as Core
-import           Language.ASKEE.DataSeries             ( DataSeries(..)
+import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
+                                                       , dataSeriesAsJSON
+                                                       , gnuPlotScript
                                                        , parseDataSeries
-                                                       , MalformedDataSeries(..) )
+                                                       , parseDataSeriesFromFile
+                                                       , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
@@ -54,7 +66,7 @@ import           Language.ASKEE.Error                  ( ASKEEError(..)
 import           Language.ASKEE.Model                  ( convertModelString
                                                        , parseModel
                                                        , toDeqs
-                                                       , toEasel )
+                                                       , toEasel, toCore )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
@@ -113,29 +125,8 @@ loadDiffEqsFrom format source =
       model <- throwLeft ParseError (parseModel format modelString)
       throwLeft ConversionError (toDeqs model)
 
--- loadDiffEqs :: Map Text Double -> [Text] -> DataSource -> IO DEQ.DiffEqs
--- loadDiffEqs = loadDiffEqsFrom DeqType
-
-
--- loadDiffEqsFrom :: 
---   ModelType ->
---   Map Text Double -> 
---   [Text] -> 
---   DataSource -> 
---   IO DEQ.DiffEqs
--- loadDiffEqsFrom format overwrite params source = 
---   do  modelString <- loadModel format source
---       model <- throwLeft ParseError (parseModel format modelString)
---       undefined
---       -- Core core <- throwLeft ConversionError (toCore model)
---       -- let model' = Core.parameterize overwrite core
---       -- equations <- throwLeft ConversionError (toDeqs model')
---       -- -- let eqns' = equations { deqParams = params }
---       -- -- let replaceParams = applyParams (Map.map NumLit overwrite)
---       -- pure equations
-
 -------------------------------------------------------------------------------
--- Loaders for "first class" models
+-- TODO: Reactions
 
 -- loadReactions :: DataSource -> IO RNet.ReactionNet
 -- loadReactions = loadReactionsFrom (RNET Concrete)
@@ -147,6 +138,9 @@ loadDiffEqsFrom format source =
 --             case format of
 --               RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
 --       toIO "loadReactionsFrom" $ conv modelString
+
+-------------------------------------------------------------------------------
+-- TODO: Latex
 
 -- loadLatex :: DataSource -> IO Latex.Latex
 -- loadLatex = loadLatexFrom (LATEX Concrete)
@@ -161,6 +155,10 @@ loadDiffEqsFrom format source =
 --               RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
 --               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
 --       toIO "loadLatexFrom" $ conv modelString
+
+
+-------------------------------------------------------------------------------
+-- TODO: Gromet
 
 -- loadGromet :: DataSource -> IO String
 -- loadGromet source = 
@@ -199,7 +197,6 @@ loadCPPFrom format source =
 
 -------------------------------------------------------------------------------
 
-
 stratifyModel ::
   DataSource ->
   String ->
@@ -216,25 +213,22 @@ stratifyModel modelFile connectionGraph statesJSON stratificationType =
       Stratify.stratifyModel model connections vertices states stratificationType
 
 
-
 fitModelToData ::
   ModelType {- ^ the model's type -}-> 
   DataSource {- ^ the data as ASKEE-produced CSV -} ->
   [Text] {- ^ parameters to fit -} -> 
   DataSource {- ^ the model -} -> 
-  IO (Map Core.Ident (Double, Double))
+  IO (Map Text (Double, Double), [Map Text Double])
+  -- IO (Map Text (Double, Double))
 fitModelToData format fitData fitParams source = 
   do  eqs <- loadDiffEqsFrom format source
       rawData <- 
         case fitData of
           Inline s -> pure s
           FromFile _ -> die (NotImplementedError "reading fit data from file")
-      dataSeries <- 
-        case parseDataSeries (B.pack $ Text.unpack rawData) of
-          Right d -> pure d
-          Left err -> throwIO (MalformedDataSeries err)
-      let (res, _) = DEQ.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
-      pure res
+      dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
+      pure $ DEQ.fitModel eqs dataSeries Map.empty (Map.fromList (zip fitParams (repeat 0)))
+      
 
 simulateModel :: 
   ModelType -> 

@@ -88,7 +88,7 @@ handleRequest r =
           pure $ OutputResult $ asResult converted
 
     Fit FitCommand{..} ->
-      do  res <- 
+      do  (res, _) <- 
             fitModelToData
               (modelDefType fitModel)
               fitData
@@ -124,5 +124,6 @@ handleRequest r =
           pure $ OutputResult (SuccessResult result)
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
-      do  res <- describeModelInterface modelDefType modelDefSource
+      do  model <- loadESLMetaFrom modelDefType modelDefSource
+          let res = describeModelInterface model
           pure $ OutputResult (SuccessResult res)

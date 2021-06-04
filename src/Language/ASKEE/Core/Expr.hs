@@ -11,6 +11,9 @@ import Data.Functor.Identity (runIdentity)
 
 type Ident = Text
 
+asText :: Ident -> Text
+asText = id
+
 data Expr =
     Literal Literal
   | Op1 Op1 Expr

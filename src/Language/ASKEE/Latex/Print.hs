@@ -9,7 +9,6 @@ import Data.Text ( unpack )
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import Language.ASKEE.Latex.Syntax
 import Language.ASKEE.Core.Expr
-import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Panic ( panic )
 
 import Text.PrettyPrint as PP

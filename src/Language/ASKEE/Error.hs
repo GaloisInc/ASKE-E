@@ -9,6 +9,8 @@ data ASKEEError =
     ParseError      String
   | ValidationError String
   | ConversionError String
+  | StorageError    String
+  | DataSeriesError String
   | NotImplementedError String
   deriving (Show)
 

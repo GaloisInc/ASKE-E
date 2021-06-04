@@ -3,15 +3,10 @@ module Language.ASKEE.ESL.Interface where
 
 import Data.Aeson ( object, (.=), Value )
 
--- import           Language.ASKEE.ESL.Check     ( checkModel )
--- import           Language.ASKEE.ESL.Convert   ( modelAsCore )
--- import           Language.ASKEE.ESL.GenParser ( parseModel, parseModelMeta )
--- import           Language.ASKEE.ESL.GenLexer  ( lexModel )
--- import           Language.ASKEE.ESL.Print     ( printModel )
--- import           Language.ASKEE.ESL.Syntax    ( Model, ModelMeta )
-import qualified Language.ASKEE.ESL.Syntax    as ESL
-import qualified Language.ASKEE.Metadata      as Meta
+import qualified Language.ASKEE.ESL.Syntax as ESL
+import qualified Language.ASKEE.Metadata   as Meta
 
+-- TODO return something more structured
 describeModelInterface :: ESL.ModelMeta -> Value
 describeModelInterface model = desc
   where

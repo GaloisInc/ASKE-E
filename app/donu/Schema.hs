@@ -1,4 +1,9 @@
-{-# Language ApplicativeDo, RecordWildCards, BlockArguments, OverloadedStrings, GADTs, FlexibleInstances #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Schema where
 
 import Data.Map(Map)
@@ -14,11 +19,7 @@ import           Data.Aeson ((.=))
 import SchemaJS
 
 import Language.ASKEE
-import Language.ASKEE.DataSeries
-import Language.ASKEE.Core.Syntax ( Ident )
 import Language.ASKEE.ESL.Print (printModel)
-import Language.ASKEE.ModelStratify.Stratify
-import Language.ASKEE.ModelType (describeModelType)
 
 
 data Input =
@@ -132,20 +133,6 @@ instance HasSpec FitCommand where
 
         pure FitCommand {..}
 
--- data ModelType = 
---     AskeeModel 
---   | DiffEqs 
---   | Gromet
---   | ReactionNet
---   | LatexEqnarray
---   deriving (Show, Eq)
-
--- data ModelDef =
---     ModelDef { modelDefSource :: DataSource
---              , modelDefType   :: ModelType
---              }
---     deriving (Show, Eq)
-
 instance JS.ToJSON ModelDef where
   toJSON m =
     JS.object [ "source" .= dataSourceToJSON (modelDefSource m)
@@ -163,19 +150,14 @@ dataSourceToJSON ds =
 instance HasSpec ModelType where
   anySpec =  (jsAtom "easel"    $> EaselType)
          <!> (jsAtom "diff-eqs" $> DeqType )
-        --  <!> (jsAtom "reaction-net" $> RNET Concrete)
-        --  <!> (jsAtom "latex-eqnarray" $> LATEX Concrete)
-        --  <!> (jsAtom "gromet" $> GROMET Concrete)
+         <!> (jsAtom "core"     $> CoreType)
 
 instance JS.ToJSON ModelType where
-  toJSON = JS.String . describeModelType
-    -- case mt of
-    --   ESL _ -> JS.String "easel"
-    --   DEQ _ -> JS.String "diff-eqs"
-    --   RNET _ -> JS.String "reaction-net"
-    --   LATEX _ -> JS.String "latex-eqnarray"
-    --   GROMET _ -> JS.String "gromet"
-    --   TOPO _ -> JS.String "topology"
+  toJSON mt = JS.String
+    case mt of
+      EaselType -> "easel-meta"
+      DeqType -> "deq"
+      CoreType -> "core"
 
 
 dataSource :: ValueSpec DataSource
@@ -209,26 +191,19 @@ data Output =
   | OutputResult Result
   | OutputJSON JS.Value
   | OutputModelList [ModelDef]
-  | FitResult (Map Ident (Double, Double))
+  | FitResult (Map Text (Double, Double))
   | StratificationResult StratificationInfo
 
 instance JS.ToJSON Output where
   toJSON out =
     case out of
-      OutputData d -> dsToJSON d
+      OutputData d -> dataSeriesAsJSON d
       OutputModelList ms ->
         JS.object [ "models" .= ms ]
       OutputResult result -> JS.toJSON result
       FitResult r -> pointsToJSON r
       StratificationResult info -> stratResultToJSON info
       OutputJSON json -> json
-
--- XXX: how do we document this?
-dsToJSON :: DataSeries Double -> JS.Value
-dsToJSON ds = JS.object
-  [ "times"  .= times ds
-  , "values" .= JS.object [ x .= ys | (x,ys) <- Map.toList (values ds) ]
-  ]
 
 -------------------------------------------------------------------------------
 
@@ -295,7 +270,7 @@ instance HasSpec ConvertModelCommand where
 
         pure ConvertModelCommand { .. }
 
-pointsToJSON :: Map Ident (Double, Double) -> JS.Value
+pointsToJSON :: Map Text (Double, Double) -> JS.Value
 pointsToJSON ps = JS.object
   [ point .= JS.object ["value" .= value, "error" .= err] 
   | (point, (value, err)) <- Map.toList ps]
