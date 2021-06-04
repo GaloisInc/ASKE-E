@@ -63,10 +63,12 @@ import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
-import           Language.ASKEE.Model                  ( convertModelString
-                                                       , parseModel
+import           Language.ASKEE.Model                  ( parseModel
+                                                       , printModel
                                                        , toDeqs
-                                                       , toEasel, toCore )
+                                                       , toEasel
+                                                       , toCore
+                                                       , Model (..) )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
@@ -243,3 +245,15 @@ simulateModel format source start end step parameters =
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
+
+convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString srcTy src destTy =
+  do  modelString <- loadModel srcTy src
+      let model = parseModel srcTy modelString
+      pure 
+        case destTy of
+          EaselType -> model >>= toEasel >>= (printModel . Easel)
+          DeqType -> model >>= toDeqs >>= (printModel . Deq)
+          -- If there are errors converting to core, we _might_ want to
+          -- see them more than we want to see the printing error? Maybe?
+          CoreType -> model >>= toCore >>= const (Left "cannot print core")

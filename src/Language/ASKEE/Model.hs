@@ -4,23 +4,21 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 module Language.ASKEE.Model
-( Model(..)
-, toDeqs
-, toCore
-, toEasel
-, parseModel
-, convertModelString
-) where
+  ( Model(..)
+  , toDeqs
+  , toCore
+  , toEasel
+  , parseModel
+  , printModel
+  ) where
 
-import Control.Monad((>=>))
+import Control.Monad ( (>=>) )
 
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
 import qualified Language.ASKEE.ModelType as MT
-import           Language.ASKEE.Storage   ( DataSource
-                                          , loadModel )
 
 data Model =
     Easel ESL.ModelMeta
@@ -127,22 +125,15 @@ parseModel :: MT.ModelType -> String -> Either String Model
 parseModel mt s =
   case mt of
     MT.EaselType ->
-      Easel <$> (ESL.lexModel s >>= ESL.parseModelMeta)
+      Easel <$> ESL.parseESLMeta s
     MT.DeqType ->
-      Deq <$> (DEQ.lexDiffEqs s >>= DEQ.parseDiffEqs)
+      Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
 
-convertModelString :: MT.ModelType -> DataSource -> MT.ModelType -> IO (Either String String)
-convertModelString srcTy src destTy =
-  do  modelString <- loadModel srcTy src
-      pure $ fromModelString modelString
-
-  where
-    fromModelString :: String -> Either String String
-    fromModelString modelString =
-      do  model <- parseModel srcTy modelString
-          case destTy of
-            MT.EaselType -> show . ESL.printModel . ESL.stripMeta <$> toEasel model
-            MT.DeqType -> show . DEQ.printDiffEqs <$> toDeqs model
-            MT.CoreType -> Left "Can't print core syntax"
+printModel :: Model -> Either String String
+printModel m =
+  case m of
+    Easel esl -> (Right . show . ESL.printESL . ESL.stripMeta) esl
+    Deq deq -> (Right . show . DEQ.printDiffEqs) deq
+    Core _ -> Left "cannot print core - core has no concrete syntax"

@@ -1,7 +1,6 @@
 module Language.ASKEE.DEQ
-  ( parseDiffEqs
-  , lexDiffEqs
-  , printDiffEqs
+  ( printDiffEqs
+  , parseDiffEqs
 
   , simulate
   , fitModel
@@ -10,8 +9,13 @@ module Language.ASKEE.DEQ
   , DiffEqs
   ) where
 
-import Language.ASKEE.DEQ.GenParser ( parseDiffEqs )
-import Language.ASKEE.DEQ.GenLexer  ( lexDiffEqs )
-import Language.ASKEE.DEQ.Print     ( printDiffEqs )
-import Language.ASKEE.DEQ.Simulate  ( simulate, fitModel )
-import Language.ASKEE.DEQ.Syntax    ( applyParams, DiffEqs )
+import Control.Monad ( (>=>) )
+
+import qualified Language.ASKEE.DEQ.GenParser as Parser
+import           Language.ASKEE.DEQ.GenLexer  ( lexDiffEqs )
+import           Language.ASKEE.DEQ.Print     ( printDiffEqs )
+import           Language.ASKEE.DEQ.Simulate  ( simulate, fitModel )
+import           Language.ASKEE.DEQ.Syntax    ( applyParams, DiffEqs )
+
+parseDiffEqs :: String -> Either String DiffEqs
+parseDiffEqs = lexDiffEqs >=> Parser.parseDiffEqs
