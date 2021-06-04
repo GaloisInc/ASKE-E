@@ -97,8 +97,9 @@ loadCore = loadCoreFrom EaselType
 
 loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
 loadCoreFrom format source =
-  do  model <- loadESLFrom format source
-      throwLeft ValidationError (ESL.modelAsCore model)
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toCore model)
 
 -------------------------------------------------------------------------------
 -- DEQs
