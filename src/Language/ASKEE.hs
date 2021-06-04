@@ -36,7 +36,7 @@ import qualified Language.ASKEE.Core.DiffEq            as CDQ
 import qualified Language.ASKEE.DEQ.GenLexer           as DL
 import qualified Language.ASKEE.DEQ.GenParser          as DP
 import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
-import           Language.ASKEE.Latex.Print            ( printLatex )
+import qualified Language.ASKEE.Latex.Print            as PL
 import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
 import qualified Language.ASKEE.GenLexer               as AL
 import qualified Language.ASKEE.GenParser              as AP
@@ -379,9 +379,13 @@ runExp cores decls =
 coreToGromet :: Core.Model -> Gromet.Gromet
 coreToGromet = Gromet.convertCoreToGromet
 
+expToLatex :: String -> IO ()
+expToLatex e =
+  do  eqns <- loadEquations (Inline (Text.pack e)) []
+      print (PL.printLatex eqns)
 
 easelToLatex :: Syntax.Model -> Either String String
-easelToLatex e = show . printLatex . CDQ.asEquationSystem <$> modelAsCore e
+easelToLatex e = show . PL.printLatex . CDQ.asEquationSystem <$> modelAsCore e
 
 easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
 easelToGromet e = coreToGromet <$> modelAsCore e
