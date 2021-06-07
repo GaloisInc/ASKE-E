@@ -85,8 +85,7 @@ propLeft e0 =
   case e0 of
     Op2 Mul (NumLit n) (NumLit m) -> NumLit (n * m)
     e1 :*: (Op1 Neg e2) :*: e3 -> Op1 Neg e1 :*: e2 :*: e3
-    Op2 Mul e1         e2@(NumLit _) -> Op2 Mul e2 e1
+    Op2 Mul e1 e2@(NumLit _) -> Op2 Mul e2 e1
     Op2 Mul e1 (Op1 Neg e2) -> Op2 Mul (Op1 Neg e1) e2
-    Op1 Neg (NumLit 6) :*: Op1 Neg (NumLit 7) :*: Var "b" ->
-      Var "foo"
+    Op2 Mul e1 (Op2 Mul e2 e3) -> Op2 Mul (Op2 Mul e1 e2) e3
     _ -> e0
