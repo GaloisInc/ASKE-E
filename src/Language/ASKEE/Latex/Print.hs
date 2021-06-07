@@ -4,7 +4,7 @@
 module Language.ASKEE.Latex.Print where
 
 import qualified Data.Map as Map
-import Data.Text ( unpack )
+import Data.Text ( pack, unpack, replace )
 import Control.Monad.Identity ( Identity(Identity, runIdentity) )
 
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
@@ -40,7 +40,7 @@ printExpr expr =
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> hsep [pp e1 PP.<> pp e2]
     e1 :/: e2 -> hcat ["\\frac{", printExpr e1, "}{", printExpr e2, "}"]
-    Var v -> text $ unpack v
+    Var v -> text $ unpack $ replace (pack "_") (pack "\\_") v
     _ -> 
       panic 
         "encountered unknown Core expression when pretty-printing latex" 
