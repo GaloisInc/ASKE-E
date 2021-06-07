@@ -6,10 +6,10 @@ module Language.ASKEE.DEQ.Print where
 import Data.Map                  ( toList )
 import Data.Text                 ( unpack )
 
-import Language.ASKEE.Core.Print ( ppExpr )
+import Language.ASKEE.Core.Print ( ppExpr, text, Doc )
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 
-import Text.PrettyPrint          ( Doc, hsep, hcat, parens, int, text, vcat )
+import Prettyprinter ( hcat, hsep, vcat, parens, Pretty(pretty) )
 
 printDiffEqs :: DiffEqs -> Doc
 printDiffEqs DiffEqs{..} = vcat [lets, initial, rates]
@@ -19,4 +19,4 @@ printDiffEqs DiffEqs{..} = vcat [lets, initial, rates]
     rates   = vcat $ map (binding "d/dt") (toList deqRates)
 
     binding decl (i,e) = hsep [decl, text (unpack i), "=", ppExpr e]
-    initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", ppExpr e]
+    initBinding (i,e) = hsep [hcat [text (unpack i),parens (pretty (0::Int))], "=", ppExpr e]

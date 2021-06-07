@@ -1,4 +1,5 @@
 {-# Language OverloadedStrings, ParallelListComp, BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Language.ASKEE.DataSeries
   ( -- * Basics
     DataSeries(..)
@@ -165,6 +166,9 @@ dataSeriesAsJSON ds = Aeson.object
   [ "times"  Aeson..= times ds
   , "values" Aeson..= Aeson.object [ x Aeson..= ys | (x,ys) <- Map.toList (values ds) ]
   ]
+
+instance Aeson.ToJSON (DataSeries Double) where
+  toJSON = dataSeriesAsJSON
 
 saveDataSeries :: FilePath -> DataSeries Double -> IO ()
 saveDataSeries file xs = LBS.writeFile file (dataSeriesAsCSV xs)

@@ -3,14 +3,23 @@
 
 module Language.ASKEE.ESL.Print where
 
-import Data.Text (unpack,  Text )
+import Data.Text (unpack, Text )
 
 import Language.ASKEE.ESL.Syntax as Syntax
 import Language.ASKEE.Expr as Expr
 
 import Prelude hiding (GT, EQ, LT, (<>))
 
-import Text.PrettyPrint
+import Prettyprinter ( (<>)
+                     , (<+>)
+                     , emptyDoc
+                     , hsep
+                     , vcat
+                     , parens
+                     , Pretty(pretty), indent )
+import qualified Prettyprinter as PP
+
+type Doc = PP.Doc ()
 
 -- Notes:
 -- More line spacing could be nice?
@@ -24,9 +33,9 @@ pyPrintExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "math.exp" <> parens (pyPrintExpr e1)
     (Log e1) -> text "math.log" <> parens (pyPrintExpr e1)
-    (Neg e1) -> char '-' <> pp e1
-    (LitD d) -> double d
-    (Var i) -> text (unpack i)
+    (Neg e1) -> pretty '-' <> pp e1
+    (LitD d) -> pretty d
+    (Var i) -> pretty i
     (GT e1 e2)  -> aBinop e1 ">"   e2
     (GTE e1 e2) -> aBinop e1 ">="  e2
     (EQ e1 e2)  -> aBinop e1 "=="  e2
@@ -93,9 +102,9 @@ printExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "exp" <> parens (printExpr e1)
     (Log e1) -> text "log" <> parens (printExpr e1)
-    (Neg e1) -> char '-' <> pp e1
-    (LitD d) -> double d
-    (Var i) -> text (unpack i)
+    (Neg e1) -> pretty '-' <> pp e1
+    (LitD d) -> pretty d
+    (Var i) -> pretty (unpack i)
     (GT e1 e2)  -> aBinop e1 ">"   e2
     (GTE e1 e2) -> aBinop e1 ">="  e2
     (EQ e1 e2)  -> aBinop e1 "=="  e2
@@ -119,7 +128,7 @@ printExpr expr =
           branches' = vcat $ case other of
             Just e'  -> map (uncurry condBranch) branches ++ [condOther e']
             Nothing -> map (uncurry condBranch) branches
-      in  nest 2 decl $$ nest 4 branches' 
+      in  vcat [indent 2 decl, indent 4 branches']
     LitB True -> text "true"
     LitB False -> text "false"
   
@@ -172,49 +181,49 @@ printExpr expr =
 expBinop :: (a -> Doc) -> a -> String -> a -> Doc
 expBinop pr e1 op e2 = 
   hsep  [ pr e1
-        , text op
+        , pretty op
         , pr e2
         ]
 
 printEvent :: Event -> Doc
-printEvent Event{..} = decl $+$ nest 2 body
+printEvent Event{..} = vcat [decl, indent 2 body]
   where
     decl :: Doc
     decl = text "event" <+>
-           text (unpack eventName) <>
-           char ':'
+           pretty (unpack eventName) <>
+           pretty ':'
 
     body :: Doc
     body = vcat [when, rate, effect]
 
     rate :: Doc
-    rate = text "rate:" $+$ nest 2 (printExpr eventRate)
+    rate = vcat [text "rate:", indent 2 (printExpr eventRate)]
 
     when :: Doc
     when = case eventWhen of
-      Nothing -> empty
-      Just w -> text "when:" $+$ nest 2 (printExpr w)
+      Nothing -> emptyDoc
+      Just w -> vcat [text "when:", indent 2 (printExpr w)]
 
     effect :: Doc
-    effect = text "effect:" $+$ nest 2 statements
+    effect = vcat [text "effect:", indent 2 statements]
     
     statements :: Doc
     statements = vcat $ map (uncurry printAssign) eventEffect
 
     printAssign :: Text -> Expr -> Doc
     printAssign ident e = 
-      hsep [ text (unpack ident)
-           , char '='
+      hsep [ pretty (unpack ident)
+           , pretty '='
            , printExpr e]
 
 
 printModel :: Model -> Doc
-printModel Model{..} = decl $+$ nest 2 body
+printModel Model{..} = vcat [decl, indent 2 body]
   where
     decl :: Doc
     decl = text "model" <+>
-           text (unpack modelName) <>
-           char ':'
+           pretty (unpack modelName) <>
+           pretty ':'
 
     body :: Doc
     body = vcat (state ++ events)
@@ -227,22 +236,25 @@ printModel Model{..} = decl $+$ nest 2 body
 
     printDecl :: Decl -> Doc
     printDecl (Let name val) = 
-      fsep [ text "let"
-           , text (unpack name)
-           , char '='
+      hsep [ text "let"
+           , pretty (unpack name)
+           , pretty '='
            , printExpr val
            ]
     printDecl (State name val) = 
-      fsep [ text "state"
-           , text (unpack name)
-           , char '='
+      hsep [ text "state"
+           , pretty (unpack name)
+           , pretty '='
            , printExpr val
            ]
     printDecl (Assert e) =
-      fsep [ text "assert"
+      hsep [ text "assert"
            , printExpr e
            ]
     printDecl (Parameter name e) =
       case e of
-        Just v -> fsep [ "parameter", text (unpack name), "=", double v ]
-        Nothing -> fsep [ "parameter", text (unpack name) ]
+        Just v -> hsep [ "parameter", pretty (unpack name), "=", pretty v ]
+        Nothing -> hsep [ "parameter", pretty (unpack name) ]
+
+text :: String -> Doc
+text = pretty

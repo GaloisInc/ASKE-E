@@ -11,8 +11,12 @@ import Language.ASKEE.Latex.Syntax
 import Language.ASKEE.Core.Expr
 import Language.ASKEE.Panic ( panic )
 
-import Text.PrettyPrint as PP
+import Prettyprinter ( hcat, hsep, vcat, parens, Pretty(pretty) )
+import qualified Prettyprinter as PP
+
 import Text.Printf ( printf )
+
+type Doc = PP.Doc ()
 
 printLatex :: Latex -> Doc
 printLatex (Latex DiffEqs{..}) = vcat [lets, initials, rates]
@@ -23,7 +27,7 @@ printLatex (Latex DiffEqs{..}) = vcat [lets, initials, rates]
 
     binding (ident, expr) = hsep [text (unpack ident), "=", printExpr expr]
     ddtBinding (ident, expr) = hcat ["\\frac{d ", text (unpack ident), "}{dt} = ", printExpr expr]
-    initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", printExpr e]
+    initBinding (i,e) = hsep [hcat [text (unpack i),parens (pretty (0::Int))], "=", printExpr e]
 
   
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core.Print
@@ -72,3 +76,6 @@ printExpr expr =
           panic 
             "encountered unknown Core expression when pretty-printing latex" 
             [ "while determining precedence", show e ]
+
+text :: String -> Doc
+text = pretty
