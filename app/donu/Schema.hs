@@ -21,6 +21,8 @@ import SchemaJS
 import Language.ASKEE
 import Language.ASKEE.ESL.Print (printModel)
 
+-------------------------------------------------------------------------------
+-- Input
 
 data Input =
     Simulate SimulateCommand
@@ -55,136 +57,8 @@ instance JS.FromJSON Input where
       Right a  -> pure a
       Left err -> fail (show err) -- XXX: better reporting?
 
---------------------------------------------------------------------------------
-data FitCommand = FitCommand
-  { fitModel     :: ModelDef
-  , fitData      :: DataSource
-  , fitParams    :: [Text]
-  } deriving Show
-
-
---------------------------------------------------------------------------------
-data SimulateCommand = SimulateCommand
-  { simModel           :: ModelDef
-  , simStart           :: Double
-  , simStep            :: Double
-  , simEnd             :: Double
-  , simParameterValues :: Map Text Double
-  } deriving Show
-
-data StratifyCommand = StratifyCommand
-  { stratModel       :: DataSource
-  , stratConnections :: String
-  , stratStates      :: Maybe String
-  , stratType        :: StratificationType
-  }
-  deriving Show
-
-instance HasSpec StratifyCommand where
-  anySpec =
-    sectionsSpec "stratify-command"
-    do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
-        stratModel       <- reqSection' "definition" dataSource
-                            "specification of the model"
-
-        stratConnections <- reqSection' "connection-graph" stringSpec
-                            "JSON connection graph specifying stratification pattern"
-
-        stratStates      <- optSection' "state-metadata" stringSpec
-                            "JSON metadata describing infectious states ??? document more"
-
-        stratType        <- reqSection' "stratification-type" stratTypeSpec 
-                            "type of stratification to perform"
-        pure StratifyCommand {..}
-
-instance HasSpec SimulateCommand where
-  anySpec =
-    sectionsSpec "simulate-command"
-    do reqSection' "command" (jsAtom "simulate") "Run a simulation"
-       simModel   <- reqSection' "definition" modelDef
-                       "Specification of the model to simulate"
-
-       simStart     <- reqSection "start"
-                       "Start time of simulation"
-       simStep      <- fromMaybe 1 <$>
-                       optSection "step"
-                       "Time step (defaults to 1)"
-       simEnd       <- reqSection "end"
-                       "End time of simulation"
-
-       simParameterValues <- maybe Map.empty Map.fromList <$>
-                       optSection' "parameters" (assocSpec anySpec)
-                       "Use these values for model parameters"
-
-       pure SimulateCommand { .. }
-
-instance HasSpec FitCommand where
-  anySpec =
-    sectionsSpec "fit-command"
-    do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
-        fitModel      <- reqSection' "defintion" modelDef
-                         "Specificaiton of the model to simulate"
-         
-        fitData       <- reqSection' "data" dataSource
-                         "Data to which to fit the model"
- 
-        fitParams     <- reqSection' "parameters" (listSpec textSpec)
-                         "Parameters to use in model fitting"
-
-        pure FitCommand {..}
-
-instance JS.ToJSON ModelDef where
-  toJSON m =
-    JS.object [ "source" .= dataSourceToJSON (modelDefSource m)
-              , "type" .= modelDefType m
-              ]
-
-dataSourceToJSON :: DataSource -> JS.Value
-dataSourceToJSON ds =
-  case ds of
-    FromFile f ->
-      JS.object [ "file" .= f ]
-    Inline s ->
-      JS.String s
-
-instance HasSpec ModelType where
-  anySpec =  (jsAtom "easel"    $> EaselType)
-         <!> (jsAtom "diff-eqs" $> DeqType )
-         <!> (jsAtom "core"     $> CoreType)
-
-instance JS.ToJSON ModelType where
-  toJSON mt = JS.String
-    case mt of
-      EaselType -> "easel-meta"
-      DeqType -> "deq"
-      CoreType -> "core"
-
-
-dataSource :: ValueSpec DataSource
-dataSource =
-  namedSpec "data-source" $
-  sectionsSpec "file"
-    do f <- reqSection "file" "A file path"
-       pure (FromFile (Text.unpack f))
-  <!>
-    Inline <$> anySpec
-
-modelDef :: ValueSpec ModelDef
-modelDef =
-  namedSpec "model-def" $
-  sectionsSpec "model-def"
-    do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
-        modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
-        pure ModelDef { .. }
-
-
-
-stratTypeSpec :: ValueSpec StratificationType 
-stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
-             <!> (jsAtom "demographic" $> Demographic)
-
-helpHTML :: Lazy.ByteString
-helpHTML = docsJSON (anySpec :: ValueSpec Input)
+-------------------------------------------------------------------------------
+-- Output
 
 data Output =
   OutputData (DataSeries Double)
@@ -205,28 +79,19 @@ instance JS.ToJSON Output where
       StratificationResult info -> stratResultToJSON info
       OutputJSON json -> json
 
--------------------------------------------------------------------------------
+pointsToJSON :: Map Text (Double, Double) -> JS.Value
+pointsToJSON ps = JS.object
+  [ point .= JS.object ["value" .= value, "error" .= err] 
+  | (point, (value, err)) <- Map.toList ps]
 
-newtype CheckModelCommand = CheckModelCommand
-  { checkModelModel     :: ModelDef
-  } deriving Show
-
-instance HasSpec CheckModelCommand where
-  anySpec =
-    sectionsSpec "check-model"
-    do  reqSection' "command" (jsAtom "check-model") "Validate that a model is runnable"
-        checkModelModel     <- reqSection' "definition" modelDef
-                       "Specification of the model"
-
-        pure CheckModelCommand { .. }
-
-
--------------------------------------------------------------------------------
-
-data ConvertModelCommand = ConvertModelCommand
-  { convertModelSource     :: ModelDef
-  , convertModelDestType   :: ModelType
-  } deriving Show
+stratResultToJSON :: StratificationInfo -> JS.Value 
+stratResultToJSON StratificationInfo{..} =
+  JS.object [ "raw-model" .= show (printModel rawModel)
+            , "pretty-model" .= show (printModel prettyModel)
+            , "topology" .= rawTopology
+            , "parameters" .= holes
+            , "vertices" .= vertices
+            ]
 
 data Result where
   SuccessResult :: (JS.ToJSON a, Show a) => a -> Result
@@ -259,6 +124,166 @@ instance JS.ToJSON Result where
                   , "error"  .= JS.String err
                   ]
 
+instance JS.ToJSON ModelDef where
+  toJSON m =
+    JS.object [ "source" .= dataSourceToJSON (modelDefSource m)
+              , "type" .= modelDefType m
+              ]
+
+instance HasSpec ModelType where
+  anySpec =  (jsAtom "easel"    $> EaselType)
+         <!> (jsAtom "diff-eqs" $> DeqType )
+         <!> (jsAtom "core"     $> CoreType)
+
+instance JS.ToJSON ModelType where
+  toJSON mt = JS.String
+    case mt of
+      EaselType -> "easel-meta"
+      DeqType -> "deq"
+      CoreType -> "core"
+
+dataSourceToJSON :: DataSource -> JS.Value
+dataSourceToJSON ds =
+  case ds of
+    FromFile f ->
+      JS.object [ "file" .= f ]
+    Inline s ->
+      JS.String s
+
+modelDef :: ValueSpec ModelDef
+modelDef =
+  namedSpec "model-def" $
+  sectionsSpec "model-def"
+    do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
+        modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
+        pure ModelDef { .. }
+
+dataSource :: ValueSpec DataSource
+dataSource =
+  namedSpec "data-source" $
+  sectionsSpec "file"
+    do f <- reqSection "file" "A file path"
+       pure (FromFile (Text.unpack f))
+  <!>
+    Inline <$> anySpec
+
+helpHTML :: Lazy.ByteString
+helpHTML = docsJSON (anySpec :: ValueSpec Input)
+
+--------------------------------------------------------------------------------
+-- Fit
+
+data FitCommand = FitCommand
+  { fitModel     :: ModelDef
+  , fitData      :: DataSource
+  , fitParams    :: [Text]
+  } deriving Show
+
+instance HasSpec FitCommand where
+  anySpec =
+    sectionsSpec "fit-command"
+    do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
+        fitModel      <- reqSection' "defintion" modelDef
+                         "Specificaiton of the model to simulate"
+         
+        fitData       <- reqSection' "data" dataSource
+                         "Data to which to fit the model"
+ 
+        fitParams     <- reqSection' "parameters" (listSpec textSpec)
+                         "Parameters to use in model fitting"
+
+        pure FitCommand {..}
+
+--------------------------------------------------------------------------------
+-- Simulate
+
+data SimulateCommand = SimulateCommand
+  { simModel           :: ModelDef
+  , simStart           :: Double
+  , simStep            :: Double
+  , simEnd             :: Double
+  , simParameterValues :: Map Text Double
+  } deriving Show
+
+
+instance HasSpec SimulateCommand where
+  anySpec =
+    sectionsSpec "simulate-command"
+    do reqSection' "command" (jsAtom "simulate") "Run a simulation"
+       simModel   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStart     <- reqSection "start"
+                       "Start time of simulation"
+       simStep      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEnd       <- reqSection "end"
+                       "End time of simulation"
+
+       simParameterValues <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
+                       "Use these values for model parameters"
+
+       pure SimulateCommand { .. }
+
+--------------------------------------------------------------------------------
+-- Stratify
+
+data StratifyCommand = StratifyCommand
+  { stratModel       :: DataSource
+  , stratConnections :: String
+  , stratStates      :: Maybe String
+  , stratType        :: StratificationType
+  }
+  deriving Show
+
+instance HasSpec StratifyCommand where
+  anySpec =
+    sectionsSpec "stratify-command"
+    do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
+        stratModel       <- reqSection' "definition" dataSource
+                            "specification of the model"
+
+        stratConnections <- reqSection' "connection-graph" stringSpec
+                            "JSON connection graph specifying stratification pattern"
+
+        stratStates      <- optSection' "state-metadata" stringSpec
+                            "JSON metadata describing infectious states ??? document more"
+
+        stratType        <- reqSection' "stratification-type" stratTypeSpec 
+                            "type of stratification to perform"
+        pure StratifyCommand {..}
+
+
+stratTypeSpec :: ValueSpec StratificationType 
+stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
+             <!> (jsAtom "demographic" $> Demographic)
+
+-------------------------------------------------------------------------------
+-- Check
+
+newtype CheckModelCommand = CheckModelCommand
+  { checkModelModel     :: ModelDef
+  } deriving Show
+
+instance HasSpec CheckModelCommand where
+  anySpec =
+    sectionsSpec "check-model"
+    do  reqSection' "command" (jsAtom "check-model") "Validate that a model is runnable"
+        checkModelModel     <- reqSection' "definition" modelDef
+                       "Specification of the model"
+
+        pure CheckModelCommand { .. }
+
+-------------------------------------------------------------------------------
+-- Convert
+
+data ConvertModelCommand = ConvertModelCommand
+  { convertModelSource     :: ModelDef
+  , convertModelDestType   :: ModelType
+  } deriving Show
+
 instance HasSpec ConvertModelCommand where
   anySpec =
     sectionsSpec "convert-model"
@@ -269,12 +294,6 @@ instance HasSpec ConvertModelCommand where
         convertModelDestType <- reqSection "dest-type" "Type of model to produce"
 
         pure ConvertModelCommand { .. }
-
-pointsToJSON :: Map Text (Double, Double) -> JS.Value
-pointsToJSON ps = JS.object
-  [ point .= JS.object ["value" .= value, "error" .= err] 
-  | (point, (value, err)) <- Map.toList ps]
-
 
 -------------------------------------------------------------------------------
 
@@ -292,17 +311,8 @@ instance HasSpec GenerateCPPCommand where
 
         pure GenerateCPPCommand { .. }
 
-
-stratResultToJSON :: StratificationInfo -> JS.Value 
-stratResultToJSON StratificationInfo{..} =
-  JS.object [ "raw-model" .= show (printModel rawModel)
-            , "pretty-model" .= show (printModel prettyModel)
-            , "topology" .= rawTopology
-            , "parameters" .= holes
-            , "vertices" .= vertices
-            ]
-
 ---------------------------------------------------------------------------
+-- List
 
 data ListModelsCommand = ListModelsCommand
   deriving Show
@@ -315,6 +325,7 @@ instance HasSpec ListModelsCommand where
 
 
 ---------------------------------------------------------------------------
+-- Schematic
 
 newtype ModelSchemaGraphCommand = ModelSchemaGraphCommand
   { modelSchemaGraphModel :: ModelDef
@@ -331,6 +342,7 @@ instance HasSpec ModelSchemaGraphCommand where
         pure ModelSchemaGraphCommand { .. }
 
 ---------------------------------------------------------------------------
+-- Source
 
 newtype GetModelSourceCommand = GetModelSourceCommand
   { getModelSource :: ModelDef }
@@ -347,6 +359,7 @@ instance HasSpec GetModelSourceCommand where
 
 
 -------------------------------------------------------------------------------
+-- Upload
 
 data UploadModelCommand = UploadModelCommand
   { uploadModelName :: Text
@@ -364,6 +377,10 @@ instance HasSpec UploadModelCommand where
         uploadModelType <- reqSection "type" "Format of the model"
         uploadModelSource <- reqSection' "definition" textSpec "The model itself"
         pure UploadModelCommand{..}
+
+-------------------------------------------------------------------------------
+-- Interface
+
 newtype DescribeModelInterfaceCommand =
   DescribeModelInterfaceCommand { describeModelInterfaceSource :: ModelDef  }
   deriving Show
