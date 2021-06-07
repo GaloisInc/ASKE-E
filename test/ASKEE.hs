@@ -8,6 +8,7 @@ import qualified Data.Map       as Map
 import           Data.Text      ( Text )
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
+import qualified Language.ASKEE.Core.Expr          as CExp
 import qualified Language.ASKEE.Core.Visualization as Viz
 
 import qualified Test.Tasty       as Tasty
@@ -57,7 +58,7 @@ assertDataClose actual expected =
                   (and (zipWith compareVars (asc actual) (asc expected)))
 
   where
-    isClose n1 n2 = (n1 - n2) < 0.00000001
+    isClose n1 n2 = abs (n1 - n2) < 0.00000001
     compareVars (_, as) (_, bs) = and $ zipWith isClose as bs
     asc = Map.toAscList . values
 
@@ -127,17 +128,17 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
     event name eff = 
       Core.Event
         { Core.eventName = name
-        , Core.eventRate = Core.NumLit 0
-        , Core.eventWhen = Core.BoolLit False
+        , Core.eventRate = CExp.NumLit 0
+        , Core.eventWhen = CExp.BoolLit False
         , Core.eventEffect = Map.fromList eff
         }
 
-    xInit = ("X", Core.NumLit 10)
-    yInit = ("Y", Core.NumLit 0)
+    xInit = ("X", CExp.NumLit 10)
+    yInit = ("Y", CExp.NumLit 0)
 
-    xSub1 = ("X", Core.Var "X" Core.:-: Core.NumLit 1)
-    xAdd1 = ("X", Core.Var "X" Core.:+: Core.NumLit 1)
-    yAdd1 = ("Y", Core.Var "Y" Core.:+: Core.NumLit 1)
+    xSub1 = ("X", CExp.Var "X" CExp.:-: CExp.NumLit 1)
+    xAdd1 = ("X", CExp.Var "X" CExp.:+: CExp.NumLit 1)
+    yAdd1 = ("Y", CExp.Var "Y" CExp.:+: CExp.NumLit 1)
 
     xNode = Viz.Node "X" Viz.State
     e1Node = Viz.Node "E1" Viz.Event
@@ -152,7 +153,7 @@ testAsSchematicGraph (model, graph) =
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
-    [ testCase "Basic SIR test" $ testSimulateEsl (Inline sir) series1
+    [ testCase "Basic SIR simulation test" $ testSimulateEsl (Inline sir) series1
     , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
     , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e
     , testCase "Event-to-state flow schematic" $ testAsSchematicGraph e2s
