@@ -12,6 +12,7 @@ import Language.ASKEE.Panic ( panic )
 
 import Text.PrettyPrint as PP
 import Text.Printf ( printf )
+import Language.ASKEE.Core.Simplify (simplifyExpr)
 
 printLatex :: DiffEqs -> Doc
 printLatex DiffEqs {..} = vcat [lets, initials, rates]
@@ -29,7 +30,7 @@ printLatex DiffEqs {..} = vcat [lets, initials, rates]
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core
 printExpr :: Expr -> Doc
 printExpr expr =
-  case expr of
+  case simplifyExpr expr of
     NumLit d -> text $ printf "%f" d
     Op1 Neg e' -> "-"PP.<> pp e'
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
