@@ -36,7 +36,7 @@ printExpr expr =
     Op1 Neg e' -> "-"PP.<> pp e'
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
-    e1 :*: e2 -> hsep [pp e1, "*", pp e2]
+    e1 :*: e2 -> hsep [pp e1 PP.<> pp e2]
     e1 :/: e2 -> hcat ["\\frac{", printExpr e1, "}{", printExpr e2, "}"]
     Var v -> text $ unpack v
     _ -> 
