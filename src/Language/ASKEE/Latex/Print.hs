@@ -32,7 +32,9 @@ printLatex DiffEqs {..} = vcat [lets, initials, rates]
 printExpr :: Expr -> Doc
 printExpr expr =
   case simplify expr of
-    NumLit d -> text $ printf "%f" d
+    NumLit c -> if c == fromInteger (round c)
+      then text $ show $ round c
+       else text $ printf "%f" c
     Op1 Neg e' -> "-"PP.<> pp e'
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> hsep [pp e1, "-", pp e2]
