@@ -382,6 +382,7 @@ coreToGromet = Gromet.convertCoreToGromet
 expToLatex :: String -> IO ()
 expToLatex e =
   do  eqns <- loadEquations (Inline (Text.pack e)) []
+      print (PL.simplify . snd <$> Map.toList (deqLets eqns))
       print (PL.printLatex eqns)
 
 easelToLatex :: Syntax.Model -> Either String String

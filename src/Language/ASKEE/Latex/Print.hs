@@ -5,6 +5,7 @@ module Language.ASKEE.Latex.Print where
 
 import qualified Data.Map as Map
 import Data.Text ( unpack )
+import Control.Monad.Identity ( Identity(Identity, runIdentity) )
 
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
 import Language.ASKEE.Core
@@ -30,7 +31,7 @@ printLatex DiffEqs {..} = vcat [lets, initials, rates]
 -- | Specialized version of `ppExpr` in Language.ASKEE.Core
 printExpr :: Expr -> Doc
 printExpr expr =
-  case simplifyExpr expr of
+  case simplify expr of
     NumLit d -> text $ printf "%f" d
     Op1 Neg e' -> "-"PP.<> pp e'
     e1 :+: e2 -> hsep [pp e1, "+", pp e2]
@@ -73,3 +74,19 @@ printExpr expr =
           panic 
             "encountered unknown Core expression when pretty-printing latex" 
             [ "while determining precedence", show e ]
+
+simplify :: Expr -> Expr
+simplify e =
+  let e' = simplifyExpr $ mapAt exprChildren propLeft (propLeft e)
+  in if e == e' then e' else simplify e'
+
+propLeft :: Expr -> Expr
+propLeft e0 =
+  case e0 of
+    Op2 Mul (NumLit n) (NumLit m) -> NumLit (n * m)
+    e1 :*: (Op1 Neg e2) :*: e3 -> Op1 Neg e1 :*: e2 :*: e3
+    Op2 Mul e1         e2@(NumLit _) -> Op2 Mul e2 e1
+    Op2 Mul e1 (Op1 Neg e2) -> Op2 Mul (Op1 Neg e1) e2
+    Op1 Neg (NumLit 6) :*: Op1 Neg (NumLit 7) :*: Var "b" ->
+      Var "foo"
+    _ -> e0
