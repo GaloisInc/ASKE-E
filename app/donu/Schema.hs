@@ -37,6 +37,7 @@ data Input =
   | GetModelSource GetModelSourceCommand
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
+  | ExecuteJupyterCode ExecuteJupyterCodeCommand
     deriving Show
 
 instance HasSpec Input where
@@ -51,6 +52,7 @@ instance HasSpec Input where
          <!> (GetModelSource <$> anySpec)
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
+         <!> (ExecuteJupyterCode <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -61,12 +63,12 @@ instance JS.FromJSON Input where
 -------------------------------------------------------------------------------
 -- Output
 
-newtype FitResult = FitResult (Map Text (Double, Double)) 
+newtype FitResult = FitResult (Map Text (Double, Double))
   deriving Show
 
 instance JS.ToJSON FitResult where
   toJSON (FitResult ps) = JS.object
-    [ point .= JS.object ["value" .= value, "error" .= err] 
+    [ point .= JS.object ["value" .= value, "error" .= err]
     | (point, (value, err)) <- Map.toList ps]
 
 instance JS.ToJSON StratificationInfo where
@@ -118,7 +120,7 @@ instance JS.ToJSON ModelDef where
 -- ToJSON ModelDef and ToJSON (MetaAnn ModelDef) probably ought to be merged somehow
 
 instance JS.ToJSON (MetaAnn ModelDef) where
-  toJSON MetaAnn{..} = 
+  toJSON MetaAnn{..} =
     let name = maybeToList $ ("name" .=) <$> lookup "name" metaData
         desc = maybeToList $ ("description" .=) <$> lookup "description" metaData
     in  JS.object $
@@ -182,10 +184,10 @@ instance HasSpec FitCommand where
     do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
         fitModel      <- reqSection' "definition" modelDef
                          "Specificaiton of the model to simulate"
-         
+
         fitData       <- reqSection' "data" dataSource
                          "Data to which to fit the model"
- 
+
         fitParams     <- reqSection' "parameters" (listSpec textSpec)
                          "Parameters to use in model fitting"
 
@@ -248,12 +250,12 @@ instance HasSpec StratifyCommand where
         stratStates      <- optSection' "state-metadata" stringSpec
                             "JSON metadata describing infectious states" -- XXX document desired format somewhere
 
-        stratType        <- reqSection' "stratification-type" stratTypeSpec 
+        stratType        <- reqSection' "stratification-type" stratTypeSpec
                             "type of stratification to perform"
         pure StratifyCommand {..}
 
 
-stratTypeSpec :: ValueSpec StratificationType 
+stratTypeSpec :: ValueSpec StratificationType
 stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
              <!> (jsAtom "demographic" $> Demographic)
 
@@ -368,7 +370,7 @@ data UploadModelCommand = UploadModelCommand
 instance HasSpec UploadModelCommand where
   anySpec =
     sectionsSpec "upload-model"
-    do  reqSection' "command" (jsAtom "upload-model") 
+    do  reqSection' "command" (jsAtom "upload-model")
                     "Upload new named model"
         uploadModelName <- reqSection' "name" textSpec "Name of the model"
         uploadModelType <- reqSection "type" "Format of the model"
@@ -390,3 +392,19 @@ instance HasSpec DescribeModelInterfaceCommand where
         describeModelInterfaceSource  <- reqSection' "definition" modelDef "Specification of the model"
 
         pure DescribeModelInterfaceCommand { .. }
+
+-------------------------------------------------------------------------------
+-- TODO RGS: Document all of this
+
+newtype ExecuteJupyterCodeCommand = ExecuteJupyterCodeCommand
+  { executeJupyterCode :: Text
+  }
+  deriving Show
+
+instance HasSpec ExecuteJupyterCodeCommand where
+  anySpec =
+    sectionsSpec "execute-jupyter-code"
+    do  reqSection' "command" (jsAtom "execute-jupyter-code")
+                    "Execute a command in a Jupyter notebook"
+        executeJupyterCode <- reqSection' "code" textSpec "The code to execute"
+        pure ExecuteJupyterCodeCommand{..}

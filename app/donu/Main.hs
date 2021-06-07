@@ -9,6 +9,9 @@ import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
 import Language.ASKEE
+import Language.ASKEE.Jupyter.GenLexer (lexJupyter)
+import Language.ASKEE.Jupyter.GenParser (parseJupyterStmt)
+import qualified Language.ASKEE.Jupyter.Interpreter as Jupyter
 
 import Schema
 
@@ -16,7 +19,7 @@ import qualified Snap.Core as Snap
 import           Snap.Http.Server ( quickHttpServe )
 
 main :: IO ()
-main = 
+main =
   do  initStorage
       quickHttpServe $
         do  Snap.route [ ("/help", showHelp)
@@ -58,8 +61,8 @@ handleRequest r =
   print r >>
   case r of
     Simulate SimulateCommand{..} ->
-      do  res <- 
-            simulateModel 
+      do  res <-
+            simulateModel
               (modelDefType simModel)
               (modelDefSource simModel)
               simStart
@@ -78,15 +81,15 @@ handleRequest r =
             Just err -> pure (FailureResult (Text.pack err))
 
     ConvertModel ConvertModelCommand{..} ->
-      do  converted <- 
+      do  converted <-
             convertModelString
-              (modelDefType convertModelSource) 
-              (modelDefSource convertModelSource) 
+              (modelDefType convertModelSource)
+              (modelDefSource convertModelSource)
               convertModelDestType
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do  (res, _) <- 
+      do  (res, _) <-
             fitModelToData
               (modelDefType fitModel)
               fitData
@@ -120,11 +123,16 @@ handleRequest r =
           let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
           succeed' result
 
-    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
+    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) ->
       do  model <- loadESLFrom modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
-  
+
+    ExecuteJupyterCode (ExecuteJupyterCodeCommand code) ->
+      pure $
+      case lexJupyter (Text.unpack code) >>= parseJupyterStmt of
+        Left err   -> FailureResult $ Text.pack err
+        Right stmt -> succeed $ Jupyter.interpretStmt stmt
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
