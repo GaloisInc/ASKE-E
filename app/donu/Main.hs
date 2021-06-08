@@ -6,7 +6,6 @@ import Control.Monad          ( void )
 import Control.Monad.IO.Class ( liftIO )
 import Control.Exception      ( try, SomeException )
 
-import           Data.Text ( Text )
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
@@ -36,7 +35,7 @@ main =
                   Right out ->
                     do  let (code, msg) =
                               case out of
-                                OutputResult (FailureResult _) -> (400, "Error")
+                                (FailureResult _) -> (400, "Error")
                                 _ -> (200, "OK")
                         Snap.modifyResponse (Snap.setResponseStatus code msg)
                         Snap.writeLBS (JS.encode out)
@@ -55,7 +54,7 @@ showHelp = Snap.writeLBS helpHTML
 --------------------------------------------------------------------------------
 
 
-handleRequest :: Input -> IO Output
+handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
@@ -68,7 +67,7 @@ handleRequest r =
               simEnd
               simStep
               simParameterValues
-          pure (OutputData res)
+          succeed' res
 
     CheckModel CheckModelCommand{..} ->
       do  checkResult <- 
@@ -76,8 +75,8 @@ handleRequest r =
               (modelDefType checkModelModel)
               (modelDefSource checkModelModel)
           case checkResult of
-            Nothing  -> pure $ OutputResult (SuccessResult ())
-            Just err -> pure $ OutputResult (FailureResult (Text.pack err))
+            Nothing  -> succeed' ()
+            Just err -> pure (FailureResult (Text.pack err))
 
     ConvertModel ConvertModelCommand{..} ->
       do  converted <- 
@@ -85,7 +84,7 @@ handleRequest r =
               (modelDefType convertModelSource) 
               (modelDefSource convertModelSource) 
               convertModelDestType
-          pure $ OutputResult $ asResult converted
+          pure $ asResult converted
 
     Fit FitCommand{..} ->
       do  (res, _) <- 
@@ -95,36 +94,43 @@ handleRequest r =
               fitParams
               mempty
               (modelDefSource fitModel)
-          pure (FitResult res)
+          succeed' (FitResult res)
 
     GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
       do  cpp <- loadCPPFrom modelDefType modelDefSource
-          pure $ OutputResult $ asResult (Right (Text.pack $ show cpp) :: Either Text Text)
+          succeed' (Text.pack $ show cpp)
 
     Stratify StratifyCommand{..} ->
         do  res <- stratifyModel stratModel stratConnections stratStates stratType
-            pure $ StratificationResult res
+            succeed' res
 
-    ListModels _ -> OutputModelList <$> listAllModels
+    ListModels _ -> succeed <$> listAllModels
 
     ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
       do  modelSource <- loadCoreFrom modelDefType modelDefSource
           case asSchematicGraph modelSource of
-            Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
-            Just g -> pure $ OutputResult (SuccessResult g)
+            Nothing -> pure (FailureResult "model cannot be rendered as a schematic")
+            Just g -> succeed' g
 
     UploadModel UploadModelCommand{..} ->
       do  let check m = void $ checkModel uploadModelType (Inline m)
           loc <- storeModel uploadModelName uploadModelType check uploadModelSource
           let mdef = ModelDef (FromFile loc) uploadModelType
-          pure $ OutputResult (SuccessResult mdef)
+          succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->
       do  modelString <- loadModel (modelDefType getModelSource) (modelDefSource getModelSource)
           let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
-          pure $ OutputResult (SuccessResult result)
+          succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
       do  model <- loadESLMetaFrom modelDefType modelDefSource
           let res = describeModelInterface model
-          pure $ OutputResult (SuccessResult res)
+          succeed' res
+  
+  where
+    succeed :: (JS.ToJSON a, Show a) => a -> Result
+    succeed = SuccessResult
+
+    succeed' :: (JS.ToJSON a, Show a) => a -> IO Result
+    succeed' = pure . succeed
