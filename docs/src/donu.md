@@ -10,6 +10,15 @@ for the ASKE-E program.
 All operations are implemented at path `/` and are indifferent to HTTP verb 
 (`GET`, `POST`, etc.)
 
+## Response Convention
+_All_ responses return a two-element dict. 
+
+On success, the members are `"status"`, which will map to the literal string `"success"`, and `"result"`, which will map to a dict containing whatever is specified below in a command's **Response** section.
+
+On error, the members are `"status"`, which will map to the literal string `"error"`, and `"error"`, which will map to a string description of the error.
+
+The provided examples reflect this schema.
+
 ## Types
 
 ### `datasource`
@@ -73,12 +82,15 @@ Example:
 
 ```JSON
 {
-  "models": [
-    {
-      "source": { "file": "modelRepo/easel/sir.easel" },
-      "type": "easel"
-    }
-  ]
+  "status": "success",
+  "result": {
+    "models": [
+      {
+        "source": { "file": "modelRepo/easel/sir.easel" },
+        "type": "easel"
+      }
+    ]
+  }
 }
 ```
 
@@ -126,36 +138,39 @@ Example:
 
 ```JSON
 {
-  "values": {
-    "I": [
-      3,
-      396.20766691080604,
-      119.33588838987737,
-      35.943279530151585,
-      10.825907756942332
-    ],
-    "S": [
-      997,
-      0.0012550867795002216,
-      2.4726152151230926e-06,
-      3.7868257221162325e-07,
-      2.151977671793774e-07
-    ],
-    "R": [
+  "status": "success",
+  "result": {
+    "values": {
+      "I": [
+        3,
+        396.20766691080604,
+        119.33588838987737,
+        35.943279530151585,
+        10.825907756942332
+      ],
+      "S": [
+        997,
+        0.0012550867795002216,
+        2.4726152151230926e-06,
+        3.7868257221162325e-07,
+        2.151977671793774e-07
+      ],
+      "R": [
+        0,
+        603.7910780024147,
+        880.6641091375077,
+        964.0567200911661,
+        989.1740920278602
+      ]
+    },
+    "times": [
       0,
-      603.7910780024147,
-      880.6641091375077,
-      964.0567200911661,
-      989.1740920278602
+      30,
+      60,
+      90,
+      120
     ]
-  },
-  "times": [
-    0,
-    30,
-    60,
-    90,
-    120
-  ]
+  }
 }
 ```
 
@@ -186,8 +201,8 @@ Example:
 
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
-| status           | string                   | `"success"` or `"failure"` depending on if the operation was succcesful   |
-| result           | graph                    | Description of the schematic graph                                |
+| nodes            | list of node             | A node has a `name` and a `type`                                  |
+| edges            | list of edge             | An edge is a "tuple" mapping one node to another                  |
 
 
 ```JSON
@@ -287,8 +302,11 @@ The result, if successful, is a `model-def` object with the source inline.
 
 ```JSON
 {
-  "source": "model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S > 0 and I > 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I > 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      ",
-  "type": "easel"
+  "status": "success",
+  "result": {
+    "source": "model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S > 0 and I > 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I > 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      ",
+    "type": "easel"
+  }
 }
 ```
 
@@ -317,10 +335,7 @@ May fail if the conversion is not supported.
 
 **Response:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| status           | string                   | Either `success` or if the model conversion is not supported `failure` |
-| result           | model-def                | Converted model (inline)                                          |
+The result, if successful, is a `model-def` object with the new model inline.
 
 ```JSON
 {
@@ -357,8 +372,8 @@ May fail if the conversion is not supported.
 
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
-| status           | string                   | Either `success` or if the model conversion is not supported `failure` |
-| result           | model-def                | a list of parameters and state variable                           |
+| stateVars        | list of state variable   | A state variable has a `name` and some `metadata`                 |
+| parameters       | list of parameter        | A parameter has a `name`, some `metadata`, and a `defaultValue`   |
 
 ```JSON
 {
@@ -451,22 +466,9 @@ command = {
 
 **Response:**
 
-On success:
-
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| status           | string                   | The literal `"success"`                                           |
-| result           | model-def                | Definition of the resultant model                                 |
-
-On failure:
-
-| Field       | Type        | Description                   |
-|-------------|-------------|-------------------------------|
-| status      | string      | The literal `"error"`         |
-| error       | string      | The reason for the error      |
+The result, if successful, is a `model-def` object with the new file in the `source` field.
 
 Example:
-
 ```JSON
 {
   "status": "success",

@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Schema where
 
 import Data.Map(Map)
@@ -20,6 +21,8 @@ import SchemaJS
 
 import Language.ASKEE
 import Language.ASKEE.ESL.Print (printModel)
+import qualified Data.HashMap.Strict as HMap
+import Language.ASKEE.Panic (panic)
 
 -------------------------------------------------------------------------------
 -- Input
@@ -60,38 +63,22 @@ instance JS.FromJSON Input where
 -------------------------------------------------------------------------------
 -- Output
 
-data Output =
-  OutputData (DataSeries Double)
-  | OutputResult Result
-  | OutputJSON JS.Value
-  | OutputModelList [ModelDef]
-  | FitResult (Map Text (Double, Double))
-  | StratificationResult StratificationInfo
+newtype FitResult = FitResult (Map Text (Double, Double)) 
+  deriving Show
 
-instance JS.ToJSON Output where
-  toJSON out =
-    case out of
-      OutputData d -> dataSeriesAsJSON d
-      OutputModelList ms ->
-        JS.object [ "models" .= ms ]
-      OutputResult result -> JS.toJSON result
-      FitResult r -> pointsToJSON r
-      StratificationResult info -> stratResultToJSON info
-      OutputJSON json -> json
+instance JS.ToJSON FitResult where
+  toJSON (FitResult ps) = JS.object
+    [ point .= JS.object ["value" .= value, "error" .= err] 
+    | (point, (value, err)) <- Map.toList ps]
 
-pointsToJSON :: Map Text (Double, Double) -> JS.Value
-pointsToJSON ps = JS.object
-  [ point .= JS.object ["value" .= value, "error" .= err] 
-  | (point, (value, err)) <- Map.toList ps]
-
-stratResultToJSON :: StratificationInfo -> JS.Value 
-stratResultToJSON StratificationInfo{..} =
-  JS.object [ "raw-model" .= show (printModel rawModel)
-            , "pretty-model" .= show (printModel prettyModel)
-            , "topology" .= rawTopology
-            , "parameters" .= holes
-            , "vertices" .= vertices
-            ]
+instance JS.ToJSON StratificationInfo where
+  toJSON StratificationInfo{..} =
+    JS.object [ "raw-model" .= show (printModel rawModel)
+              , "pretty-model" .= show (printModel prettyModel)
+              , "topology" .= rawTopology
+              , "parameters" .= holes
+              , "vertices" .= vertices
+              ]
 
 data Result where
   SuccessResult :: (JS.ToJSON a, Show a) => a -> Result
