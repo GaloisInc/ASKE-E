@@ -303,6 +303,11 @@ for the ASKE-E program.</p>
 <h2 id="calling-convention"><a class="header" href="#calling-convention">Calling Convention</a></h2>
 <p>All operations are implemented at path <code>/</code> and are indifferent to HTTP verb 
 (<code>GET</code>, <code>POST</code>, etc.)</p>
+<h2 id="response-convention"><a class="header" href="#response-convention">Response Convention</a></h2>
+<p><em>All</em> responses return a two-element dict. </p>
+<p>On success, the members are <code>&quot;status&quot;</code>, which will map to the literal string <code>&quot;success&quot;</code>, and <code>&quot;result&quot;</code>, which will map to a dict containing whatever is specified below in a command's <strong>Response</strong> section.</p>
+<p>On error, the members are <code>&quot;status&quot;</code>, which will map to the literal string <code>&quot;error&quot;</code>, and <code>&quot;error&quot;</code>, which will map to a string description of the error.</p>
+<p>The provided examples reflect this schema.</p>
 <h2 id="types"><a class="header" href="#types">Types</a></h2>
 <h3 id="datasource"><a class="header" href="#datasource"><code>datasource</code></a></h3>
 <p>A <code>datasource</code> is either an object with the single field <code>file</code> with :</p>
@@ -338,12 +343,15 @@ for the ASKE-E program.</p>
 </tbody></table>
 <p>Example:</p>
 <pre><code class="language-JSON">{
-  &quot;models&quot;: [
-    {
-      &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
-      &quot;type&quot;: &quot;easel&quot;
-    }
-  ]
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;models&quot;: [
+      {
+        &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+        &quot;type&quot;: &quot;easel&quot;
+      }
+    ]
+  }
 }
 </code></pre>
 <h3 id="simulate---simulate-a-model-using-odes"><a class="header" href="#simulate---simulate-a-model-using-odes"><code>simulate</code> - Simulate a model using ODEs</a></h3>
@@ -378,36 +386,39 @@ for the ASKE-E program.</p>
 <p>The object in <code>values</code> is such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
-  &quot;values&quot;: {
-    &quot;I&quot;: [
-      3,
-      396.20766691080604,
-      119.33588838987737,
-      35.943279530151585,
-      10.825907756942332
-    ],
-    &quot;S&quot;: [
-      997,
-      0.0012550867795002216,
-      2.4726152151230926e-06,
-      3.7868257221162325e-07,
-      2.151977671793774e-07
-    ],
-    &quot;R&quot;: [
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;values&quot;: {
+      &quot;I&quot;: [
+        3,
+        396.20766691080604,
+        119.33588838987737,
+        35.943279530151585,
+        10.825907756942332
+      ],
+      &quot;S&quot;: [
+        997,
+        0.0012550867795002216,
+        2.4726152151230926e-06,
+        3.7868257221162325e-07,
+        2.151977671793774e-07
+      ],
+      &quot;R&quot;: [
+        0,
+        603.7910780024147,
+        880.6641091375077,
+        964.0567200911661,
+        989.1740920278602
+      ]
+    },
+    &quot;times&quot;: [
       0,
-      603.7910780024147,
-      880.6641091375077,
-      964.0567200911661,
-      989.1740920278602
+      30,
+      60,
+      90,
+      120
     ]
-  },
-  &quot;times&quot;: [
-    0,
-    30,
-    60,
-    90,
-    120
-  ]
+  }
 }
 </code></pre>
 <h3 id="get-model-schematic---get-schematic-description-of-a-model"><a class="header" href="#get-model-schematic---get-schematic-description-of-a-model"><code>get-model-schematic</code> - get schematic description of a model</a></h3>
@@ -428,8 +439,8 @@ for the ASKE-E program.</p>
 </code></pre>
 <p><strong>Response:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>status</td><td>string</td><td><code>&quot;success&quot;</code> or <code>&quot;failure&quot;</code> depending on if the operation was succcesful</td></tr>
-<tr><td>result</td><td>graph</td><td>Description of the schematic graph</td></tr>
+<tr><td>nodes</td><td>list of node</td><td>A node has a <code>name</code> and a <code>type</code></td></tr>
+<tr><td>edges</td><td>list of edge</td><td>An edge is a &quot;tuple&quot; mapping one node to another</td></tr>
 </tbody></table>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
@@ -518,8 +529,11 @@ for the ASKE-E program.</p>
 <p><strong>Response:</strong></p>
 <p>The result, if successful, is a <code>model-def</code> object with the source inline.</p>
 <pre><code class="language-JSON">{
-  &quot;source&quot;: &quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S &gt; 0 and I &gt; 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I &gt; 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      &quot;,
-  &quot;type&quot;: &quot;easel&quot;
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;source&quot;: &quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n\n  let s_initial = 997\n  let i_initial = 3\n  let r_initial = 0\n\n  state S = s_initial\n  state I = i_initial\n  state R = r_initial\n\n  let total_population = S + I + R\n\n  event Infect:\n    when:\n      S &gt; 0 and I &gt; 0\n    rate: \n      beta * S * I / total_population\n    effect:\n      S -= 1\n      I += 1\n      \n  event Remove:\n    when:\n      I &gt; 0\n    rate: \n      gamma * I\n    effect:\n      I -= 1\n      R += 1\n      \n      &quot;,
+    &quot;type&quot;: &quot;easel&quot;
+  }
 }
 </code></pre>
 <h3 id="convert-model---convert-a-model-from-one-form-to-another"><a class="header" href="#convert-model---convert-a-model-from-one-form-to-another"><code>convert-model</code> - convert a model from one form to another</a></h3>
@@ -540,10 +554,7 @@ for the ASKE-E program.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
-<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>status</td><td>string</td><td>Either <code>success</code> or if the model conversion is not supported <code>failure</code></td></tr>
-<tr><td>result</td><td>model-def</td><td>Converted model (inline)</td></tr>
-</tbody></table>
+<p>The result, if successful, is a <code>model-def</code> object with the new model inline.</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
   &quot;result&quot;: {
@@ -570,8 +581,8 @@ for the ASKE-E program.</p>
 </code></pre>
 <p><strong>Response</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>status</td><td>string</td><td>Either <code>success</code> or if the model conversion is not supported <code>failure</code></td></tr>
-<tr><td>result</td><td>model-def</td><td>a list of parameters and state variable</td></tr>
+<tr><td>stateVars</td><td>list of state variable</td><td>A state variable has a <code>name</code> and some <code>metadata</code></td></tr>
+<tr><td>parameters</td><td>list of parameter</td><td>A parameter has a <code>name</code>, some <code>metadata</code>, and a <code>defaultValue</code></td></tr>
 </tbody></table>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
@@ -654,16 +665,7 @@ for the ASKE-E program.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
-<p>On success:</p>
-<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>status</td><td>string</td><td>The literal <code>&quot;success&quot;</code></td></tr>
-<tr><td>result</td><td>model-def</td><td>Definition of the resultant model</td></tr>
-</tbody></table>
-<p>On failure:</p>
-<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>status</td><td>string</td><td>The literal <code>&quot;error&quot;</code></td></tr>
-<tr><td>error</td><td>string</td><td>The reason for the error</td></tr>
-</tbody></table>
+<p>The result, if successful, is a <code>model-def</code> object with the new file in the <code>source</code> field.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
