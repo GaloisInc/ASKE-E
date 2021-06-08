@@ -1,0 +1,3 @@
+apt: libblas-dev libgsl-dev liblapack-dev
+branches: master
+cabal-check: False

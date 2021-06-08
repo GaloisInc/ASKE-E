@@ -6,7 +6,8 @@ name:                aske-e
 version:             0.1.0.0
 author:              Galois Inc.
 maintainer:          james.lamar@galois.com
-extra-source-files:  CHANGELOG.md, README.md
+extra-source-files:  README.md
+tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
     exposed-modules:    Language.ASKEE
@@ -60,7 +61,8 @@ library
                         Language.ASKEE.Experiment.TypeOf
 
                         Language.ASKEE.Gromet
-                        Language.ASKEE.Gromet.Conversion
+                        Language.ASKEE.Gromet.FromEasel
+                        Language.ASKEE.Gromet.See
                         Language.ASKEE.Gromet.Syntax
 
                         Language.ASKEE.Latex.GenLexer
@@ -118,7 +120,6 @@ library
                       , prettyprinter
                       , process
                       , random
-                      , statistics
                       , template-haskell
                       , temporary
                       , text
@@ -141,6 +142,7 @@ executable deca
                       , filepath
                       , simple-get-opt
                       , text
+                      , aeson
   default-language:     Haskell2010
   ghc-options:          -Wall
 
@@ -173,18 +175,6 @@ executable donu
 
   default-language:     Haskell2010
   ghc-options:          -Wall -threaded
-
-executable ex
-  hs-source-dirs:       app/ex
-  main-is:              Main.hs
-  build-depends:        base
-                      , alex-tools
-                      , aske-e
-                      , containers
-                      , pretty-show
-                      , text
-  default-language:     Haskell2010
-  ghc-options:          -Wall
 
 test-suite tests
   type:                 exitcode-stdio-1.0

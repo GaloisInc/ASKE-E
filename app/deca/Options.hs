@@ -2,6 +2,7 @@
 module Options
   ( Options(..)
   , Command(..)
+  , ShowGromet(..)
   , getOptions
   , GetOptException(..)
   , showHelp
@@ -25,6 +26,10 @@ data Command =
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
+  | ShowGromet ShowGromet
+  deriving Show
+
+data ShowGromet = JSON | PP
   deriving Show
 
 data Options = Options
@@ -71,6 +76,14 @@ options = OptSpec
       , Option [] ["dbg-dump-cpp"]
         "Dump some c++ code"
         $ NoArg \s -> Right s { command = DumpCPP }
+
+      , Option [] ["to-gromet"]
+        "Convert to GroMEt"
+        $ NoArg \s -> Right s { command = ShowGromet JSON }
+
+      , Option [] ["to-pp-gromet"]
+        "Convert to human readable GroMEt"
+        $ NoArg \s -> Right s { command = ShowGromet PP }
 
       , Option [] ["to-deq"]
         "Convert to differental equations"

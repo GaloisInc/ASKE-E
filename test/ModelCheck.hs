@@ -12,7 +12,7 @@ import Language.ASKEE.Expr as Expr
 import Language.ASKEE.ESL.Syntax
 
 import Test.Tasty(TestTree, TestName)
-import Test.Tasty.HUnit hiding (State)
+import Test.Tasty.HUnit
 
 import System.Exit (exitFailure)
 

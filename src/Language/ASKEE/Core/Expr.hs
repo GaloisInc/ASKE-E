@@ -1,5 +1,4 @@
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# Language PatternSynonyms, ApplicativeDo, RankNTypes #-}
 module Language.ASKEE.Core.Expr where
 
 import Data.Text ( Text )
@@ -8,6 +7,8 @@ import qualified Data.Map as Map
 import Data.List (foldl', sortBy)
 import Data.Ord (comparing)
 import Data.Functor.Identity (runIdentity)
+import qualified Data.Functor.Const as Const
+import qualified Data.Set as Set
 
 type Ident = Text
 
@@ -73,9 +74,70 @@ pattern NumLit  x = Literal (Num  x)
 
 -------------------------------------------------------------------------------
 
+-- One level traversals
+
+-- | Apply a function to the "locations" specified by the first argument.
+mapAt ::
+  (forall f. Applicative f => (a -> f b) -> x -> f y)
+  {- ^ locatiosn where to map -} ->
+
+  (a -> b) -> x -> y
+mapAt it f = runIdentity . it (pure . f)
+
+-- | Collect the values at the "locations" specified by the first argument.
+collectFrom ::
+  (Monoid m) =>
+  (forall f. Applicative f => (a -> f b) -> x -> f y) ->
+  (a -> m) -> x -> m
+collectFrom it f t = Const.getConst (it (Const.Const . f) t)
+
+
+
+
+-- | Locations of expressions in a structure
+class TraverseExprs t where
+  traverseExprs :: Applicative f => (Expr -> f Expr) -> t -> f t
+
+-- | Apply a function to expressions contained in something.
+mapExprs :: TraverseExprs t => (Expr -> Expr) -> t -> t
+mapExprs = mapAt traverseExprs
+
+-- | Collect stuff from expressions contained in something
+collectExprs :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
+collectExprs = collectFrom traverseExprs
+
+
+
+exprChildren :: Applicative f => (Expr -> f Expr) -> Expr -> f Expr
+exprChildren f expr =
+    case expr of
+      Literal {}   -> pure expr
+      Op1 op e     -> Op1 op <$> f e
+      Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
+      Var {}       -> pure expr
+      If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
+      Fail {}      -> pure expr
+
+-- | Replace variable with expressions as specified by the map.
+substExpr :: Map Ident Expr -> Expr -> Expr
+substExpr su expr =
+  case expr of
+    Var x | Just e <- Map.lookup x su -> e
+    _ -> mapAt exprChildren (substExpr su) expr
+
+
+collectVars :: (TraverseExprs t) => t -> Set.Set Ident
+collectVars = collectExprs collectExprVars
+
+collectExprVars :: Expr -> Set.Set Ident
+collectExprVars e =
+  case e of
+    Var n -> Set.singleton n
+    _     -> collectFrom exprChildren collectExprVars e
+
 simplifyExpr :: Expr -> Expr
 simplifyExpr expr =
-  case mapExprs (toFrom . simplifyExpr . toFrom) expr of
+  case mapAt exprChildren (toFrom . simplifyExpr . toFrom) expr of
     If (BoolLit b) e1 e2          -> if b then e1 else e2
 
     -- Numerics
@@ -213,9 +275,6 @@ fromSum (Sum k0 xs) =
     | otherwise = Op2 Add t (Op2 Mul (NumLit k) e)
 
 
-class TraverseExprs t where
-  traverseExprs :: Applicative f => (Expr -> f Expr) -> t -> f t
-
 -- | Traverse the immediate children of an expression
 instance TraverseExprs Expr where
   traverseExprs f expr =
@@ -226,14 +285,3 @@ instance TraverseExprs Expr where
       Var {}       -> pure expr
       If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
       Fail {}      -> pure expr
-
--- | Apply a function to expressions contained in something.
-mapExprs :: TraverseExprs t => (Expr -> Expr) -> t -> t
-mapExprs f = runIdentity . traverseExprs (pure . f)
-
--- | Replace variable with expressions as specified by the map.
-substExpr :: Map Ident Expr -> Expr -> Expr
-substExpr su expr =
-  case expr of
-    Var x | Just e <- Map.lookup x su -> e
-    _ -> mapExprs (substExpr su) expr

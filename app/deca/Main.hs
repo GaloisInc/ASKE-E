@@ -30,15 +30,15 @@ main :: IO ()
 main =
   do  opts <- getOptions
       case command opts of
-          
-      -- --  OnlyLex -> 
+
+      -- --  OnlyLex ->
       -- --     forM_ (modelFiles opts) (lexModel . FromFile)
-      -- --  OnlyParse -> 
+      -- --  OnlyParse ->
       -- --     forM_ (modelFiles opts) (parseModel . FromFile)
       -- --  OnlyCheck ->
       -- --     forM_ (modelFiles opts) (loadModel . FromFile)
-      -- --  DumpCPP -> 
-      -- --     forM_ (modelFiles opts) 
+      -- --  DumpCPP ->
+      -- --     forM_ (modelFiles opts)
       -- --       (genCppRunner . FromFile)
 
       --  DumpDEQs ->
@@ -53,7 +53,7 @@ main =
                 then LBS.putStrLn bs
                 else LBS.writeFile out bs
               when (gnuplot opts && not (null out)) $
-                writeFile (replaceExtension out "gnuplot") $ 
+                writeFile (replaceExtension out "gnuplot") $
                   A.gnuPlotScript res out
 
         ComputeError ->

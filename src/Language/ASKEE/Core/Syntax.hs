@@ -4,7 +4,6 @@
 
 module Language.ASKEE.Core.Syntax where
 
-import qualified Data.Functor.Const as Const
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import qualified Data.Set  as Set
@@ -82,19 +81,6 @@ applyParams' su = dropParams . mapExprs (substExpr su)
                                        , not (x `Set.member` pSet) ] }
   pSet = Map.keysSet su
 
-
-
-collect :: (TraverseExprs t, Monoid m) => (Expr -> m) -> t -> m
-collect f t =
-  Const.getConst $ traverseExprs (Const.Const . f) t
-
-collectVars :: (TraverseExprs t) => t -> Set.Set Ident
-collectVars = collect var
-  where
-    var v =
-      case v of
-        Var n -> Set.singleton n
-        _ -> Set.empty
 
 applyParams :: Map Text Double -> Model -> Model
 applyParams parameters = applyParams' parameters'
