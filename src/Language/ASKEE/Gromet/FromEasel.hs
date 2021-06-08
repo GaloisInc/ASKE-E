@@ -5,12 +5,15 @@ module Language.ASKEE.Gromet.FromEasel where
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Control.Monad.State as State
-import Control.Monad(forM,foldM)
+import Control.Monad(forM,forM_,foldM)
 import Data.Maybe(maybeToList)
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Graph (stronglyConnComp)
+import Data.Foldable(toList)
+import Data.List(partition)
 
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.Core as Core
@@ -26,6 +29,7 @@ convertCoreToGromet m =
   Gromet { grometName  = Core.modelName m
          , grometRoot  = rootUID
          , grometPorts = gcPorts finS
+         , grometJunctions = gcJunctions finS
          , grometWires = gcWires finS
          , grometBoxes = gcBoxes finS
          }
@@ -34,13 +38,32 @@ convertCoreToGromet m =
 
   initState = GrometConv { gcBoxes      = []
                          , gcWires      = []
+                         , gcJunctions  = []
                          , gcPorts      = []
                          , gcCurUid     = 0
                          , gcBoxStack   = []
                          }
 
+-- Order lets by dependency and split intp lets that don't depend on
+-- state variables, and ones that do.
+orderLets ::
+  Set Core.Ident ->
+  Map Core.Ident Core.Expr ->
+  ( [(Core.Ident,Core.Expr)], [(Core.Ident,Core.Expr)] )
+orderLets stateVars lets = (map fst without, map fst with)
+  where
+  (with,without) =
+         partition snd
+       $ concatMap toList
+       $ stronglyConnComp
+       $ [ ((n,usesState), x, Set.toList vs)
+         | n@(x,e) <- Map.toList lets
+         , let vs = Core.collectExprVars e
+               usesState = not $ Set.null $ Set.intersection vs stateVars
+         ]
 
--- XXX: Assuming the lets are ordered in dependency order
+
+
 convertModel :: Core.Model -> GrometGen BoxUid
 convertModel model =
   do uid <- BoxUid <$> newUid
@@ -53,26 +76,24 @@ convertModel model =
                         , portName      = paramName
                         }
            addPort p
-           pure (paramName, p)
+           pure (paramName, Left p)
 
-     statePorts <- forM (Map.keys (Core.modelInitState model)) \x ->
-        do puid <- PortUid <$> newUid
-           let p = Port { portUid       = puid
-                        , portBox       = uid
-                        , portType      = StatePort
-                        , portValueType = Real
-                        , portName      = x
-                        }
-           addPort p
-           pure (x, p)
-
-
-     let ports = Map.fromList (paramPorts ++ statePorts)
+     let vars = Core.modelInitState model
+         (pureLets,stateLets) = orderLets (Map.keysSet vars)
+                                          (Core.modelLets model)
 
      startNestedBox uid (Core.modelName model) PrTNet
-     allPorts <- foldM doLet ports (Map.toList (Core.modelLets model))
-     mapM_ (convertEvent allPorts) (Core.modelEvents model)
-     endNestedBox (map portUid (Map.elems ports))
+
+     ports1 <- foldM doLet (Map.fromList paramPorts) pureLets
+
+     let addJ ps s@(x,_) = do j <- convertState ports1 s
+                              pure (Map.insert x (Right j) ps)
+     ports2 <- foldM addJ ports1 (Map.toList vars)
+
+     ports3 <- foldM doLet ports2 stateLets
+
+     mapM_ (convertEvent ports3) (Core.modelEvents model)
+     endNestedBox [ portUid x | (_,Left x) <- paramPorts ]
 
      pure uid
 
@@ -95,35 +116,55 @@ convertModel model =
                   , boxPorts  = out : Map.elems lports
                   , boxBoxes  = []
                   , boxWires  = []
+                  , boxJuncitons = []
                   }
 
-       pure (Map.insert x outP ports)
+       pure (Map.insert x (Left outP) ports)
 
 
+convertState ::
+  Map Core.Ident (Either Port Junction) ->
+  (Core.Ident, Core.Expr) -> GrometGen Junction
+convertState inPorts (v,e) =
+  do jid <- JunctionId <$> newUid
+     let ju = Junction { jUID = jid
+                       , jName = v
+                       , jValueType = Real  -- XXX: infer from Expr?
+                       }
+     addJunction ju
+     convertExpr ("Initial value for " <> v) inPorts (Just (Right ju)) e
+     pure ju
 
-convertEvent :: Map Core.Ident Port -> Core.Event -> GrometGen ()
+
+convertEvent ::
+  Map Core.Ident (Either Port Junction) -> Core.Event -> GrometGen ()
 convertEvent inPorts ev =
   do evBoxUid <- BoxUid <$> newUid
-     evPorts  <- connectInputPorts inPorts evBoxUid allVars
-     startNestedBox evBoxUid (Core.eventName ev) EventRel
-     makeWhen evPorts
-     makeRate evPorts
-     makeEffect evPorts
-     endNestedBox (map portUid (Map.elems evPorts))
+     iPorts <- connectInputPorts inPorts evBoxUid allVars
+     oPorts <- connectOutputPorts inPorts evBoxUid outVs
 
+     startNestedBox evBoxUid (Core.eventName ev) EventRel
+     makeWhen (Left <$> iPorts)
+     makeRate (Left <$> iPorts)
+     makeEffect (Left <$> iPorts) (Left <$> iPorts)
+
+     endNestedBox (getPorts oPorts ++ getPorts iPorts)
   where
+  getPorts   = map portUid . Map.elems
+
   allVars    = Set.unions [ enableVars, rateVars, effVars ]
   enableVars = Core.collectExprVars (Core.eventWhen ev)
   rateVars   = Core.collectExprVars (Core.eventRate ev)
   effVars    = Set.unions (Core.collectExprVars <$>
                                     Map.elems (Core.eventEffect ev))
+  outVs      = Map.keysSet (Core.eventEffect ev)
 
   makeWhen evPorts =
     do uid   <- BoxUid <$> newUid
        let name = "Enabling Condition"
        ports <- connectInputPorts evPorts uid enableVars
        startNestedBox uid name EnableRel
-       mapM_ (convertExpr name ports Nothing) (splitAnd (Core.eventWhen ev))
+       convertExpr name (Left <$> ports) Nothing (Core.eventWhen ev)
        endNestedBox (map portUid (Map.elems ports))
 
   makeRate evPorts =
@@ -131,33 +172,27 @@ convertEvent inPorts ev =
        let name = "Event Rate"
        ports <- connectInputPorts evPorts uid rateVars
        startNestedBox uid name RateRel
-       convertExpr name ports Nothing (Core.eventRate ev)
+       convertExpr name (Left <$> ports) Nothing (Core.eventRate ev)
        endNestedBox (map portUid (Map.elems ports))
 
-  makeEffect evPorts =
+  makeEffect evPorts oPorts =
     do uid <- BoxUid <$> newUid
-       ports <- connectInputPorts evPorts uid effVars
+       iports <- connectInputPorts evPorts uid effVars
+       oports <- connectOutputPorts oPorts uid outVs
        let name = "Event Effect"
        startNestedBox uid name EffectRel
-       outPs <- forM (Map.toList (Core.eventEffect ev)) \(x,e) ->
-                do out <- PortUid <$> newUid
-                   let p = Port { portUid        = out
-                                , portBox        = uid
-                                , portType       = StatePort
-                                , portValueType  = Real
-                                , portName       = x
-                                }
-                   addPort p
-                   convertExpr name ports (Just p) e
-                   pure out
-       endNestedBox (outPs ++ map portUid (Map.elems ports))
+       forM_ (Map.toList (Core.eventEffect ev)) \(x,e) ->
+          case Map.lookup x oports of
+            Just p -> convertExpr name (Left <$> iports) (Just (Left p)) e
+            Nothing -> panic "makeEffect" ["Missing outp port for ", show x]
+       endNestedBox (getPorts oports ++ getPorts iports)
 
 
 
 -- | Make ports on a nested box and connect them to the corresponding ports
 -- in the current box.
 connectInputPorts ::
-  Map Core.Ident Port {- ^ Ports in outer box -} ->
+  Map Core.Ident (Either Port Junction) {- ^ Ports in outer box -} ->
   BoxUid              {- ^ Uid of the new box -} ->
   Set Core.Ident      {- ^ Variables that need ports -} ->
   GrometGen (Map Core.Ident Port)
@@ -174,11 +209,32 @@ connectInputPorts inPorts uid vars =
 
 
 
+-- | Make ports on a nested box and connect them to the corresponding ports
+-- in the current box.
+connectOutputPorts ::
+  Map Core.Ident (Either Port Junction) {- ^ Ports in outer box -} ->
+  BoxUid              {- ^ Uid of the new box -} ->
+  Set Core.Ident      {- ^ Variables that need ports -} ->
+  GrometGen (Map Core.Ident Port)
+connectOutputPorts inPorts uid vars =
+  Map.fromList <$>
+  forM (Set.toList vars) \x ->
+     case Map.lookup x inPorts of
+       Just p -> do p1 <- freshOutputPort' uid p
+                    pure (x,p1)
+       Nothing -> panic "connectOutputPorts" $
+                            [ "Unknown variable"
+                            , show x
+                            , "in scope"
+                            ] ++ map show (Map.toList inPorts)
+
+
+
 
 convertExpr ::
   Text                {- ^ Name for the box -} ->
-  Map Core.Ident Port {- ^ Ports in outer box -} ->
-  Maybe Port          {- ^ Output port in outer box, if any -} ->
+  Map Core.Ident (Either Port Junction) {- ^ Ports in outer box -} ->
+  Maybe (Either Port Junction) {- ^ Output port in outer box, if any -} ->
   Core.Expr           {- ^ Definition -} ->
   GrometGen ()
 convertExpr name inPorts mbOutPort expr =
@@ -193,6 +249,7 @@ convertExpr name inPorts mbOutPort expr =
                 , boxPorts  = maybeToList ourOut ++ Map.elems varMap
                 , boxBoxes  = []
                 , boxWires  = []
+                , boxJuncitons = []
                 }
 
 
@@ -226,9 +283,9 @@ exprToArg vars expr =
            Core.Mul     -> op "*"
            Core.Sub     -> op "-"
            Core.Div     -> op "/"
-           Core.Lt      -> op "<"
-           Core.Leq     -> op "<="
-           Core.Eq      -> op "="
+           Core.Lt      -> op "lt"
+           Core.Leq     -> op "leq"
+           Core.Eq      -> op "=="
            Core.And     -> op "and"
            Core.Or      -> op "or"
 
@@ -237,14 +294,6 @@ exprToArg vars expr =
 
   where
   doOp op es = ArgCall op (exprToArg vars <$> es)
-
-
-splitAnd :: Core.Expr -> [Core.Expr]
-splitAnd expr =
-  case expr of
-    Core.Op2 Core.And e1 e2 -> splitAnd e1 ++ splitAnd e2
-    _                       -> [expr]
-
 
 
 
@@ -258,6 +307,7 @@ data GrometConv =
   GrometConv { gcBoxes   :: [Box]   -- ^ Finished boxes
              , gcWires   :: [Wire]  -- ^ Finished wires
              , gcPorts   :: [Port]  -- ^ Finished ports
+             , gcJunctions :: [Junction] -- ^ Finished junctions
              , gcCurUid  :: Int     -- ^ Uid generation
 
              , gcBoxStack :: [Box]
@@ -293,6 +343,14 @@ addWire w = State.modify \s ->
                      b : bs -> b { boxWires = wireUid w : boxWires b } : bs
     }
 
+addJunction :: Junction -> GrometGen ()
+addJunction j = State.modify \s ->
+  s { gcJunctions = j : gcJunctions s
+    , gcBoxStack = case gcBoxStack s of
+                     [] -> []
+                     b : bs -> b { boxJuncitons = jUID j : boxJuncitons b } : bs
+    }
+
 -- | Add a box to the box on tope of the stack
 -- Also record it in the current "under construction" box
 addBox :: Box -> GrometGen ()
@@ -326,6 +384,7 @@ startNestedBox uid name ty =
               , boxPorts = []
               , boxBoxes = []
               , boxWires = []
+              , boxJuncitons = []
               }
 
 endNestedBox :: [PortUid] -> GrometGen ()
@@ -336,41 +395,65 @@ endNestedBox ps =
 
 -- | Generate a fresh input port linking to the given input
 -- port, and also a wire connecting the two.
-freshInputPort' :: BoxUid -> Port -> GrometGen Port
-freshInputPort' boxid p =
+freshInputPort' :: BoxUid -> Either Port Junction -> GrometGen Port
+freshInputPort' boxid p' =
   do puid <- PortUid <$> newUid
-     let newPort = p { portUid  = puid
-                     , portBox  = boxid
-                     , portType = case portType p of
-                                    OutputPort    -> InputPort
-                                    _             -> portType p
-                     }
+     let newPort = case p' of
+                     Left p  -> p { portUid  = puid
+                                  , portBox = boxid
+                                  , portType = InputPort
+                                  }
+                     Right j -> Port { portUid       = puid
+                                     , portBox       = boxid
+                                     , portType      = InputPort
+                                     , portValueType = jValueType j
+                                     , portName      = jName j
+                                     }
      addPort newPort
      wuid <- WireUid <$> newUid
      addWire Wire { wireUid       = wuid
                   , wireType      = Directed
-                  , wireValueType = portValueType p
-                  , wireSource    = portUid p
-                  , wireTarget    = puid
+                  , wireValueType = portValueType newPort
+                  , wireSource    = case p' of
+                                      Left p  -> PPort (portUid p)
+                                      Right j -> JPort (jUID j)
+                  , wireTarget    = PPort puid
                   }
      pure newPort
 
 -- | Same as "freshInputPort'" but returns only the port UID
-freshInputPort :: BoxUid -> Port -> GrometGen PortUid
+freshInputPort :: BoxUid -> Either Port Junction -> GrometGen PortUid
 freshInputPort boxid p = portUid <$> freshInputPort' boxid p
 
 -- |Same as "freshInputPort" but for output ports (i.e., in the other direction)
-freshOutputPort :: BoxUid -> Port -> GrometGen PortUid
-freshOutputPort boxid p =
+freshOutputPort' :: BoxUid -> Either Port Junction -> GrometGen Port
+freshOutputPort' boxid p' =
   do puid <- PortUid <$> newUid
-     addPort p { portUid  = puid, portBox  = boxid }
+     let newPort = case p' of
+                     Left p  -> p { portUid  = puid
+                                  , portBox  = boxid
+                                  , portType = OutputPort
+                                  }
+                     Right j -> Port { portUid       = puid
+                                     , portBox       = boxid
+                                     , portType      = OutputPort
+                                     , portValueType = jValueType j
+                                     , portName      = jName j
+                                     }
+     addPort newPort
+
      wuid <- WireUid <$> newUid
      addWire Wire { wireUid       = wuid
                   , wireType      = Directed
-                  , wireValueType = portValueType p
-                  , wireSource    = puid
-                  , wireTarget    = portUid p
+                  , wireValueType = portValueType newPort
+                  , wireSource    = PPort puid
+                  , wireTarget    = case p' of
+                                      Left p  -> PPort (portUid p)
+                                      Right j -> JPort (jUID j)
                   }
-     pure puid
+     pure newPort
+
+freshOutputPort :: BoxUid -> Either Port Junction -> GrometGen PortUid
+freshOutputPort boxid p = portUid <$> freshOutputPort' boxid p
 
 

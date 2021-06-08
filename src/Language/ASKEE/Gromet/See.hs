@@ -20,7 +20,6 @@ instance PP PortType where
   pp po =
     case po of
       ParameterPort -> "parameter"
-      StatePort     -> "state"
       InputPort     -> "input"
       OutputPort    -> "output"
 
@@ -41,9 +40,22 @@ instance PP PortUid where
 instance PP BoxUid where
   pp (BoxUid x) = "B:" <> pp x
 
-
 instance PP WireUid where
   pp (WireUid x) = "W:" <> pp x
+
+instance PP JunctionId where
+  pp (JunctionId x) = "J:" <> pp x
+
+instance PP WirePort where
+  pp p =
+    case p of
+      JPort x -> pp x
+      PPort x -> pp x
+
+instance PP Junction where
+  pp j = "state" <+> pp (jName j) <+> ":" <+> pp (jValueType j)
+          <+> "//" <+> pp (jUID j)
+
 
 instance PP Wire where
   pp w = pp (wireSource w) <+> arrow <+> pp (wireTarget w)
@@ -56,12 +68,21 @@ instance PP Wire where
 data GrometBox = GrometBox Gromet Box
 
 instance PP GrometBox where
-  pp (GrometBox g bo) = front <+> "box" <+> quotes (pp (boxName bo))
-                          <+> "//" <+> pp (boxUid bo) $$ nest 2 def
+  pp (GrometBox g bo) =
+      vcat [ front <+> "box" <+> quotes (pp (boxName bo))
+                          <+> "//" <+> pp (boxUid bo)
+           , nest 2 def
+           , "end"
+           , " "
+           ]
     where
     ppPort pid = case [ p | p <- grometPorts g, portUid p == pid ] of
                    p : _ -> pp p
                    _     -> "undefined port" <+> pp pid
+
+    ppJunc jid = case [ j | j <- grometJunctions g, jUID j == jid ] of
+                   j : _ -> pp j
+                   _     -> "undefined junction" <+> pp jid
 
     ppWire wid = case [ w | w <- grometWires g, wireUid w == wid ] of
                    w : _ -> pp w
@@ -71,14 +92,16 @@ instance PP GrometBox where
                     BoxExpression e -> ("expression", pp e)
                     BoxRelation r   -> (pp r, empty)
 
-    def = vcat [ vcat (map ppPort (boxPorts bo))
-               , " "
-               , vcat (map ppWire (boxWires bo))
-               , " "
+    def = vcat [ pps (map ppPort (boxPorts bo))
+               , pps (map ppJunc (boxJuncitons bo))
+               , pps (map ppWire (boxWires bo))
                , back
-               , " "
-               , vcat (map (ppBox g) (boxBoxes bo))
+               , pps (map (ppBox g) (boxBoxes bo))
                ]
+
+    pps xs = case xs of
+               [] -> empty
+               _  -> vcat xs $$ " "
 
 ppBox :: Gromet -> BoxUid -> Doc
 ppBox g bid = case [ b | b <- grometBoxes g, boxUid b == bid ] of

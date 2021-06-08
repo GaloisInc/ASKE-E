@@ -17,13 +17,23 @@ newtype BoxUid = BoxUid Uid
 newtype WireUid = WireUid Uid
   deriving (Show, Eq, Ord)
 
+newtype JunctionId = JunctionId Uid
+  deriving (Show, Eq, Ord)
+
 data Gromet =
   Gromet { grometName  :: Text
          , grometRoot  :: BoxUid
          , grometPorts :: [Port]
+         , grometJunctions :: [Junction]
          , grometWires :: [Wire]
          , grometBoxes :: [Box]
          } deriving (Show,Eq)
+
+data Junction =
+  Junction { jUID       :: JunctionId
+           , jName      :: Text
+           , jValueType :: ValueType
+           } deriving (Show,Eq)
 
 data Port =
   Port { portUid        :: PortUid
@@ -36,7 +46,6 @@ data Port =
 
 data PortType =
     ParameterPort     -- ^ Used for a model parameter
-  | StatePort         -- ^ Used for a state variable parameter
   | InputPort         -- ^ Generic input port
   | OutputPort        -- ^ Generic output port
     deriving (Show,Eq)
@@ -50,8 +59,8 @@ data Wire = Wire
   { wireUid       :: WireUid
   , wireType      :: WireType
   , wireValueType :: ValueType
-  , wireSource    :: PortUid
-  , wireTarget    :: PortUid
+  , wireSource    :: WirePort
+  , wireTarget    :: WirePort
   }
   deriving(Show, Eq)
 
@@ -59,6 +68,10 @@ data WireType =
     Directed
   | Undirected
   deriving (Show,Eq)
+
+data WirePort = JPort JunctionId | PPort PortUid
+  deriving (Show,Eq)
+
 
 data Arg =
     ArgPort PortUid
@@ -73,6 +86,7 @@ data Box = Box
   , boxPorts  :: [PortUid]  -- ports
   , boxBoxes  :: [BoxUid]   -- nested boxed
   , boxWires  :: [WireUid]  -- connections betweed ports and nested boxes
+  , boxJuncitons :: [JunctionId]
   } deriving(Show, Eq)
 
 data BoxSyntax =
@@ -103,11 +117,20 @@ instance JSON.ToJSON Gromet where
                 , "type"      .= jsText "PrTNet"
                 , "name"      .= grometName g
                 , "metadata"  .= JSON.Null
-                , "uid"       .= jsText "XXX"
+                , "uid"       .= jsText (grometName g) -- XXX: ?
                 , "root"      .= grometRoot g
                 , "ports"     .= grometPorts g
                 , "wires"     .= grometWires g
+                , "junctions" .= grometJunctions g
                 , "boxes"     .= grometBoxes g
+                ]
+
+instance JSON.ToJSON Junction where
+  toJSON j =
+    JSON.object [ "syntax"     .= jsText "Junction"
+                , "uid"        .= jUID j
+                , "type"       .= jsText "T:State"   -- are there any others?
+                , "value_type" .= jValueType j
                 ]
 
 instance JSON.ToJSON Port where
@@ -136,11 +159,12 @@ instance JSON.ToJSON Box where
   toJSON b = JSON.object (stdFields ++ varFields)
     where
     stdFields =
-      [ "uid"     .= boxUid b
-      , "name"    .= boxName b
-      , "wires"   .= boxWires b
-      , "boxes"   .= boxBoxes b
-      , "ports"   .= boxPorts b
+      [ "uid"       .= boxUid b
+      , "name"      .= boxName b
+      , "wires"     .= boxWires b
+      , "boxes"     .= boxBoxes b
+      , "ports"     .= boxPorts b
+      , "Junctions" .= boxJuncitons b
       ]
 
     varFields =
@@ -176,11 +200,19 @@ instance JSON.ToJSON WireUid where
 instance JSON.ToJSON BoxUid where
   toJSON (BoxUid uid) = JSON.toJSON ("B:" <> uid)
 
+instance JSON.ToJSON JunctionId where
+  toJSON (JunctionId uid) = JSON.toJSON ("J:" <> uid)
+
+instance JSON.ToJSON WirePort where
+  toJSON p =
+    case p of
+      JPort x -> JSON.toJSON x
+      PPort x -> JSON.toJSON x
+
 instance JSON.ToJSON PortType where
   toJSON pt =
     case pt of
       ParameterPort  -> "T:Parameter"
-      StatePort      -> "T:State"
       InputPort      -> "T:Input"
       OutputPort     -> "T:Output"
 
