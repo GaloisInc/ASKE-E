@@ -7,6 +7,7 @@ module Language.ASKEE
   ( loadDiffEqs
   , loadDiffEqsFrom
   , loadESL
+  , loadESLMeta
   , loadESLMetaFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
@@ -63,8 +64,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
-                                                       , throwLeft
-                                                       , die )
+                                                       , throwLeft )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
                                                        , toDeqs

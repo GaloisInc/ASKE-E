@@ -3,7 +3,7 @@ module Language.ASKEE.ESL.Convert where
 import qualified Data.Map as Map
 
 import           Language.ASKEE.Core.Expr
-import           Language.ASKEE.Core.Syntax ( Event(..), Model(..), inlineLets )
+import           Language.ASKEE.Core.Syntax ( Event(..), Model(..) )
 import qualified Language.ASKEE.ESL.Syntax  as Src
 import qualified Language.ASKEE.Expr        as Src
 
@@ -17,7 +17,6 @@ modelAsCore mdl =
 
   modelNoInit =
     mapExprs simplifyExpr $
-    inlineLets
     Model { modelName      = Src.modelName mdl
           , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)

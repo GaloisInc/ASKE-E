@@ -47,3 +47,6 @@ applyParams' su = dropParams . mapExprs (substExpr su)
   dropParams m = m { deqParams = [ x | x <- deqParams m
                                      , not (x `Set.member` pSet) ] }
   pSet = Map.keysSet su
+
+addParams :: [Ident] -> DiffEqs -> DiffEqs
+addParams ps eqs = eqs { deqParams = ps }

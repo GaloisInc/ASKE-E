@@ -15,7 +15,7 @@ import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAligned
                                   , zipAlignedWithTimeAndLabel
                                   , DataSeries(..) )
-import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..) )
+import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..), addParams )
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
@@ -96,7 +96,7 @@ fitModel eqs ds scaled start =
   )
   where
   (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
-  ps            = map asText $ deqParams eqs
+  ps            = map asText $ deqParams eqs'
   initParams    = psToVec start
   psToVec vs    = [ vs Map.! p | p <- ps ]
   psFromVec vs  = Map.fromList (ps `zip` vs)
@@ -108,7 +108,7 @@ fitModel eqs ds scaled start =
                               Just m  -> 1 / m
                   ]
 
-  simWith vs = simulate eqs vs (times ds)
+  simWith vs = simulate eqs' vs (times ds)
 
   model pvec = let ans = simWith (psFromVec pvec)
                in \x -> values ans Map.! x
@@ -122,3 +122,4 @@ fitModel eqs ds scaled start =
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
+  eqs' = addParams (Map.keys start) eqs
