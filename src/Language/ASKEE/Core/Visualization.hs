@@ -1,12 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Core.Visualization where
 
-import qualified Language.ASKEE.Core as Core
-import Data.Text(Text)
-import Data.List(nub)
-import qualified Data.Map as Map
+-- import qualified Language.ASKEE.Core as Core
+import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
-import Data.Aeson((.=))
+import           Data.List  ( nub )
+import qualified Data.Map   as Map
+import           Data.Text  ( Text )
+
+import Language.ASKEE.Core.Syntax hiding ( Event )
+import Language.ASKEE.Core.Expr
 
 data NodeType = Event | State
   deriving(Show, Eq, Ord)
@@ -22,25 +25,6 @@ newtype Graph =
 
 nodes :: Graph -> [Node]
 nodes g = nub ((fst <$> edges g) ++ (snd <$> edges g))
-
-asSchematicGraph :: Core.Model -> Maybe Graph
-asSchematicGraph g =  Graph <$> sequence effs
-  where
-    effs =
-      [ mbEdge | evt <- Core.modelEvents g
-               , (var, expr) <- Map.toList $ Core.eventEffect evt
-               , let mbEdge = effectEdge evt var expr ]
-
-    eventNode evt = Node (Core.eventName evt) Event
-    stateNode name = Node name State
-    effectEdge evt var e0 =
-      case e0 of
-        Core.Var v Core.:+: Core.NumLit n | n > 0, v == var ->
-          Just (eventNode evt, stateNode var)
-        Core.Var v Core.:-: Core.NumLit n | n > 0, v == var ->
-          Just (stateNode var, eventNode evt)
-        _ ->
-          Nothing
 
 -------------------------------------------------------------------------------
 
@@ -61,5 +45,21 @@ instance JSON.ToJSON Node where
           State -> JSON.String "state"
           Event -> JSON.String "event"
 
+asSchematicGraph :: Model -> Maybe Graph
+asSchematicGraph g =  Graph . nub <$> sequence effs
+  where
+    effs =
+      [ mbEdge | evt <- modelEvents g
+               , (var, expr) <- Map.toList $ eventEffect evt
+               , let mbEdge = effectEdge evt var expr ]
 
-
+    eventNode evt = Node (eventName evt) Event
+    stateNode name = Node name State
+    effectEdge evt var e0 =
+      case e0 of
+        Var v :+: NumLit n | n > 0, v == var ->
+          Just (eventNode evt, stateNode var)
+        Var v :-: NumLit n | n > 0, v == var ->
+          Just (stateNode var, eventNode evt)
+        _ ->
+          Nothing

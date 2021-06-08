@@ -28,7 +28,7 @@ import Language.ASKEE.ModelStratify.Syntax ( Flow(..)
                                            , FlowType(..)
                                            , Net(..)
                                            , TransitionID ) 
-import Language.ASKEE.Syntax               ( stateDecls
+import Language.ASKEE.ESL.Syntax           ( stateDecls
                                            , Decl(..)
                                            , Event(..)
                                            , Model(..)

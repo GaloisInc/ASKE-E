@@ -1,11 +1,11 @@
 {
 {-# LANGUAGE TypeApplications #-}
 
-module Language.ASKEE.DEQ.GenLexer ( lexDEQs, Token(..) ) where
+module Language.ASKEE.DEQ.GenLexer ( lexDiffEqs, Token(..) ) where
 
 import Data.Text ( pack )
 
-import Language.ASKEE.Lexer      ( Located(..) )
+import Language.ASKEE.ESL.Lexer  ( Located(..) )
 import Language.ASKEE.DEQ.Lexer  ( Token(..) )
 
 import Prelude hiding (LT, EQ, GT)
@@ -85,8 +85,8 @@ atomic tok = \_ _ -> pure tok
 getState :: Alex AlexState
 getState = Alex (\s -> Right (s,s))
 
-lexDEQs :: String -> Either String [Located Token]
-lexDEQs s = runAlex s go
+lexDiffEqs :: String -> Either String [Located Token]
+lexDiffEqs s = runAlex s go
   where
   go :: Alex [Located Token]
   go =

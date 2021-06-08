@@ -6,7 +6,7 @@ module Language.ASKEE.Latex.GenLexer ( lexLatex, Token(..) ) where
 
 import Data.Text ( Text, pack )
 
-import Language.ASKEE.Lexer        ( Located(..) )
+import Language.ASKEE.ESL.Lexer    ( Located(..) )
 import Language.ASKEE.Latex.Lexer  ( Token(..) )
 }
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ExprTransform where
 
-import qualified Language.ASKEE.Syntax as Syntax
+import qualified Language.ASKEE.ESL.Syntax as Syntax
 import qualified Language.ASKEE.Expr as Expr
 
 import qualified Data.Map as Map

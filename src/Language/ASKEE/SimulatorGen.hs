@@ -3,7 +3,8 @@
 
 module Language.ASKEE.SimulatorGen where
 
-import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Expr as Core
+import qualified Language.ASKEE.Core.Syntax as Core
 import           Data.Text(Text)
 import qualified Data.Map as Map
 

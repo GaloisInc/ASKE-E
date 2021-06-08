@@ -7,7 +7,7 @@ module Language.ASKEE.APRAM.GenLexer ( lexAPRAM, Token(..) ) where
 import qualified Data.Text as Text
 
 import Language.ASKEE.APRAM.Lexer  ( Token(..), LogOp(..) )
-import Language.ASKEE.Lexer        ( Located(..) )
+import Language.ASKEE.ESL.Lexer        ( Located(..) )
 
 import Prelude hiding (LT,GT,EQ)
 }

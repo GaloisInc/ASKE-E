@@ -16,7 +16,8 @@ import Data.Foldable(toList)
 import Data.List(partition)
 
 import Language.ASKEE.Panic(panic)
-import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax as Core
+import qualified Language.ASKEE.Core.Expr as Core
 
 import Language.ASKEE.Gromet.Syntax
 

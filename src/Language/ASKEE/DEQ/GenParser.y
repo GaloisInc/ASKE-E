@@ -9,16 +9,16 @@ import           Data.Maybe ( mapMaybe )
 import           Data.Text ( Text )
 import qualified Data.Text as T
 
-import Language.ASKEE.Core                 ( Ident )
-import Language.ASKEE.Core.ImportASKEE     ( expAsCore )
+import Language.ASKEE.Core.Expr            ( Ident )
+import Language.ASKEE.ESL.Convert          ( expAsCore )
 import qualified Language.ASKEE.DEQ.Lexer  as Lexer
 import Language.ASKEE.DEQ.Syntax           as Syntax
 import Language.ASKEE.Expr                 as Expr
-import Language.ASKEE.Lexer                ( Located(..) )
+import Language.ASKEE.ESL.Lexer            ( Located(..) )
 import Language.ASKEE.Panic                ( panic )
 }
 
-%name        parseDEQs
+%name        parseDiffEqs
 %tokentype { Located Lexer.Token }
 %error     { parseError }
 %monad     { Either String }

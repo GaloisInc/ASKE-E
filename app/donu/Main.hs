@@ -1,37 +1,20 @@
-{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TupleSections #-}
-module Main(main) where
+module Main ( main ) where
 
-import Data.Text(Text)
+import Control.Monad          ( void )
+import Control.Monad.IO.Class ( liftIO )
+import Control.Exception      ( try, SomeException )
+
 import qualified Data.Text as Text
-import Data.Map(Map)
-import qualified Data.Map as Map
 import qualified Data.Aeson as JS
-import Data.Aeson((.=))
-import Control.Monad.IO.Class(liftIO)
-import Control.Exception(throwIO, try,SomeException, Exception(..))
-import qualified Snap.Core as Snap
-import Snap.Http.Server (quickHttpServe)
 
 import Language.ASKEE
-import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
-import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.Core.DiffEq as DiffEq
-import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Translate as Translate
-import qualified Language.ASKEE.Core.Visualization as CoreViz
-import qualified Language.ASKEE.Metadata as Meta
-import qualified Language.ASKEE.Syntax as Easel
-import Schema
-import ModelStorage
 
-import qualified Data.ByteString.Lazy.Char8 as BS8
-import Control.Monad (void)
-import System.Process ( readProcessWithExitCode )
-import System.Exit ( ExitCode(..) )
+import Schema
+
+import qualified Snap.Core as Snap
+import           Snap.Http.Server ( quickHttpServe )
 
 main :: IO ()
 main = 
@@ -52,7 +35,7 @@ main =
                   Right out ->
                     do  let (code, msg) =
                               case out of
-                                OutputResult (FailureResult _) -> (400, "Error")
+                                (FailureResult _) -> (400, "Error")
                                 _ -> (200, "OK")
                         Snap.modifyResponse (Snap.setResponseStatus code msg)
                         Snap.writeLBS (JS.encode out)
@@ -65,231 +48,89 @@ main =
                 Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
                 -- showHelp
 
---------------------------------------------------------------------------------
-
-newtype ServerError = NotImplemented String
-  deriving Show
-
-instance Exception ServerError
-notImplemented :: String -> IO a
-notImplemented what = throwIO (NotImplemented what)
-
 showHelp :: Snap.Snap ()
 showHelp = Snap.writeLBS helpHTML
 
-handleRequest :: Input -> IO Output
+--------------------------------------------------------------------------------
+
+
+handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    Simulate info ->
-      do eqs <- loadDiffEqs (modelDefType $ simModel info)
-                            (modelDefSource $ simModel info)
-                            []
-                            (simParameterValues info)
-         let times = takeWhile (<= simEnd info)
-                   $ iterate (+ simStep info)
-                   $ simStart info
-             res = ODE.simulate eqs Map.empty times
+    Simulate SimulateCommand{..} ->
+      do  res <- 
+            simulateModel 
+              (modelDefType simModel)
+              (modelDefSource simModel)
+              simStart
+              simEnd
+              simStep
+              simParameterValues
+          succeed' res
 
-         print eqs
-         pure (OutputData res)
-
-    CheckModel cmd ->
-      do  checkResult <- checkModel (modelDefType $ checkModelModel cmd)
-                                    (modelDefSource $ checkModelModel cmd)
+    CheckModel CheckModelCommand{..} ->
+      do  checkResult <- 
+            checkModel 
+              (modelDefType checkModelModel)
+              (modelDefSource checkModelModel)
           case checkResult of
-            Nothing  -> pure $ OutputResult (SuccessResult ())
-            Just err -> pure $ OutputResult (FailureResult (Text.pack err))
+            Nothing  -> succeed' ()
+            Just err -> pure (FailureResult (Text.pack err))
 
-    ConvertModel cmd ->
-      do  eConverted <- convertModel (modelDefType $ convertModelSource cmd)
-                                     (modelDefSource $ convertModelSource cmd)
-                                     (convertModelDestType cmd)
+    ConvertModel ConvertModelCommand{..} ->
+      do  converted <- 
+            convertModelString
+              (modelDefType convertModelSource) 
+              (modelDefSource convertModelSource) 
+              convertModelDestType
+          pure $ asResult converted
 
-          case eConverted of
-            Right converted ->
-              pure $ OutputResult (SuccessResult $ ModelDef (Inline $ Text.pack converted) (convertModelDestType cmd))
-            Left err ->
-              pure $ OutputResult (FailureResult $ Text.pack err)
+    Fit FitCommand{..} ->
+      do  (res, _) <- 
+            fitModelToData
+              (modelDefType fitModel)
+              fitData
+              fitParams
+              mempty
+              (modelDefSource fitModel)
+          succeed' (FitResult res)
 
-    Fit info ->
-      do  eqs <- loadDiffEqs (modelDefType $ fitModel info)
-                             (modelDefSource $ fitModel info)
-                             (fitParams info)
-                             Map.empty
-          print eqs
-          rawData <- pack (fitData info)
-          dataSeries <- case DS.parseDataSeries rawData of
-            Right d -> pure d
-            Left err -> throwIO (DS.MalformedDataSeries err)
-          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
-          pure (FitResult res)
+    GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
+      do  cpp <- loadCPPFrom modelDefType modelDefSource
+          succeed' (Text.pack $ show cpp)
 
-    GenerateCPP cmd ->
-      OutputResult . asResult <$> generateCPP (modelDefType $ generateCPPModel cmd)
-                                              (modelDefSource $ generateCPPModel cmd)
-    Stratify info ->
-      do  modelInfo <- stratifyModel  (stratModel info)
-                                      (stratConnections info)
-                                      (stratStates info)
-                                      (stratType info)
-          pure $ StratificationResult modelInfo
+    Stratify StratifyCommand{..} ->
+        do  res <- stratifyModel stratModel stratConnections stratStates stratType
+            succeed' res
 
-    ListModels _ -> OutputModelList <$> listAllModels
+    ListModels _ -> succeed <$> listAllModels
 
-    ModelSchemaGraph cmd ->
-      case modelDefType $ modelSchemaGraphModel cmd of
-        AskeeModel ->
-          do  modelSource <- loadCoreModel' (modelDefSource $ modelSchemaGraphModel cmd)
-              case CoreViz.asSchematicGraph modelSource of
-                Nothing -> pure $ OutputResult (FailureResult "model cannot be rendered as a schematic")
-                Just g -> pure $ OutputResult (SuccessResult g)
-
-        _ -> pure $ OutputResult (FailureResult "model type not supported")
+    ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
+      do  modelSource <- loadCoreFrom modelDefType modelDefSource
+          case asSchematicGraph modelSource of
+            Nothing -> pure (FailureResult "model cannot be rendered as a schematic")
+            Just g -> succeed' g
 
     UploadModel UploadModelCommand{..} ->
-      do  res <- try
-            do  checkModel' uploadModelType (Inline uploadModelSource)
-                loc <- storeModel uploadModelName uploadModelType uploadModelSource
-                let mdef = ModelDef (FromFile loc) uploadModelType
-                pure $ OutputResult (SuccessResult mdef)
-          case res of
-            Left err -> pure $ OutputResult $ FailureResult $ Text.pack $ show (err :: SomeException)
-            Right ok -> pure ok
+      do  let check m = void $ checkModel uploadModelType (Inline m)
+          loc <- storeModel uploadModelName uploadModelType check uploadModelSource
+          let mdef = ModelDef (FromFile loc) uploadModelType
+          succeed' mdef
 
-    GetModelSource cmd ->
-      do  models <- listAllModels
-          if getModelSource cmd `elem` models then
-            do  d <- loadString (modelDefSource $ getModelSource cmd)
-                let result = (getModelSource cmd) { modelDefSource = Inline (Text.pack d) }
-                pure $ OutputResult (SuccessResult result)
-          else
-            pure $ OutputResult (FailureResult "model does not exist")
+    GetModelSource GetModelSourceCommand{..} ->
+      do  modelString <- loadModel (modelDefType getModelSource) (modelDefSource getModelSource)
+          let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
+          succeed' result
 
-    DescribeModelInterface cmd ->
-      case modelDefType (describeModelInterfaceSource cmd) of
-        AskeeModel ->
-          do  mdl <- parseMetaModel . modelDefSource $ describeModelInterfaceSource cmd
-
-              let stateVars =
-                    [(n, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-                                          , (Easel.State n _) <- [Meta.metaValue md]
-                                          ]
-                  params =
-                    [(n, d, Meta.metaMap md) | md <- Easel.modelMetaDecls mdl
-                                             , (Easel.Parameter n d) <- [Meta.metaValue md]
-                                             ]
-
-                  descParam (n, d, mp) =
-                    JS.object [ "name" .= n
-                              , "defaultValue" .= d
-                              , "metadata" .= mp
-                              ]
-                  descState (n, mp) =
-                    JS.object [ "name" .= n
-                              , "metadata" .= mp
-                              ]
-                  desc =
-                    JS.object [ "parameters" .= (descParam <$> params)
-                              , "stateVars"  .= (descState <$> stateVars)
-                              ]
-
-              pure $ OutputResult (SuccessResult desc)
-
-        _ -> pure $ OutputResult (FailureResult "model type not supported")
-          
-
-
+    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
+      do  model <- loadESLMetaFrom modelDefType modelDefSource
+          let res = describeModelInterface model
+          succeed' res
+  
   where
-    pack :: DataSource -> IO BS8.ByteString
-    pack ds = 
-      case ds of
-        FromFile fp -> BS8.pack <$> readFile fp
-        Inline s -> pure $ BS8.pack $ Text.unpack s
+    succeed :: (JS.ToJSON a, Show a) => a -> Result
+    succeed = SuccessResult
 
-
-
-loadDiffEqs ::
-  ModelType       {- ^ input file format -} ->
-  DataSource      {- ^ where to get the data from -} ->
-  [Text]          {- ^ parameters, if any -} ->
-  Map Text Double {- ^ overwrite these parameters -} ->
-  IO DiffEqs
-loadDiffEqs mt src ps0 overwrite =
-  fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
-  case mt of
-    Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src overwrite
-    ReactionNet       -> notImplemented "Reaction net simulation"
-    LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
-    Gromet            -> notImplemented "Gromet simulation"
-  where
-  allParams = Map.keys overwrite ++ ps0
-
-checkModel :: ModelType -> DataSource -> IO (Maybe String)
-checkModel mt src =
-  do  res <- try (checkModel' mt src)
-      case res of
-        Left err -> pure $ Just (show (err :: SomeException))
-        Right _ -> pure Nothing
-
--- Just throw an exception on failure
-checkModel' :: ModelType -> DataSource -> IO ()
-checkModel' format model =
-  case format of
-    Schema.DiffEqs -> void $ parseEquations model
-    AskeeModel     -> void $ parseModel model
-    ReactionNet    -> void $ parseReactions model
-    LatexEqnarray  -> void $ parseLatex model
-    Gromet         -> 
-      do  m <- loadString model
-          (code, _out, _err) <- readProcessWithExitCode "jq" [] m
-          case code of
-            ExitSuccess -> pure ()
-            ExitFailure _ -> throwIO $ ParseError "invalid gromet"
-
-convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertModel inputType source outputType =
-  case (inputType, outputType) of
-    (Schema.Gromet, _) -> 
-      pure $ Left "conversion from gromet is not implemented"
-
-    (_, Schema.DiffEqs) ->
-      do  src <- loadString source
-          pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
-
-    (_, Schema.LatexEqnarray) ->
-      do  src <- loadString source
-          pure $ Translate.asLatexConcrete (translateSyntax inputType) src
-
-    (_, Schema.AskeeModel) ->
-      do  src <- loadString source
-          pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
-
-    (_, _) ->
-      pure $ Left "Conversion is not implemented"
-  where
-    translateSyntax t =
-      case t of
-        Schema.ReactionNet -> Translate.RNet
-        Schema.AskeeModel -> Translate.ASKEE
-        Schema.DiffEqs -> Translate.DiffEq
-        Schema.LatexEqnarray -> Translate.Latex
-        Schema.Gromet -> undefined
-
-generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
-generateCPP ty src =
-  case ty of
-    Schema.AskeeModel ->
-      do  mdl <- renderCppModel src
-          pure $ Right (Text.pack mdl)
-    Schema.ReactionNet ->
-      pure $ Left "Rendering reaction networks to C++ is not implemented"
-    Schema.DiffEqs ->
-      pure $ Left "Rendering diff-eq to C++ is not implemented"
-    Schema.LatexEqnarray ->
-      pure $ Left "Rendering latex eqnarray to C++ is not implemented"
-    Schema.Gromet ->
-      pure $ Left "Rendering gromet to C++ is not implemented"
-
--------------------------------------------------------------------------
+    succeed' :: (JS.ToJSON a, Show a) => a -> IO Result
+    succeed' = pure . succeed

@@ -2,7 +2,8 @@
 {-# LANGUAGE BlockArguments #-}
 module Language.ASKEE.Experiment.EaselAdapter where
 
-import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Expr as Core
+import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Experiment.Syntax as E
 import qualified Data.Map as Map
 import Data.Map(Map)

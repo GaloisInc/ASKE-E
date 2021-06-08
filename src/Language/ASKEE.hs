@@ -1,396 +1,262 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language OverloadedStrings #-}
-{-# Language TemplateHaskell #-}
-{-# Language TypeApplications #-}
-{-# Language TupleSections #-}
+module Language.ASKEE
+  ( loadDiffEqs
+  , loadDiffEqsFrom
+  , loadESL
+  , loadESLMeta
+  , loadESLMetaFrom
+  -- , loadReactionsFrom
+  -- , loadLatexFrom
+  , loadCPPFrom
+  , loadCoreFrom
+  
+  , checkModel
+    
+  , simulateModel
+  , stratifyModel
+  , fitModelToData
+  , Core.asSchematicGraph
+  , convertModelString
+  , ESL.describeModelInterface
 
-module Language.ASKEE where
+  , gnuPlotScript
+  , dataSeriesAsCSV
+  , dataSeriesAsJSON
+  , parseDataSeriesFromFile
 
-import Control.Exception ( Exception(..)
-                         , throwIO )
+  , initStorage
+  , listAllModels
+  , loadModel
+  , storeModel
 
-import qualified Data.Aeson                 as Aeson
-import           Data.Aeson                 ( encode
-                                            , decode
-                                            , Value(..), (.=), object )
+  , DataSource(..)
+  , DataSeries(..)
+  , DEQ.DiffEqs
+  , ModelDef(..)
+  , ModelType(..)
+  , Stratify.StratificationInfo(..)
+  , Stratify.StratificationType(..)
+  ) where
+
+import Control.Exception (throwIO, try, SomeException(..) )
+import Control.Monad ( void )
+
+import           Data.Aeson                 ( Value
+                                            , decode )
+import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
-import           Data.Text                  ( Text
-                                            , unpack )
+import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
-import qualified Data.Text.IO               as TextIO
-import qualified Data.ByteString.Lazy.Char8 as B
-import qualified Data.Aeson as JSON
-import qualified Prettyprinter as PP
 
-import           Language.ASKEE.APRAM.Print            ( printAPRAM )
-import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
-import qualified Language.ASKEE.APRAM.GenLexer         as APL
-import qualified Language.ASKEE.APRAM.GenParser        as APP
-import           Language.ASKEE.APRAM.Syntax           ( APRAM(..) )
-import qualified Language.ASKEE.Check                  as Check
-import           Language.ASKEE.Convert
+import qualified Language.ASKEE.ESL                    as ESL
+import           Language.ASKEE.C                      ( Doc )
 import qualified Language.ASKEE.Core                   as Core
-import qualified Language.ASKEE.Core.DiffEq            as CDQ
-import qualified Language.ASKEE.DEQ.GenLexer           as DL
-import qualified Language.ASKEE.DEQ.GenParser          as DP
-import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
-import           Language.ASKEE.Latex.Print            ( printLatex )
-import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
-import qualified Language.ASKEE.GenLexer               as AL
-import qualified Language.ASKEE.GenParser              as AP
-import qualified Language.ASKEE.Latex.GenLexer         as LL
-import qualified Language.ASKEE.Latex.GenParser        as LP
-import           Language.ASKEE.Lexer                  ( Token
-                                                       , Located )
-import qualified Language.ASKEE.Measure                as M
-import qualified Language.ASKEE.MeasureToCPP           as MG
+import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
+                                                       , dataSeriesAsJSON
+                                                       , gnuPlotScript
+                                                       , parseDataSeries
+                                                       , parseDataSeriesFromFile
+                                                       , DataSeries(..) )
+import qualified Language.ASKEE.DEQ                    as DEQ
+import           Language.ASKEE.Error                  ( ASKEEError(..)
+                                                       , throwLeft )
+import           Language.ASKEE.Model                  ( parseModel
+                                                       , printModel
+                                                       , toDeqs
+                                                       , toEasel
+                                                       , toCore
+                                                       , Model (..) )
+import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Syntax   as MS
-import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
-                                                       , topologyAsModel
-                                                       , insertHoles
-                                                       , nameHoles )
-import qualified Language.ASKEE.RNet.GenLexer          as RL
-import qualified Language.ASKEE.RNet.GenParser         as RP
-import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
-import qualified Language.ASKEE.SimulatorGen           as SG
-import qualified Language.ASKEE.Syntax                 as Syntax
-import qualified Language.ASKEE.Gromet                 as Gromet
+import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
+import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
+import           Language.ASKEE.Storage                ( initStorage
+                                                       , listAllModels
+                                                       , loadModel
+                                                       , storeModel
+                                                       , DataSource(..)
+                                                       , ModelDef(..) )
 
-import System.Process   ( readProcess )
-import GHC.Generics (Generic)
+-------------------------------------------------------------------------------
+-- ESL with Metadata
 
+loadESLMeta :: DataSource -> IO ESL.ModelMeta 
+loadESLMeta = loadESLMetaFrom EaselType
 
-import qualified Language.ASKEE.Experiment.Syntax as E
-import qualified Language.ASKEE.Experiment.CodeGen as EGen
-import qualified Language.ASKEE.Experiment.Parser as EP
-import qualified Language.ASKEE.C as C
-import qualified Language.ASKEE.CppCompiler as CC
+loadESLMetaFrom :: ModelType -> DataSource -> IO ESL.ModelMeta
+loadESLMetaFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      esl <- throwLeft ConversionError (toEasel model)
+      _ <- throwLeft ValidationError (ESL.checkModel $ ESL.stripMeta esl)
+      pure esl
 
-newtype ParseError      = ParseError String deriving Show
-newtype ValidationError = ValidationError String deriving Show
+-------------------------------------------------------------------------------
+-- Plain ESL
 
-instance Exception ParseError
-instance Exception ValidationError
+loadESL :: DataSource -> IO ESL.Model
+loadESL = loadESLFrom EaselType
 
-data DataSource =
-    FromFile FilePath
-  | Inline Text
-    deriving (Show, Eq)
+loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
+loadESLFrom format source = ESL.stripMeta <$> loadESLMetaFrom format source
 
-loadString :: DataSource -> IO String
-loadString source =
-  case source of
-    FromFile file -> readFile file
-    Inline txt    -> pure (Text.unpack txt)
+-------------------------------------------------------------------------------
+-- Core
 
--- | Just lex
-lexModel :: DataSource -> IO [Located Token]
-lexModel file =
-  do txt <- loadString file
-     case AL.lexModel txt of
-       Left err -> throwIO (ParseError err)
-       Right a  -> pure a
+loadCore :: DataSource -> IO Core.Model
+loadCore = loadCoreFrom EaselType
 
---  | Just lex and parse, throws `ParseErrror`
-parseModel :: DataSource -> IO Syntax.Model
-parseModel file =
-  do  toks <- lexModel file
-      case AP.parseModel toks of
-        Left err -> throwIO (ParseError err)
-        Right a  -> pure a
+loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
+loadCoreFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toCore model)
 
--- | parse model, including available metadata
-parseMetaModel :: DataSource -> IO Syntax.ModelMeta
-parseMetaModel file =
-  do  toks <- lexModel file
-      case AP.parseModelMeta toks of
-        Left err -> throwIO (ParseError err)
-        Right a -> pure a
+-------------------------------------------------------------------------------
+-- DEQs
 
--- | Lex, parse, and validate a model.
-loadModel :: DataSource -> IO Syntax.Model
-loadModel file =
-  do  m <- parseModel file
-      case Check.checkModel m of
-        Left err -> throwIO (ValidationError err)
-        Right m1 -> pure m1
+loadDiffEqs :: DataSource -> IO DEQ.DiffEqs
+loadDiffEqs = loadDiffEqsFrom DeqType
 
--- | Lex, parse, and validate a model, including available metadata
-loadMetaModel :: DataSource -> IO Syntax.ModelMeta
-loadMetaModel file =
-  do  m <- parseMetaModel file
-      case Check.checkModel (Syntax.stripMeta m) of
-        Left err -> throwIO (ValidationError err)
-        Right _ -> pure m
+loadDiffEqsFrom :: ModelType -> DataSource -> IO DEQ.DiffEqs
+loadDiffEqsFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toDeqs model)
 
--- | Load a model and translate it to core, applying any parameters in the process.
-loadCoreModel :: DataSource -> Map Text Double -> IO Core.Model
-loadCoreModel file ps =
-  do  model <- loadModel file
-      let psExpr = Core.NumLit <$> ps'
-          ps' = ps `Map.union` Syntax.parameterMap model
+-------------------------------------------------------------------------------
+-- TODO: Reactions
 
-      case modelAsCore model of
-        Left err -> throwIO (ValidationError err)
-        Right a  -> pure $ Core.applyParams psExpr a
+-- loadReactions :: DataSource -> IO RNet.ReactionNet
+-- loadReactions = loadReactionsFrom (RNET Concrete)
 
-loadCoreModel' :: DataSource -> IO Core.Model
-loadCoreModel' = (`loadCoreModel` Map.empty)
+-- loadReactionsFrom :: ModelType -> DataSource -> IO RNet.ReactionNet
+-- loadReactionsFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
+--       toIO "loadReactionsFrom" $ conv modelString
 
--- | Lex a set of differential equations, throwing `ParseError` on error
-lexEquations :: DataSource -> IO [Located DL.Token]
-lexEquations file =
-  do  txt <- loadString file
-      case DL.lexDEQs txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError err)
+-------------------------------------------------------------------------------
+-- TODO: Latex
 
--- | Lex and parse a set of differential equations, throwing `ParseError` on error
-parseEquations :: DataSource -> IO DiffEqs
-parseEquations file =
-  do  toks <- lexEquations file
-      case DP.parseDEQs toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError err)
+-- loadLatex :: DataSource -> IO Latex.Latex
+-- loadLatex = loadLatexFrom (LATEX Concrete)
 
--- | The intended entrypoint for fetching a system of differential equations
--- `params` are the names of `lets` that should be treated as parameters
--- (i.e., their definitions are ignored)
-loadEquations :: DataSource -> [Text] -> IO DiffEqs
-loadEquations file params =
-  do  toks <- lexEquations file
-      case DP.parseDEQs toks of
-        Left err -> throwIO (ParseError err)
-        Right a  -> pure a { deqParams = params }
-
--- | Lex a set of reactions, throwing `ParseError` on error
-lexReactions :: DataSource -> IO [Located RL.Token]
-lexReactions file = 
-  do  txt <- loadString file
-      case RL.lexRNet txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError $ "lexReactions: "<>err) 
-
--- | Lex and parse a set of reactions, throwing `ParseError` on error
-parseReactions :: DataSource -> IO ReactionNet
-parseReactions file =
-  do  toks <- lexReactions file
-      case RP.parseRNet toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError $ "parseReactions: "<>err)
-
-loadReactions :: DataSource -> IO ReactionNet
-loadReactions = parseReactions
-
-lexLatex :: DataSource -> IO [Located LL.Token] 
-lexLatex file =
-  do  txt <- loadString file
-      case LL.lexLatex txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError $ "lexLatex: "<>err)
-
-parseLatex :: DataSource -> IO DiffEqs
-parseLatex file =
-  do  toks <- lexLatex file
-      case LP.parseLatex toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError $ "parseLatex: "<>err)
-
-loadLatex :: DataSource -> IO DiffEqs 
-loadLatex = parseLatex
+-- loadLatexFrom :: ModelType -> DataSource -> IO Latex.Latex
+-- loadLatexFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               ESL Concrete   -> $(converter (ESL Concrete) (LATEX Abstract))
+--               DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
+--               RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
+--               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
+--       toIO "loadLatexFrom" $ conv modelString
 
 
-lexAPRAM :: DataSource -> IO [Located APL.Token]
-lexAPRAM file =
-  do  txt <- loadString file
-      case APL.lexAPRAM txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError $ "lexAPRAM: "<>err)
+-------------------------------------------------------------------------------
+-- TODO: Gromet
 
-parseAPRAM :: DataSource -> IO APRAM
-parseAPRAM file =
-  do  toks <- lexAPRAM file
-      case APP.parseAPRAM toks of
-        Right apram -> pure apram
-        Left err -> throwIO (ParseError $ "parseAPRAM: "<>err)
+-- loadGromet :: DataSource -> IO String
+-- loadGromet source = 
+--   do  model <- loadModel (GROMET Concrete) source
+--       (code, _out, _err) <- readProcessWithExitCode "jq" [] model
+--       case code of
+--         ExitSuccess -> pure model
+--         ExitFailure _ -> throwIO $ ParseError "invalid gromet"
+
+
+
+checkModel :: ModelType -> DataSource -> IO (Maybe String)
+checkModel format source =
+  do  result <- try
+        case format of
+          EaselType -> void $ loadESL source
+          CoreType -> void $ loadCore source
+          DeqType -> void $ loadDiffEqs source
+      case result of
+        Left err -> pure $ Just (show (err :: SomeException))
+        Right _ -> pure Nothing
+
+loadConnectionGraph :: String -> IO (Value, Map Int Text)
+loadConnectionGraph s = 
+  do  result <- case GG.parseGeoGraph s of
+        Right res -> pure res
+        Left err -> throwIO $ ParseError err
+      let (vertices, edges, mapping) = GG.intGraph result
+          mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+      pure (GG.gtriJSON vertices edges, mapping')
+
+loadCPPFrom :: ModelType -> DataSource -> IO Doc
+loadCPPFrom format source =
+  do  coreModel <- loadCoreFrom format source
+      pure $ SimulatorGen.genModel coreModel
+
 -------------------------------------------------------------------------------
 
-data StratificationType = Demographic | Spatial
-  deriving Show
-
-data StratificationInfo = StratificationInfo
-  { rawModel    :: Syntax.Model
-  , prettyModel :: Syntax.Model
-  , rawTopology :: MS.Net 
-  , holes       :: [Text]
-  , vertices    :: Map Int Text
-  }
-  deriving Show
-
--- This and its Aeson instances might ought to live somewhere else
-data States = States
-  { sus :: Text
-  , exp :: Text
-  , inf :: [Text]
-  }
-  deriving (Generic, Show)
-
-instance Aeson.FromJSON States
-instance Aeson.ToJSON States
-
-stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
-stratifyModel model connections statesM strat =
-  do  topology <- modelAsTopology <$> loadModel model
-      (gtriConnections, vertices) <- loadConnectionGraph connections
-      states <- case statesM of 
-                  Just d -> Aeson.decode @States . B.pack <$> loadString d
-                  Nothing -> pure Nothing
-      let payload = object $  [ "top" .= topology 
-                              , "conn" .= gtriConnections
-                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
-                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
-      result <- readProcess "curl"  [ "-X", "POST"
-                                    , "-H", "Content-type: application/json"
-                                    , "-d", B.unpack $ encode payload
-                                    , "localhost:8001"
-                                    ] ""
-      rawTopology <- case decode (B.pack result) of
-        Just t -> pure t
-        Nothing -> error $ "failed to parse JSON of returned topology "++result
-      let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
-          prettyModel = nameHoles vertices rawModel
-      pure $ StratificationInfo{..}
+stratifyModel ::
+  DataSource ->
+  String ->
+  Maybe String ->
+  Stratify.StratificationType ->
+  IO Stratify.StratificationInfo
+stratifyModel modelFile connectionGraph statesJSON stratificationType =
+  do  model <- loadESL modelFile
+      (connections, vertices) <- loadConnectionGraph connectionGraph
+      states <- 
+        case statesJSON of 
+          Just d -> pure $ decode @Stratify.States $ B.pack d
+          Nothing -> pure Nothing
+      Stratify.stratifyModel model connections vertices states stratificationType
 
 
-loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
-loadConnectionGraph d =
-  case d of
-    Inline t -> resultFromText t
-    FromFile f -> TextIO.readFile f >>= resultFromText
+fitModelToData ::
+  ModelType {- ^ the model's type -}-> 
+  DataSource {- ^ the data as ASKEE-produced CSV -} ->
+  [Text] {- ^ parameters to fit -} -> 
+  Map Text Double {- ^ ??? -} ->
+  DataSource {- ^ the model -} -> 
+  IO (Map Text (Double, Double), [Map Text Double])
+  -- IO (Map Text (Double, Double))
+fitModelToData format fitData fitParams fitScale source = 
+  do  eqs <- loadDiffEqsFrom format source
+      rawData <- 
+        case fitData of
+          Inline s -> pure s
+          FromFile f -> Text.pack <$> readFile f
+      dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
+      pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
+      
 
-  where
-    resultFromText t =
-      do  let result' = GG.parseGeoGraph (unpack t)
-          result <- case result' of
-            Right res -> pure res
-            Left err -> throwIO $ ParseError err
-          let (vertices, edges, mapping) = GG.intGraph result
-              mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
-          pure (GG.gtriJSON vertices edges, mapping')
+simulateModel :: 
+  ModelType -> 
+  DataSource -> 
+  Double -> 
+  Double ->
+  Double ->
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModel format source start end step parameters =
+  do  equations <- loadDiffEqsFrom format source
+      let times' = takeWhile (<= end)
+                 $ iterate (+ step) start
+      pure $ DEQ.simulate equations parameters times'
 
-genCppRunner :: DataSource -> IO ()
-genCppRunner fp =
-  do compiled <- loadCoreModel' fp
-     print $ MG.genSimulationRunnerCpp compiled 100.0 m4
-  where
-    _m1 :: M.Measure
-    _m1 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.Accumulate "m_sum" 1.0
-       $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
-
-    _m2 :: M.Measure
-    _m2 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "I")
-
-    _m3 :: M.Measure
-    _m3 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "time")
-
-    m4 :: M.Measure
-    m4 = M.TimeBased [M.AtTimes 1 15 120, M.AtTime 137]
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "time")
-
-dumpCppModel :: DataSource -> FilePath -> IO ()
-dumpCppModel file output =
-  do  compiled <- loadCoreModel' file
-      let rendered = show (SG.genModel compiled)
-      writeFile output rendered
-      putStrLn "compiled!"
-
-askeeStringToDiffEqAST :: String -> Either String DiffEqs
-askeeStringToDiffEqAST = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Abstract))
-
-askeeStringToDiffEqString :: String -> Either String String
-askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Concrete))
-
--- $allConverters
-
-diffEqStringToLatexString :: String -> Either String String
-diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
-renderCppModel :: DataSource -> IO String
-renderCppModel file =
-  do  compiled <- loadCoreModel' file
-      pure $ show (SG.genModel compiled)
-
-toAPRAM :: FilePath -> FilePath -> IO ()
-toAPRAM modelFile aPRAMFile =
-  do  m <- loadModel $ FromFile modelFile
-      let a = modelToAPRAM m "health"
-          a' = show $ printAPRAM a
-      writeFile aPRAMFile a'
-
-withLoadExp :: [DataSource] -> DataSource -> ([Core.Model] -> [E.Decl] -> IO a) -> IO a
-withLoadExp modelFiles experiment action =
-  do  cores <- loadCoreModel' `traverse` modelFiles
-      expSrc <- loadString experiment
-      exper <- EP.parseFromFile EP.declsP expSrc
-      action cores exper
-
-genExpCppFromSrcs :: [DataSource] -> DataSource -> IO C.Doc
-genExpCppFromSrcs modelFiles experiment =
-  withLoadExp modelFiles experiment (\m e -> pure $ genExpCpp m e)
-
-runExpCppFromSrcs :: [DataSource] -> DataSource -> IO JSON.Value
-runExpCppFromSrcs modelFiles experiment =
-  withLoadExp modelFiles experiment runExp
-
-genExpCpp :: [Core.Model] -> [E.Decl] -> C.Doc
-genExpCpp cores expDecls =
-  do  let modelDecls = modelDecl <$> cores
-          expDecls' = modelDecls ++ expDecls
-
-      PP.vcat [ PP.vcat (SG.genModel <$> cores)
-              , EGen.compileDecls expDecls'
-              ]
-  where
-    modelDecl c =
-      E.DModel $ E.ModelDecl (E.untypedName $ Core.modelName c)
-                             (Map.fromList $ (, E.TypeNumber) <$> ("time":Core.modelStateVars c))
-
-runExp :: [Core.Model] -> [E.Decl] -> IO JSON.Value
-runExp cores decls =
-  do  let cpp = genExpCpp cores decls
-      str <- CC.compileAndRun CC.GCC [("model.cpp", cpp)]
-      case JSON.decode (B.pack str) of
-        Nothing -> throwIO (ValidationError "could not parse generated experiment program output as json")
-        Just j -> pure j
-
-
-coreToGromet :: Core.Model -> Gromet.Gromet
-coreToGromet = Gromet.convertCoreToGromet
-
-
-easelToLatex :: Syntax.Model -> Either String String
-easelToLatex e = show . printLatex . CDQ.asEquationSystem <$> modelAsCore e
-
-easelToGromet :: Syntax.Model -> Either String Gromet.Gromet
-easelToGromet e = coreToGromet <$> modelAsCore e
-
-dsToGromet :: DataSource -> IO Gromet.Gromet
-dsToGromet ds =
-  do core <- loadCoreModel' ds
-     pure (coreToGromet core)
-
-dsToGrometJSON :: DataSource -> IO JSON.Value
-dsToGrometJSON ds = JSON.toJSON <$> dsToGromet ds
-
+convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString srcTy src destTy =
+  do  modelString <- loadModel srcTy src
+      let model = parseModel srcTy modelString
+      pure 
+        case destTy of
+          EaselType -> model >>= toEasel >>= (printModel . Easel)
+          DeqType -> model >>= toDeqs >>= (printModel . Deq)
+          -- If there are errors converting to core, we _might_ want to
+          -- see them more than we want to see the printing error? Maybe?
+          CoreType -> model >>= toCore >>= const (Left "cannot print core")

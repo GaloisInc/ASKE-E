@@ -4,7 +4,7 @@ import Control.Monad.State
 
 -- import           Data.Array ( Array )
 import qualified Data.Array as Array
-import           Data.Graph (graphFromEdges,  vertices, Edge, Graph, Vertex )
+import           Data.Graph ( vertices, Edge, Graph, Vertex )
 import           Data.Set ( Set )
 import qualified Data.Set as Set
 import           Data.Map ( Map )
@@ -123,32 +123,3 @@ buildPath ps start end
   | otherwise = 
     do  predecessor <- ps Map.!? end
         (fmap . (:)) (end, predecessor) (buildPath ps start predecessor)
-
-testGraph :: Graph
-nodeFromVertex :: Vertex -> (ModelType, ModelType, [ModelType])
-vertexFromKey :: ModelType -> Maybe Vertex
-(testGraph, nodeFromVertex, vertexFromKey) = graphFromEdges nodes 
-  where
-    nodes = [ mkNode  ESL_C   [ESL_A]
-            , mkNode  ESL_A   [DEQ_A, ESL_C, TOPO_A]
-            , mkNode  DEQ_C   [DEQ_A]
-            , mkNode  DEQ_A   [DEQ_C, LATEX_C]
-            , mkNode  LATEX_C [DEQ_A]
-            , mkNode  RNET_C  [RNET_A]
-            , mkNode  RNET_A  []
-            , mkNode  TOPO_C  [TOPO_A]
-            , mkNode  TOPO_A  [TOPO_C]
-            ]
-    mkNode x ys = (x,x,ys)
-
-data ModelType =
-    ESL_C
-  | ESL_A
-  | DEQ_C
-  | DEQ_A
-  | RNET_C
-  | RNET_A
-  | TOPO_C
-  | TOPO_A
-  | LATEX_C
-  deriving (Enum, Eq, Ord)
