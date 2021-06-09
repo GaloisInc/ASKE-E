@@ -126,7 +126,7 @@ instance HasSpec ModelType where
 instance JS.ToJSON ModelType where
   toJSON mt = JS.String
     case mt of
-      EaselType -> "easel-meta"
+      EaselType -> "easel"
       DeqType -> "deq"
       CoreType -> "core"
       GrometPrtType -> "gromet-prt"
