@@ -185,7 +185,7 @@ Relation boxes are nested as follows:
   * A `"T:Rate"` box contains a single expresison box, descriing the
     rate at which this event may occut
 
-  * A `"T:Effect" box contains a collection of expression boxes, one
+  * A `"T:Effect"` box contains a collection of expression boxes, one
     for each variable that may be affected by the event.
 
 Only `"T:Event"` and `"T:Effect"` boxes have output ports, which are used
@@ -205,8 +205,8 @@ EXPR_BOX :=
   , "uid"       = BOX_ID
   , "name"      = STRING
   , "tree"      = EXPR             // Exp
-  , "wires"     = [ WIRE_ID ]      // Wires contained in this box
   , "ports"     = [ PORT_ID ]      // Ports for the box
+  , "wires"     = [ ]
   , "boxes"     = [ ]
   , "junctions" = [ ]
   }
