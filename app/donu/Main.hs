@@ -2,7 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main ( main ) where
 
-import Control.Monad          ( void )
 import Control.Monad.IO.Class ( liftIO )
 import Control.Exception      ( try, SomeException )
 
@@ -70,10 +69,10 @@ handleRequest r =
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  checkResult <- 
-            checkModel 
-              (modelDefType checkModelModel)
-              (modelDefSource checkModelModel)
+      do  checkResult <-
+            case modelDefSource checkModelModel of
+              Inline t -> checkModel' (modelDefType checkModelModel) t
+              FromFile _ -> pure (Just "no dice, pal")
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
@@ -113,9 +112,7 @@ handleRequest r =
             Just g -> succeed' g
 
     UploadModel UploadModelCommand{..} ->
-      do  let check m = void $ checkModel uploadModelType (Inline m)
-          loc <- storeModel uploadModelName uploadModelType check uploadModelSource
-          let mdef = ModelDef (FromFile loc) uploadModelType
+      do  mdef <- storeModel uploadModelType uploadModelName uploadModelSource
           succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->

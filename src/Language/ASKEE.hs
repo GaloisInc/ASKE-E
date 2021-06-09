@@ -14,9 +14,11 @@ module Language.ASKEE
   , loadGrometPrt
   , loadGrometPrtFrom
   , loadCPPFrom
+  , loadCore
   , loadCoreFrom
   
   , checkModel
+  , checkModel'
     
   , simulateModel
   , stratifyModel
@@ -45,7 +47,6 @@ module Language.ASKEE
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..) )
-import Control.Monad ( void )
 
 import           Data.Aeson                 ( Value
                                             , decode )
@@ -83,9 +84,9 @@ import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
-                                                       , storeModel
                                                        , DataSource(..)
                                                        , ModelDef(..) )
+import qualified Language.ASKEE.Storage                as Storage
 
 import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
@@ -182,28 +183,66 @@ loadGrometPrtFrom format source =
 
 
 -------------------------------------------------------------------------------
--- TODO: Gromet
+-- Storage
 
--- loadGromet :: DataSource -> IO String
--- loadGromet source = 
---   do  model <- loadModel (GROMET Concrete) source
---       (code, _out, _err) <- readProcessWithExitCode "jq" [] model
---       case code of
---         ExitSuccess -> pure model
---         ExitFailure _ -> throwIO $ ParseError "invalid gromet"
+storeModel :: ModelType -> Text -> Text -> IO ModelDef
+storeModel mt =
+  case mt of
+    EaselType -> storeESL
+    DeqType -> storeDEQ
+    GrometPrtType -> storeGrometPrt
+    _ -> \_ _ -> die (StorageError $ "don't know how to store model type "<>show mt)
 
+storeESL :: Text -> Text -> IO ModelDef
+storeESL name model = 
+  do  loc <- Storage.storeModel name EaselType checkESL model
+      pure $ ModelDef (FromFile loc) EaselType
 
+storeDEQ :: Text -> Text -> IO ModelDef
+storeDEQ name model =
+  do  loc <- Storage.storeModel name DeqType checkDEQ model
+      pure $ ModelDef (FromFile loc) DeqType
 
-checkModel :: ModelType -> DataSource -> IO (Maybe String)
-checkModel format source =
-  do  result <- try
-        case format of
-          EaselType -> void $ loadESL source
-          CoreType -> void $ loadCore source
-          DeqType -> void $ loadDiffEqs source
-      case result of
+storeGrometPrt :: Text -> Text -> IO ModelDef
+storeGrometPrt name model =
+  do  loc <- Storage.storeModel name GrometPrtType checkGrometPrt model
+      pure $ ModelDef (FromFile loc) GrometPrtType
+
+-------------------------------------------------------------------------------
+-- Validation
+
+checkModel' :: ModelType -> Text -> IO (Maybe String)
+checkModel' format source = 
+  do  res <- try (checkModel format source)
+      case res of
         Left err -> pure $ Just (show (err :: SomeException))
         Right _ -> pure Nothing
+
+checkModel :: ModelType -> Text -> IO ()
+checkModel mt =
+  case mt of
+    EaselType -> checkESL
+    DeqType -> checkDEQ
+    GrometPrtType -> checkGrometPrt
+    _ -> \_ -> die (StorageError $ "don't know how to check model type "<>show mt)
+
+checkESL :: Text -> IO ()
+checkESL t =
+  do  Easel esl <- throwLeft ParseError (parseModel EaselType (Text.unpack t))
+      _ <- throwLeft ValidationError (ESL.checkModel $ ESL.stripMeta esl)
+      pure ()
+
+checkDEQ :: Text -> IO ()
+checkDEQ t =
+  do  Deq _ <- throwLeft ParseError (parseModel DeqType (Text.unpack t))
+      pure ()
+
+checkGrometPrt :: Text -> IO ()
+checkGrometPrt t =
+  do  (code, _out, _err) <- readProcessWithExitCode "jq" [] (Text.unpack t)
+      case code of
+        ExitSuccess -> pure ()
+        ExitFailure _ -> die (ValidationError "invalid gromet")
 
 loadConnectionGraph :: String -> IO (Value, Map Int Text)
 loadConnectionGraph s = 
