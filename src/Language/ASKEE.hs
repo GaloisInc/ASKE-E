@@ -11,6 +11,8 @@ module Language.ASKEE
   , loadESLMetaFrom
   -- , loadReactionsFrom
   -- , loadLatexFrom
+  , loadGrometPrt
+  , loadGrometPrtFrom
   , loadCPPFrom
   , loadCoreFrom
   
@@ -64,12 +66,15 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
-                                                       , throwLeft )
+                                                       , throwLeft
+                                                       , die )
+import           Language.ASKEE.Gromet                 ( Gromet )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
                                                        , toDeqs
                                                        , toEasel
                                                        , toCore
+                                                       , toGromet
                                                        , Model (..) )
 import           Language.ASKEE.ModelType              ( ModelType(..) )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
@@ -81,6 +86,9 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , storeModel
                                                        , DataSource(..)
                                                        , ModelDef(..) )
+
+import System.Process ( readProcessWithExitCode )
+import System.Exit    ( ExitCode(..) )
 
 -------------------------------------------------------------------------------
 -- ESL with Metadata
@@ -128,6 +136,18 @@ loadDiffEqsFrom format source =
   do  modelString <- loadModel format source
       model <- throwLeft ParseError (parseModel format modelString)
       throwLeft ConversionError (toDeqs model)
+
+-------------------------------------------------------------------------------
+-- Gromet
+
+loadGrometPrt :: DataSource -> IO Gromet
+loadGrometPrt = loadGrometPrtFrom GrometPrtType
+
+loadGrometPrtFrom :: ModelType -> DataSource -> IO Gromet
+loadGrometPrtFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toGromet model)
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -260,3 +280,4 @@ convertModelString srcTy src destTy =
           -- If there are errors converting to core, we _might_ want to
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
+          GrometPrtType -> model >>= toGromet >>= (printModel . GrometPrt)
