@@ -104,7 +104,7 @@ handleRequest r =
         do  res <- stratifyModel stratModel stratConnections stratStates stratType
             succeed' res
 
-    ListModels _ -> succeed <$> listAllModels
+    ListModels _ -> succeed <$> listAllModelsWithMetadata
 
     ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
       do  modelSource <- loadCoreFrom modelDefType modelDefSource

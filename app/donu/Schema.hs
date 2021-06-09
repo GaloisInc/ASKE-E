@@ -12,7 +12,7 @@ import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as Lazy
 import Data.Text(Text)
 import qualified Data.Text as Text
-import Data.Maybe(fromMaybe)
+import Data.Maybe(fromMaybe, maybeToList)
 import Data.Functor(($>))
 
 import qualified Data.Aeson as JS
@@ -21,8 +21,6 @@ import SchemaJS
 
 import Language.ASKEE
 import Language.ASKEE.ESL.Print (printModel)
-import qualified Data.HashMap.Strict as HMap
-import Language.ASKEE.Panic (panic)
 
 -------------------------------------------------------------------------------
 -- Input
@@ -116,6 +114,19 @@ instance JS.ToJSON ModelDef where
     JS.object [ "source" .= dataSourceToJSON (modelDefSource m)
               , "type" .= modelDefType m
               ]
+
+-- ToJSON ModelDef and ToJSON (MetaAnn ModelDef) probably ought to be merged somehow
+
+instance JS.ToJSON (MetaAnn ModelDef) where
+  toJSON MetaAnn{..} = 
+    let name = maybeToList $ ("name" .=) <$> lookup "name" metaData
+        desc = maybeToList $ ("description" .=) <$> lookup "description" metaData
+    in  JS.object $
+          name ++
+          desc ++
+          [ "source" .= dataSourceToJSON (modelDefSource metaValue)
+          , "type" .= modelDefType metaValue
+          ]
 
 instance HasSpec ModelType where
   anySpec =  (jsAtom "easel"    $> EaselType)

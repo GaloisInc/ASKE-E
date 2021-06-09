@@ -30,12 +30,14 @@ module Language.ASKEE
 
   , initStorage
   , listAllModels
+  , listAllModelsWithMetadata
   , loadModel
   , storeModel
 
   , DataSource(..)
   , DataSeries(..)
   , DEQ.DiffEqs
+  , MetaAnn(..)
   , ModelDef(..)
   , ModelType(..)
   , Stratify.StratificationInfo(..)
@@ -43,7 +45,7 @@ module Language.ASKEE
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..) )
-import Control.Monad ( void )
+import Control.Monad ( void, forM )
 
 import           Data.Aeson                 ( Value
                                             , decode )
@@ -65,6 +67,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft )
+import           Language.ASKEE.Metadata               ( MetaAnn(..) )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
                                                        , toDeqs
@@ -260,3 +263,14 @@ convertModelString srcTy src destTy =
           -- If there are errors converting to core, we _might_ want to
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
+
+listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
+listAllModelsWithMetadata =
+  do  models <- listAllModels
+      let meta n = [("name", n), ("description", "No description.")]
+      forM models \m@ModelDef{..} ->
+        case modelDefType of
+          EaselType -> 
+            do  ESL.Model{..} <- loadESL modelDefSource
+                pure $ MetaAnn { metaData = meta modelName, metaValue = m }
+          _ -> pure @IO $ pure @MetaAnn m
