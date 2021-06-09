@@ -7,6 +7,7 @@ version:             0.1.0.0
 author:              Galois Inc.
 maintainer:          james.lamar@galois.com
 extra-source-files:  README.md
+                   , modelRepo/easel/sir.easel
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
@@ -152,7 +153,7 @@ executable donu
   other-modules:        HTML
                         Schema
                         SchemaGeneric
-                        SchemaJS 
+                        SchemaJS
 
   build-depends:        base
                       , aeson
