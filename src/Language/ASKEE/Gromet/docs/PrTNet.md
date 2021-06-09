@@ -9,10 +9,10 @@ also supports *parameterized* Petri nets, used to describe a family of
 related Petri nets.
 
 
-The spcificatios uses the following concepts:
+The specification uses the following concepts:
 
   * *junctions* are used to represent the states of the Petri Net
-  * *boxes* are used to group conceptially related entities;
+  * *boxes* are used to group conceptually related entities;
     in particular the entire model is a box containg the junctions
     for the state variables, and boxes for the transitions
   * *ports* are used to mark inputs or outputs of boxes;
@@ -29,7 +29,7 @@ The spcificatios uses the following concepts:
 
 ## Top Level Object
 
-A PrTNet Gromet is JSON object with te following form:
+A PrTNet Gromet is JSON object with the following form:
 
 ```
 PRTNET :=
@@ -192,7 +192,7 @@ Only `"T:Event"` and `"T:Effect"` boxes have output ports, which are used
 to show how state variables are affected by events.
 
 
-### Exprssion Boxes
+### Expression Boxes
 
 Expression boxes contain a mathematical expression.  Some have an
 output port, which is used to indicate where the expression is used.
