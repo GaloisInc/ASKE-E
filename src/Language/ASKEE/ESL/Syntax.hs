@@ -4,30 +4,29 @@ import qualified Data.Map  as Map
 import           Data.Text ( Text )
 
 import           Language.ASKEE.Metadata ( MetaAnn(..) )
-import qualified Language.ASKEE.Metadata as Meta
 
 import Language.ASKEE.Expr ( Expr )
 
 import Prelude hiding (LT, EQ, GT)
 
 data Model = Model { modelName :: Text
-                   , modelDecls :: [Decl]
+                   , modelDecls :: [MetaAnn Decl]
                    , modelEvents :: [Event]
                    }
   deriving (Show, Eq)
 
 
-data ModelMeta = ModelMeta
-  { modelMetaName :: Text
-  , modelMetaDecls :: [MetaAnn Decl]
-  , modelMetaEvents :: [Event]
-  }
-  deriving Show
+-- data ModelMeta = ModelMeta
+--   { modelMetaName :: Text
+--   , modelMetaDecls :: [MetaAnn Decl]
+--   , modelMetaEvents :: [Event]
+--   }
+--   deriving Show
 
-stripMeta :: ModelMeta -> Model
-stripMeta mm = Model (modelMetaName mm)
-                     (Meta.metaValue <$> modelMetaDecls mm)
-                     (modelMetaEvents mm)
+-- stripMeta :: ModelMeta -> Model
+-- stripMeta mm = Model (modelMetaName mm)
+--                      (Meta.metaValue <$> modelMetaDecls mm)
+--                      (modelMetaEvents mm)
 
 data Decl = Let   Text Expr
           | State Text Expr
@@ -49,11 +48,11 @@ type Statement = (Text, Expr)
 
 -- utility functions
 
-stateDecls :: [Decl] -> [(Text, Expr)]
-stateDecls ds = [(n,v) | State n v <- ds ]
+stateDecls :: [MetaAnn Decl] -> [(Text, Expr)]
+stateDecls ds = [(n,v) | State n v <- map metaValue ds ]
 
-letDecls :: [Decl] -> [(Text, Expr)]
-letDecls ds = [(n,v) | Let n v <- ds ]
+letDecls :: [MetaAnn Decl] -> [(Text, Expr)]
+letDecls ds = [(n,v) | Let n v <- map metaValue ds ]
 
 varDecls :: [Decl] -> [(Text, Expr)]
 varDecls ds = ds >>= vd
@@ -62,8 +61,8 @@ varDecls ds = ds >>= vd
     vd (State n v) = [(n, v)]
     vd _ = []
 
-parameterDecls :: [Decl] -> [(Text, Maybe Double)]
-parameterDecls ds = [(n,v) | Parameter n v <- ds ]
+parameterDecls :: [MetaAnn Decl] -> [(Text, Maybe Double)]
+parameterDecls ds = [(n,v) | Parameter n v <- map metaValue ds ]
 
 parameterMap :: Model -> Map.Map Text Double
 parameterMap mdl = Map.fromList [(n, v) | (n, Just v) <- parameterDecls (modelDecls mdl)]

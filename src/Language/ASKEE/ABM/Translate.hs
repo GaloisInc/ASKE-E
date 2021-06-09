@@ -9,7 +9,6 @@ import qualified Data.MultiSet as MSet
 import           Data.MultiSet ( MultiSet )
 import qualified Data.Set  as Set
 import           Data.Set  ( Set )
-import qualified Data.Text as Text
 import           Data.Text ( Text, pack )
 
 import qualified Language.ASKEE.ABM.Syntax as ABM
@@ -28,10 +27,10 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) []
   where
     name = pack modelName
     lets = 
-      [ ESL.Let (pack v) e
+      [ pure $ ESL.Let (pack v) e
       | (v, e) <- modelLets
       ]
-    states = map stateDecl (allStates modelAgent)
+    states = map (pure . stateDecl) (allStates modelAgent)
 
 translateEvent :: ABM.Event -> [ESL.Event]
 translateEvent = undefined 

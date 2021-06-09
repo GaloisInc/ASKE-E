@@ -33,6 +33,7 @@ import Language.ASKEE.ESL.Syntax           ( stateDecls
                                            , Event(..)
                                            , Model(..)
                                            , Statement )
+import Language.ASKEE.Metadata
 
 -- | Lossy conversion from rich model to purely structural topology 
 modelAsTopology :: Model -> Net
@@ -74,7 +75,7 @@ modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutput
 topologyAsModel :: Net -> Model
 topologyAsModel Net{..} = Model "foo" decls events
   where
-    decls = map (flip State undef) (Map.elems netStates)
+    decls = map (pure . flip State undef) (Map.elems netStates)
     events = map mkEvent (Map.toList netTransitions)
 
     mkEvent :: (TransitionID, Text) -> Event
@@ -104,10 +105,10 @@ insertHoles :: Model -> (Model, [Text])
 insertHoles Model{..} = evalRWS fill () 0
   where
     fill :: RWS () [Text] Int Model
-    fill = Model "foo" <$> newDecls <*> newEvents
+    fill = Model "foo" <$> (map pure <$> newDecls) <*> newEvents
 
     newDecls :: RWS () [Text] Int [Decl]
-    newDecls = forM modelDecls $ \case
+    newDecls = forM (map metaValue modelDecls) $ \case
       Let t e -> Let t <$> maybeFreshen e
       State t e -> State t <$> maybeFreshen e
       Assert e -> Assert <$> maybeFreshen e
@@ -140,10 +141,10 @@ insertHoles Model{..} = evalRWS fill () 0
             pure (Var var)
 
 nameHoles :: Map Int Text -> Model -> Model
-nameHoles names Model{..} = Model modelName renamedDecls renamedEvents
+nameHoles names Model{..} = Model modelName (map pure renamedDecls) renamedEvents
   where
     renamedDecls :: [Decl]
-    renamedDecls = flip map modelDecls $ \case
+    renamedDecls = for (map metaValue modelDecls) $ \case
       Let t e -> Let (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
       State t e -> State (updateText' t) (updateExpr (Just $ updateText' t<>"_initial") e)
       Assert e -> Assert (updateExpr' e)
@@ -187,6 +188,8 @@ nameHoles names Model{..} = Model modelName renamedDecls renamedEvents
 
     updateText' = updateText Nothing
     updateExpr' = updateExpr Nothing
+
+    for = flip map
 
 undef :: Expr
 undef = LitD 1 `Div` LitD 0

@@ -19,7 +19,7 @@ import Prelude hiding (Ordering(..))
 }
 
 %name parseModel Model
-%name parseModelMeta ModelMeta
+
 
 %tokentype {Located Lexer.Token}
 %error {parseError}
@@ -82,9 +82,6 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 %%
 
 Model                                 :: { Model }
-  : ModelMeta                            { stripMeta $1 }
-
-ModelMeta                             :: { ModelMeta }
   : 'model' SYM ':'
       BOPEN ModelDecls BCLOSE            { mkModel $2 $5 }
 
@@ -196,11 +193,11 @@ parseError []     = Left $ "parse error at end of file"
 parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
-mkModel :: Text -> [ Either (Meta.MetaAnn Decl) Event ] -> ModelMeta
-mkModel nm ps = ModelMeta { modelMetaName = nm
-                          , modelMetaDecls = ds
-                          , modelMetaEvents = es
-                          }
+mkModel :: Text -> [ Either (Meta.MetaAnn Decl) Event ] -> Model
+mkModel nm ps = Model { modelName = nm
+                      , modelDecls = ds
+                      , modelEvents = es
+                      }
   where (ds,es) = partitionEithers ps
 }
 

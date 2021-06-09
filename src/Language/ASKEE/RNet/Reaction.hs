@@ -11,6 +11,7 @@ import qualified Data.Set as Set
 import qualified Language.ASKEE.ESL.Syntax as Syntax
 import Language.ASKEE.RNet.Syntax
 import qualified Data.List as List
+import Language.ASKEE.Metadata
 
 -- [1] https://catalyst.sciml.ai/stable/tutorials/basics/
 
@@ -119,15 +120,15 @@ reactionsAsModel' mname env rs =
       do e <- Map.lookup v env
          return (Syntax.State v e)
 
-    stateDecls :: Either String [Syntax.Decl]
+    stateDecls :: Either String [MetaAnn Syntax.Decl]
     stateDecls =
       case mkStateDecl `traverse` stateVars of
         -- TODO: which?
         Nothing -> Left "some state vars do not have initial conditions"
-        Just decls -> Right decls
+        Just decls -> Right (map pure decls)
 
-    letDecls :: [Syntax.Decl]
-    letDecls = map (uncurry Syntax.Let) $ Map.toList $ Map.withoutKeys env (Set.fromList stateVars)
+    letDecls :: [MetaAnn Syntax.Decl]
+    letDecls = map (pure . uncurry Syntax.Let) $ Map.toList $ Map.withoutKeys env (Set.fromList stateVars)
 
     namedReactions :: [(Text, Reaction)]
     namedReactions = zip names rs

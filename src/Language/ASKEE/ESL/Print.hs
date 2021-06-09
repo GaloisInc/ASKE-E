@@ -18,6 +18,7 @@ import Prettyprinter ( (<>)
                      , parens
                      , Pretty(pretty), indent )
 import qualified Prettyprinter as PP
+import Language.ASKEE.Metadata
 
 type Doc = PP.Doc ()
 
@@ -216,7 +217,7 @@ printEvent Event{..} = vcat [decl, indent 2 body]
            , pretty '='
            , printExpr e]
 
-
+-- | NB: does _not_ print metadata
 printModel :: Model -> Doc
 printModel Model{..} = vcat [decl, indent 2 body]
   where
@@ -229,7 +230,7 @@ printModel Model{..} = vcat [decl, indent 2 body]
     body = vcat (state ++ events)
 
     state :: [Doc]
-    state = map printDecl modelDecls
+    state = map (printDecl . metaValue) modelDecls
 
     events :: [Doc]
     events = map printEvent modelEvents

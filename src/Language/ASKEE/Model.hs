@@ -23,7 +23,7 @@ import qualified Language.ASKEE.ModelType as MT
 import qualified Language.ASKEE.Gromet as GPRT
 
 data Model =
-    Easel     ESL.ModelMeta
+    Easel     ESL.Model
   | Core      Core.Model
   | Deq       DEQ.DiffEqs
   | GrometPrt GPRT.Gromet
@@ -38,13 +38,13 @@ modelTypeOf m =
 
 -------------------------------------------------------------------------------
 
-asEasel :: Model -> ConversionResult ESL.ModelMeta
+asEasel :: Model -> ConversionResult ESL.Model
 asEasel = tryConvs [ unEasel, notExist "easel" ]
 
 asCore :: Model -> ConversionResult Core.Model
 asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist "core" ]
   where
-    easelToCore e = fromEither (ESL.modelAsCore $ ESL.stripMeta e)
+    easelToCore e = fromEither (ESL.modelAsCore e)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
@@ -60,7 +60,7 @@ notExist :: String -> Model -> ConversionResult a
 notExist tgt mdl =
   ConversionFailed ("could not convert model '" ++ MT.describeModelType' (modelTypeOf mdl) ++ "' to '" ++ tgt ++ "'")
 
-unEasel :: Model -> ConversionResult ESL.ModelMeta
+unEasel :: Model -> ConversionResult ESL.Model
 unEasel (Easel e) = ConversionSucceded e
 unEasel _ = ConversionPass
 
@@ -124,7 +124,7 @@ fromEither e =
 -------------------------------------------------------------------------------
 -- API
 
-toEasel :: Model -> Either String ESL.ModelMeta
+toEasel :: Model -> Either String ESL.Model
 toEasel = asEither asEasel
 
 toDeqs :: Model -> Either String DEQ.DiffEqs
@@ -140,7 +140,7 @@ parseModel :: MT.ModelType -> String -> Either String Model
 parseModel mt s =
   case mt of
     MT.EaselType ->
-      Easel <$> ESL.parseESLMeta s
+      Easel <$> ESL.parseESL s
     MT.DeqType ->
       Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
@@ -151,7 +151,7 @@ parseModel mt s =
 printModel :: Model -> Either String String
 printModel m =
   case m of
-    Easel esl -> (Right . show . ESL.printESL . ESL.stripMeta) esl
+    Easel esl -> (Right . show . ESL.printESL) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core _ -> Left "cannot print core - core has no concrete syntax"
     GrometPrt g -> Right $ GPRT.grometString g

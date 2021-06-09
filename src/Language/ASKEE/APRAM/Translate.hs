@@ -19,6 +19,7 @@ import           Language.ASKEE.APRAM.Sample ()
 import qualified Language.ASKEE.Expr as Expr
 import           Language.ASKEE.ExprTransform
 import           Language.ASKEE.ESL.Syntax as ESLSyntax
+import Language.ASKEE.Metadata
 
 modelToAPRAM :: Model -> Text -> APRAM
 modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
@@ -48,7 +49,8 @@ modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
     mods = initialize : eventsToMods columnName modelEvents
     (totalPop, initialize) = initMod pop columnName modelDecls
 
-initMod :: Cohort -> Text -> [Decl] -> (Double, Mod)
+
+initMod :: Cohort -> Text -> [MetaAnn Decl] -> (Double, Mod)
 initMod pop columnName decls = (totalPop, Mod "Initialize" pop actions "setup")
   where
     stateInitValues = [ (v, either (err v) id $ Expr.eval letBindings e) | (v, e) <- stateDecls decls ]
@@ -109,19 +111,19 @@ apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap mod
       . Map.toList 
       ) apramStatuses
 
-    stateDecs :: [Decl]
+    stateDecs :: [MetaAnn Decl]
     stateDecs = 
-      [ State (mkStateName s) (Expr.Var "???")
+      [ pure $ State (mkStateName s) (Expr.Var "???")
       | s <- Set.toAscList allStates
       ]
 
-    letDecs :: [Decl]
+    letDecs :: [MetaAnn Decl]
     letDecs =
-      [ Let t e
+      [ pure $ Let t e
       | (t, e) <- Map.toList apramParams
       ] ++
-      [ Let "delta" (Expr.LitD delta)
-      , Let "size" (Expr.LitD $ fromIntegral apramAgents) ]
+      [ pure $ Let "delta" (Expr.LitD delta)
+      , pure $ Let "size" (Expr.LitD $ fromIntegral apramAgents) ]
   
     -- Generate every possible combination, Cartesian-product style, of `b`s, 
     -- propagating their `a` tags

@@ -12,10 +12,11 @@ data ModelType =
 parseModelType :: Text -> Maybe ModelType
 parseModelType t =
   case t of
-    "easel"   -> Just EaselType
-    "diff-eq" -> Just DeqType
-    "core"    -> Just CoreType
-    _         -> Nothing
+    "easel"      -> Just EaselType
+    "diff-eq"    -> Just DeqType
+    "core"       -> Just CoreType
+    "gromet-prt" -> Just GrometPrtType
+    _ -> Nothing
 
 parseModelType' :: String -> Maybe ModelType
 parseModelType' = parseModelType . pack
