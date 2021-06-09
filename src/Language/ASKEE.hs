@@ -7,10 +7,7 @@ module Language.ASKEE
   ( loadDiffEqs
   , loadDiffEqsFrom
   , loadESL
-  , loadESLMeta
-  , loadESLMetaFrom
-  -- , loadReactionsFrom
-  -- , loadLatexFrom
+  , loadESLFrom
   , loadGrometPrt
   , loadGrometPrtFrom
   , loadCPPFrom
@@ -92,27 +89,18 @@ import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
 
 -------------------------------------------------------------------------------
--- ESL with Metadata
+-- ESL
 
-loadESLMeta :: DataSource -> IO ESL.ModelMeta 
-loadESLMeta = loadESLMetaFrom EaselType
-
-loadESLMetaFrom :: ModelType -> DataSource -> IO ESL.ModelMeta
-loadESLMetaFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
-      esl <- throwLeft ConversionError (toEasel model)
-      _ <- throwLeft ValidationError (ESL.checkModel $ ESL.stripMeta esl)
-      pure esl
-
--------------------------------------------------------------------------------
--- Plain ESL
-
-loadESL :: DataSource -> IO ESL.Model
+loadESL :: DataSource -> IO ESL.Model 
 loadESL = loadESLFrom EaselType
 
 loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
-loadESLFrom format source = ESL.stripMeta <$> loadESLMetaFrom format source
+loadESLFrom format source =
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      esl <- throwLeft ConversionError (toEasel model)
+      _ <- throwLeft ValidationError (ESL.checkModel esl)
+      pure esl
 
 -------------------------------------------------------------------------------
 -- Core
@@ -242,7 +230,7 @@ checkModel mt =
 checkESL :: Text -> IO ()
 checkESL t =
   do  Easel esl <- throwLeft ParseError (parseModel EaselType (Text.unpack t))
-      _ <- throwLeft ValidationError (ESL.checkModel $ ESL.stripMeta esl)
+      _ <- throwLeft ValidationError (ESL.checkModel esl)
       pure ()
 
 checkDEQ :: Text -> IO ()

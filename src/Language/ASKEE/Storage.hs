@@ -86,7 +86,7 @@ listModels mt =
 formatLocation :: ModelType -> FilePath
 formatLocation mt =
   case mt of
-    EaselType -> "easel-meta"
+    EaselType -> "easel"
     DeqType -> "deq"
     CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
     GrometPrtType -> "gromet-prt"

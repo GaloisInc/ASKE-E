@@ -20,6 +20,7 @@ import           Language.ASKEE.ESL.Print (printExpr)
 import           Language.ASKEE.ESL.Syntax (Event(..), Decl(..), Model(..))
 
 import Prelude hiding (GT, EQ, LT, exp)
+import Language.ASKEE.Metadata
 
 data Type = 
     Double
@@ -60,7 +61,7 @@ checkModel m@Model{..} = evalCheck go >> pure m
   where
     go :: Check ()
     go = 
-      do  checkDecls modelDecls
+      do  checkDecls (map metaValue modelDecls)
           checkEvents modelEvents
 
 evalCheck :: Check a -> Either String a
