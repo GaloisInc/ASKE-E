@@ -118,9 +118,10 @@ instance JS.ToJSON ModelDef where
               ]
 
 instance HasSpec ModelType where
-  anySpec =  (jsAtom "easel"    $> EaselType)
-         <!> (jsAtom "diff-eqs" $> DeqType )
-         <!> (jsAtom "core"     $> CoreType)
+  anySpec =  (jsAtom "easel"      $> EaselType)
+         <!> (jsAtom "diff-eqs"   $> DeqType )
+         <!> (jsAtom "core"       $> CoreType)
+         <!> (jsAtom "gromet-prt" $> GrometPrtType)
 
 instance JS.ToJSON ModelType where
   toJSON mt = JS.String
@@ -128,6 +129,7 @@ instance JS.ToJSON ModelType where
       EaselType -> "easel-meta"
       DeqType -> "deq"
       CoreType -> "core"
+      GrometPrtType -> "gromet-prt"
 
 dataSourceToJSON :: DataSource -> JS.Value
 dataSourceToJSON ds =
