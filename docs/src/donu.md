@@ -74,9 +74,9 @@ Example:
 **Response:**
 
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| models           | list                     | list of model-def objects                                         |
+| Field   | Type    | Description                                                       |
+|---------|---------|-------------------------------------------------------------------|
+| models  | list    | list of "model-def++" objects - guaranteed to have the same members as a model-def object, but will also include `"name"` and `"description"` members for ESL models |
 
 Example:
 
@@ -87,7 +87,9 @@ Example:
     "models": [
       {
         "source": { "file": "modelRepo/easel/sir.easel" },
-        "type": "easel"
+        "type": "easel",
+        "name": "SIR",
+        "description": "No description."
       }
     ]
   }

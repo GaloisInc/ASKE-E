@@ -8,7 +8,7 @@ module Language.ASKEE.ESL
   , modelAsCore
   -- , stripMeta
 
-  , Model
+  , Model(..)
   )
   where
 
@@ -20,7 +20,7 @@ import Language.ASKEE.ESL.GenParser ( parseModel )
 import Language.ASKEE.ESL.GenLexer  ( lexModel )
 import Language.ASKEE.ESL.Interface ( describeModelInterface )
 import Language.ASKEE.ESL.Print     ( printModel, Doc )
-import Language.ASKEE.ESL.Syntax    ( Model )
+import Language.ASKEE.ESL.Syntax    ( Model(..) )
 
 parseESL :: String -> Either String Model
 parseESL = lexModel >=> parseModel

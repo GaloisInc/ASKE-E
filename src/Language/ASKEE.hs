@@ -31,12 +31,14 @@ module Language.ASKEE
 
   , initStorage
   , listAllModels
+  , listAllModelsWithMetadata
   , loadModel
   , storeModel
 
   , DataSource(..)
   , DataSeries(..)
   , DEQ.DiffEqs
+  , MetaAnn(..)
   , ModelDef(..)
   , ModelType(..)
   , Stratify.StratificationInfo(..)
@@ -44,6 +46,7 @@ module Language.ASKEE
   ) where
 
 import Control.Exception (throwIO, try, SomeException(..) )
+import Control.Monad ( forM )
 
 import           Data.Aeson                 ( Value
                                             , decode )
@@ -63,10 +66,11 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
+import           Language.ASKEE.Gromet                 ( Gromet )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
-import           Language.ASKEE.Gromet                 ( Gromet )
+import           Language.ASKEE.Metadata               ( MetaAnn(..) )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
                                                        , toDeqs
@@ -309,3 +313,15 @@ convertModelString srcTy src destTy =
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
           GrometPrtType -> model >>= toGromet >>= (printModel . GrometPrt)
+
+          
+listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
+listAllModelsWithMetadata =
+  do  models <- listAllModels
+      let meta n = [("name", n), ("description", "No description.")]
+      forM models \m@ModelDef{..} ->
+        case modelDefType of
+          EaselType -> 
+            do  ESL.Model{..} <- loadESL modelDefSource
+                pure $ MetaAnn { metaData = meta modelName, metaValue = m }
+          _ -> pure @IO $ pure @MetaAnn m
