@@ -164,7 +164,7 @@ instance JSON.ToJSON Box where
       , "wires"     .= boxWires b
       , "boxes"     .= boxBoxes b
       , "ports"     .= boxPorts b
-      , "Junctions" .= boxJuncitons b
+      , "junctions" .= boxJuncitons b
       ]
 
     varFields =
