@@ -43,7 +43,7 @@ Or a string containing the data itself:
 
 ### `model-def`
 
-A model def is a `datasource` along with a model type.  Valid model types are `easel`, `diff-eq` with `gromet` coming soon.
+A model def is a `datasource` along with a model type.  Valid model types are `easel`, `diff-eqs`, `core`, and `gromet-prt`.
 
 Example:
 
@@ -113,7 +113,7 @@ Example:
   "command": "simulate",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir-meta.easel" }
+    "source": { "file": "modelRepo/easel/sir.easel" }
   },
   "start": 0,
   "end": 120.0,
@@ -362,7 +362,7 @@ The result, if successful, is a `model-def` object with the new model inline.
   "definition": {
     "type": "easel",
     "source": {
-      "file": "modelRepo/easel/sir-meta.easel"
+      "file": "modelRepo/easel/sir.easel"
     }
   }
 }
