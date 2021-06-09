@@ -1,4 +1,5 @@
 # ASKE-E
+[![Build status](https://github.com/GaloisInc/ASKE-E/workflows/Haskell-CI/badge.svg)](https://github.com/GaloisInc/ASKE-E/actions?query=workflow%3AHaskell-CI)
 
 ## Model Stratification
 
