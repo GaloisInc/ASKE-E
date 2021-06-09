@@ -181,6 +181,19 @@ loadGrometPrtFrom format source =
 --               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
 --       toIO "loadLatexFrom" $ conv modelString
 
+loadConnectionGraph :: String -> IO (Value, Map Int Text)
+loadConnectionGraph s = 
+  do  result <- case GG.parseGeoGraph s of
+        Right res -> pure res
+        Left err -> throwIO $ ParseError err
+      let (vertices, edges, mapping) = GG.intGraph result
+          mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+      pure (GG.gtriJSON vertices edges, mapping')
+
+loadCPPFrom :: ModelType -> DataSource -> IO Doc
+loadCPPFrom format source =
+  do  coreModel <- loadCoreFrom format source
+      pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
 -- Storage
@@ -244,19 +257,7 @@ checkGrometPrt t =
         ExitSuccess -> pure ()
         ExitFailure _ -> die (ValidationError "invalid gromet")
 
-loadConnectionGraph :: String -> IO (Value, Map Int Text)
-loadConnectionGraph s = 
-  do  result <- case GG.parseGeoGraph s of
-        Right res -> pure res
-        Left err -> throwIO $ ParseError err
-      let (vertices, edges, mapping) = GG.intGraph result
-          mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
-      pure (GG.gtriJSON vertices edges, mapping')
 
-loadCPPFrom :: ModelType -> DataSource -> IO Doc
-loadCPPFrom format source =
-  do  coreModel <- loadCoreFrom format source
-      pure $ SimulatorGen.genModel coreModel
 
 -------------------------------------------------------------------------------
 
