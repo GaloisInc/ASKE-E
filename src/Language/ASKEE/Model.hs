@@ -8,6 +8,7 @@ module Language.ASKEE.Model
   , toDeqs
   , toCore
   , toEasel
+  , toGromet
   , parseModel
   , printModel
   ) where
@@ -19,19 +20,21 @@ import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
 import qualified Language.ASKEE.ModelType as MT
+import qualified Language.ASKEE.Gromet as GPRT
 
 data Model =
-    Easel ESL.ModelMeta
-  | Core  Core.Model
-  | Deq   DEQ.DiffEqs
+    Easel     ESL.ModelMeta
+  | Core      Core.Model
+  | Deq       DEQ.DiffEqs
+  | GrometPrt GPRT.Gromet
 
--- TODO: model type
-describeModelType :: Model -> String
-describeModelType m =
+modelTypeOf :: Model -> MT.ModelType
+modelTypeOf m =
   case m of
-    Easel _ -> "easel"
-    Core _ -> "easel core"
-    Deq _ -> "differential equations"
+    Easel _ -> MT.EaselType
+    Core _ -> MT.CoreType
+    Deq _ -> MT.DeqType
+    GrometPrt _ -> MT.GrometPrtType
 
 -------------------------------------------------------------------------------
 
@@ -48,9 +51,14 @@ asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
   where
     coreToDeqs c = pure $ Core.asDiffEqs c
 
+asGrometPrt :: Model -> ConversionResult GPRT.Gromet
+asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist "gromet-prt"  ]
+  where
+    fromCore = pure . GPRT.convertCoreToGromet
+
 notExist :: String -> Model -> ConversionResult a
 notExist tgt mdl =
-  ConversionFailed ("could not convert model '" ++ describeModelType mdl ++ "' to '" ++ tgt ++ "'")
+  ConversionFailed ("could not convert model '" ++ MT.describeModelType' (modelTypeOf mdl) ++ "' to '" ++ tgt ++ "'")
 
 unEasel :: Model -> ConversionResult ESL.ModelMeta
 unEasel (Easel e) = ConversionSucceded e
@@ -63,6 +71,10 @@ unCore _ = ConversionPass
 unDeq :: Model -> ConversionResult DEQ.DiffEqs
 unDeq (Deq d) = ConversionSucceded d
 unDeq _ = ConversionPass
+
+unGrometPrt :: Model -> ConversionResult GPRT.Gromet
+unGrometPrt (GrometPrt g) = ConversionSucceded g
+unGrometPrt _ = ConversionPass
 
 -------------------------------------------------------------------------------
 -- ConversionResult
@@ -121,6 +133,9 @@ toDeqs = asEither asDeq
 toCore :: Model -> Either String Core.Model
 toCore = asEither asCore
 
+toGromet :: Model -> Either String GPRT.Gromet
+toGromet = asEither asGrometPrt
+
 parseModel :: MT.ModelType -> String -> Either String Model
 parseModel mt s =
   case mt of
@@ -130,6 +145,8 @@ parseModel mt s =
       Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
+    MT.GrometPrtType ->
+      Left "Cannot parse gromet-prt - parser is not yet implemented"
 
 printModel :: Model -> Either String String
 printModel m =
@@ -137,3 +154,4 @@ printModel m =
     Easel esl -> (Right . show . ESL.printESL . ESL.stripMeta) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core _ -> Left "cannot print core - core has no concrete syntax"
+    GrometPrt g -> Right $ GPRT.grometString g

@@ -6,6 +6,7 @@ data ModelType =
     EaselType 
   | DeqType 
   | CoreType
+  | GrometPrtType
   deriving(Eq, Ord, Show, Enum)
 
 parseModelType :: Text -> Maybe ModelType
@@ -25,6 +26,7 @@ describeModelType t =
     EaselType -> "easel"
     DeqType -> "diff-eq"
     CoreType -> "core"
+    GrometPrtType -> "gromet-prt"
 
 describeModelType' :: ModelType -> String
 describeModelType' = unpack . describeModelType
