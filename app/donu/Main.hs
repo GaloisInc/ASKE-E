@@ -121,7 +121,7 @@ handleRequest r =
           succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
-      do  model <- loadESLMetaFrom modelDefType modelDefSource
+      do  model <- loadESLFrom modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
   
