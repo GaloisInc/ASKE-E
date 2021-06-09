@@ -297,7 +297,7 @@ for the ASKE-E program.</p>
 <pre><code class="language-JSON">&quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n  let s_initial = 997...&quot;
 </code></pre>
 <h3 id="model-def"><a class="header" href="#model-def"><code>model-def</code></a></h3>
-<p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eq</code> with <code>gromet</code> coming soon.</p>
+<p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eqs</code>, <code>core</code>, and <code>gromet-prt</code>.</p>
 <p>Example:</p>
 <pre><code>{
   &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
@@ -344,7 +344,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;simulate&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir-meta.easel&quot; }
+    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
   },
   &quot;start&quot;: 0,
   &quot;end&quot;: 120.0,
@@ -550,7 +550,7 @@ for the ASKE-E program.</p>
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
     &quot;source&quot;: {
-      &quot;file&quot;: &quot;modelRepo/easel/sir-meta.easel&quot;
+      &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot;
     }
   }
 }
