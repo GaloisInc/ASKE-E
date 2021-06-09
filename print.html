@@ -315,7 +315,7 @@ for the ASKE-E program.</p>
 </code></pre>
 <p><strong>Response:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>models</td><td>list</td><td>list of model-def objects</td></tr>
+<tr><td>models</td><td>list</td><td>list of &quot;model-def++&quot; objects - guaranteed to have the same members as a model-def object, but will also include <code>&quot;name&quot;</code> and <code>&quot;description&quot;</code> members for ESL models</td></tr>
 </tbody></table>
 <p>Example:</p>
 <pre><code class="language-JSON">{
@@ -324,7 +324,9 @@ for the ASKE-E program.</p>
     &quot;models&quot;: [
       {
         &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
-        &quot;type&quot;: &quot;easel&quot;
+        &quot;type&quot;: &quot;easel&quot;,
+        &quot;name&quot;: &quot;SIR&quot;,
+        &quot;description&quot;: &quot;No description.&quot;
       }
     ]
   }
