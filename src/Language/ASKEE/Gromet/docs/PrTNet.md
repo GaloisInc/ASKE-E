@@ -241,6 +241,15 @@ OPERATOR :=
   }
 ```
 
+## Example
+
+The following picture is a visualization of a PrTNet document.  The ports at
+the top part of box are input ports, while the ports at the bottom are output
+ports.
+
+![Example](PrT.svg)
+
+
 
 
 
