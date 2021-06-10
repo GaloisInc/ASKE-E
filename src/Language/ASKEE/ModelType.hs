@@ -7,15 +7,19 @@ data ModelType =
   | DeqType 
   | CoreType
   | GrometPrtType
+  | GrometPrcType
+  | GrometFnetType
   deriving(Eq, Ord, Show, Enum)
 
 parseModelType :: Text -> Maybe ModelType
 parseModelType t =
   case t of
-    "easel"      -> Just EaselType
-    "diff-eq"    -> Just DeqType
-    "core"       -> Just CoreType
-    "gromet-prt" -> Just GrometPrtType
+    "easel"       -> Just EaselType
+    "diff-eq"     -> Just DeqType
+    "core"        -> Just CoreType
+    "gromet-prt"  -> Just GrometPrtType
+    "gromet-prc"  -> Just GrometPrcType
+    "gromet-fnet" -> Just GrometFnetType
     _ -> Nothing
 
 parseModelType' :: String -> Maybe ModelType
@@ -28,6 +32,8 @@ describeModelType t =
     DeqType -> "diff-eq"
     CoreType -> "core"
     GrometPrtType -> "gromet-prt"
+    GrometPrcType -> "gromet-prc"
+    GrometFnetType -> "gromet-fnet"
 
 describeModelType' :: ModelType -> String
 describeModelType' = unpack . describeModelType

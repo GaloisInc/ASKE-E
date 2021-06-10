@@ -90,6 +90,8 @@ formatLocation mt =
     DeqType -> "deq"
     CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
     GrometPrtType -> "gromet-prt"
+    GrometFnetType -> "gromet-fnet"
+    GrometPrcType -> "gromet-prc"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

@@ -8,7 +8,9 @@ module Language.ASKEE.Model
   , toDeqs
   , toCore
   , toEasel
-  , toGromet
+  , toGrometPrt
+  , toGrometPrc
+  , toGrometFnet
   , parseModel
   , printModel
   ) where
@@ -21,12 +23,16 @@ import qualified Language.ASKEE.ESL as ESL
 
 import qualified Language.ASKEE.ModelType as MT
 import qualified Language.ASKEE.Gromet as GPRT
+import qualified Data.Aeson as JSON
+import qualified Data.ByteString.Lazy.Char8 as BS
 
 data Model =
     Easel     ESL.Model
   | Core      Core.Model
   | Deq       DEQ.DiffEqs
   | GrometPrt GPRT.Gromet
+  | GrometPrc JSON.Value
+  | GrometFnet JSON.Value
 
 modelTypeOf :: Model -> MT.ModelType
 modelTypeOf m =
@@ -35,30 +41,32 @@ modelTypeOf m =
     Core _ -> MT.CoreType
     Deq _ -> MT.DeqType
     GrometPrt _ -> MT.GrometPrtType
+    GrometPrc _ -> MT.GrometPrcType
+    GrometFnet _ -> MT.GrometFnetType
 
 -------------------------------------------------------------------------------
 
 asEasel :: Model -> ConversionResult ESL.Model
-asEasel = tryConvs [ unEasel, notExist "easel" ]
+asEasel = tryConvs [ unEasel, notExist MT.EaselType ]
 
 asCore :: Model -> ConversionResult Core.Model
-asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist "core" ]
+asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist MT.CoreType ]
   where
     easelToCore e = fromEither (ESL.modelAsCore e)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
-asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist "deq" ]
+asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
   where
     coreToDeqs c = pure $ Core.asDiffEqs c
 
 asGrometPrt :: Model -> ConversionResult GPRT.Gromet
-asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist "gromet-prt"  ]
+asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrcType ]
   where
     fromCore = pure . GPRT.convertCoreToGromet
 
-notExist :: String -> Model -> ConversionResult a
+notExist :: MT.ModelType -> Model -> ConversionResult a
 notExist tgt mdl =
-  ConversionFailed ("could not convert model '" ++ MT.describeModelType' (modelTypeOf mdl) ++ "' to '" ++ tgt ++ "'")
+  ConversionFailed ("could not convert model '" ++ MT.describeModelType' (modelTypeOf mdl) ++ "' to '" ++ MT.describeModelType' tgt ++ "'")
 
 unEasel :: Model -> ConversionResult ESL.Model
 unEasel (Easel e) = ConversionSucceded e
@@ -75,6 +83,14 @@ unDeq _ = ConversionPass
 unGrometPrt :: Model -> ConversionResult GPRT.Gromet
 unGrometPrt (GrometPrt g) = ConversionSucceded g
 unGrometPrt _ = ConversionPass
+
+unGrometPrc :: Model -> ConversionResult JSON.Value
+unGrometPrc (GrometPrc v) = ConversionSucceded v
+unGrometPrc _ = ConversionPass
+
+unGrometFNet :: Model -> ConversionResult JSON.Value
+unGrometFNet (GrometFnet v) = ConversionSucceded v
+unGrometFNet _ = ConversionPass
 
 -------------------------------------------------------------------------------
 -- ConversionResult
@@ -133,8 +149,14 @@ toDeqs = asEither asDeq
 toCore :: Model -> Either String Core.Model
 toCore = asEither asCore
 
-toGromet :: Model -> Either String GPRT.Gromet
-toGromet = asEither asGrometPrt
+toGrometPrt :: Model -> Either String GPRT.Gromet
+toGrometPrt = asEither asGrometPrt
+
+toGrometPrc :: Model -> Either String JSON.Value
+toGrometPrc = asEither (tryConvs [unGrometPrc, notExist MT.GrometPrcType])
+
+toGrometFnet :: Model -> Either String JSON.Value
+toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
 
 parseModel :: MT.ModelType -> String -> Either String Model
 parseModel mt s =
@@ -145,8 +167,12 @@ parseModel mt s =
       Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
-    MT.GrometPrtType ->
-      Left "Cannot parse gromet-prt - parser is not yet implemented"
+    MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
+    MT.GrometPrcType -> GrometPrc <$> loadJSON
+    MT.GrometFnetType -> GrometFnet <$> loadJSON
+  where
+    loadJSON = JSON.eitherDecode $ BS.pack s
+
 
 printModel :: Model -> Either String String
 printModel m =
@@ -155,3 +181,7 @@ printModel m =
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core _ -> Left "cannot print core - core has no concrete syntax"
     GrometPrt g -> Right $ GPRT.grometString g
+    GrometFnet v -> Right $ printJson v
+    GrometPrc v -> Right $printJson v
+  where
+    printJson v = BS.unpack $ JSON.encode v

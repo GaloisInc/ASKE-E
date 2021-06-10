@@ -35,6 +35,8 @@ module Language.ASKEE
   , loadModel
   , storeModel
 
+  , describeModelType
+
   , DataSource(..)
   , DataSeries(..)
   , DEQ.DiffEqs
@@ -76,9 +78,11 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toDeqs
                                                        , toEasel
                                                        , toCore
-                                                       , toGromet
+                                                       , toGrometPrc
+                                                       , toGrometPrt
+                                                       , toGrometFnet
                                                        , Model (..) )
-import           Language.ASKEE.ModelType              ( ModelType(..) )
+import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
@@ -140,7 +144,7 @@ loadGrometPrtFrom :: ModelType -> DataSource -> IO Gromet
 loadGrometPrtFrom format source =
   do  modelString <- loadModel format source
       model <- throwLeft ParseError (parseModel format modelString)
-      throwLeft ConversionError (toGromet model)
+      throwLeft ConversionError (toGrometPrt model)
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -312,7 +316,10 @@ convertModelString srcTy src destTy =
           -- If there are errors converting to core, we _might_ want to
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
-          GrometPrtType -> model >>= toGromet >>= (printModel . GrometPrt)
+          GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
+          GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
+          GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
+
 
           
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
