@@ -212,7 +212,7 @@ EXPR_BOX :=
   }
 ```
 
-Mathemtical expressions are encoded as follows:
+Mathematical expressions are encoded as follows:
 
 ```
 EXPR := LIT_EXPR      // A literal
