@@ -204,7 +204,7 @@ JUNCTION_ID := STRING
 <p>Note that these identifiers are unique for a given PrTNet object, but
 are <em>not</em> globally unique.</p>
 <h2 id="value-types"><a class="header" href="#value-types">Value Types</a></h2>
-<p>Most entities also contain a field indicating its type, which may have
+<p>Most entities also contain a field indicating its type, which may
 be one of the following:</p>
 <pre><code>VALUE_TYPE :=
     &quot;T:Real&quot;                // The type of real numbers
@@ -260,7 +260,7 @@ are of type <code>&quot;T:Parameter&quot;</code>.</p>
 There are two flavors of boxes:</p>
 <ul>
 <li><em>relation</em> boxes are used for grouping, and may contain other boxes</li>
-<li><em>expression</em> boxes contain a tree describing a mathemtical expression</li>
+<li><em>expression</em> boxes contain a tree describing a mathematical expression</li>
 </ul>
 <pre><code>BOX := REL_BOX | EXPR_BOX
 </code></pre>
@@ -298,12 +298,12 @@ used in multiple places in the model</p>
 </ul>
 </li>
 <li>
-<p>A <code>&quot;T:Enable&quot;</code> box contain a single expresison box, describing the
+<p>A <code>&quot;T:Enable&quot;</code> box contains a single expression box, describing the
 enabling condition for the given event</p>
 </li>
 <li>
-<p>A <code>&quot;T:Rate&quot;</code> box contains a single expresison box, descriing the
-rate at which this event may occut</p>
+<p>A <code>&quot;T:Rate&quot;</code> box contains a single expression box, describing the
+rate at which this event may occur</p>
 </li>
 <li>
 <p>A <code>&quot;T:Effect&quot;</code> box contains a collection of expression boxes, one
