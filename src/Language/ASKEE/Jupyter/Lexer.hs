@@ -10,4 +10,5 @@ data Token = EOF
   | Comma
   | OpenP
   | CloseP
+  | LoadEasel
   deriving Show

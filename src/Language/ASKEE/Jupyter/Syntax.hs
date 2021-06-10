@@ -2,14 +2,50 @@ module Language.ASKEE.Jupyter.Syntax where
 
 import Data.Text (Text)
 
+type Binder = Text
+type Ident  = Text
+type Label  = Int
+
 data Stmt
-  = StmtAssign Text Expr
-  | StmtEval Expr
+  = StmtLet Binder Expr
+  | StmtDisplay DisplayExpr
+  deriving Show
+
+-- TODO: Labels?
+newtype DisplayExpr
+  = DisplayScalar Expr
+  deriving Show
+
+data Literal
+  = LitNum Double
+  | LitString Text
   deriving Show
 
 data Expr
-  = ExprCall Text [Expr]
-  | ExprVar Text
-  | ExprString Text
-  | ExprNumber Double
+  = EVar Text
+  | ELit Literal
+  | ECall FunctionName [Expr]
+  | EMember Expr Label
+  deriving Show
+
+data FunctionName
+  = FAdd
+  | FSub
+  | FMul
+  | FDiv
+  | FGT
+  | FGTE
+  | FLT
+  | FLTE
+  | FEQ
+  | FNEQ
+  | FNot
+  | FAnd
+  | FOr
+  | FProb
+  | FSample
+  | FAt
+  | FMkArray
+  | FMkIntervals
+  | FLoadEasel
   deriving Show

@@ -23,10 +23,11 @@ $graphic = $printable # $white
 
 tokens :-
 
-"="      { atomic Assign }
-"("      { atomic OpenP  }
-")"      { atomic CloseP }
-","      { atomic Comma  }
+"="         { atomic Assign    }
+"("         { atomic OpenP     }
+")"         { atomic CloseP    }
+","         { atomic Comma     }
+"loadEasel" { atomic LoadEasel }
 
 @string  { str }
 @real    { real          }

@@ -3,20 +3,21 @@ module Language.ASKEE.Jupyter.GenParser where
 
 import Language.ASKEE.ESL.Lexer ( Located(..) )
 import Language.ASKEE.Jupyter.GenLexer
-import Language.ASKEE.Jupyter.Lexer as Lexer
+import qualified Language.ASKEE.Jupyter.Lexer as Lexer
 import Language.ASKEE.Jupyter.Syntax as Syntax
 }
 
 %name        parseJupyterStmt stmt
-%tokentype   { Located Token }
-%error       { parseError    }
-%monad       { Either String }
+%tokentype   { Located Lexer.Token }
+%error       { parseError          }
+%monad       { Either String       }
 
 %token
 '='          { Located _ _ Lexer.Assign    }
-','          { Located _ _ Comma           }
-'('          { Located _ _ OpenP           }
-')'          { Located _ _ CloseP          }
+','          { Located _ _ Lexer.Comma     }
+'('          { Located _ _ Lexer.OpenP     }
+')'          { Located _ _ Lexer.CloseP    }
+'loadEasel'  { Located _ _ Lexer.LoadEasel }
 REAL         { Located _ _ (Lexer.LitD $$) }
 STRING       { Located _ _ (Lexer.LitS $$) }
 SYM          { Located _ _ (Lexer.Sym $$)  }
@@ -24,14 +25,24 @@ SYM          { Located _ _ (Lexer.Sym $$)  }
 %%
 
 stmt :: { Stmt }
-stmt  : SYM '=' expr { StmtAssign $1 $3 }
-      | expr         { StmtEval $1      }
+stmt  : SYM '=' expr { StmtLet $1 $3  }
+      | dispExpr     { StmtDisplay $1 }
 
 expr :: { Expr }
-expr : SYM '(' commaSepExprs0 ')' { ExprCall $1 $3 }
-     | SYM                        { ExprVar $1     }
-     | STRING                     { ExprString $1  }
-     | REAL                       { ExprNumber $1  }
+expr : SYM                                 { EVar $1     }
+     | lit                                 { ELit $1     }
+     | functionName '(' commaSepExprs0 ')' { ECall $1 $3 }
+
+dispExpr :: { DisplayExpr }
+disExpr : expr { DisplayScalar $1 }
+
+lit :: { Literal }
+lit : REAL   { LitNum $1    }
+    | STRING { LitString $1 }
+
+functionName :: { FunctionName }
+functionName : 'loadEasel' { FLoadEasel }
+             -- TODO: Add all the others
 
 commaSepExprs0 :: { [Expr] }
 commaSepExprs0 : {- empty -}    { [] }
