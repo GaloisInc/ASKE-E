@@ -23,7 +23,7 @@ newtype ESLState = ESLState
   deriving (Eq, Ord, Show)
 
 abmToModel :: ABM.Model -> ESL.Model
-abmToModel ABM.Model{..} = ESL.Model name (lets++states) []
+abmToModel ABM.Model{..} = ESL.Model (pure name) (lets++states) []
   where
     name = pack modelName
     lets = 

@@ -72,7 +72,7 @@ import           Language.ASKEE.Gromet                 ( Gromet )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
-import           Language.ASKEE.Metadata               ( MetaAnn(..) )
+import           Language.ASKEE.Metadata               ( MetaAnn(..), metaMap )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
                                                        , toDeqs
@@ -327,10 +327,17 @@ convertModelString srcTy src destTy =
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
 listAllModelsWithMetadata =
   do  models <- listAllModels
-      let meta n = [("name", n), ("description", "No description.")]
       forM models \m@ModelDef{..} ->
         case modelDefType of
-          EaselType -> 
+          EaselType ->
             do  ESL.Model{..} <- loadESL modelDefSource
-                pure $ MetaAnn { metaData = meta modelName, metaValue = m }
+                case Map.mapKeys Text.toLower (metaMap modelName) Map.!? "description" of
+                  Just d -> pure
+                    MetaAnn 
+                      { metaData = [("name", metaValue modelName), ("description", d)]
+                      , metaValue = m }
+                  Nothing -> pure
+                    MetaAnn 
+                      { metaData = [("name", metaValue modelName)]
+                      , metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m

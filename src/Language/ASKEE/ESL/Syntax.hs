@@ -9,7 +9,7 @@ import Language.ASKEE.Expr ( Expr )
 
 import Prelude hiding (LT, EQ, GT)
 
-data Model = Model { modelName :: Text
+data Model = Model { modelName :: MetaAnn Text
                    , modelDecls :: [MetaAnn Decl]
                    , modelEvents :: [Event]
                    }

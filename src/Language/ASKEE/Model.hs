@@ -182,6 +182,6 @@ printModel m =
     Core _ -> Left "cannot print core - core has no concrete syntax"
     GrometPrt g -> Right $ GPRT.grometString g
     GrometFnet v -> Right $ printJson v
-    GrometPrc v -> Right $printJson v
+    GrometPrc v -> Right $ printJson v
   where
     printJson v = BS.unpack $ JSON.encode v

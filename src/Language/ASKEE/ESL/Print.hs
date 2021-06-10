@@ -223,7 +223,7 @@ printModel Model{..} = vcat [decl, indent 2 body]
   where
     decl :: Doc
     decl = text "model" <+>
-           pretty (unpack modelName) <>
+           pretty (unpack $ metaValue modelName) <>
            pretty ':'
 
     body :: Doc

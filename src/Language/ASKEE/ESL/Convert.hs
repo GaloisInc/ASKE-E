@@ -6,6 +6,7 @@ import           Language.ASKEE.Core.Expr
 import           Language.ASKEE.Core.Syntax ( Event(..), Model(..) )
 import qualified Language.ASKEE.ESL.Syntax  as Src
 import qualified Language.ASKEE.Expr        as Src
+import Language.ASKEE.Metadata
 
 modelAsCore :: Src.Model -> Either String Model
 modelAsCore mdl =
@@ -17,7 +18,7 @@ modelAsCore mdl =
 
   modelNoInit =
     mapExprs simplifyExpr $
-    Model { modelName      = Src.modelName mdl
+    Model { modelName      = metaValue $ Src.modelName mdl
           , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
           , modelLets      = 

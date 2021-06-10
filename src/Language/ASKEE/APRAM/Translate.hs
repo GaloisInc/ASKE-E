@@ -100,7 +100,7 @@ eventsToMods columnName = map eventToMod
 -------------------------------------------------------------------------------
 
 apramToModel :: APRAM -> Double -> Model
-apramToModel APRAM{..} delta = Model "foo" (letDecs ++ stateDecs) (concatMap modToEvents apramMods)
+apramToModel APRAM{..} delta = Model (pure "foo") (letDecs ++ stateDecs) (concatMap modToEvents apramMods)
   where
     allStates :: Set State
     allStates = 

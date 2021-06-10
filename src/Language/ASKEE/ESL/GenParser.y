@@ -4,7 +4,7 @@ module Language.ASKEE.ESL.GenParser where
 
 import           Data.Either ( partitionEithers )
 import qualified Data.Map    as Map
-import           Data.Maybe  ( mapMaybe )
+import           Data.Maybe  ( mapMaybe, maybeToList )
 import           Data.Text   ( Text )
 
 import           Language.ASKEE.ESL.Convert      ( expAsCore )
@@ -81,9 +81,14 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 
 %%
 
+MAYBE(p)
+  : p { Just $1 }
+  |   { Nothing }
+
 Model                                 :: { Model }
-  : 'model' SYM ':'
-      BOPEN ModelDecls BCLOSE            { mkModel $2 $5 }
+  : MAYBE(meta)
+    'model' SYM ':'
+      BOPEN ModelDecls BCLOSE            { mkModel $1 $3 $6 }
 
 ModelDecls                            :: { [Either (Meta.MetaAnn Decl) Event] }
   :                                      { [] }
@@ -193,12 +198,16 @@ parseError []     = Left $ "parse error at end of file"
 parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col " ++ show (locCol t) ++ " (" ++ show t ++ ")"
 
 
-mkModel :: Text -> [ Either (Meta.MetaAnn Decl) Event ] -> Model
-mkModel nm ps = Model { modelName = nm
-                      , modelDecls = ds
-                      , modelEvents = es
-                      }
-  where (ds,es) = partitionEithers ps
+mkModel :: Maybe (Text, Text) -> Text -> [ Either (Meta.MetaAnn Decl) Event ] -> Model
+mkModel meta name ps = 
+  Model { modelName = Meta.MetaAnn metaName name
+        , modelDecls = ds
+        , modelEvents = es
+        }
+  where
+    (ds,es) = partitionEithers ps
+    metaName = maybeToList meta
+
 }
 
 
