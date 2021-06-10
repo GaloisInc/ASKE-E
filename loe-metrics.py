@@ -4,7 +4,8 @@
 # FINISH: similarity model: check satisfaction of triangle inequality
 
 ### Name two ordinary text files as command-line parameters.
-### These files are assumed to be different representations/transformations of the same model.
+### These files are assumed to be different representations or
+### transformations of the same model.
 ### For example:
 ###   FILE1: informal model; FILE2: formal model
 ###   FILE1: formal model; FILE2: executable model
@@ -13,8 +14,8 @@
 import sys
 import gensim
 
-## Checked read
-def check_file(fp):
+## Check content
+def check_content(fp):
 	try:
 		f = open(fp, "r")
 		result = f.read()
@@ -29,8 +30,8 @@ if len(sys.argv) != 3:
 	exit(1)
 fp1 = sys.argv[1]
 fp2 = sys.argv[2]
-check_file(fp1)
-check_file(fp2)
+check_content(fp1)
+check_content(fp2)
 
 ## Compare similiarity
 corpus = []
@@ -74,14 +75,17 @@ corpus2.append(gensim.utils.simple_preprocess(f2.read()))
 f2.close()
 dictionary2 = gensim.corpora.Dictionary(corpus2)
 
+## Show token occurrences
+def occurs(dict):
+	for token, id in dict.token2id.items():
+		print("{}: {}".format(token, dict.cfs[id]))
+
 ## Report
 # files, tokens and frequencies
 print("FILE1: {}".format(fp1))
-print(dictionary1.token2id)
-print(dictionary1.cfs)
+occurs(dictionary1)
 print("FILE2: {}".format(fp2))
-print(dictionary2.token2id)
-print(dictionary2.cfs)
+occurs(dictionary2)
 print("\t{:>8}\t{:>8}".format("FILE1", "FILE2"))
 # lines of code
 print("LOC:\t{:>8}\t{:>8}".format(loc1, loc2))
