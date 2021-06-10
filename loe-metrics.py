@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # WORK-IN-PROGRESS: experiment w/ document-pair LOE measures
-# FINISH: similarity model; check satisfaction of triangle inequality
+# FINISH: similarity model: check satisfaction of triangle inequality
 
 ### Name two ordinary text files as command-line parameters.
 ### These files are assumed to be different representations/transformations of the same model.
@@ -13,12 +13,24 @@
 import sys
 import gensim
 
+## Checked read
+def check_file(fp):
+	try:
+		f = open(fp, "r")
+		result = f.read()
+	except UnicodeDecodeError:
+		print("{}: content not UTF-8".format(fp))
+		exit(1)
+	f.close
+
 ## Preflight check
 if len(sys.argv) != 3:
 	print("usage: {} FILE1 FILE2".format(sys.argv[0]))
 	exit(1)
 fp1 = sys.argv[1]
 fp2 = sys.argv[2]
+check_file(fp1)
+check_file(fp2)
 
 ## Compare similiarity
 corpus = []
