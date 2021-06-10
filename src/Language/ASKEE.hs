@@ -258,17 +258,19 @@ checkGrometPrt t =
 -------------------------------------------------------------------------------
 
 stratifyModel ::
+  ModelType ->
   DataSource ->
   String ->
   Maybe String ->
   Stratify.StratificationType ->
   IO Stratify.StratificationInfo
-stratifyModel modelFile connectionGraph statesJSON stratificationType =
-  do  model <- loadESL modelFile
+stratifyModel format source connectionGraph statesJSON stratificationType =
+  do  model <- loadESLFrom format source
       (connections, vertices) <- loadConnectionGraph connectionGraph
       states <- 
-        case statesJSON of 
-          Just d -> pure $ decode @Stratify.States $ B.pack d
+        case decode . B.pack <$> statesJSON of 
+          Just (Just s) -> pure $ Just s
+          Just Nothing -> die (ParseError "invalid states JSON")
           Nothing -> pure Nothing
       Stratify.stratifyModel model connections vertices states stratificationType
 

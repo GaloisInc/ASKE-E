@@ -100,7 +100,7 @@ handleRequest r =
           succeed' (Text.pack $ show cpp)
 
     Stratify StratifyCommand{..} ->
-        do  res <- stratifyModel stratModel stratConnections stratStates stratType
+        do  res <- stratifyModel (modelDefType stratModel) (modelDefSource stratModel) stratConnections stratStates stratType
             succeed' res
 
     ListModels _ -> succeed <$> listAllModelsWithMetadata
