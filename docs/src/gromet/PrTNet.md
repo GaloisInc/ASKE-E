@@ -66,7 +66,7 @@ are *not* globally unique.
 
 ## Value Types
 
-Most entities also contain a field indicating its type, which may have
+Most entities also contain a field indicating its type, which may
 be one of the following:
 ```
 VALUE_TYPE :=
@@ -141,7 +141,7 @@ Boxes are a generic components used to group related entities.
 There are two flavors of boxes:
 
   * *relation* boxes are used for grouping, and may contain other boxes
-  * *expression* boxes contain a tree describing a mathemtical expression
+  * *expression* boxes contain a tree describing a mathematical expression
 
 ```
 BOX := REL_BOX | EXPR_BOX
@@ -179,11 +179,11 @@ Relation boxes are nested as follows:
       * One of type `"T:Rate"`
       * One of type `"T:Effect"`
 
-  * A `"T:Enable"` box contain a single expresison box, describing the
+  * A `"T:Enable"` box contains a single expression box, describing the
     enabling condition for the given event
 
-  * A `"T:Rate"` box contains a single expresison box, descriing the
-    rate at which this event may occut
+  * A `"T:Rate"` box contains a single expression box, describing the
+    rate at which this event may occur
 
   * A `"T:Effect"` box contains a collection of expression boxes, one
     for each variable that may be affected by the event.
