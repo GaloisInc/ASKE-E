@@ -228,7 +228,7 @@ instance HasSpec SimulateCommand where
 -- Stratify
 
 data StratifyCommand = StratifyCommand
-  { stratModel       :: DataSource
+  { stratModel       :: ModelDef
   , stratConnections :: String
   , stratStates      :: Maybe String
   , stratType        :: StratificationType
@@ -239,14 +239,14 @@ instance HasSpec StratifyCommand where
   anySpec =
     sectionsSpec "stratify-command"
     do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
-        stratModel       <- reqSection' "definition" dataSource
+        stratModel       <- reqSection' "definition" modelDef
                             "specification of the model"
 
         stratConnections <- reqSection' "connection-graph" stringSpec
-                            "JSON connection graph specifying stratification pattern"
+                            "connection graph specifying stratification pattern"
 
         stratStates      <- optSection' "state-metadata" stringSpec
-                            "JSON metadata describing infectious states ??? document more"
+                            "JSON metadata describing infectious states" -- XXX document desired format somewhere
 
         stratType        <- reqSection' "stratification-type" stratTypeSpec 
                             "type of stratification to perform"
