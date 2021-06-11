@@ -138,6 +138,21 @@ library
   default-language:     Haskell2010
   ghc-options:          -Wall
 
+executable champ
+  hs-source-dirs:       app/champ
+  main-is:              Main.hs
+  other-modules:        Logo
+                        Paths_aske_e
+  autogen-modules:      Paths_aske_e
+  build-depends:        base
+                      , ansi-terminal
+                      , aske-e
+                      , extra
+                      , haskeline
+                      , optparse-applicative
+  default-language:     Haskell2010
+  ghc-options:          -Wall
+
 executable deca
   hs-source-dirs:       app/deca
   main-is:              Main.hs
