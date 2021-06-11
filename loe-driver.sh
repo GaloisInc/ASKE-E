@@ -28,16 +28,20 @@ function cmpderiv {
 			step=$(($step+1))
 			test -d "$f1" && {
 				f1="$(gather $f1)"
+				clean1=$f1
 				remark gather: $1 is $f1
 			}
 			test -d "$f2" && {
 				f2="$(gather $f2)"
+				clean2=$f2
 				remark gather: $2 is $f2
 			}
 			cmp "$f1" "$f2"
 		done
 		shift
 	done
+	[ -n "$clean1" ] && rm -f $clean1
+	[ -n "$clean2" ] && rm -f $clean2
 }
 
 cmpderiv "$@"
