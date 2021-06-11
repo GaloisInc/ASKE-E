@@ -2,9 +2,12 @@
 
 ### Test harness to exercise LOE calculations.
 
+HERE=$(cd `basename $0`; pwd)
+OPTS="$@"
+
 function remark { echo "$@"; }
 function gather { gf=`mktemp`; find $1 -type f -exec cat \{\} \; > $gf; echo $gf; }
-function cmp { ./loe-metrics.py $1 $2; }
+function cmp { $HERE/loe-metrics.py $OPTS $1 $2; }
 function cmpderiv {
 	remark Derivations:
 	for f in $*; do
