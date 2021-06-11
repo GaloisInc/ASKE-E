@@ -12,7 +12,15 @@
 ###   FILE1: informal model; FILE2: executable model
 
 import sys
+import optparse
 import gensim
+
+## Parse command line
+usage = "Usage: %prog [Options] FILE1 FILE2"
+op = optparse.OptionParser(usage=usage)
+op.add_option("-t", "--tokens", action="store_true", dest="show_tokens",
+		default=False, help="display tokens and frequencies")
+(options, args) = op.parse_args()
 
 ## Check content
 def check_content(fp):
@@ -25,11 +33,11 @@ def check_content(fp):
 	f.close
 
 ## Preflight check
-if len(sys.argv) != 3:
-	print("usage: {} FILE1 FILE2".format(sys.argv[0]))
+if len(args) != 2:
+	op.print_help()
 	exit(1)
-fp1 = sys.argv[1]
-fp2 = sys.argv[2]
+fp1 = args[0]
+fp2 = args[1]
 check_content(fp1)
 check_content(fp2)
 
@@ -77,6 +85,8 @@ dictionary2 = gensim.corpora.Dictionary(corpus2)
 
 ## Show token occurrences
 def occurs(dict):
+	if not options.show_tokens:
+		return
 	for token, id in dict.token2id.items():
 		print("{}: {}".format(token, dict.cfs[id]))
 
