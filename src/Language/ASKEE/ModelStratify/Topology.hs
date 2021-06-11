@@ -141,7 +141,7 @@ insertHoles Model{..} = evalRWS fill () 0
             pure (Var var)
 
 nameHoles :: Map Int Text -> Model -> Model
-nameHoles names Model{..} = Model modelName (map pure renamedDecls) renamedEvents
+nameHoles nodeNames Model{..} = Model modelName (map pure renamedDecls) renamedEvents
   where
     renamedDecls :: [Decl]
     renamedDecls = for (map metaValue modelDecls) $ \case
@@ -180,7 +180,7 @@ nameHoles names Model{..} = Model modelName (map pure renamedDecls) renamedEvent
       let numbersIn = filter (Text.all isDigit) $ Text.splitOn "_" t
           textAsNumber = 
             fst . fromRight (error "Topology: internal error: not a number") . decimal
-          replace num res = Text.replace num (names Map.! textAsNumber num) res
+          replace num res = Text.replace num (nodeNames Map.! textAsNumber num) res
           withNames = foldr replace t numbersIn
       in  case replacementM of
             Just replacement -> if isHole withNames then replacement else withNames

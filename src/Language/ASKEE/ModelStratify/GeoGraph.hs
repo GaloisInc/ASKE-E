@@ -1,10 +1,7 @@
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.ModelStratify.GeoGraph
-  ( parseGeoGraph
-  , intGraph
-  , gtriJSON
-  , _test
-  ) where
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+module Language.ASKEE.ModelStratify.GeoGraph where
 
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -13,18 +10,21 @@ import qualified Data.Aeson as JS
 import Data.Aeson((.=))
 import Data.Char (isSpace)
 import Data.Maybe (mapMaybe)
+import Data.Map (Map)
 
 
--- | Parse a graph, quick and diryt, we can improve on this later
-parseGeoGraph :: String -> Either String [(String,String)]
-parseGeoGraph = mapM parseEdge . zip [ 1 .. ] . lines
+-- | Parse a graph, quick and dirty, we can improve on this later
+parseConnGraph :: String -> Either String [(String,String,Double)]
+parseConnGraph = mapM parseEdge . zip [ 1 .. ] . lines
   where
   parseEdge (n,ln) =
     let opts =
-          do (a,xs) <- lex ln
-             ("->",ys) <- lex xs
-             (b,_) <- lex ys
-             pure (mapMaybe clean a,mapMaybe clean b)
+          do (a,ws) <- lex ln
+             ("->",xs) <- lex ws
+             (b,ys) <- lex xs
+             (",",zs) <- lex ys
+             (c,_) <- reads zs
+             pure (mapMaybe clean a,mapMaybe clean b,c)
     in case opts of
          [] -> Left ("Invalid edge on line: " ++ show (n::Int))
          x : _ -> pure x
@@ -37,7 +37,7 @@ parseGeoGraph = mapM parseEdge . zip [ 1 .. ] . lines
 
 
 -- | Returns: (number of nodes, edges, mapping from node to name)
-intGraph :: [(String,String)] -> (Int, [(Int,Int)], Int -> String)
+intGraph :: [(String,String,Double)] -> (Int, [(Int,Int,Double)], Int -> String)
 intGraph txtEdges = ( Map.size txtToNode
                     , edges
                     , \x -> Map.findWithDefault "?" x nodeToTxt
@@ -56,10 +56,10 @@ intGraph txtEdges = ( Map.size txtToNode
         let s1 = (nextNode + 1, Map.insert n nextNode nodes)
         in (s1,nextNode)
 
-  edge s (from,to) =
+  edge s (from,to,rate) =
     let (s1,x) = resolveNode s from
         (s2,y) = resolveNode s1 to
-    in (s2, (x,y))
+    in (s2, (x,y,rate))
 
 
 gtriJSON :: Int -> [(Int,Int)] -> JS.Value
@@ -71,22 +71,81 @@ gtriJSON n es =
   where
   edge (a,b) = JS.object [ "src" .= a, "tgt" .= b ]
 
+data ConnGraph = 
+  ConnGraph
+    { connNodes :: [ConnNode]
+    , connEdges :: [ConnEdge]
+    }
+
+data ConnNode = ConnNode
+
+data ConnEdge =
+  ConnEdge
+    { edgeSource :: ConnNodeRef
+    , edgeTarget :: ConnNodeRef
+    , edgeRate :: Double
+    }
+
+type ConnNodeRef = Int
+
+instance JS.ToJSON ConnGraph where
+  toJSON ConnGraph{..} = 
+    JS.object
+      [ "V" .= connNodes
+      , "E" .= connEdges ]
+
+instance JS.ToJSON ConnNode where
+  toJSON _ = 
+    JS.object 
+      [ "conc_scale" .= JS.Number 1.0 
+      , "rate_scale" .= JS.Number 1.0 ]
+
+instance JS.ToJSON ConnEdge where
+  toJSON ConnEdge{..} =
+    JS.object
+      [ "src" .= edgeSource
+      , "tgt" .= edgeTarget
+      , "edge_scale" .= edgeRate ]
+  
+
+asConnGraph :: String -> Either String (ConnGraph, Int -> String)
+asConnGraph graphString =
+  do  graph <- parseConnGraph graphString
+      let (howManyNodes, edges, nodeName) = intGraph graph
+          connNodes = replicate howManyNodes ConnNode
+          connEdges = map (uncurry3 ConnEdge) edges
+      pure (ConnGraph{..}, nodeName)
+  where
+    uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+    uncurry3 f = \(x, y, z) -> f x y z
+
+asMap :: ConnGraph -> (Int -> String) -> Map Int String
+asMap ConnGraph{..} namer =
+  Map.fromList [(i, namer i) | i <- [1..length connNodes]]
+
 
 example :: String
 example = unlines
-  [ "City1 -> City2"
-  , "City2 -> City3"
-  , "City3 -> City1"
-  , "City1 -> \"Long Island\""
+  [ "City1 -> City2, 1.0"
+  , "City2 -> City3, 2.0"
+  , "City3 -> City1, 0.6"
+  , "City1 -> \"Long Island\", 1e-4"
   ]
 
-_test :: IO ()
-_test =
-  case parseGeoGraph example of
-    Left err -> putStrLn err
-    Right g  ->
-      do let (n,es,toTxt) = intGraph g
-         print es
-         putStrLn (BS8.unpack (JS.encode (gtriJSON n es)))
-         mapM_ (putStrLn . toTxt) [ 1 .. n ]
+-- _test :: IO ()
+-- _test =
+--   case parseConnGraph example of
+--     Left err -> putStrLn err
+--     Right g  ->
+--       do let (n,es,toTxt) = intGraph g
+--          print es
+--         --  putStrLn (BS8.unpack (JS.encode (gtriJSON n es)))
+--         --  mapM_ (putStrLn . toTxt) [ 1 .. n ]
 
+test :: IO ()
+test =
+  case asConnGraph example of
+    Left err -> putStrLn err
+    Right (g@ConnGraph{..}, nodeName) ->
+      do  putStrLn (BS8.unpack $ JS.encode g)
+          mapM_ (\i -> putStrLn (show i<>": "<>nodeName i))  [1 .. (length connNodes)]

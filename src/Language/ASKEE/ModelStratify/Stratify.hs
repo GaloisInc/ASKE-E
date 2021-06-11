@@ -7,7 +7,7 @@ module Language.ASKEE.ModelStratify.Stratify where
 import           Data.Aeson ( encode
                             , decode
                             , object
-                            , Value(..)
+                            -- , Value(..)
                             , FromJSON
                             , ToJSON
                             , (.=) )
@@ -25,6 +25,7 @@ import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
 
 import System.Process ( readProcess )
 import qualified Language.ASKEE.ModelStratify.Syntax as Topology
+import Language.ASKEE.ModelStratify.GeoGraph
 
 data States = States
   { sus :: Text
@@ -50,7 +51,7 @@ data StratificationInfo = StratificationInfo
   
 stratifyModel :: 
   ESL.Model -> 
-  Value ->
+  ConnGraph ->
   Map Int Text -> 
   Maybe States -> 
   StratificationType ->
@@ -61,10 +62,13 @@ stratifyModel model connections vertices states strat =
       -- states <- case statesM of 
       --             Just d -> decode @States . B.pack <$> loadString d
       --             Nothing -> pure Nothing
-      let payload = object $  [ "top" .= topology 
-                              , "conn" .= connections
-                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
-                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
+      let payload = 
+            object $  
+              [ "top" .= topology 
+              , "conn" .= connections
+              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
+              ] ++ 
+              maybe [] (\s -> [ "states" .= s ]) states
       result <- readProcess "curl"  [ "-X", "POST"
                                     , "-H", "Content-type: application/json"
                                     , "-d", B.unpack $ encode payload
