@@ -177,14 +177,14 @@ loadGrometPrtFrom format source =
 --               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
 --       toIO "loadLatexFrom" $ conv modelString
 
-loadConnectionGraph :: String -> IO (Value, Map Int Text)
-loadConnectionGraph s = 
-  do  result <- case GG.parseGeoGraph s of
-        Right res -> pure res
-        Left err -> throwIO $ ParseError err
-      let (vertices, edges, mapping) = GG.intGraph result
-          mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
-      pure (GG.gtriJSON vertices edges, mapping')
+-- loadConnectionGraph :: String -> IO (Value, Map Int Text)
+-- loadConnectionGraph s = 
+--   do  result <- case GG.asConnGraph s of
+--         Right (graph, nodeName) -> pure graph
+--         Left err -> throwIO $ ParseError err
+--       let (vertices, edges, mapping) = GG.intGraph result
+--           mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+--       pure (GG.gtriJSON vertices edges, mapping')
 
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
@@ -266,13 +266,15 @@ stratifyModel ::
   IO Stratify.StratificationInfo
 stratifyModel format source connectionGraph statesJSON stratificationType =
   do  model <- loadESLFrom format source
-      (connections, vertices) <- loadConnectionGraph connectionGraph
+      (connGraph, vertexNamer) <- throwLeft ParseError (GG.asConnGraph connectionGraph)
+      let vertexMap = Map.map Text.pack (GG.asMap connGraph vertexNamer)
       states <- 
         case decode . B.pack <$> statesJSON of 
           Just (Just s) -> pure $ Just s
           Just Nothing -> die (ParseError "invalid states JSON")
           Nothing -> pure Nothing
-      Stratify.stratifyModel model connections vertices states stratificationType
+      Stratify.stratifyModel model connGraph vertexMap states stratificationType
+  
 
 
 fitModelToData ::
