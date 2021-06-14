@@ -45,13 +45,13 @@ check_content(fp2)
 ## Compare similiarity
 corpus = []
 f = open(fp1, "r")
-corpus.append(gensim.utils.simple_preprocess(f.read()))
+corpus.append(gensim.utils.simple_preprocess(f.read(), min_len=1))
 f.close()
 dictionary = gensim.corpora.Dictionary(corpus)
 bow_corpus = [dictionary.doc2bow(text) for text in corpus]
 lsi = gensim.models.LsiModel(bow_corpus, id2word=dictionary, num_topics=2)
 f = open(fp2, "r")
-doc = gensim.utils.simple_preprocess(f.read())
+doc = gensim.utils.simple_preprocess(f.read(), min_len=1)
 f.close()
 doc_bow = dictionary.doc2bow(doc)
 vec_lsi = lsi[doc_bow]
@@ -66,7 +66,7 @@ while (True):
 		break
 	loc1 += 1
 f1.seek(0)
-corpus1.append(gensim.utils.simple_preprocess(f1.read()))
+corpus1.append(gensim.utils.simple_preprocess(f1.read(), min_len=1))
 f1.close()
 dictionary1 = gensim.corpora.Dictionary(corpus1)
 
@@ -80,7 +80,7 @@ while (True):
 		break
 	loc2 += 1
 f2.seek(0)
-corpus2.append(gensim.utils.simple_preprocess(f2.read()))
+corpus2.append(gensim.utils.simple_preprocess(f2.read(), min_len=1))
 f2.close()
 dictionary2 = gensim.corpora.Dictionary(corpus2)
 
