@@ -1,5 +1,5 @@
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.C where
+module Language.ASKEE.CPP.Pretty where
 
 import Data.Text(Text)
 import Data.List(intersperse)

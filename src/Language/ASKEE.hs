@@ -59,7 +59,7 @@ import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.C                      ( Doc )
+import           Language.ASKEE.CPP.Pretty             ( Doc )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
@@ -85,7 +85,7 @@ import           Language.ASKEE.Model                  ( parseModel
 import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
+import qualified Language.ASKEE.CPP.SimulatorGen       as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
@@ -95,6 +95,8 @@ import qualified Language.ASKEE.Storage                as Storage
 
 import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
+import System.IO.Temp
+import Language.ASKEE.CPP.Compile
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -322,7 +324,20 @@ convertModelString srcTy src destTy =
           GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
 
-
+simulateCPP ::
+  ModelType ->
+  DataSource ->
+  Double ->
+  Double ->
+  Double ->
+  -- IO (DataSeries Double)
+  IO String
+simulateCPP format source start end step =
+  do  model <- loadCoreFrom format source
+      let modelCPP = SimulatorGen.genModel model
+      print modelCPP
+      res <- compileAndRun GCC [("foo.cpp", modelCPP)]
+      pure res
           
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
 listAllModelsWithMetadata =

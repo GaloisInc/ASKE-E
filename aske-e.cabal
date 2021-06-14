@@ -34,6 +34,10 @@ library
                         Language.ASKEE.Core.Syntax
                         Language.ASKEE.Core.Visualization
 
+                        Language.ASKEE.CPP.Compile
+                        Language.ASKEE.CPP.Pretty
+                        Language.ASKEE.CPP.SimulatorGen
+
                         Language.ASKEE.DEQ
                         Language.ASKEE.DEQ.GenLexer
                         Language.ASKEE.DEQ.GenParser
@@ -84,9 +88,9 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         -- General
-                        Language.ASKEE.C
+                        -- Language.ASKEE.C
                         Language.ASKEE.Convert
-                        Language.ASKEE.CppCompiler
+                        -- Language.ASKEE.CppCompiler
                         Language.ASKEE.DataSeries
                         Language.ASKEE.Error
                         Language.ASKEE.Expr
@@ -97,7 +101,7 @@ library
                         Language.ASKEE.ModelType
                         Language.ASKEE.Panic
                         Language.ASKEE.Simulate
-                        Language.ASKEE.SimulatorGen
+                        -- Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
 
   build-depends:        base >=4.13.0.0 && <5

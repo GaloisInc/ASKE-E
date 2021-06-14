@@ -10,7 +10,7 @@ import qualified Prettyprinter as PP
 
 
 import Language.ASKEE.Panic(panic)
-import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CPP.Pretty as C
 import Language.ASKEE.Experiment.Syntax
 import Language.ASKEE.Experiment.TypeOf(typeOf)
 

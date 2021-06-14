@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.ASKEE.SimulatorGen where
+module Language.ASKEE.CPP.SimulatorGen where
 
 import qualified Language.ASKEE.Core.Expr as Core
 import qualified Language.ASKEE.Core.Syntax as Core
@@ -10,7 +10,7 @@ import qualified Data.Map as Map
 
 import Language.ASKEE.Panic(panic)
 
-import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CPP.Pretty as C
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -161,6 +161,9 @@ genModel mdl
         ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
            | (v,val) <- Map.toList (Core.modelInitState mdl)
            ]
+        
+        ++ [ C.declareInit C.double (stateVarName v) (C.doubleLit l)
+           | (v, Core.NumLit l) <- Map.toList (Core.modelLets mdl)]
 
         ++ [ C.declareInit C.double timeName (C.doubleLit 0.0)
            , C.declare randEngineType rngName
