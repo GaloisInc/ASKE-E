@@ -12,6 +12,7 @@
 ###   FILE1: informal model; FILE2: executable model
 
 import sys
+import math
 import optparse
 import gensim
 
@@ -90,6 +91,15 @@ def occurs(dict):
 	for token, id in dict.token2id.items():
 		print("{}: {}".format(token, dict.cfs[id]))
 
+## Calculate Shannon entropy, token-wise
+def shannon(dict):
+	len = dict.num_pos
+	ent = 0.0
+	for token, id in dict.token2id.items():
+		freq = dict.cfs[id] / len
+		ent = ent + freq / math.log(freq, 2)
+	return(-ent)
+
 ## Report
 # files, tokens and frequencies
 print("FILE1: {}".format(fp1))
@@ -103,6 +113,9 @@ print("LOC:\t{:>8}\t{:>8}".format(loc1, loc2))
 print("TNT:\t{:>8}\t{:>8}".format(dictionary1.num_pos, dictionary2.num_pos))
 # number of unique tokens
 print("NUT:\t{:>8}\t{:>8}".format(dictionary1.num_nnz, dictionary2.num_nnz))
+# Shannon entropy
+print("ENT:\t{:8.5f}\t{:8.5f}".format(shannon(dictionary1), shannon(dictionary2)))
+print("1/ENT:\t{:8.5f}\t{:8.5f}".format(1/shannon(dictionary1), 1/shannon(dictionary2)))
 # latent similarity index
 print(lsi)
 print(vec_lsi)
