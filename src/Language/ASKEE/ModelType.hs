@@ -11,6 +11,9 @@ data ModelType =
   | GrometFnetType
   deriving(Eq, Ord, Show, Enum)
 
+allModelTypes :: [ModelType]
+allModelTypes = [EaselType ..]
+
 parseModelType :: Text -> Maybe ModelType
 parseModelType t =
   case t of

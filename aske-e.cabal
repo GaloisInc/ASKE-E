@@ -99,6 +99,7 @@ library
                         Language.ASKEE.Simulate
                         Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
+                        Language.ASKEE.Storage.Internal
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
@@ -183,13 +184,17 @@ test-suite tests
   main-is:              Main.hs
   other-modules:        ASKEE
                       , ModelCheck
+                      , Storage
   build-depends:        base
                       , aske-e
                       , containers
+                      , directory
+                      , filepath
                       , file-embed
                       , mtl
                       , tasty
                       , tasty-hunit
+                      , temporary
                       , text
   default-language:     Haskell2010
   ghc-options:          -Wall
