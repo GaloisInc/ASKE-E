@@ -11,6 +11,7 @@ import qualified Data.Map as Map
 import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.CPP.Pretty as C
+import Data.List (intercalate)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -65,6 +66,7 @@ genIncludes = C.stmts [ C.include i | i <- includes ]
     [ "random"
     , "stdint.h"
     , "math.h"
+    , "iostream"
     ]
 
 eventNum :: [Core.Event]-> Core.Ident -> Int
@@ -148,26 +150,28 @@ genModel mdl
   | otherwise =
   C.stmts
     [ genIncludes
-    , C.struct (modelClassName mdl)
-         $ (mkEventWhenDecl   <$> Core.modelEvents mdl)
-        ++ (mkEventRateDecl   <$> Core.modelEvents mdl)
-        ++ (mkEventEffectDecl <$> Core.modelEvents mdl)
+    , C.struct (modelClassName mdl')
+         $ (mkEventWhenDecl   <$> Core.modelEvents mdl')
+        ++ (mkEventRateDecl   <$> Core.modelEvents mdl')
+        ++ (mkEventEffectDecl <$> Core.modelEvents mdl')
 
-        ++ [ genNextStep (Core.modelEvents mdl)
-           , genExecStep mdl
+        ++ [ genNextStep (Core.modelEvents mdl')
+           , genExecStep mdl'
            , setSeedFunc
            ]
 
         ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
-           | (v,val) <- Map.toList (Core.modelInitState mdl)
+           | (v,val) <- Map.toList (Core.modelInitState mdl')
            ]
         
         ++ [ C.declareInit C.double (stateVarName v) (C.doubleLit l)
-           | (v, Core.NumLit l) <- Map.toList (Core.modelLets mdl)]
+           | (v, Core.NumLit l) <- Map.toList (Core.modelLets mdl')]
 
         ++ [ C.declareInit C.double timeName (C.doubleLit 0.0)
            , C.declare randEngineType rngName
            ]
+
+        ++ [ mkPrintFn [ v | v <- Core.modelStateVars mdl' ] ]
     ]
   where
   mkInit = genExpr' \x -> panic "genModel"
@@ -192,7 +196,22 @@ genModel mdl
     C.function C.void setSeed1Name  [ C.arg "uint32_t" "seed" ]
       [ C.stmt (C.call (C.member rngName "seed") ["seed"]) ]
 
+  mkPrintFn vs = C.function C.void (C.ident "print") [] $
+    cout (C.stringLit "{") :
+    intercalate [cout (C.stringLit ",")] (map printV ("time":vs)) ++
+    [cout (C.stringLit "}")]
+    where
+      printV :: Core.Ident -> [C.Doc]
+      printV v = 
+        [ cout (quotedStrLit v)
+        , cout (C.stringLit ":")
+        , cout (C.ident v)
+        ]
+      quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
+  
+  cout s = C.stmt (C.ident "std::cout" C.<< s)
 
+  mdl' = Core.inlineLets mdl
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
@@ -249,3 +268,35 @@ genExprSub f e =
   noparen = genExpr' f e
 
 
+genDriver :: Core.Model -> Double -> Double -> Double -> C.Doc
+genDriver model start stop step = C.main
+  [ C.declare (modelClassName model) "model"
+  , C.declareInit C.double "start" (C.doubleLit start)
+  , C.declareInit C.double "stop" (C.doubleLit stop)
+  , C.declareInit C.double "step" (C.doubleLit step)
+  , C.declare (C.ident "std::vector" <> C.typeArgList [C.double]) "times"
+  , C.for 
+    (C.declareInit' C.double "time" "start") 
+    ("time" C.< "stop") 
+    "time += step" 
+    [ C.stmt $ C.call (C.member "times" "push_back") ["time"] ]
+  , C.declare C.int next_event
+  , C.declareInit C.double next_time (C.doubleLit 0)
+  , cout "\"[\""
+  , C.for 
+    (C.declareInit' C.int "i" (C.doubleLit 0)) 
+    ("i" C.< C.call (C.member "times" "size") []) 
+    "i++"
+    [ C.while (next_time C.< C.subscript "times" "i") 
+      [ C.stmt $ C.call (C.member "model" "next_event") [ next_event, next_time ]
+      , C.stmt $ C.call (C.member "model" "run_event") [ next_event, next_time ]
+      ]
+    , C.stmt $ C.call (C.member "model" "print") []
+    , C.ifThen ("i" C.< (C.call (C.member "times" "size") [] C.- C.doubleLit 1)) [cout "\",\""]
+    ]
+  , cout "\"]\""
+  ]
+  where
+    cout s = C.stmt ("std::cout" C.<< s)
+    next_event = C.ident "next_event"
+    next_time = C.ident "next_time"
