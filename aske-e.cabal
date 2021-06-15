@@ -34,6 +34,7 @@ library
                         Language.ASKEE.Core.Syntax
                         Language.ASKEE.Core.Visualization
 
+                        Language.ASKEE.CPP
                         Language.ASKEE.CPP.Compile
                         Language.ASKEE.CPP.Pretty
                         Language.ASKEE.CPP.SimulatorGen

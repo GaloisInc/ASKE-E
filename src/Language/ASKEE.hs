@@ -86,7 +86,7 @@ import           Language.ASKEE.Model                  ( parseModel
 import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
-import qualified Language.ASKEE.CPP.SimulatorGen       as SimulatorGen
+import qualified Language.ASKEE.CPP                    as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModel
@@ -96,10 +96,6 @@ import qualified Language.ASKEE.Storage                as Storage
 
 import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
-import Language.ASKEE.CPP.Compile
-import Prettyprinter ((<+>))
-import qualified Data.List as List
-import Language.ASKEE.Panic (panic)
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -194,7 +190,7 @@ loadConnectionGraph s =
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
   do  coreModel <- loadCoreFrom format source
-      pure $ SimulatorGen.genModel coreModel
+      pure $ CPP.genModel coreModel
 
 -------------------------------------------------------------------------------
 -- Storage
@@ -301,9 +297,9 @@ fitModelToData format fitData fitParams fitScale source =
 simulateODE :: 
   ModelType -> 
   DataSource -> 
-  Double -> 
-  Double ->
-  Double ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
   Map Text Double ->
   IO (DataSeries Double)
 simulateODE format source start end step parameters =
@@ -311,6 +307,17 @@ simulateODE format source start end step parameters =
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
+
+simulateDiscrete ::
+  ModelType ->
+  DataSource ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
+  IO (DataSeries Double)
+simulateDiscrete format source start end step =
+  do  model <- loadCoreFrom format source
+      CPP.simulate model start end step
 
 convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
@@ -326,33 +333,6 @@ convertModelString srcTy src destTy =
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
           GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
-
-simulateDiscrete ::
-  ModelType ->
-  DataSource ->
-  Double ->
-  Double ->
-  Double ->
-  IO (DataSeries Double)
-simulateDiscrete format source start end step =
-  do  model <- loadCoreFrom format source
-      let modelCPP = SimulatorGen.genModel model
-          modelDriver = SimulatorGen.genDriver model start end step
-          program = modelCPP <+> modelDriver
-      res <- compileAndRun GCC [("model.cpp", program)]
-      json <- 
-        case decode @[Map Text Double] (B.pack res) of
-          Nothing -> panic "simulateCPP" ["Couldn't decode C++-produced JSON"]
-          Just json' -> pure json'
-      let stateVars = List.delete "time" (Map.keys (head json))
-      pure $ buildDataSeries stateVars json
-
-  where
-    buildDataSeries :: [Text] -> [Map Text Double] -> DataSeries Double
-    buildDataSeries stateVars json =
-      let times = map (Map.! "time") json
-          values = Map.fromList $ map (\sv -> (sv, map (Map.! sv) json)) stateVars
-      in  DataSeries{..}
           
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
 listAllModelsWithMetadata =

@@ -268,7 +268,12 @@ genExprSub f e =
   noparen = genExpr' f e
 
 
-genDriver :: Core.Model -> Double -> Double -> Double -> C.Doc
+genDriver :: 
+  Core.Model -> 
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
+  C.Doc
 genDriver model start stop step = C.main
   [ C.declare (modelClassName model) "model"
   , C.declareInit C.double "start" (C.doubleLit start)
