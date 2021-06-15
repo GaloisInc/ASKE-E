@@ -65,6 +65,7 @@ library
                         Language.ASKEE.Gromet.FromEasel
                         Language.ASKEE.Gromet.See
                         Language.ASKEE.Gromet.Syntax
+                        Language.ASKEE.Gromet.Common
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
