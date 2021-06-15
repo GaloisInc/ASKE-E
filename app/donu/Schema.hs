@@ -26,7 +26,8 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    Simulate SimulateCommand
+    SimulateODE SimulateODECommand
+  | SimulateDiscrete SimulateDiscreteCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
@@ -40,7 +41,8 @@ data Input =
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (Simulate <$> anySpec)
+  anySpec =  (SimulateODE <$> anySpec)
+         <!> (SimulateDiscrete <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
@@ -194,35 +196,59 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
-data SimulateCommand = SimulateCommand
-  { simModel           :: ModelDef
-  , simStart           :: Double
-  , simStep            :: Double
-  , simEnd             :: Double
-  , simParameterValues :: Map Text Double
+data SimulateODECommand = SimulateODECommand
+  { simODEModel           :: ModelDef
+  , simODEStart           :: Double
+  , simODEStep            :: Double
+  , simODEEnd             :: Double
+  , simODEParameterValues :: Map Text Double
   } deriving Show
 
-
-instance HasSpec SimulateCommand where
+instance HasSpec SimulateODECommand where
   anySpec =
-    sectionsSpec "simulate-command"
-    do reqSection' "command" (jsAtom "simulate") "Run a simulation"
-       simModel   <- reqSection' "definition" modelDef
+    sectionsSpec "simulate-ode-command"
+    do reqSection' "command" (jsAtom "simulate-ode") "Run a simulation using ordinary differential equations"
+       simODEModel   <- reqSection' "definition" modelDef
                        "Specification of the model to simulate"
 
-       simStart     <- reqSection "start"
+       simODEStart     <- reqSection "start"
                        "Start time of simulation"
-       simStep      <- fromMaybe 1 <$>
+       simODEStep      <- fromMaybe 1 <$>
                        optSection "step"
                        "Time step (defaults to 1)"
-       simEnd       <- reqSection "end"
+       simODEEnd       <- reqSection "end"
                        "End time of simulation"
 
-       simParameterValues <- maybe Map.empty Map.fromList <$>
+       simODEParameterValues <- maybe Map.empty Map.fromList <$>
                        optSection' "parameters" (assocSpec anySpec)
                        "Use these values for model parameters"
 
-       pure SimulateCommand { .. }
+       pure SimulateODECommand { .. }
+
+
+data SimulateDiscreteCommand = SimulateDiscreteCommand
+  { simDiscreteModel           :: ModelDef
+  , simDiscreteStart           :: Double
+  , simDiscreteStep            :: Double
+  , simDiscreteEnd             :: Double
+  } deriving Show
+
+instance HasSpec SimulateDiscreteCommand where
+  anySpec =
+    sectionsSpec "simulate-discrete-command"
+    do reqSection' "command" (jsAtom "simulate-discrete") "Run a simulation using a discrete event simulator"
+       simDiscreteModel   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simDiscreteStart     <- reqSection "start"
+                       "Start time of simulation"
+       simDiscreteStep      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simDiscreteEnd       <- reqSection "end"
+                       "End time of simulation"
+
+       pure SimulateDiscreteCommand { .. }
 
 --------------------------------------------------------------------------------
 -- Stratify

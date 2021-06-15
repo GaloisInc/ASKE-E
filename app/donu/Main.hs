@@ -57,15 +57,25 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    Simulate SimulateCommand{..} ->
+    SimulateODE SimulateODECommand{..} ->
       do  res <- 
-            simulateModel 
-              (modelDefType simModel)
-              (modelDefSource simModel)
-              simStart
-              simEnd
-              simStep
-              simParameterValues
+            simulateODE 
+              (modelDefType simODEModel)
+              (modelDefSource simODEModel)
+              simODEStart
+              simODEEnd
+              simODEStep
+              simODEParameterValues
+          succeed' res
+
+    SimulateDiscrete SimulateDiscreteCommand{..} ->
+      do  res <- 
+            simulateDiscrete
+              (modelDefType simDiscreteModel)
+              (modelDefSource simDiscreteModel)
+              simDiscreteStart
+              simDiscreteEnd
+              simDiscreteStep
           succeed' res
 
     CheckModel CheckModelCommand{..} ->

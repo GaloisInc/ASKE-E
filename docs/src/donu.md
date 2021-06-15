@@ -96,23 +96,24 @@ Example:
 }
 ```
 
-### `simulate` - Simulate a model using ODEs
+### `simulate-ode` - Simulate a model using ODEs
 
 **Request:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate"`   |
-| definition       | model-def                | Definition of the model                                           |
-| start            | number                   | Start time of the simulation                                      |
-| end              | number                   | End time of the simulation                                        |
-| step             | number                   | Simulation time step size                                         |
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-ode"`   |
+| definition       | model-def                | Definition of the model                                               |
+| start            | number                   | Start time of the simulation                                          |
+| end              | number                   | End time of the simulation                                            |
+| step             | number                   | Simulation time step size                                             |
+| parameters       | dict                     | Overwrite the given parameters with the given values                  |
 
 Example:
 
 ```JSON
 {
-  "command": "simulate",
+  "command": "simulate-ode",
   "definition": {
     "type": "easel",
     "source": { "file": "modelRepo/easel/sir.easel" }
@@ -171,6 +172,85 @@ Example:
       60,
       90,
       120
+    ]
+  }
+}
+```
+
+### `simulate-discrete` - Simulate a model using a custom-built discrete event simulator
+
+**Request:**
+
+| Field            | Type                     | Description                                                                |
+|------------------|--------------------------|----------------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-discrete"`   |
+| definition       | model-def                | Definition of the model                                                    |
+| start            | number                   | Start time of the simulation                                               |
+| end              | number                   | End time of the simulation                                                 |
+| step             | number                   | Simulation time step size                                                  |
+
+Example:
+
+```JSON
+{
+  "command": "simulate-discrete",
+  "definition": {
+    "type": "easel",
+    "source": { "file": "modelRepo/easel/sirs.easel" }
+  },
+  "start": 0,
+  "end": 120.0,
+  "step": 30.0
+}
+```
+
+**Response:**
+
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| times            | list of number           | series of times used in simulation                                |
+| values           | result series object     | values of state varaibles                                         |
+
+The object in `values` is such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "values": {
+      "D": [
+        0,
+        113,
+        246,
+        346
+      ],
+      "I": [
+        3,
+        558,
+        377,
+        303
+      ],
+      "S": [
+        997,
+        50,
+        74,
+        69
+      ],
+      "R": [
+        0,
+        279,
+        303,
+        282
+      ]
+    },
+    "times": [
+      0,
+      30.0028,
+      60.0238,
+      90.0006
     ]
   }
 }
