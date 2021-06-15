@@ -17,7 +17,8 @@ module Language.ASKEE
   , checkModel
   , checkModel'
     
-  , simulateModel
+  , simulateODE
+  , simulateDiscrete
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
@@ -95,8 +96,10 @@ import qualified Language.ASKEE.Storage                as Storage
 
 import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
-import System.IO.Temp
 import Language.ASKEE.CPP.Compile
+import Prettyprinter ((<+>))
+import qualified Data.List as List
+import Language.ASKEE.Panic (panic)
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -295,7 +298,7 @@ fitModelToData format fitData fitParams fitScale source =
       pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
       
 
-simulateModel :: 
+simulateODE :: 
   ModelType -> 
   DataSource -> 
   Double -> 
@@ -303,7 +306,7 @@ simulateModel ::
   Double ->
   Map Text Double ->
   IO (DataSeries Double)
-simulateModel format source start end step parameters =
+simulateODE format source start end step parameters =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
@@ -324,20 +327,32 @@ convertModelString srcTy src destTy =
           GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
 
-simulateCPP ::
+simulateDiscrete ::
   ModelType ->
   DataSource ->
   Double ->
   Double ->
   Double ->
-  -- IO (DataSeries Double)
-  IO String
-simulateCPP format source start end step =
+  IO (DataSeries Double)
+simulateDiscrete format source start end step =
   do  model <- loadCoreFrom format source
       let modelCPP = SimulatorGen.genModel model
-      print modelCPP
-      res <- compileAndRun GCC [("foo.cpp", modelCPP)]
-      pure res
+          modelDriver = SimulatorGen.genDriver model start end step
+          program = modelCPP <+> modelDriver
+      res <- compileAndRun GCC [("model.cpp", program)]
+      json <- 
+        case decode @[Map Text Double] (B.pack res) of
+          Nothing -> panic "simulateCPP" ["Couldn't decode C++-produced JSON"]
+          Just json' -> pure json'
+      let stateVars = List.delete "time" (Map.keys (head json))
+      pure $ buildDataSeries stateVars json
+
+  where
+    buildDataSeries :: [Text] -> [Map Text Double] -> DataSeries Double
+    buildDataSeries stateVars json =
+      let times = map (Map.! "time") json
+          values = Map.fromList $ map (\sv -> (sv, map (Map.! sv) json)) stateVars
+      in  DataSeries{..}
           
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
 listAllModelsWithMetadata =
