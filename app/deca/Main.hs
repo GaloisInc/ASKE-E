@@ -46,7 +46,7 @@ main =
       --       print (ppDiffEqs ds)
         SimulateODE start stop step ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
-              res <- A.simulateModel modelType (A.FromFile modelFile) start stop step (overwrite opts)
+              res <- A.simulateODE modelType (A.FromFile modelFile) start stop step (overwrite opts)
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out
