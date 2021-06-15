@@ -69,10 +69,8 @@ handleRequest r =
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  checkResult <-
-            case modelDefSource checkModelModel of
-              Inline t -> checkModel' (modelDefType checkModelModel) t
-              FromFile _ -> pure (Just "no dice, pal")
+      do  model <- loadModel (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)        
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
