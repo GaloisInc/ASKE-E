@@ -34,7 +34,7 @@ series1 =
 testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModel EaselType mdlSrc start stop step Map.empty
+      actual <- simulateODE EaselType mdlSrc start stop step Map.empty
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
