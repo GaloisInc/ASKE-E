@@ -20,7 +20,7 @@ compilerCmd :: Compiler -> String
 compilerCmd c =
   case c of
     GCC -> "g++"
-    Clang -> "clang"
+    Clang -> "clang++"
 
 compileExe :: Compiler -> [FilePath] -> FilePath -> IO ()
 compileExe compiler src dst =
