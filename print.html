@@ -715,8 +715,8 @@ are <em>not</em> globally unique.</p>
 <p>Most entities also contain a field indicating its type, which may
 be one of the following:</p>
 <pre><code>VALUE_TYPE :=
-    &quot;T:Real&quot;                // The type of real numbers
-  | &quot;T:Bool&quot;                // The type of booleans
+    &quot;Real&quot;                // The type of real numbers
+  | &quot;Bool&quot;                // The type of booleans
 </code></pre>
 <h2 id="junctions"><a class="header" href="#junctions">Junctions</a></h2>
 <p>Junctions are used to represent the states of the Petri Net.
@@ -732,7 +732,7 @@ the value of the variable.</li>
 <pre><code>JUNCTION :=
   { &quot;syntax&quot;     = &quot;Junction&quot;
   , &quot;uid&quot;        = JUNCTION_ID
-  , &quot;type&quot;       = &quot;T:State&quot;
+  , &quot;type&quot;       = &quot;State&quot;
   , &quot;value_type&quot; = VALUE_TYPE
   }
 </code></pre>
@@ -741,7 +741,7 @@ the value of the variable.</li>
 <pre><code>WIRE :=
   { &quot;syntax&quot;      = &quot;Wire&quot;
   , &quot;uid&quot;         = WIRE_ID
-  , &quot;type&quot;        = &quot;T:Directed&quot;
+  , &quot;type&quot;        = &quot;Directed&quot;
   , &quot;value_type&quot;  = VALUE_TYPE
   , &quot;metadata&quot;    = null                     // XXX
   , &quot;src&quot;         = PORT_ID | JUNCTION_ID
@@ -750,12 +750,12 @@ the value of the variable.</li>
 </code></pre>
 <h2 id="ports"><a class="header" href="#ports">Ports</a></h2>
 <p>Ports are used to specify inputs and outputs of a box.  Input ports
-are of type <code>&quot;T:Input&quot;</code> while output ports are of type <code>&quot;T:Output&quot;</code>.
+are of type <code>&quot;Input&quot;</code> while output ports are of type <code>&quot;Output&quot;</code>.
 An exception to this is that the ports for the outermost model box
-are of type <code>&quot;T:Parameter&quot;</code>.</p>
+are of type <code>&quot;Parameter&quot;</code>.</p>
 <pre><code>PORT :=
   { &quot;syntax&quot;     = &quot;Port&quot;
-  , &quot;type&quot;       = &quot;T:Parameter&quot; | &quot;T:Input&quot; | &quot;T:Output&quot;
+  , &quot;type&quot;       = &quot;Parameter&quot; | &quot;Input&quot; | &quot;Output&quot;
   , &quot;name&quot;       = STRING
   , &quot;metadata&quot;   = null        // Format to be determined
   , &quot;value_type&quot; = VALUE_TYPE
@@ -776,7 +776,7 @@ There are two flavors of boxes:</p>
 <p>Relation boxes have the following format:</p>
 <pre><code>REL_BOX :=
   { &quot;syntax&quot;    = &quot;Relation&quot;
-  , &quot;type&quot;      = &quot;PrTNet&quot; | &quot;T:Event&quot; | &quot;T:Enable&quot; | &quot;T:Rate&quot; | &quot;T:Effect&quot;
+  , &quot;type&quot;      = &quot;PrTNet&quot; | &quot;Event&quot; | &quot;Enable&quot; | &quot;Rate&quot; | &quot;Effect&quot;
   , &quot;uid&quot;       = BOX_ID
   , &quot;name&quot;      = STRING
   , &quot;wires&quot;     = [ WIRE_ID ]      // Wires contained in this box
@@ -792,38 +792,38 @@ There are two flavors of boxes:</p>
 whole model</p>
 </li>
 <li>
-<p>The <code>&quot;PrTNet&quot;</code> box may contain only <code>&quot;T:Event&quot;</code> boxes and expression boxes;
+<p>The <code>&quot;PrTNet&quot;</code> box may contain only <code>&quot;Event&quot;</code> boxes and expression boxes;
 The expression boxes at this level are used for the inital values
 of the state variables, as well as to name expressions that may be
 used in multiple places in the model</p>
 </li>
 <li>
-<p>An <code>&quot;T:Event&quot;</code> box is going to have exactly 3 nested boxes:</p>
+<p>An <code>&quot;Event&quot;</code> box is going to have exactly 3 nested boxes:</p>
 <ul>
-<li>One of type <code>&quot;T:Enable&quot;</code></li>
-<li>One of type <code>&quot;T:Rate&quot;</code></li>
-<li>One of type <code>&quot;T:Effect&quot;</code></li>
+<li>One of type <code>&quot;Enable&quot;</code></li>
+<li>One of type <code>&quot;Rate&quot;</code></li>
+<li>One of type <code>&quot;Effect&quot;</code></li>
 </ul>
 </li>
 <li>
-<p>A <code>&quot;T:Enable&quot;</code> box contains a single expression box, describing the
+<p>A <code>&quot;Enable&quot;</code> box contains a single expression box, describing the
 enabling condition for the given event</p>
 </li>
 <li>
-<p>A <code>&quot;T:Rate&quot;</code> box contains a single expression box, describing the
+<p>A <code>&quot;Rate&quot;</code> box contains a single expression box, describing the
 rate at which this event may occur</p>
 </li>
 <li>
-<p>A <code>&quot;T:Effect&quot;</code> box contains a collection of expression boxes, one
+<p>A <code>&quot;Effect&quot;</code> box contains a collection of expression boxes, one
 for each variable that may be affected by the event.</p>
 </li>
 </ul>
-<p>Only <code>&quot;T:Event&quot;</code> and <code>&quot;T:Effect&quot;</code> boxes have output ports, which are used
+<p>Only <code>&quot;Event&quot;</code> and <code>&quot;Effect&quot;</code> boxes have output ports, which are used
 to show how state variables are affected by events.</p>
 <h3 id="expression-boxes"><a class="header" href="#expression-boxes">Expression Boxes</a></h3>
 <p>Expression boxes contain a mathematical expression.  Some have an
 output port, which is used to indicate where the expression is used.
-Others (e.g. in <code>&quot;T:Enable&quot;</code> and in <code>&quot;T:Rate&quot;</code>) do not have an output
+Others (e.g. in <code>&quot;Enable&quot;</code> and in <code>&quot;Rate&quot;</code>) do not have an output
 port as the expession is only part of the specification.</p>
 <pre><code>EXPR_BOX :=
   { &quot;syntax&quot;    = &quot;Expression&quot;
