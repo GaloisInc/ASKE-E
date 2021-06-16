@@ -1,10 +1,10 @@
 {
-module Language.ASKEE.Jupyter.GenLexer where
+module Language.ASKEE.Exposure.GenLexer where
 
 import qualified Data.Text as T
 
 import Language.ASKEE.ESL.Lexer (Located(..))
-import Language.ASKEE.Jupyter.Lexer
+import Language.ASKEE.Exposure.Lexer
 }
 
 %wrapper "monad"
@@ -53,8 +53,8 @@ atomic tok = \_ _ -> pure tok
 getState :: Alex AlexState
 getState = Alex (\s -> Right (s,s))
 
-lexJupyter :: String -> Either String [Located Token]
-lexJupyter s = runAlex s go
+lexExposure :: String -> Either String [Located Token]
+lexExposure s = runAlex s go
   where
   go :: Alex [Located Token]
   go =

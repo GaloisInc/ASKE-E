@@ -61,11 +61,11 @@ library
                         Language.ASKEE.Experiment.Typechecker
                         Language.ASKEE.Experiment.TypeOf
 
-                        Language.ASKEE.Jupyter.GenLexer
-                        Language.ASKEE.Jupyter.GenParser
-                        Language.ASKEE.Jupyter.Interpreter
-                        Language.ASKEE.Jupyter.Lexer
-                        Language.ASKEE.Jupyter.Syntax
+                        Language.ASKEE.Exposure.GenLexer
+                        Language.ASKEE.Exposure.GenParser
+                        Language.ASKEE.Exposure.Interpreter
+                        Language.ASKEE.Exposure.Lexer
+                        Language.ASKEE.Exposure.Syntax
 
                         Language.ASKEE.Gromet
                         Language.ASKEE.Gromet.FromEasel

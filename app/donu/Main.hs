@@ -9,9 +9,9 @@ import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
 import Language.ASKEE
-import Language.ASKEE.Jupyter.GenLexer (lexJupyter)
-import Language.ASKEE.Jupyter.GenParser (parseJupyterStmt)
-import qualified Language.ASKEE.Jupyter.Interpreter as Jupyter
+import Language.ASKEE.Exposure.GenLexer (lexExposure)
+import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
+import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 
 import Schema
 
@@ -73,7 +73,7 @@ handleRequest r =
 
     CheckModel CheckModelCommand{..} ->
       do  model <- loadModel (modelDefType checkModelModel) (modelDefSource checkModelModel)
-          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)        
+          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
@@ -126,11 +126,11 @@ handleRequest r =
           let res = describeModelInterface model
           succeed' res
 
-    ExecuteJupyterCode (ExecuteJupyterCodeCommand code) ->
+    ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
       pure $
-      case lexJupyter (Text.unpack code) >>= parseJupyterStmt of
+      case lexExposure (Text.unpack code) >>= parseExposureStmt of
         Left err   -> FailureResult $ Text.pack err
-        Right stmt -> succeed $ Jupyter.interpretStmt stmt
+        Right stmt -> succeed $ Exposure.interpretStmt stmt
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult

@@ -1,13 +1,13 @@
 {
-module Language.ASKEE.Jupyter.GenParser where
+module Language.ASKEE.Exposure.GenParser where
 
 import Language.ASKEE.ESL.Lexer ( Located(..) )
-import Language.ASKEE.Jupyter.GenLexer
-import qualified Language.ASKEE.Jupyter.Lexer as Lexer
-import Language.ASKEE.Jupyter.Syntax as Syntax
+import Language.ASKEE.Exposure.GenLexer
+import qualified Language.ASKEE.Exposure.Lexer as Lexer
+import Language.ASKEE.Exposure.Syntax as Syntax
 }
 
-%name        parseJupyterStmt stmt
+%name        parseExposureStmt stmt
 %tokentype   { Located Lexer.Token }
 %error       { parseError          }
 %monad       { Either String       }

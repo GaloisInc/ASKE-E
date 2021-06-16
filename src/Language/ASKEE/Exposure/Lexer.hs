@@ -1,4 +1,4 @@
-module Language.ASKEE.Jupyter.Lexer where
+module Language.ASKEE.Exposure.Lexer where
 
 import Data.Text (Text)
 

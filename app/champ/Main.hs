@@ -8,9 +8,9 @@ import qualified Data.List.Extra as L
 import qualified Options.Applicative as Opt
 import System.Console.Haskeline
 
-import Language.ASKEE.Jupyter.GenLexer (lexJupyter)
-import Language.ASKEE.Jupyter.GenParser (parseJupyterStmt)
-import qualified Language.ASKEE.Jupyter.Interpreter as Jupyter
+import Language.ASKEE.Exposure.GenLexer (lexExposure)
+import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
+import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 
 import Logo (displayLogo)
 
@@ -89,7 +89,7 @@ runCommand command =
                           ]
                         pure True
     _ -> do
-      jupyterStmt command
+      exposureStmt command
       pure True
 
 data Command = Command
@@ -130,8 +130,8 @@ quitCmd :: IO ()
 quitCmd = pure ()
 
 -- TODO: Make this smarter
-jupyterStmt :: String -> IO ()
-jupyterStmt code =
-  case lexJupyter code >>= parseJupyterStmt of
+exposureStmt :: String -> IO ()
+exposureStmt code =
+  case lexExposure code >>= parseExposureStmt of
     Left err   -> putStrLn err
-    Right stmt -> print $ Jupyter.interpretStmt stmt
+    Right stmt -> print $ Exposure.interpretStmt stmt

@@ -37,7 +37,7 @@ data Input =
   | GetModelSource GetModelSourceCommand
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
-  | ExecuteJupyterCode ExecuteJupyterCodeCommand
+  | ExecuteExposureCode ExecuteExposureCodeCommand
     deriving Show
 
 instance HasSpec Input where
@@ -52,7 +52,7 @@ instance HasSpec Input where
          <!> (GetModelSource <$> anySpec)
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
-         <!> (ExecuteJupyterCode <$> anySpec)
+         <!> (ExecuteExposureCode <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -396,15 +396,15 @@ instance HasSpec DescribeModelInterfaceCommand where
 -------------------------------------------------------------------------------
 -- TODO RGS: Document all of this
 
-newtype ExecuteJupyterCodeCommand = ExecuteJupyterCodeCommand
-  { executeJupyterCode :: Text
+newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
+  { executeExposureCode :: Text
   }
   deriving Show
 
-instance HasSpec ExecuteJupyterCodeCommand where
+instance HasSpec ExecuteExposureCodeCommand where
   anySpec =
-    sectionsSpec "execute-jupyter-code"
-    do  reqSection' "command" (jsAtom "execute-jupyter-code")
-                    "Execute a command in a Jupyter notebook"
-        executeJupyterCode <- reqSection' "code" textSpec "The code to execute"
-        pure ExecuteJupyterCodeCommand{..}
+    sectionsSpec "execute-exposure-code"
+    do  reqSection' "command" (jsAtom "execute-exposure-code")
+                    "Execute an Exposure command"
+        executeExposureCode <- reqSection' "code" textSpec "The code to execute"
+        pure ExecuteExposureCodeCommand{..}

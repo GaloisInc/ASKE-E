@@ -1,4 +1,4 @@
-module Language.ASKEE.Jupyter.Syntax where
+module Language.ASKEE.Exposure.Syntax where
 
 import Data.Text (Text)
 
