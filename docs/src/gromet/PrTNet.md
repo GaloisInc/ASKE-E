@@ -70,8 +70,8 @@ Most entities also contain a field indicating its type, which may
 be one of the following:
 ```
 VALUE_TYPE :=
-    "T:Real"                // The type of real numbers
-  | "T:Bool"                // The type of booleans
+    "Real"                // The type of real numbers
+  | "Bool"                // The type of booleans
 ```
 
 
@@ -92,7 +92,7 @@ Each junction will have the following connections:
 JUNCTION :=
   { "syntax"     = "Junction"
   , "uid"        = JUNCTION_ID
-  , "type"       = "T:State"
+  , "type"       = "State"
   , "value_type" = VALUE_TYPE
   }
 ```
@@ -106,7 +106,7 @@ Wires are used to specify how data flows around the model.
 WIRE :=
   { "syntax"      = "Wire"
   , "uid"         = WIRE_ID
-  , "type"        = "T:Directed"
+  , "type"        = "Directed"
   , "value_type"  = VALUE_TYPE
   , "metadata"    = null                     // XXX
   , "src"         = PORT_ID | JUNCTION_ID
@@ -118,14 +118,14 @@ WIRE :=
 ## Ports
 
 Ports are used to specify inputs and outputs of a box.  Input ports
-are of type ```"T:Input"``` while output ports are of type ```"T:Output"```.
+are of type ```"Input"``` while output ports are of type ```"Output"```.
 An exception to this is that the ports for the outermost model box
-are of type ```"T:Parameter"```.
+are of type ```"Parameter"```.
 
 ```
 PORT :=
   { "syntax"     = "Port"
-  , "type"       = "T:Parameter" | "T:Input" | "T:Output"
+  , "type"       = "Parameter" | "Input" | "Output"
   , "name"       = STRING
   , "metadata"   = null        // Format to be determined
   , "value_type" = VALUE_TYPE
@@ -154,7 +154,7 @@ Relation boxes have the following format:
 ```
 REL_BOX :=
   { "syntax"    = "Relation"
-  , "type"      = "PrTNet" | "T:Event" | "T:Enable" | "T:Rate" | "T:Effect"
+  , "type"      = "PrTNet" | "Event" | "Enable" | "Rate" | "Effect"
   , "uid"       = BOX_ID
   , "name"      = STRING
   , "wires"     = [ WIRE_ID ]      // Wires contained in this box
@@ -169,26 +169,26 @@ Relation boxes are nested as follows:
   * The only box of type `"PrTNet"` is the outermost box containing the
     whole model
 
-  * The `"PrTNet"` box may contain only `"T:Event"` boxes and expression boxes;
+  * The `"PrTNet"` box may contain only `"Event"` boxes and expression boxes;
     The expression boxes at this level are used for the inital values
     of the state variables, as well as to name expressions that may be
     used in multiple places in the model
 
-  * An `"T:Event"` box is going to have exactly 3 nested boxes:
-      * One of type `"T:Enable"`
-      * One of type `"T:Rate"`
-      * One of type `"T:Effect"`
+  * An `"Event"` box is going to have exactly 3 nested boxes:
+      * One of type `"Enable"`
+      * One of type `"Rate"`
+      * One of type `"Effect"`
 
-  * A `"T:Enable"` box contains a single expression box, describing the
+  * A `"Enable"` box contains a single expression box, describing the
     enabling condition for the given event
 
-  * A `"T:Rate"` box contains a single expression box, describing the
+  * A `"Rate"` box contains a single expression box, describing the
     rate at which this event may occur
 
-  * A `"T:Effect"` box contains a collection of expression boxes, one
+  * A `"Effect"` box contains a collection of expression boxes, one
     for each variable that may be affected by the event.
 
-Only `"T:Event"` and `"T:Effect"` boxes have output ports, which are used
+Only `"Event"` and `"Effect"` boxes have output ports, which are used
 to show how state variables are affected by events.
 
 
@@ -196,7 +196,7 @@ to show how state variables are affected by events.
 
 Expression boxes contain a mathematical expression.  Some have an
 output port, which is used to indicate where the expression is used.
-Others (e.g. in `"T:Enable"` and in `"T:Rate"`) do not have an output
+Others (e.g. in `"Enable"` and in `"Rate"`) do not have an output
 port as the expession is only part of the specification.
 
 ```

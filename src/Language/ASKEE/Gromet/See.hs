@@ -26,8 +26,9 @@ instance PP PortType where
 instance PP ValueType where
   pp vt =
     case vt of
-      Real  -> "real"
-      Bool  -> "bool"
+      Real    -> "real"
+      Bool    -> "bool"
+      Integer -> "integer"
 
 instance PP Port where
   pp po =
@@ -35,16 +36,16 @@ instance PP Port where
       <+> "// uid:" <+> pp (portUid po) <+> comma <+> "box:" <+> pp (portBox po)
 
 instance PP PortUid where
-  pp (PortUid x) = "P:" <> pp x
+  pp (PortUid x) = pp x
 
 instance PP BoxUid where
-  pp (BoxUid x) = "B:" <> pp x
+  pp (BoxUid x) = pp x
 
 instance PP WireUid where
-  pp (WireUid x) = "W:" <> pp x
+  pp (WireUid x) = pp x
 
-instance PP JunctionId where
-  pp (JunctionId x) = "J:" <> pp x
+instance PP JunctionUid where
+  pp (JunctionUid x) = pp x
 
 instance PP WirePort where
   pp p =
@@ -114,8 +115,15 @@ instance PP Arg where
   pp arg =
     case arg of
       ArgPort pid    -> pp pid
-      ArgLiteral x t -> parens (pp x <+> ":" <+> pp t)
+      ArgLiteral l   -> pp l
       ArgCall f as   -> parens (pp f <+> hsep (map pp as))
+
+
+instance PP Literal where
+  pp l = case l of
+           LitBool b    -> if b then "True" else "False"
+           LitReal r    -> parens (text (show r) <+> ":" <+> pp Real)
+           LitInteger i -> integer i
 
 instance PP BoxRelType where
   pp r =
