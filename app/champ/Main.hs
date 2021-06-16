@@ -46,14 +46,29 @@ optionsParser = Options
       (  Opt.long "no-unicode"
       <> Opt.help "Print the champ logo without Unicode" )
 
+data Input
+  = FailedInput
+  | CaughtCtrlC
+  | SuccessfulInput String
+
 loop :: InputT IO ()
 loop = do
-  mbInput <- handleInterrupt (handleCtrlC Nothing) $ getInputLine "champ> "
+  mbInput <- handleInterrupt handleCtrlC (toInput <$> getInputLine "champ> ")
   case mbInput of
-    Nothing -> loop
-    Just input -> do
+    FailedInput -> pure ()
+    CaughtCtrlC -> loop
+    SuccessfulInput input -> do
       keepGoing <- liftIO $ runCommand $ L.trim input
       when keepGoing loop
+  where
+    handleCtrlC :: InputT IO Input
+    handleCtrlC = liftIO $ do
+      putStrLn "Ctrl-C"
+      pure CaughtCtrlC
+
+    toInput :: Maybe String -> Input
+    toInput Nothing  = FailedInput
+    toInput (Just s) = SuccessfulInput s
 
 runCommand :: String -> IO Bool
 runCommand command =
@@ -120,8 +135,3 @@ jupyterStmt code =
   case lexJupyter code >>= parseJupyterStmt of
     Left err   -> putStrLn err
     Right stmt -> print $ Jupyter.interpretStmt stmt
-
-handleCtrlC :: a -> InputT IO a
-handleCtrlC x = do
-  liftIO $ putStrLn "Ctrl-C"
-  pure x
