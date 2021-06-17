@@ -334,8 +334,11 @@ port as the expession is only part of the specification.</p>
       | CALL_EXPR     // Use of an operator
 
 LIT_EXPR :=
-  { &quot;type&quot;      = VALUE_TYPE
-  , &quot;value&quot;     = STRING          // Value for the literal
+  { &quot;syntax&quot;    = &quot;Literal&quot;
+  , &quot;type&quot;      = VALUE_TYPE
+  , &quot;value&quot;     = { &quot;syntax&quot; = &quot;Val&quot;
+                  , &quot;val&quot;    = STRING          // Value for the literal
+                  }
   , &quot;metadata&quot;  = null            // Format to be determined
   }
 
