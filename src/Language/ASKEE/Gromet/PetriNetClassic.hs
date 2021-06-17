@@ -17,8 +17,13 @@ import Language.ASKEE.Gromet.Common
 --------------------------------------------------------------------------------
 data PetriNet = PetriNet
   { pnName        :: Text
-  , pnStates      :: Map JunctionUid (Maybe Integer) -- initial conditions
+  , pnStates      :: Map JunctionUid StateVar
   , pnTransitions :: Map JunctionUid Event
+  } deriving Show
+
+data StateVar = StateVar
+  { sName    :: Text
+  , sInitial :: Maybe Integer
   } deriving Show
 
 data Event = Event
@@ -31,17 +36,21 @@ data Event = Event
 ppPetriNet :: PetriNet -> Doc
 ppPetriNet pn = vcat
   [ "model" <+> ppT (pnName pn)
-  , nest 2 (vcat (map ppS  (Map.toList (pnStates pn))))
-  , nest 2 (vcat (map ppEv (Map.toList (pnTransitions pn))))
+  , nest 2 (vcat (map ppS  (Map.elems (pnStates pn))))
+  , nest 2 (vcat (map ppEv (Map.elems (pnTransitions pn))))
   ]
 
   where
   ppT = quotes . text . Text.unpack
   ppU (JunctionUid x) = ppT x
-  ppS (x,mb) = "state" <+> ppU x <+> case mb of
-                                       Nothing -> empty
-                                       Just i -> "=" <+> integer i
-  ppEv (x,ev) = "event" <+> ppU x $$ nest 2 (vcat [cond,rate,eff])
+  ppS s = "state" <+> ppT (sName s) <+> case sInitial s of
+                                          Nothing -> empty
+                                          Just i -> "=" <+> integer i
+  ppV uid = case Map.lookup uid (pnStates pn) of
+              Just s  -> ppT (sName s)
+              Nothing -> ppU uid -- BUG
+
+  ppEv ev = "event" <+> ppT (evName ev) $$ nest 2 (vcat [cond,rate,eff])
     where rate = case evRate ev of
                    Nothing -> empty
                    Just r  -> "rate:" <+> double r
@@ -49,13 +58,13 @@ ppPetriNet pn = vcat
                    [] -> empty
                    xs -> "when:"
                       $$ nest 2 (foldr1 (\a b -> a <+> "and" <+> b)
-                                [ ppU v <+> ">=" <+> integer n | (v,n) <- xs ])
+                                [ ppV v <+> ">=" <+> integer n | (v,n) <- xs ])
           eff = case (Map.toList (evRemove ev), Map.toList (evAdd ev)) of
                   ([],[]) -> empty
                   (xs,ys) -> "effect:" $$
                                 vcat (map (doOp "-") xs ++ map (doOp "+") ys)
 
-          doOp op (v,n) = ppU v <+> "=" <+> ppU v <+> op <+> integer n
+          doOp op (v,n) = ppV v <+> "=" <+> ppV v <+> op <+> integer n
 
 pnFromPNC :: PetriNetClassic -> Either String PetriNet
 pnFromPNC pnc =
@@ -63,11 +72,14 @@ pnFromPNC pnc =
   where
   emptyPN = PetriNet { pnName = pncName pnc
                      , pnStates = mempty, pnTransitions = mempty }
-  addS uid mb pn = pn { pnStates = Map.insert uid mb (pnStates pn) }
+  addS uid nm mb pn =
+    pn { pnStates = Map.insert uid (emptyS nm mb) (pnStates pn) }
   setT uid ev pn = pn { pnTransitions = Map.insert uid ev (pnTransitions pn) }
   addEv uid nm mb = setT uid (emptyEv nm mb)
   emptyEv n mb =
     Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty }
+  emptyS n mb =
+    StateVar { sName = n, sInitial = mb }
 
   toInt l = case l of
               LitInteger i -> Right i
@@ -87,7 +99,7 @@ pnFromPNC pnc =
        case jType j of
          State ->
            do mb <- traverse toInt (jValue j)
-              pure (addS (jUID j) mb p)
+              pure (addS (jUID j) (jName j) mb p)
          Transition ->
            do mb <- traverse toDouble (jValue j)
               pure (addEv (jUID j) (jName j) mb p)
