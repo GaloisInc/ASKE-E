@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
-module Language.ASKEE.ModelStratify.Stratify where
+module Language.ASKEE.AlgebraicJulia.Stratify where
 
 import           Data.Aeson ( encode
                             , decode
@@ -18,14 +18,14 @@ import           Data.Text  ( Text )
 import GHC.Generics ( Generic )
 
 import qualified Language.ASKEE.ESL.Syntax as ESL
-import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+import           Language.ASKEE.AlgebraicJulia.Topology ( modelAsTopology
                                                        , topologyAsModel
                                                        , insertHoles
                                                        , nameHoles )
 
 import System.Process ( readProcess )
-import qualified Language.ASKEE.ModelStratify.Syntax as Topology
-import Language.ASKEE.ModelStratify.GeoGraph
+import qualified Language.ASKEE.AlgebraicJulia.Syntax as Topology
+import Language.ASKEE.AlgebraicJulia.GeoGraph
 
 data States = States
   { sus :: Text

@@ -3,7 +3,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-module Language.ASKEE.ModelStratify.Topology where
+module Language.ASKEE.AlgebraicJulia.Topology where
 
 import Control.Monad          ( forM )
 import Control.Monad.RWS      ( modify
@@ -24,7 +24,7 @@ import           Data.Text.Read ( decimal )
 
 import Language.ASKEE.Expr                 ( Expr(..) )
 import Language.ASKEE.ExprTransform        ( transformExpr )
-import Language.ASKEE.ModelStratify.Syntax ( Flow(..)
+import Language.ASKEE.AlgebraicJulia.Syntax ( Flow(..)
                                            , FlowType(..)
                                            , Net(..)
                                            , TransitionID ) 

@@ -83,8 +83,8 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometFnet
                                                        , Model (..) )
 import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
+import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
+import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
