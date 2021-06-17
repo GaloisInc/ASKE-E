@@ -220,8 +220,11 @@ EXPR := LIT_EXPR      // A literal
       | CALL_EXPR     // Use of an operator
 
 LIT_EXPR :=
-  { "type"      = VALUE_TYPE
-  , "value"     = STRING          // Value for the literal
+  { "syntax"    = "Literal"
+  , "type"      = VALUE_TYPE
+  , "value"     = { "syntax" = "Val"
+                  , "val"    = STRING          // Value for the literal
+                  }
   , "metadata"  = null            // Format to be determined
   }
 

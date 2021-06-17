@@ -23,6 +23,7 @@ data Command =
   | OnlyCheck
   | DumpCPP
   | DumpDEQs
+  | DumpPNC
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
@@ -80,6 +81,10 @@ options = OptSpec
       , Option [] ["to-gromet"]
         "Convert to GroMEt"
         $ NoArg \s -> Right s { command = ShowGromet JSON }
+
+       , Option [] ["dump-pnc-gromet"]
+         "Parse a Petri Net Classic Gromet and print it"
+        $ NoArg \s -> Right s { command = DumpPNC }
 
       , Option [] ["to-pp-gromet"]
         "Convert to human readable GroMEt"

@@ -65,6 +65,7 @@ library
                         Language.ASKEE.Gromet.FromEasel
                         Language.ASKEE.Gromet.See
                         Language.ASKEE.Gromet.Syntax
+                        Language.ASKEE.Gromet.PetriNetClassic
                         Language.ASKEE.Gromet.Common
 
                         Language.ASKEE.Latex.GenLexer
@@ -103,6 +104,7 @@ library
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
+                      , scientific
                       , alex-tools
                       , array
                       , bytestring
