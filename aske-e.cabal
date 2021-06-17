@@ -185,17 +185,20 @@ executable donu
                       , aeson
                       , aske-e
                       , bytestring
+                      , clientsession
                       , config-schema
                       , config-value
                       , containers
                       , directory
                       , filepath
+                      , lens
                       , pretty
                       , process
                       , scientific
                       , semigroupoids
                       , snap-core
                       , snap-server
+                      , snap
                       , text
                       , unordered-containers
                       , vector
