@@ -95,17 +95,13 @@ instance JS.ToJSON ConnGraph where
       , "E" .= connEdges ]
 
 instance JS.ToJSON ConnNode where
-  toJSON _ = 
-    JS.object 
-      [ "conc_scale" .= JS.Number 1.0 
-      , "rate_scale" .= JS.Number 1.0 ]
+  toJSON _ = JS.object []
 
 instance JS.ToJSON ConnEdge where
   toJSON ConnEdge{..} =
     JS.object
       [ "src" .= edgeSource
-      , "tgt" .= edgeTarget
-      , "edge_scale" .= edgeRate ]
+      , "tgt" .= edgeTarget ]
   
 
 asConnGraph :: String -> Either String (ConnGraph, Int -> String)
