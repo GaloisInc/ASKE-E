@@ -4,8 +4,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Language.ASKEE.AlgebraicJulia.Stratify where
 
-import           Data.Aeson ( encode
-                            , decode
+import           Data.Aeson ( decode
                             , object
                             -- , Value(..)
                             , FromJSON
@@ -23,9 +22,9 @@ import           Language.ASKEE.AlgebraicJulia.Topology ( modelAsTopology
                                                        , insertHoles
                                                        , nameHoles )
 
-import System.Process ( readProcess )
 import qualified Language.ASKEE.AlgebraicJulia.Syntax as Topology
-import Language.ASKEE.AlgebraicJulia.GeoGraph
+import Language.ASKEE.AlgebraicJulia.GeoGraph ( ConnGraph )
+import Language.ASKEE.AlgebraicJulia.Interact ( queryServer )
 
 data States = States
   { sus :: Text
@@ -58,25 +57,24 @@ stratifyModel ::
   IO StratificationInfo
 stratifyModel model connections vertices states strat =
   do  let topology = modelAsTopology model
-      -- (gtriConnections, vertices) <- loadConnectionGraph connections
-      -- states <- case statesM of 
-      --             Just d -> decode @States . B.pack <$> loadString d
-      --             Nothing -> pure Nothing
-      let payload = 
+          payload = 
             object $  
               [ "top" .= topology 
               , "conn" .= connections
-              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
+              , "type" .= stratType
               ] ++ 
               maybe [] (\s -> [ "states" .= s ]) states
-      result <- readProcess "curl"  [ "-X", "POST"
-                                    , "-H", "Content-type: application/json"
-                                    , "-d", B.unpack $ encode payload
-                                    , "localhost:8001"
-                                    ] ""
+      result <- queryServer payload
       rawTopology <- case decode (B.pack result) of
         Just t -> pure t
         Nothing -> error $ "failed to parse JSON of returned topology "++result
       let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
           prettyModel = nameHoles vertices rawModel
       pure $ StratificationInfo{..}
+
+  where
+    stratType :: String
+    stratType = 
+      case strat of 
+        Demographic -> "dem"
+        Spatial -> "spat"

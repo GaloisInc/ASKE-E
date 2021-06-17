@@ -74,6 +74,8 @@ library
                         Language.ASKEE.Latex.Syntax
 
                         Language.ASKEE.AlgebraicJulia.GeoGraph
+                        Language.ASKEE.AlgebraicJulia.Interact
+                        Language.ASKEE.AlgebraicJulia.Simulate
                         Language.ASKEE.AlgebraicJulia.Stratify
                         Language.ASKEE.AlgebraicJulia.Syntax
                         Language.ASKEE.AlgebraicJulia.Topology
