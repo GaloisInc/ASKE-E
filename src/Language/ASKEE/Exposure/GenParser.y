@@ -13,25 +13,34 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 %monad       { Either String       }
 
 %token
-'='          { Located _ _ Lexer.Assign    }
-','          { Located _ _ Lexer.Comma     }
-'('          { Located _ _ Lexer.OpenP     }
-')'          { Located _ _ Lexer.CloseP    }
-'loadEasel'  { Located _ _ Lexer.LoadEasel }
-REAL         { Located _ _ (Lexer.LitD $$) }
-STRING       { Located _ _ (Lexer.LitS $$) }
-SYM          { Located _ _ (Lexer.Sym $$)  }
+'='          { Located _ _ Lexer.Assign           }
+','          { Located _ _ Lexer.Comma            }
+'('          { Located _ _ Lexer.OpenP            }
+')'          { Located _ _ Lexer.CloseP           }
+REAL         { Located _ _ (Lexer.LitD $$)        }
+STRING       { Located _ _ (Lexer.LitS $$)        }
+PREFIX_IDENT { Located _ _ (Lexer.PrefixIdent $$) }
+INFIX_IDENT  { Located _ _ (Lexer.InfixIdent $$)  }
 
 %%
 
 stmt :: { Stmt }
-stmt  : SYM '=' expr { StmtLet $1 $3  }
-      | dispExpr     { StmtDisplay $1 }
+stmt  : PREFIX_IDENT '=' expr { StmtLet $1 $3  }
+      | dispExpr              { StmtDisplay $1 }
 
 expr :: { Expr }
-expr : SYM                                 { EVar $1     }
-     | lit                                 { ELit $1     }
-     | functionName '(' commaSepExprs0 ')' { ECall $1 $3 }
+expr : infixExpr    { $1 }
+     | nonInfixExpr { $1 }
+
+nonInfixExpr :: { Expr }
+nonInfixExpr : PREFIX_IDENT                        { EVar $1 }
+             | lit                                 { ELit $1 }
+             | PREFIX_IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
+                                                        ; pure (ECall funName $3) }}
+
+infixExpr :: { Expr }
+infixExpr : nonInfixExpr INFIX_IDENT nonInfixExpr {% do { funName <- infixFunctionName $2
+                                                        ; pure (ECall funName [$1, $3]) }}
 
 dispExpr :: { DisplayExpr }
 disExpr : expr { DisplayScalar $1 }
@@ -39,10 +48,6 @@ disExpr : expr { DisplayScalar $1 }
 lit :: { Literal }
 lit : REAL   { LitNum $1    }
     | STRING { LitString $1 }
-
-functionName :: { FunctionName }
-functionName : 'loadEasel' { FLoadEasel }
-             -- TODO: Add all the others
 
 commaSepExprs0 :: { [Expr] }
 commaSepExprs0 : {- empty -}    { [] }

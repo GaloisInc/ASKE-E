@@ -12,14 +12,16 @@ import Language.ASKEE.Exposure.Lexer
 $upper   = [A-Z]
 $lower   = [a-z]
 $digit   = [0-9]
+$symbol  = [\!\#\$\%\&\*\+\.\/\<\=\>\?\@\\\^\|\-\~\:]
 $graphic = $printable # $white
 
-@string    = \" ($graphic # \")* \"
-@exp       = e [\+\-]? $digit+
-@real      = $digit+ (\. $digit+)? @exp?
-@identhead = [$upper $lower _]
-@identbody = [$upper $lower $digit _]
-@ident     = @identhead @identbody*
+@string          = \" ($graphic # \")* \"
+@exp             = e [\+\-]? $digit+
+@real            = $digit+ (\. $digit+)? @exp?
+@prefixIdentHead = [$upper $lower _]
+@prefixIdentBody = [$upper $lower $digit _]
+@prefixIdent     = @prefixIdentHead @prefixIdentBody*
+@infixIdent      = $symbol+
 
 tokens :-
 
@@ -27,11 +29,11 @@ tokens :-
 "("         { atomic OpenP     }
 ")"         { atomic CloseP    }
 ","         { atomic Comma     }
-"loadEasel" { atomic LoadEasel }
 
-@string  { str }
-@real    { real          }
-@ident   { ident         }
+@string      { str         }
+@real        { real        }
+@prefixIdent { prefixIdent }
+@infixIdent  { infixIdent  }
 
 $white+	 ;
 
@@ -41,8 +43,11 @@ type Action = AlexInput -> Int -> Alex Token
 real :: Action
 real (_,_,_,s) len = (pure . LitD . read . take len) s
 
-ident :: Action
-ident (_,_,_,s) len = (pure . Sym . T.pack . take len) s
+prefixIdent :: Action
+prefixIdent (_,_,_,s) len = (pure . PrefixIdent . T.pack . take len) s
+
+infixIdent :: Action
+infixIdent (_,_,_,s) len = (pure . InfixIdent . T.pack . take len) s
 
 str :: Action
 str (_,_,_,s) len = (pure . LitS . T.pack . init . tail . take len) s
