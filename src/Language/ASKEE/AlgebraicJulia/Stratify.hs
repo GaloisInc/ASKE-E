@@ -61,7 +61,7 @@ stratifyModel model connections vertices states strat =
             object $  
               [ "top" .= topology 
               , "conn" .= connections
-              , "type" .= stratType
+              , "strat-type" .= stratType
               ] ++ 
               maybe [] (\s -> [ "states" .= s ]) states
       result <- queryServer payload
