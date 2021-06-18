@@ -96,23 +96,23 @@ Example:
 }
 ```
 
-### `simulate` - Simulate a model using ODEs
+### `simulate-gsl` - Simulate a model using ODEs via the Gnu Scientific Library
 
 **Request:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate"`   |
-| definition       | model-def                | Definition of the model                                           |
-| start            | number                   | Start time of the simulation                                      |
-| end              | number                   | End time of the simulation                                        |
-| step             | number                   | Simulation time step size                                         |
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-gsl"`   |
+| definition       | model-def                | Definition of the model                                               |
+| start            | number                   | Start time of the simulation                                          |
+| end              | number                   | End time of the simulation                                            |
+| step             | number                   | Simulation time step size                                             |
 
 Example:
 
 ```JSON
 {
-  "command": "simulate",
+  "command": "simulate-gsl",
   "definition": {
     "type": "easel",
     "source": { "file": "modelRepo/easel/sir.easel" }

@@ -32,7 +32,7 @@ describeModelType t =
     DeqType -> "diff-eq"
     CoreType -> "core"
     GrometPrtType -> "gromet-prt"
-    GrometPncType -> "gromet-prc"
+    GrometPncType -> "gromet-pnc"
     GrometFnetType -> "gromet-fnet"
 
 describeModelType' :: ModelType -> String

@@ -17,7 +17,8 @@ module Language.ASKEE
   , checkModel
   , checkModel'
     
-  , simulateModel
+  , simulateModelGSL
+  , simulateModelAJ
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
@@ -305,7 +306,7 @@ fitModelToData format fitData fitParams fitScale source =
       pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
       
 
-simulateModel :: 
+simulateModelGSL :: 
   ModelType -> 
   DataSource -> 
   Double {- ^ start -} ->
@@ -313,7 +314,7 @@ simulateModel ::
   Double {- ^ step -} -> 
   Map Text Double ->
   IO (DataSeries Double)
-simulateModel format source start end step parameters =
+simulateModelGSL format source start end step parameters =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start

@@ -57,15 +57,26 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    Simulate SimulateCommand{..} ->
+    SimulateGSL SimulateGSLCommand{..} ->
       do  res <- 
-            simulateModel 
-              (modelDefType simModel)
-              (modelDefSource simModel)
-              simStart
-              simEnd
-              simStep
-              simParameterValues
+            simulateModelGSL
+              (modelDefType simModelGSL)
+              (modelDefSource simModelGSL)
+              simStartGSL
+              simEndGSL
+              simStepGSL
+              simParameterValuesGSL
+          succeed' res
+    
+    SimulateAJ SimulateAJCommand{..} ->
+      do  res <- 
+            simulateModelAJ
+              (modelDefType simModelAJ)
+              (modelDefSource simModelAJ)
+              simStartAJ
+              simEndAJ
+              simStepAJ
+              simParameterValuesAJ
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
