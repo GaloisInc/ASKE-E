@@ -12,6 +12,7 @@ import           Data.Text                  ( Text )
 import Language.ASKEE.AlgebraicJulia.Interact ( queryServer )
 import Language.ASKEE.Gromet                  ( PetriNetClassic )
 import Language.ASKEE.DataSeries              ( DataSeries(..) )
+import Language.ASKEE.Error                   ( die, ASKEEError(..) )
 
 data Parameterization =
   Parameterization 
@@ -55,5 +56,5 @@ simulate model start stop step parameters =
               , "sim" .= Parameterization parameters start stop step ]
       result <- queryServer payload
       case decode $ B.pack result of
-        Nothing -> error ""
+        Nothing -> die (AlgebraicJuliaError $ unlines ["Couldn't parse AJ-produced json", result])
         Just SimulationResult{..} -> pure DataSeries{..}

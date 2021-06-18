@@ -12,6 +12,7 @@ data ASKEEError =
   | StorageError    String
   | DataSeriesError String
   | NotImplementedError String
+  | AlgebraicJuliaError String
   deriving (Show)
 
 instance Exception ASKEEError
