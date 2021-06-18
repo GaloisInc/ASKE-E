@@ -16,20 +16,23 @@ import Language.ASKEE.Model as Model
 import Language.ASKEE.ModelType as MT
 import Language.ASKEE.Exposure.Syntax
 
-data Env = Env
-  { envVars :: Map Ident Value
-  }
-
 type Eval a = State.StateT Env (Except.ExceptT Text IO) a
 data ExposureInfo = ExposureInfo
   deriving Show
 
 -------------------------------------------------------------------------------
 
+data Env = Env
+  { envVars :: Map Ident Value
+  }
+
 eval :: [Stmt] -> Env -> IO (Either Text Env)
 eval stmts env =
   let except = State.execStateT (interpretStmt `traverse_` stmts) env
   in Except.runExceptT except
+
+initialEnv :: Env
+initialEnv = Env Map.empty
 
 data DisplayValue
 
