@@ -134,4 +134,5 @@ exposureStmt :: String -> IO ()
 exposureStmt code =
   case lexExposure code >>= parseExposureStmt of
     Left err   -> putStrLn err
-    Right stmt -> print $ Exposure.interpretStmt stmt
+    Right stmt -> do _ <- Exposure.eval [stmt] Exposure.initialEnv
+                     putStrLn "It parsed. Yay!"
