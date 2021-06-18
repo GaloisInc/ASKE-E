@@ -13,40 +13,64 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 %monad       { Either String       }
 
 %token
-'='          { Located _ _ Lexer.Assign           }
-','          { Located _ _ Lexer.Comma            }
-'('          { Located _ _ Lexer.OpenP            }
-')'          { Located _ _ Lexer.CloseP           }
-REAL         { Located _ _ (Lexer.LitD $$)        }
-STRING       { Located _ _ (Lexer.LitS $$)        }
-PREFIX_IDENT { Located _ _ (Lexer.PrefixIdent $$) }
-INFIX_IDENT  { Located _ _ (Lexer.InfixIdent $$)  }
+'='    { Located _ _ Lexer.Assign     }
+','    { Located _ _ Lexer.Comma      }
+'('    { Located _ _ Lexer.OpenP      }
+')'    { Located _ _ Lexer.CloseP     }
+REAL   { Located _ _ (Lexer.LitD $$)  }
+STRING { Located _ _ (Lexer.LitS $$)  }
+IDENT  { Located _ _ (Lexer.Ident $$) }
+'+'    { Located _ _ Lexer.InfixAdd   }
+'-'    { Located _ _ Lexer.InfixSub   }
+'*'    { Located _ _ Lexer.InfixMul   }
+'/'    { Located _ _ Lexer.InfixDiv   }
+'>'    { Located _ _ Lexer.InfixGT    }
+'>='   { Located _ _ Lexer.InfixGTE   }
+'<'    { Located _ _ Lexer.InfixLT    }
+'<='   { Located _ _ Lexer.InfixLTE   }
+'=='   { Located _ _ Lexer.InfixEQ    }
+'!='   { Located _ _ Lexer.InfixNEQ   }
+'&&'   { Located _ _ Lexer.InfixAnd   }
+'||'   { Located _ _ Lexer.InfixOr    }
+
+%left '||'
+%left '&&'
+%nonassoc '<' '<=' '==' '!=' '>=' '>'
+%left '+' '-'
+%left '*' '/'
 
 %%
 
 stmt :: { Stmt }
-stmt  : PREFIX_IDENT '=' expr { StmtLet $1 $3  }
-      | dispExpr              { StmtDisplay $1 }
+stmt  : IDENT '=' expr { StmtLet $1 $3  }
+      | dispExpr       { StmtDisplay $1 }
 
 expr :: { Expr }
-expr : infixExpr    { $1 }
-     | nonInfixExpr { $1 }
-
-nonInfixExpr :: { Expr }
-nonInfixExpr : PREFIX_IDENT                        { EVar $1 }
-             | lit                                 { EVal $1 }
-             | PREFIX_IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
-                                                        ; pure (ECall funName $3) }}
+expr : IDENT                        { EVar $1 }
+     | lit                          { EVal $1 }
+     | IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
+                                          ; pure (ECall funName $3) }}
+     | infixExpr                    { $1 }
 
 infixExpr :: { Expr }
-infixExpr : nonInfixExpr INFIX_IDENT nonInfixExpr {% do { funName <- infixFunctionName $2
-                                                        ; pure (ECall funName [$1, $3]) }}
+infixExpr : expr '+'  expr { ECall FAdd [$1, $3] }
+          | expr '-'  expr { ECall FSub [$1, $3] }
+          | expr '*'  expr { ECall FMul [$1, $3] }
+          | expr '/'  expr { ECall FDiv [$1, $3] }
+          | expr '>'  expr { ECall FGT  [$1, $3] }
+          | expr '>=' expr { ECall FGTE [$1, $3] }
+          | expr '<'  expr { ECall FLT  [$1, $3] }
+          | expr '<=' expr { ECall FLTE [$1, $3] }
+          | expr '==' expr { ECall FEQ  [$1, $3] }
+          | expr '!=' expr { ECall FNEQ [$1, $3] }
+          | expr '&&' expr { ECall FAnd [$1, $3] }
+          | expr '||' expr { ECall FOr  [$1, $3] }
 
 dispExpr :: { DisplayExpr }
 disExpr : expr { DisplayScalar $1 }
 
 lit :: { Value }
-lit : REAL   { VDouble $1    }
+lit : REAL   { VDouble $1 }
     | STRING { VString $1 }
 
 commaSepExprs0 :: { [Expr] }
