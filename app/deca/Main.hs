@@ -3,7 +3,6 @@
 module Main(main) where
 
 import qualified Data.Map as Map
-import Data.Text(Text)
 import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..),throwIO)
 import Control.Monad(when,forM_)
@@ -12,6 +11,9 @@ import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
+import qualified Data.Aeson as JSON
+
+import Language.ASKEE.Gromet.PetriNetClassic(pnFromPNC, ppPetriNet)
 import qualified Language.ASKEE as A
 -- import qualified Language.ASKEE.Core as Core
 -- import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
@@ -23,7 +25,6 @@ import qualified Language.ASKEE as A
 -- import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
-import Language.ASKEE.Error
 import qualified Language.ASKEE.DEQ as DEQ
 
 main :: IO ()
@@ -44,6 +45,9 @@ main =
       --  DumpDEQs ->
       --    do ds <- exactlyOne "model" =<< loadDiffEqs opts []
       --       print (ppDiffEqs ds)
+
+        DumpPNC -> mapM_ dumpPNC (modelFiles opts)
+
         SimulateODE start stop step ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
               res <- A.simulateModel modelType (A.FromFile modelFile) start stop step (overwrite opts)
@@ -111,3 +115,10 @@ exactlyOne thing xs =
 modelsProvided :: Options -> [(FilePath, A.ModelType)]
 modelsProvided opts =
   map (, A.DeqType) (deqFiles opts) ++ map (, A.EaselType) (modelFiles opts)
+
+dumpPNC :: FilePath -> IO ()
+dumpPNC file =
+  do mb <-JSON.eitherDecodeFileStrict' file
+     case pnFromPNC =<< mb of
+       Right a -> print (ppPetriNet a)
+       Left err -> print err
