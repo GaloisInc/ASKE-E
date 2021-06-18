@@ -11,6 +11,7 @@
 ###   FILE1: formal model; FILE2: executable model
 ###   FILE1: informal model; FILE2: executable model
 
+import os
 import sys
 import math
 import optparse
@@ -100,6 +101,15 @@ def shannon(dict):
 		ent = ent + freq / math.log(freq, 2)
 	return(-ent)
 
+## Calculate compressibility of document
+def compressibility(file):
+	os.system('cp '+file+' /tmp/askee')
+	raw = os.stat('/tmp/askee')
+	os.system('compress /tmp/askee')
+	cmp = os.stat('/tmp/askee.Z')
+	os.system('rm -f /tmp/askee.Z')
+	return(cmp.st_size/raw.st_size)
+
 ## Report
 # files, tokens and frequencies
 print("FILE1: {}".format(fp1))
@@ -116,6 +126,9 @@ print("NUT:\t{:>8}\t{:>8}".format(dictionary1.num_nnz, dictionary2.num_nnz))
 # Shannon entropy
 print("ENT:\t{:8.5f}\t{:8.5f}".format(shannon(dictionary1), shannon(dictionary2)))
 print("1/ENT:\t{:8.5f}\t{:8.5f}".format(1/shannon(dictionary1), 1/shannon(dictionary2)))
+# Compressibility
+print("CMP:\t{:8.5f}\t{:8.5f}".format(compressibility(fp1), compressibility(fp2)))
+print("1/CMP:\t{:8.5f}\t{:8.5f}".format(1/compressibility(fp1), 1/compressibility(fp2)))
 # latent similarity index
 print(lsi)
 print(vec_lsi)
