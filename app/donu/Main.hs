@@ -130,7 +130,7 @@ handleRequest r =
       pure $
       case lexExposure (Text.unpack code) >>= parseExposureStmt of
         Left err   -> FailureResult $ Text.pack err
-        Right stmt -> succeed $ Exposure.interpretStmt stmt
+        Right stmt -> undefined --succeed $ Exposure.interpretStmt stmt
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult

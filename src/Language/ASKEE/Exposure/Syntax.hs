@@ -1,14 +1,13 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Exposure.Syntax where
 
-import qualified Data.Text as T
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Language.ASKEE.Core.Syntax as Core
 
-type Binder = Text
 type Ident  = Text
-type Label  = Int
-
 data Stmt
-  = StmtLet Binder Expr
+  = StmtLet Ident Expr
   | StmtDisplay DisplayExpr
   deriving Show
 
@@ -17,17 +16,27 @@ newtype DisplayExpr
   = DisplayScalar Expr
   deriving Show
 
-data Literal
-  = LitNum Double
-  | LitString Text
-  deriving Show
-
 data Expr
   = EVar Text
-  | ELit Literal
+  | EVal Value
   | ECall FunctionName [Expr]
-  | EMember Expr Label
+  | EMember Expr Ident
   deriving Show
+
+data Value
+  = VDouble Double
+  | VInt
+  | VBool Bool
+  | VString Text
+  | VModel Core.Model
+  | VModelExpr Expr
+  | VDFold DynamicalFold Expr
+  | VSFold SampleFold DynamicalFold Expr
+  deriving Show
+
+-- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
+-- sir.I at 30.0
+
 
 data FunctionName
   = FAdd
@@ -46,9 +55,20 @@ data FunctionName
   | FProb
   | FSample
   | FAt
-  | FMkArray
-  | FMkIntervals
   | FLoadEasel
+  deriving Show
+
+-------------------------------------------------------------------------------
+-- compilable expr
+
+-- P(S.I + 10.0 > 30.0 at 10.0)
+data DynamicalFold =
+  DFAt Double
+  deriving Show
+
+data SampleFold =
+    SFProbability
+  | SFSample
   deriving Show
 
 prefixFunctionName :: Ident -> Either String FunctionName

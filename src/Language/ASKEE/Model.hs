@@ -33,6 +33,7 @@ data Model =
   | GrometPrt GPRT.Gromet
   | GrometPrc JSON.Value
   | GrometFnet JSON.Value
+  deriving Show
 
 modelTypeOf :: Model -> MT.ModelType
 modelTypeOf m =

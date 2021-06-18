@@ -34,7 +34,7 @@ expr : infixExpr    { $1 }
 
 nonInfixExpr :: { Expr }
 nonInfixExpr : PREFIX_IDENT                        { EVar $1 }
-             | lit                                 { ELit $1 }
+             | lit                                 { EVal $1 }
              | PREFIX_IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
                                                         ; pure (ECall funName $3) }}
 
@@ -45,9 +45,9 @@ infixExpr : nonInfixExpr INFIX_IDENT nonInfixExpr {% do { funName <- infixFuncti
 dispExpr :: { DisplayExpr }
 disExpr : expr { DisplayScalar $1 }
 
-lit :: { Literal }
-lit : REAL   { LitNum $1    }
-    | STRING { LitString $1 }
+lit :: { Value }
+lit : REAL   { VDouble $1    }
+    | STRING { VString $1 }
 
 commaSepExprs0 :: { [Expr] }
 commaSepExprs0 : {- empty -}    { [] }
