@@ -5,6 +5,7 @@ import qualified Data.Aeson as JSON
 
 import qualified Control.Monad.State as State
 import qualified Control.Monad.Except as Except
+import Data.Foldable(traverse_)
 import Control.Monad.Trans(lift)
 import qualified Data.Map as Map
 import Data.Map(Map)
@@ -22,6 +23,15 @@ data Env = Env
 type Eval a = State.StateT Env (Except.ExceptT Text IO) a
 data ExposureInfo = ExposureInfo
   deriving Show
+
+-------------------------------------------------------------------------------
+
+eval :: [Stmt] -> Env -> IO (Either Text Env)
+eval stmts env =
+  let except = State.execStateT (interpretStmt `traverse_` stmts) env
+  in Except.runExceptT except
+
+data DisplayValue
 
 -------------------------------------------------------------------------------
 
