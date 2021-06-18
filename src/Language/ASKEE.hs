@@ -68,7 +68,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet )
+import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -78,7 +78,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toDeqs
                                                        , toEasel
                                                        , toCore
-                                                       , toGrometPrc
+                                                       , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
                                                        , Model (..) )
@@ -146,6 +146,11 @@ loadGrometPrtFrom format source =
       model <- throwLeft ParseError (parseModel format modelString)
       throwLeft ConversionError (toGrometPrt model)
 
+loadGrometPnc :: ModelType -> DataSource -> IO PetriNetClassic
+loadGrometPnc format source = 
+  do  modelString <- loadModel format source
+      model <- throwLeft ParseError (parseModel format modelString)
+      throwLeft ConversionError (toGrometPnc model)
 -------------------------------------------------------------------------------
 -- TODO: Reactions
 
@@ -321,7 +326,7 @@ convertModelString srcTy src destTy =
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
-          GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
+          GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
 
 

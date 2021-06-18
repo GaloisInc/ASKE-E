@@ -9,7 +9,7 @@ module Language.ASKEE.Model
   , toCore
   , toEasel
   , toGrometPrt
-  , toGrometPrc
+  , toGrometPnc
   , toGrometFnet
   , parseModel
   , printModel
@@ -22,7 +22,7 @@ import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
 import qualified Language.ASKEE.ModelType as MT
-import qualified Language.ASKEE.Gromet as GPRT
+import qualified Language.ASKEE.Gromet as Gromet
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
 
@@ -30,8 +30,8 @@ data Model =
     Easel     ESL.Model
   | Core      Core.Model
   | Deq       DEQ.DiffEqs
-  | GrometPrt GPRT.Gromet
-  | GrometPrc JSON.Value
+  | GrometPrt Gromet.Gromet
+  | GrometPnc Gromet.PetriNetClassic
   | GrometFnet JSON.Value
 
 modelTypeOf :: Model -> MT.ModelType
@@ -41,7 +41,7 @@ modelTypeOf m =
     Core _ -> MT.CoreType
     Deq _ -> MT.DeqType
     GrometPrt _ -> MT.GrometPrtType
-    GrometPrc _ -> MT.GrometPrcType
+    GrometPnc _ -> MT.GrometPncType
     GrometFnet _ -> MT.GrometFnetType
 
 -------------------------------------------------------------------------------
@@ -59,10 +59,10 @@ asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
   where
     coreToDeqs c = pure $ Core.asDiffEqs c
 
-asGrometPrt :: Model -> ConversionResult GPRT.Gromet
-asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrcType ]
+asGrometPrt :: Model -> ConversionResult Gromet.Gromet
+asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrtType ]
   where
-    fromCore = pure . GPRT.convertCoreToGromet
+    fromCore = pure . Gromet.convertCoreToGromet
 
 notExist :: MT.ModelType -> Model -> ConversionResult a
 notExist tgt mdl =
@@ -80,13 +80,13 @@ unDeq :: Model -> ConversionResult DEQ.DiffEqs
 unDeq (Deq d) = ConversionSucceded d
 unDeq _ = ConversionPass
 
-unGrometPrt :: Model -> ConversionResult GPRT.Gromet
+unGrometPrt :: Model -> ConversionResult Gromet.Gromet
 unGrometPrt (GrometPrt g) = ConversionSucceded g
 unGrometPrt _ = ConversionPass
 
-unGrometPrc :: Model -> ConversionResult JSON.Value
-unGrometPrc (GrometPrc v) = ConversionSucceded v
-unGrometPrc _ = ConversionPass
+unGrometPnc :: Model -> ConversionResult Gromet.PetriNetClassic
+unGrometPnc (GrometPnc v) = ConversionSucceded v
+unGrometPnc _ = ConversionPass
 
 unGrometFNet :: Model -> ConversionResult JSON.Value
 unGrometFNet (GrometFnet v) = ConversionSucceded v
@@ -149,11 +149,11 @@ toDeqs = asEither asDeq
 toCore :: Model -> Either String Core.Model
 toCore = asEither asCore
 
-toGrometPrt :: Model -> Either String GPRT.Gromet
+toGrometPrt :: Model -> Either String Gromet.Gromet
 toGrometPrt = asEither asGrometPrt
 
-toGrometPrc :: Model -> Either String JSON.Value
-toGrometPrc = asEither (tryConvs [unGrometPrc, notExist MT.GrometPrcType])
+toGrometPnc :: Model -> Either String Gromet.PetriNetClassic
+toGrometPnc = asEither (tryConvs [unGrometPnc, notExist MT.GrometPncType])
 
 toGrometFnet :: Model -> Either String JSON.Value
 toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
@@ -168,10 +168,8 @@ parseModel mt s =
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
     MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
-    MT.GrometPrcType -> GrometPrc <$> loadJSON
-    MT.GrometFnetType -> GrometFnet <$> loadJSON
-  where
-    loadJSON = JSON.eitherDecode $ BS.pack s
+    MT.GrometPncType -> GrometPnc <$> JSON.eitherDecode (BS.pack s)
+    MT.GrometFnetType -> GrometFnet <$> JSON.eitherDecode (BS.pack s)
 
 
 printModel :: Model -> Either String String
@@ -180,8 +178,8 @@ printModel m =
     Easel esl -> (Right . show . ESL.printESL) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core _ -> Left "cannot print core - core has no concrete syntax"
-    GrometPrt g -> Right $ GPRT.grometString g
+    GrometPrt g -> Right $ Gromet.grometString g
     GrometFnet v -> Right $ printJson v
-    GrometPrc v -> Right $ printJson v
+    GrometPnc v -> Right $ printJson v
   where
     printJson v = BS.unpack $ JSON.encode v
