@@ -83,6 +83,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometFnet
                                                        , Model (..) )
 import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
+import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
@@ -146,11 +147,15 @@ loadGrometPrtFrom format source =
       model <- throwLeft ParseError (parseModel format modelString)
       throwLeft ConversionError (toGrometPrt model)
 
-loadGrometPnc :: ModelType -> DataSource -> IO PetriNetClassic
-loadGrometPnc format source = 
+loadGrometPnc :: DataSource -> IO PetriNetClassic
+loadGrometPnc = loadGrometPncFrom GrometPncType 
+
+loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
+loadGrometPncFrom format source = 
   do  modelString <- loadModel format source
       model <- throwLeft ParseError (parseModel format modelString)
       throwLeft ConversionError (toGrometPnc model)
+
 -------------------------------------------------------------------------------
 -- TODO: Reactions
 
@@ -303,9 +308,9 @@ fitModelToData format fitData fitParams fitScale source =
 simulateModel :: 
   ModelType -> 
   DataSource -> 
-  Double -> 
-  Double ->
-  Double ->
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
   Map Text Double ->
   IO (DataSeries Double)
 simulateModel format source start end step parameters =
@@ -313,6 +318,18 @@ simulateModel format source start end step parameters =
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
+
+simulateModelAJ ::
+  ModelType -> 
+  DataSource -> 
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModelAJ format source start stop step parameters =
+  do  pnc <- loadGrometPncFrom format source
+      AJ.simulate pnc start stop step parameters
 
 convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
