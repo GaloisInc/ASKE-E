@@ -21,7 +21,7 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.ESL as ESL
 
-import qualified Language.ASKEE.ModelType as MT
+import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
 import qualified Data.Aeson as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS

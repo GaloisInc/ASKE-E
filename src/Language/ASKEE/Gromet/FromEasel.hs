@@ -11,13 +11,11 @@ import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
-import Data.Graph (stronglyConnComp)
-import Data.Foldable(toList)
-import Data.List(partition)
 
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Core.Expr as Core
+import qualified Language.ASKEE.Core.Interface as Core
 
 import Language.ASKEE.Gromet.Common(Uid)
 import Language.ASKEE.Gromet.Syntax
@@ -46,25 +44,6 @@ convertCoreToGromet m =
                          , gcBoxStack   = []
                          }
 
--- Order lets by dependency and split intp lets that don't depend on
--- state variables, and ones that do.
-orderLets ::
-  Set Core.Ident ->
-  Map Core.Ident Core.Expr ->
-  ( [(Core.Ident,Core.Expr)], [(Core.Ident,Core.Expr)] )
-orderLets stateVars lets = (map fst without, map fst with)
-  where
-  (with,without) =
-         partition snd
-       $ concatMap toList
-       $ stronglyConnComp
-       $ [ ((n,usesState), x, Set.toList vs)
-         | n@(x,e) <- Map.toList lets
-         , let vs = Core.collectExprVars e
-               usesState = not $ Set.null $ Set.intersection vs stateVars
-         ]
-
-
 
 convertModel :: Core.Model -> GrometGen BoxUid
 convertModel model =
@@ -81,8 +60,7 @@ convertModel model =
            pure (paramName, Left p)
 
      let vars = Core.modelInitState model
-         (pureLets,stateLets) = orderLets (Map.keysSet vars)
-                                          (Core.modelLets model)
+         (pureLets,stateLets) = Core.orderLets model
 
      startNestedBox uid (Core.modelName model) PrTNet
 

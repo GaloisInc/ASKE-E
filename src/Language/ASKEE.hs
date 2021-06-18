@@ -82,7 +82,8 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPrt
                                                        , toGrometFnet
                                                        , Model (..) )
-import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
+import           Language.ASKEE.Model.Basics           ( ModelType(..)
+                                                       , describeModelType )
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen

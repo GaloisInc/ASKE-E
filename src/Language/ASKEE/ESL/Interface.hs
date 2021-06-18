@@ -6,6 +6,11 @@ import Data.Aeson ( object, (.=), Value )
 import qualified Language.ASKEE.ESL.Syntax as ESL
 import qualified Language.ASKEE.Metadata   as Meta
 
+import qualified Language.ASKEE.Model.Interface as Iface
+
+describeModelInterfaceNew :: ESL.Model -> Iface.ModelInterface
+describeModelInterfaceNew model = undefined
+
 -- TODO return something more structured
 describeModelInterface :: ESL.Model -> Value
 describeModelInterface model = desc

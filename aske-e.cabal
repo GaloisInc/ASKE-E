@@ -32,6 +32,7 @@ library
                         Language.ASKEE.Core.Expr
                         Language.ASKEE.Core.Print
                         Language.ASKEE.Core.Syntax
+                        Language.ASKEE.Core.Interface
                         Language.ASKEE.Core.Visualization
 
                         Language.ASKEE.DEQ
@@ -96,7 +97,8 @@ library
                         Language.ASKEE.Graph
                         Language.ASKEE.Metadata
                         Language.ASKEE.Model
-                        Language.ASKEE.ModelType
+                        Language.ASKEE.Model.Interface
+                        Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
                         Language.ASKEE.Simulate
                         Language.ASKEE.SimulatorGen

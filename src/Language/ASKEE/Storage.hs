@@ -15,7 +15,7 @@ import qualified Data.Text as Text
 import           Data.Text ( Text, isInfixOf )
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
-import Language.ASKEE.ModelType ( ModelType(..) )
+import Language.ASKEE.Model.Basics ( ModelType(..) )
 import Language.ASKEE.Panic ( panic )
 
 import qualified System.Directory as Directory
