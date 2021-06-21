@@ -207,7 +207,7 @@ data SimulateGSLCommand = SimulateGSLCommand
 
 instance HasSpec SimulateGSLCommand where
   anySpec =
-    sectionsSpec "simulate-command"
+    sectionsSpec "simulate-gsl-command"
     do reqSection' "command" (jsAtom "simulate-gsl") "Run a simulation"
        simModelGSL   <- reqSection' "definition" modelDef
                        "Specification of the model to simulate"
@@ -238,7 +238,7 @@ data SimulateAJCommand = SimulateAJCommand
 
 instance HasSpec SimulateAJCommand where
   anySpec =
-    sectionsSpec "simulate-command"
+    sectionsSpec "simulate-aj-command"
     do reqSection' "command" (jsAtom "simulate-aj") "Run a simulation"
        simModelAJ   <- reqSection' "definition" modelDef
                        "Specification of the model to simulate"
