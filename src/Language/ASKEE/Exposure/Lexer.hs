@@ -27,4 +27,5 @@ data Token
   | BoolFalse
   | BoolTrue
   | Dot
+  | At
   deriving Show

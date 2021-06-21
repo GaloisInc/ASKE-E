@@ -43,6 +43,7 @@ tokens :-
 "not"       { atomic InfixNot  }
 "false"     { atomic BoolFalse }
 "true"      { atomic BoolTrue  }
+"at"        { atomic At        }
 
 @string { str   }
 @real   { real  }

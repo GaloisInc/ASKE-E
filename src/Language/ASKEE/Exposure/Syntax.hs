@@ -75,4 +75,5 @@ prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
   case T.unpack ident of
     "loadESL" -> Right FLoadEasel
+    "P"       -> Right FProb
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

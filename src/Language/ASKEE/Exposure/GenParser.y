@@ -37,7 +37,9 @@ IDENT   { Located _ _ (Lexer.Ident $$) }
 'false' { Located _ _ Lexer.BoolFalse  }
 'true'  { Located _ _ Lexer.BoolTrue   }
 '.'     { Located _ _ Lexer.Dot        }
+'at'    { Located _ _ Lexer.At         }
 
+%nonassoc 'at'
 %left 'or'
 %left 'and'
 %nonassoc '<' '<=' '==' '!=' '>=' '>'
@@ -75,6 +77,7 @@ infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
           | expr 'and' expr { ECall FAnd [$1, $3] }
           | expr 'or'  expr { ECall FOr  [$1, $3] }
           | 'not' expr      { ECall FNot [$2]     }
+          | expr 'at' expr  { ECall FAt  [$1, $3] }
 
 dispExpr :: { DisplayExpr }
 disExpr : expr { DisplayScalar $1 }
