@@ -4,9 +4,8 @@
 {-# LANGUAGE TypeApplications #-}
 module Language.ASKEE.AlgebraicJulia.Stratify where
 
-import           Data.Aeson ( decode
+import           Data.Aeson ( eitherDecode
                             , object
-                            -- , Value(..)
                             , FromJSON
                             , ToJSON
                             , (.=) )
@@ -65,9 +64,10 @@ stratifyModel model connections vertices states strat =
               ] ++ 
               maybe [] (\s -> [ "states" .= s ]) states
       result <- queryServer payload
-      rawTopology <- case decode (B.pack result) of
-        Just t -> pure t
-        Nothing -> error $ "failed to parse JSON of returned topology "++result
+      putStrLn result
+      rawTopology <- case eitherDecode (B.pack result) of
+        Right t -> pure t
+        Left err -> error $ "failed to parse JSON of returned topology "++err
       let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
           prettyModel = nameHoles vertices rawModel
       pure $ StratificationInfo{..}

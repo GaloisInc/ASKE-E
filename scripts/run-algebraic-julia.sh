@@ -14,4 +14,4 @@ if [[ "$1" == "-b" || "$1" == "--build" ]]; then
     popd
 fi
 
-docker run -p 8001:8001 -it $IMAGE
+docker run -p 8001:8001 -it --rm $IMAGE

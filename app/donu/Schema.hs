@@ -32,7 +32,7 @@ data Input =
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
   | GenerateCPP GenerateCPPCommand
-  -- | Stratify StratifyCommand
+  | Stratify StratifyCommand
   | ListModels ListModelsCommand
   | ModelSchemaGraph ModelSchemaGraphCommand
   | GetModelSource GetModelSourceCommand
@@ -47,7 +47,7 @@ instance HasSpec Input where
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
          <!> (GenerateCPP <$> anySpec)
-        --  <!> (Stratify <$> anySpec)
+         <!> (Stratify <$> anySpec)
          <!> (ListModels <$> anySpec)
          <!> (ModelSchemaGraph <$> anySpec)
          <!> (GetModelSource <$> anySpec)
@@ -257,38 +257,38 @@ instance HasSpec SimulateAJCommand where
 
        pure SimulateAJCommand { .. }
 
--- --------------------------------------------------------------------------------
--- -- Stratify
+--------------------------------------------------------------------------------
+-- Stratify
 
--- data StratifyCommand = StratifyCommand
---   { stratModel       :: ModelDef
---   , stratConnections :: String
---   , stratStates      :: Maybe String
---   , stratType        :: StratificationType
---   }
---   deriving Show
+data StratifyCommand = StratifyCommand
+  { stratModel       :: ModelDef
+  , stratConnections :: String
+  , stratStates      :: Maybe String
+  , stratType        :: StratificationType
+  }
+  deriving Show
 
--- instance HasSpec StratifyCommand where
---   anySpec =
---     sectionsSpec "stratify-command"
---     do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
---         stratModel       <- reqSection' "definition" modelDef
---                             "specification of the model"
+instance HasSpec StratifyCommand where
+  anySpec =
+    sectionsSpec "stratify-command"
+    do  reqSection' "command" (jsAtom "stratify-command") "Stratify a model"
+        stratModel       <- reqSection' "definition" modelDef
+                            "specification of the model"
 
---         stratConnections <- reqSection' "connection-graph" stringSpec
---                             "connection graph specifying stratification pattern"
+        stratConnections <- reqSection' "connection-graph" stringSpec
+                            "connection graph specifying stratification pattern"
 
---         stratStates      <- optSection' "state-metadata" stringSpec
---                             "JSON metadata describing infectious states" -- XXX document desired format somewhere
+        stratStates      <- optSection' "state-metadata" stringSpec
+                            "JSON metadata describing infectious states" -- XXX document desired format somewhere
 
---         stratType        <- reqSection' "stratification-type" stratTypeSpec 
---                             "type of stratification to perform"
---         pure StratifyCommand {..}
+        stratType        <- reqSection' "stratification-type" stratTypeSpec 
+                            "type of stratification to perform"
+        pure StratifyCommand {..}
 
 
--- stratTypeSpec :: ValueSpec StratificationType 
--- stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
---              <!> (jsAtom "demographic" $> Demographic)
+stratTypeSpec :: ValueSpec StratificationType 
+stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
+             <!> (jsAtom "demographic" $> Demographic)
 
 -------------------------------------------------------------------------------
 -- Check
