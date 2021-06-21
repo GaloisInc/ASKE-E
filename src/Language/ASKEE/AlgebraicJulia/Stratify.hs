@@ -64,7 +64,6 @@ stratifyModel model connections vertices states strat =
               ] ++ 
               maybe [] (\s -> [ "states" .= s ]) states
       result <- queryServer payload
-      putStrLn result
       rawTopology <- case eitherDecode (B.pack result) of
         Right t -> pure t
         Left err -> error $ "failed to parse JSON of returned topology "++err
