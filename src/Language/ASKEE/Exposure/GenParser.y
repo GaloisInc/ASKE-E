@@ -14,29 +14,33 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 %monad       { Either String       }
 
 %token
-'='    { Located _ _ Lexer.Assign     }
-','    { Located _ _ Lexer.Comma      }
-'('    { Located _ _ Lexer.OpenP      }
-')'    { Located _ _ Lexer.CloseP     }
-REAL   { Located _ _ (Lexer.LitD $$)  }
-STRING { Located _ _ (Lexer.LitS $$)  }
-IDENT  { Located _ _ (Lexer.Ident $$) }
-'+'    { Located _ _ Lexer.InfixAdd   }
-'-'    { Located _ _ Lexer.InfixSub   }
-'*'    { Located _ _ Lexer.InfixMul   }
-'/'    { Located _ _ Lexer.InfixDiv   }
-'>'    { Located _ _ Lexer.InfixGT    }
-'>='   { Located _ _ Lexer.InfixGTE   }
-'<'    { Located _ _ Lexer.InfixLT    }
-'<='   { Located _ _ Lexer.InfixLTE   }
-'=='   { Located _ _ Lexer.InfixEQ    }
-'!='   { Located _ _ Lexer.InfixNEQ   }
-'&&'   { Located _ _ Lexer.InfixAnd   }
-'||'   { Located _ _ Lexer.InfixOr    }
+'='     { Located _ _ Lexer.Assign     }
+','     { Located _ _ Lexer.Comma      }
+'('     { Located _ _ Lexer.OpenP      }
+')'     { Located _ _ Lexer.CloseP     }
+REAL    { Located _ _ (Lexer.LitD $$)  }
+STRING  { Located _ _ (Lexer.LitS $$)  }
+IDENT   { Located _ _ (Lexer.Ident $$) }
+'+'     { Located _ _ Lexer.InfixAdd   }
+'-'     { Located _ _ Lexer.InfixSub   }
+'*'     { Located _ _ Lexer.InfixMul   }
+'/'     { Located _ _ Lexer.InfixDiv   }
+'>'     { Located _ _ Lexer.InfixGT    }
+'>='    { Located _ _ Lexer.InfixGTE   }
+'<'     { Located _ _ Lexer.InfixLT    }
+'<='    { Located _ _ Lexer.InfixLTE   }
+'=='    { Located _ _ Lexer.InfixEQ    }
+'!='    { Located _ _ Lexer.InfixNEQ   }
+'and'   { Located _ _ Lexer.InfixAnd   }
+'or'    { Located _ _ Lexer.InfixOr    }
+'not'   { Located _ _ Lexer.InfixNot   }
+'false' { Located _ _ Lexer.BoolFalse  }
+'true'  { Located _ _ Lexer.BoolTrue   }
 
-%left '||'
-%left '&&'
+%left 'or'
+%left 'and'
 %nonassoc '<' '<=' '==' '!=' '>=' '>'
+%right 'not'
 %left '+' '-'
 %left '*' '/'
 
@@ -49,23 +53,25 @@ stmt  : IDENT '=' expr { StmtLet $1 $3  }
 expr :: { Expr }
 expr : IDENT                        { EVar $1 }
      | lit                          { EVal $1 }
+     | bool                         { EVal $1 }
      | IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
                                           ; pure (ECall funName $3) }}
      | infixExpr                    { $1 }
 
 infixExpr :: { Expr }
-infixExpr : expr '+'  expr { ECall FAdd [$1, $3] }
-          | expr '-'  expr { ECall FSub [$1, $3] }
-          | expr '*'  expr { ECall FMul [$1, $3] }
-          | expr '/'  expr { ECall FDiv [$1, $3] }
-          | expr '>'  expr { ECall FGT  [$1, $3] }
-          | expr '>=' expr { ECall FGTE [$1, $3] }
-          | expr '<'  expr { ECall FLT  [$1, $3] }
-          | expr '<=' expr { ECall FLTE [$1, $3] }
-          | expr '==' expr { ECall FEQ  [$1, $3] }
-          | expr '!=' expr { ECall FNEQ [$1, $3] }
-          | expr '&&' expr { ECall FAnd [$1, $3] }
-          | expr '||' expr { ECall FOr  [$1, $3] }
+infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
+          | expr '-'   expr { ECall FSub [$1, $3] }
+          | expr '*'   expr { ECall FMul [$1, $3] }
+          | expr '/'   expr { ECall FDiv [$1, $3] }
+          | expr '>'   expr { ECall FGT  [$1, $3] }
+          | expr '>='  expr { ECall FGTE [$1, $3] }
+          | expr '<'   expr { ECall FLT  [$1, $3] }
+          | expr '<='  expr { ECall FLTE [$1, $3] }
+          | expr '=='  expr { ECall FEQ  [$1, $3] }
+          | expr '!='  expr { ECall FNEQ [$1, $3] }
+          | expr 'and' expr { ECall FAnd [$1, $3] }
+          | expr 'or'  expr { ECall FOr  [$1, $3] }
+          | 'not' expr      { ECall FNot [$2]     }
 
 dispExpr :: { DisplayExpr }
 disExpr : expr { DisplayScalar $1 }
@@ -73,6 +79,10 @@ disExpr : expr { DisplayScalar $1 }
 lit :: { Value }
 lit : REAL   { VDouble $1 }
     | STRING { VString $1 }
+
+bool :: { Value }
+bool : 'false' { VBool False }
+     | 'true'  { VBool True }
 
 commaSepExprs0 :: { [Expr] }
 commaSepExprs0 : {- empty -}    { [] }

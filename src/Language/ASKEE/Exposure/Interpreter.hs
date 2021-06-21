@@ -105,15 +105,15 @@ interpretCall fun args =
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
     FDiv         -> compilable (binarith (/))
-    FGT          -> compilable (bincmp (>))
-    FGTE         -> compilable (bincmp (>=))
-    FLT          -> compilable (bincmp (<))
-    FLTE         -> compilable (bincmp (<=))
-    FEQ          -> compilable (bincmp (==))
-    FNEQ         -> compilable (bincmp (/=))
-    FNot         -> undefined
-    FAnd         -> undefined
-    FOr          -> undefined
+    FGT          -> compilable (bincmpDouble (>))
+    FGTE         -> compilable (bincmpDouble (>=))
+    FLT          -> compilable (bincmpDouble (<))
+    FLTE         -> compilable (bincmpDouble (<=))
+    FEQ          -> compilable (bincmpDouble (==))
+    FNEQ         -> compilable (bincmpDouble (/=))
+    FNot         -> compilable (unaryBool not)
+    FAnd         -> compilable (bincmpBool (&&))
+    FOr          -> compilable (bincmpBool (||))
     FProb        -> undefined
     FSample      -> undefined
     FAt          -> undefined
@@ -137,15 +137,25 @@ interpretCall fun args =
     asMexprArg (VModelExpr e) = e
     asMexprArg v = EVal v
 
-    bincmp f =
+    bincmpDouble f =
       case args of
         [VDouble n1, VDouble n2] -> pure $ VBool (f n1 n2)
+        _ -> throw "Cannot compare these values"
+
+    bincmpBool f =
+      case args of
+        [VBool b1, VBool b2] -> pure $ VBool (f b1 b2)
         _ -> throw "Cannot compare these values"
 
     binarith f =
       case args of
         [VDouble n1, VDouble n2] -> pure $ VDouble (f n1 n2)
         _ -> throw "Cannot do arithmetic on these values"
+
+    unaryBool f =
+      case args of
+        [VBool b] -> pure $ VBool (f b)
+        _ -> throw "Expected a single boolean argument"
 
     compilable orElse =
       if any isMexpr args

@@ -23,4 +23,7 @@ data Token
   | InfixNEQ
   | InfixAnd
   | InfixOr
+  | InfixNot
+  | BoolFalse
+  | BoolTrue
   deriving Show

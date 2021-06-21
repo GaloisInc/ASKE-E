@@ -50,6 +50,12 @@ tests =
           "4 == 2" `exprShouldEvalTo` VBool False
       , testCase "Not equal to" $
           "4 != 2" `exprShouldEvalTo` VBool True
+      , testCase "Logical and" $
+          "true and false" `exprShouldEvalTo` VBool False
+      , testCase "Logical or" $
+          "true or false" `exprShouldEvalTo` VBool True
+      , testCase "Logical negation" $
+          "not true" `exprShouldEvalTo` VBool False
       , testCase "loadESL should return a VModelExpr" $ do
           dataDir <- getDataDir
           exprAssertion ("loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")") $ \modelVal ->
