@@ -39,5 +39,9 @@ tests =
           "4 < 2" `exprShouldEvalTo` VBool False
       , testCase "Less than or equal to" $
           "4 <= 2" `exprShouldEvalTo` VBool False
+      , testCase "Equal to" $
+          "4 == 2" `exprShouldEvalTo` VBool False
+      , testCase "Not equal to" $
+          "4 != 2" `exprShouldEvalTo` VBool True
       ]
     ]

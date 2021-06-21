@@ -109,8 +109,8 @@ interpretCall fun args =
     FGTE         -> compilable (bincmp (>=))
     FLT          -> compilable (bincmp (<))
     FLTE         -> compilable (bincmp (<=))
-    FEQ          -> undefined
-    FNEQ         -> undefined
+    FEQ          -> compilable (bincmp (==))
+    FNEQ         -> compilable (bincmp (/=))
     FNot         -> undefined
     FAnd         -> undefined
     FOr          -> undefined
