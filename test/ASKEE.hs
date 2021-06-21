@@ -5,7 +5,7 @@ module ASKEE ( tests ) where
 
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map       as Map
-import           Data.Text      ( Text )
+import           Data.Text      ( Text, pack )
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
 import qualified Language.ASKEE.Core.Expr          as CExp
@@ -16,10 +16,14 @@ import           Test.Tasty.HUnit ( Assertion
                                   , assertBool
                                   , (@=?)
                                   , assertFailure
-                                  , testCase )
+                                  , testCase
+                                  , assertEqual )
 
 sir :: Text
 sir = $(Embed.embedStringFile "modelRepo/easel/sir.easel")
+
+sirEquations :: Text
+sirEquations = $(Embed.embedStringFile "modelRepo/deq/sir.deq")
 
 series1 :: DataSeries Double
 series1 =
@@ -150,6 +154,13 @@ testAsSchematicGraph :: (Core.Model, Viz.Graph) -> Assertion
 testAsSchematicGraph (model, graph) =
   Just graph @=? asSchematicGraph model
 
+testConvertESLToDEQ :: Assertion
+testConvertESLToDEQ =
+  do  result <- convertModelString EaselType (Inline sir) DeqType
+      case result of
+        Right r -> assertEqual "" sirEquations (pack r)
+        Left err -> assertFailure err
+
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
@@ -160,4 +171,5 @@ tests =
     , testCase "Event-to-event flow schematic" $ testAsSchematicGraph e2e
     , testCase "No-flow schematic" $ testAsSchematicGraph n2n
     , testCase "State-to-state flow schematic, no dups" $ testAsSchematicGraph s2sd
+    , testCase "Convert ESL to DEQ" testConvertESLToDEQ
     ]
