@@ -37,6 +37,7 @@ tokens :-
 ">"         { atomic InfixGT   }
 "=="        { atomic InfixEQ   }
 "!="        { atomic InfixNEQ  }
+"."         { atomic Dot       }
 "and"       { atomic InfixAnd  }
 "or"        { atomic InfixOr   }
 "not"       { atomic InfixNot  }

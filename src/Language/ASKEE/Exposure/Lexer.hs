@@ -26,4 +26,5 @@ data Token
   | InfixNot
   | BoolFalse
   | BoolTrue
+  | Dot
   deriving Show

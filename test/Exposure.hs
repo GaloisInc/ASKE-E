@@ -31,6 +31,11 @@ exprAssertionEnv env actualExprStr k = do
         Left err             -> assertFailure $ Text.unpack err
         Right (actualVal, _) -> k actualVal
 
+getLoadSirEaselExpr :: IO String
+getLoadSirEaselExpr = do
+  dataDir <- getDataDir
+  pure $ "loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")"
+
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "Exposure API Tests"
@@ -61,15 +66,21 @@ tests =
           "true or false" `exprShouldEvalTo` VBool True
       , testCase "Logical negation" $
           "not true" `exprShouldEvalTo` VBool False
-      , testCase "loadESL should return a VModelExpr" $ do
-          dataDir <- getDataDir
-          exprAssertion ("loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")") $ \modelVal ->
-            case modelVal of
-              VModelExpr (EVal (VModel _)) -> pure ()
-              _                            -> fail "Not a VModelExpr"
       , testCase "Variable lookup" $
           exprAssertionEnv (Env (Map.fromList [("x", VDouble 42)]))
                            "x + x" $ \actualVal ->
             actualVal @?= VDouble 84
+      , testCase "loadESL should return a VModel" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertion loadSirEaselExpr $ \modelVal ->
+            case modelVal of
+              VModelExpr (EVal (VModel _)) -> pure ()
+              _                            -> assertFailure "Not a VModel"
+      , testCase "Dot syntax should return an EMember" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertion (loadSirEaselExpr ++ ".S") $ \modelVal ->
+            case modelVal of
+              VModelExpr (EMember _ "S") -> pure ()
+              _                          -> assertFailure "Not an EMember"
       ]
     ]

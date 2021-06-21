@@ -36,6 +36,7 @@ IDENT   { Located _ _ (Lexer.Ident $$) }
 'not'   { Located _ _ Lexer.InfixNot   }
 'false' { Located _ _ Lexer.BoolFalse  }
 'true'  { Located _ _ Lexer.BoolTrue   }
+'.'     { Located _ _ Lexer.Dot        }
 
 %left 'or'
 %left 'and'
@@ -43,6 +44,7 @@ IDENT   { Located _ _ (Lexer.Ident $$) }
 %right 'not'
 %left '+' '-'
 %left '*' '/'
+%left '.'
 
 %%
 
@@ -57,6 +59,7 @@ expr : IDENT                        { EVar $1 }
      | IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
                                           ; pure (ECall funName $3) }}
      | infixExpr                    { $1 }
+     | expr '.' IDENT               { EMember $1 $3 }
 
 infixExpr :: { Expr }
 infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
