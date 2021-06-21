@@ -29,8 +29,8 @@ data Env = Env
   { envVars :: Map Ident Value
   }
 
-eval :: [Stmt] -> Env -> IO (Either Text Env)
-eval stmts env =
+evalStmts :: [Stmt] -> Env -> IO (Either Text Env)
+evalStmts stmts env =
   let except = State.execStateT (interpretStmt `traverse_` stmts) env
   in Except.runExceptT except
 
