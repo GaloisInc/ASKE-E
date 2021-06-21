@@ -206,10 +206,13 @@ test-suite tests
   other-modules:        ASKEE
                       , Exposure
                       , ModelCheck
+                      , Paths_aske_e
+  autogen-modules:      Paths_aske_e
   build-depends:        base
                       , aske-e
                       , containers
                       , file-embed
+                      , filepath
                       , mtl
                       , tasty
                       , tasty-hunit

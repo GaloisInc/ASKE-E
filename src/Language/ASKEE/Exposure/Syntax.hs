@@ -74,5 +74,5 @@ data SampleFold =
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
   case T.unpack ident of
-    "loadEasel" -> Right FLoadEasel
-    strIdent    -> Left $ "Unsupported prefix function name: " ++ strIdent
+    "loadESL" -> Right FLoadEasel
+    strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
