@@ -1,5 +1,7 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Exposure (tests) where
 
+import qualified Data.Map as Map
 import qualified Data.Text as Text
 import System.FilePath ((</>))
 import Test.Tasty.HUnit
@@ -17,13 +19,16 @@ exprShouldEvalTo actualExprStr expectedVal =
     actualVal @?= expectedVal
 
 exprAssertion :: String -> (Value -> Assertion) -> Assertion
-exprAssertion actualExprStr k = do
+exprAssertion = exprAssertionEnv initialEnv
+
+exprAssertionEnv :: Env -> String -> (Value -> Assertion) -> Assertion
+exprAssertionEnv env actualExprStr k = do
   case lexExposure actualExprStr >>= parseExposureExpr of
-    Left err         -> fail err
+    Left err         -> assertFailure err
     Right actualExpr -> do
-      res <- runEval initialEnv $ interpretExpr actualExpr
+      res <- runEval env $ interpretExpr actualExpr
       case res of
-        Left err             -> fail $ Text.unpack err
+        Left err             -> assertFailure $ Text.unpack err
         Right (actualVal, _) -> k actualVal
 
 tests :: Tasty.TestTree
@@ -62,5 +67,9 @@ tests =
             case modelVal of
               VModelExpr (EVal (VModel _)) -> pure ()
               _                            -> fail "Not a VModelExpr"
+      , testCase "Variable lookup" $
+          exprAssertionEnv (Env (Map.fromList [("x", VDouble 42)]))
+                           "x + x" $ \actualVal ->
+            actualVal @?= VDouble 84
       ]
     ]
