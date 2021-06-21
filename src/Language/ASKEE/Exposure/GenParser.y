@@ -8,6 +8,7 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 }
 
 %name        parseExposureStmt stmt
+%name        parseExposureExpr expr
 %tokentype   { Located Lexer.Token }
 %error       { parseError          }
 %monad       { Either String       }

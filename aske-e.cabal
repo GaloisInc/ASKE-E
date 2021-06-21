@@ -204,6 +204,7 @@ test-suite tests
   hs-source-dirs:       test
   main-is:              Main.hs
   other-modules:        ASKEE
+                      , Exposure
                       , ModelCheck
   build-depends:        base
                       , aske-e

@@ -9,19 +9,19 @@ type Ident  = Text
 data Stmt
   = StmtLet Ident Expr
   | StmtDisplay DisplayExpr
-  deriving Show
+  deriving (Eq, Show)
 
 -- TODO: Labels?
 newtype DisplayExpr
   = DisplayScalar Expr
-  deriving Show
+  deriving (Eq, Show)
 
 data Expr
   = EVar Text
   | EVal Value
   | ECall FunctionName [Expr]
   | EMember Expr Ident
-  deriving Show
+  deriving (Eq, Show)
 
 data Value
   = VDouble Double
@@ -32,7 +32,7 @@ data Value
   | VModelExpr Expr
   | VDFold DynamicalFold Expr
   | VSFold SampleFold DynamicalFold Expr
-  deriving Show
+  deriving (Eq, Show)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
 -- sir.I at 30.0
@@ -56,7 +56,7 @@ data FunctionName
   | FSample
   | FAt
   | FLoadEasel
-  deriving Show
+  deriving (Eq, Show)
 
 -------------------------------------------------------------------------------
 -- compilable expr
@@ -64,12 +64,12 @@ data FunctionName
 -- P(S.I + 10.0 > 30.0 at 10.0)
 data DynamicalFold =
   DFAt Double
-  deriving Show
+  deriving (Eq, Show)
 
 data SampleFold =
     SFProbability
   | SFSample
-  deriving Show
+  deriving (Eq, Show)
 
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =

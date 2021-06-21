@@ -20,6 +20,9 @@ type Eval a = State.StateT Env (Except.ExceptT Text IO) a
 data ExposureInfo = ExposureInfo
   deriving Show
 
+runEval :: Env -> Eval a -> IO (Either Text (a, Env))
+runEval env ev = Except.runExceptT $ State.runStateT ev env
+
 -------------------------------------------------------------------------------
 
 data Env = Env
