@@ -57,32 +57,41 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    SimulateODE SimulateODECommand{..} ->
-      do  res <- 
-            simulateODE 
-              (modelDefType simODEModel)
-              (modelDefSource simODEModel)
-              simODEStart
-              simODEEnd
-              simODEStep
-              simODEParameterValues
-          succeed' res
-
     SimulateDiscrete SimulateDiscreteCommand{..} ->
       do  res <- 
-            simulateDiscrete
-              (modelDefType simDiscreteModel)
-              (modelDefSource simDiscreteModel)
-              simDiscreteStart
-              simDiscreteEnd
-              simDiscreteStep
+            simulateModelDiscrete
+              (modelDefType simModelDiscrete)
+              (modelDefSource simModelDiscrete)
+              simStartDiscrete
+              simEndDiscrete
+              simStepDiscrete
+          succeed' res
+
+    SimulateGSL SimulateGSLCommand{..} ->
+      do  res <- 
+            simulateModelGSL
+              (modelDefType simModelGSL)
+              (modelDefSource simModelGSL)
+              simStartGSL
+              simEndGSL
+              simStepGSL
+              simParameterValuesGSL
+          succeed' res
+    
+    SimulateAJ SimulateAJCommand{..} ->
+      do  res <- 
+            simulateModelAJ
+              (modelDefType simModelAJ)
+              (modelDefSource simModelAJ)
+              simStartAJ
+              simEndAJ
+              simStepAJ
+              simParameterValuesAJ
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  checkResult <-
-            case modelDefSource checkModelModel of
-              Inline t -> checkModel' (modelDefType checkModelModel) t
-              FromFile _ -> pure (Just "no dice, pal")
+      do  model <- loadModel (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)        
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))

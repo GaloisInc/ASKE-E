@@ -70,6 +70,8 @@ library
                         Language.ASKEE.Gromet.FromEasel
                         Language.ASKEE.Gromet.See
                         Language.ASKEE.Gromet.Syntax
+                        Language.ASKEE.Gromet.PetriNetClassic
+                        Language.ASKEE.Gromet.Common
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
@@ -77,10 +79,12 @@ library
                         Language.ASKEE.Latex.Print
                         Language.ASKEE.Latex.Syntax
 
-                        Language.ASKEE.ModelStratify.GeoGraph
-                        Language.ASKEE.ModelStratify.Stratify
-                        Language.ASKEE.ModelStratify.Syntax
-                        Language.ASKEE.ModelStratify.Topology
+                        Language.ASKEE.AlgebraicJulia.GeoGraph
+                        Language.ASKEE.AlgebraicJulia.Interact
+                        Language.ASKEE.AlgebraicJulia.Simulate
+                        Language.ASKEE.AlgebraicJulia.Stratify
+                        Language.ASKEE.AlgebraicJulia.Syntax
+                        Language.ASKEE.AlgebraicJulia.Topology
 
                         Language.ASKEE.RNet.GenLexer
                         Language.ASKEE.RNet.GenParser
@@ -89,9 +93,7 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         -- General
-                        -- Language.ASKEE.C
                         Language.ASKEE.Convert
-                        -- Language.ASKEE.CppCompiler
                         Language.ASKEE.DataSeries
                         Language.ASKEE.Error
                         Language.ASKEE.Expr
@@ -101,12 +103,11 @@ library
                         Language.ASKEE.Model
                         Language.ASKEE.ModelType
                         Language.ASKEE.Panic
-                        Language.ASKEE.Simulate
-                        -- Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
+                      , scientific
                       , alex-tools
                       , array
                       , bytestring

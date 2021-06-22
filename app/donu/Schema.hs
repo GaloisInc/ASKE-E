@@ -26,8 +26,9 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    SimulateODE SimulateODECommand
-  | SimulateDiscrete SimulateDiscreteCommand
+    SimulateDiscrete SimulateDiscreteCommand
+  | SimulateGSL SimulateGSLCommand
+  | SimulateAJ SimulateAJCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
@@ -41,8 +42,9 @@ data Input =
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (SimulateODE <$> anySpec)
-         <!> (SimulateDiscrete <$> anySpec)
+  anySpec =  (SimulateDiscrete <$> anySpec)
+         <!> (SimulateGSL <$> anySpec)
+         <!> (SimulateAJ <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
@@ -135,7 +137,7 @@ instance HasSpec ModelType where
          <!> (jsAtom "diff-eqs"   $> DeqType )
          <!> (jsAtom "core"       $> CoreType)
          <!> (jsAtom "gromet-prt" $> GrometPrtType)
-         <!> (jsAtom "gromet-prc" $> GrometPrcType)
+         <!> (jsAtom "gromet-pnc" $> GrometPncType)
          <!> (jsAtom "gromet-fnet" $> GrometFnetType)
 
 instance JS.ToJSON ModelType where
@@ -196,59 +198,89 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
-data SimulateODECommand = SimulateODECommand
-  { simODEModel           :: ModelDef
-  , simODEStart           :: Double
-  , simODEStep            :: Double
-  , simODEEnd             :: Double
-  , simODEParameterValues :: Map Text Double
-  } deriving Show
-
-instance HasSpec SimulateODECommand where
-  anySpec =
-    sectionsSpec "simulate-ode-command"
-    do reqSection' "command" (jsAtom "simulate-ode") "Run a simulation using ordinary differential equations"
-       simODEModel   <- reqSection' "definition" modelDef
-                       "Specification of the model to simulate"
-
-       simODEStart     <- reqSection "start"
-                       "Start time of simulation"
-       simODEStep      <- fromMaybe 1 <$>
-                       optSection "step"
-                       "Time step (defaults to 1)"
-       simODEEnd       <- reqSection "end"
-                       "End time of simulation"
-
-       simODEParameterValues <- maybe Map.empty Map.fromList <$>
-                       optSection' "parameters" (assocSpec anySpec)
-                       "Use these values for model parameters"
-
-       pure SimulateODECommand { .. }
-
-
 data SimulateDiscreteCommand = SimulateDiscreteCommand
-  { simDiscreteModel           :: ModelDef
-  , simDiscreteStart           :: Double
-  , simDiscreteStep            :: Double
-  , simDiscreteEnd             :: Double
+  { simModelDiscrete           :: ModelDef
+  , simStartDiscrete           :: Double
+  , simStepDiscrete            :: Double
+  , simEndDiscrete             :: Double
   } deriving Show
 
 instance HasSpec SimulateDiscreteCommand where
   anySpec =
     sectionsSpec "simulate-discrete-command"
     do reqSection' "command" (jsAtom "simulate-discrete") "Run a simulation using a discrete event simulator"
-       simDiscreteModel   <- reqSection' "definition" modelDef
+       simModelDiscrete   <- reqSection' "definition" modelDef
                        "Specification of the model to simulate"
 
-       simDiscreteStart     <- reqSection "start"
+       simStartDiscrete     <- reqSection "start"
                        "Start time of simulation"
-       simDiscreteStep      <- fromMaybe 1 <$>
+       simStepDiscrete      <- fromMaybe 1 <$>
                        optSection "step"
                        "Time step (defaults to 1)"
-       simDiscreteEnd       <- reqSection "end"
+       simEndDiscrete       <- reqSection "end"
                        "End time of simulation"
 
        pure SimulateDiscreteCommand { .. }
+data SimulateGSLCommand = SimulateGSLCommand
+  { simModelGSL           :: ModelDef
+  , simStartGSL           :: Double
+  , simStepGSL            :: Double
+  , simEndGSL             :: Double
+  , simParameterValuesGSL :: Map Text Double
+  } deriving Show
+
+
+instance HasSpec SimulateGSLCommand where
+  anySpec =
+    sectionsSpec "simulate-gsl-command"
+    do reqSection' "command" (jsAtom "simulate-gsl") "Run a simulation"
+       simModelGSL   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStartGSL     <- reqSection "start"
+                       "Start time of simulation"
+       simStepGSL      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEndGSL       <- reqSection "end"
+                       "End time of simulation"
+
+       simParameterValuesGSL <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
+                       "Use these values for model parameters"
+
+       pure SimulateGSLCommand { .. }
+
+
+data SimulateAJCommand = SimulateAJCommand
+  { simModelAJ           :: ModelDef
+  , simStartAJ           :: Double
+  , simStepAJ            :: Double
+  , simEndAJ             :: Double
+  , simParameterValuesAJ :: Map Text Double
+  } deriving Show
+
+
+instance HasSpec SimulateAJCommand where
+  anySpec =
+    sectionsSpec "simulate-aj-command"
+    do reqSection' "command" (jsAtom "simulate-aj") "Run a simulation"
+       simModelAJ   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStartAJ     <- reqSection "start"
+                       "Start time of simulation"
+       simStepAJ      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEndAJ       <- reqSection "end"
+                       "End time of simulation"
+
+       simParameterValuesAJ <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
+                       "Use these values for model parameters"
+
+       pure SimulateAJCommand { .. }
 
 --------------------------------------------------------------------------------
 -- Stratify
