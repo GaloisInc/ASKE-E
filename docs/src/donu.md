@@ -192,8 +192,8 @@ Example:
 
 Example:
 
-
 ```JSON
+{
   "command": "simulate-aj",
   "definition": {
     "type": "gromet-pnc",
@@ -250,7 +250,6 @@ Example:
     },
     "times": [
       0,
-
       30,
       60,
       90,
