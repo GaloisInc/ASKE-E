@@ -39,7 +39,7 @@ initStorage = mapM_ make dirs
     make = Directory.createDirectoryIfMissing True
     dirs = 
       [ baseDirectory </> formatLocation mt
-      | mt <- [EaselType, DeqType, GrometPrtType] 
+      | mt <- [EaselType, DeqType, GrometPrtType, GrometPncType] 
       ]
 
 loadModel :: ModelType -> DataSource -> IO String
@@ -72,7 +72,7 @@ listAllModels :: IO [ModelDef]
 listAllModels = 
   concat <$> sequence
     [ listModels mt 
-    | mt <- [EaselType, DeqType, GrometPrtType] 
+    | mt <- [EaselType, DeqType, GrometPrtType, GrometPncType] 
     ]
 
 listModels :: ModelType -> IO [ModelDef]
@@ -91,7 +91,7 @@ formatLocation mt =
     CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
     GrometPrtType -> "gromet-prt"
     GrometFnetType -> "gromet-fnet"
-    GrometPrcType -> "gromet-prc"
+    GrometPncType -> "gromet-pnc"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

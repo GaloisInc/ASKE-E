@@ -185,6 +185,7 @@ instance ToJSON Wire where
     [ "uid"      .= wireUID w
     , "src"      .= wireSrc w
     , "tgt"      .= wireTgt w
+    , "syntax"   .= ("Wire" :: String)
     ]
 
 instance FromJSON Wire where
@@ -215,6 +216,10 @@ instance ToJSON PetriNetClassic where
             , "junctions" .= map jUID (pncJunctions p)
             ]
         ] 
+    , "ports" .= JSON.Null
+    , "types" .= JSON.Null
+    , "variables" .= JSON.Null
+    , "literals" .= JSON.Null
     ]
 
 instance FromJSON PetriNetClassic where
