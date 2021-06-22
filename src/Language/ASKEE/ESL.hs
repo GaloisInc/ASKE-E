@@ -12,7 +12,8 @@ module Language.ASKEE.ESL
   )
   where
 
-import Control.Monad ( (>=>) )
+import Data.Text(Text)
+import qualified Data.Text as Text
 
 import Language.ASKEE.ESL.Check     ( checkModel )
 import Language.ASKEE.ESL.Convert   ( modelAsCore )
@@ -22,11 +23,10 @@ import Language.ASKEE.ESL.Interface ( describeModelInterface )
 import Language.ASKEE.ESL.Print     ( printModel, Doc )
 import Language.ASKEE.ESL.Syntax    ( Model(..) )
 
-parseESL :: String -> Either String Model
-parseESL = lexModel >=> parseModel
-
--- parseESLMeta :: String -> Either String Model
--- parseESLMeta = lexModel >=> parseModel
+parseESL :: Text -> Either String Model
+parseESL txt =
+  do toks <- lexModel (Text.unpack txt) -- XXX: lex Text
+     parseModel toks
 
 printESL :: Model -> Doc
 printESL = printModel

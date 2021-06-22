@@ -107,7 +107,10 @@ data ModelType =
   | GrometPrtType
   | GrometPrcType
   | GrometFnetType
-  deriving(Eq, Ord, Show, Enum)
+  deriving(Eq, Ord, Show, Enum, Bounded)
+
+allModelTypes :: [ModelType]
+allModelTypes = [ minBound .. maxBound ]
 
 parseModelType :: Text -> Maybe ModelType
 parseModelType t =

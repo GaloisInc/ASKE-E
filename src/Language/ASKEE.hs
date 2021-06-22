@@ -32,7 +32,7 @@ module Language.ASKEE
   , initStorage
   , listAllModels
   , listAllModelsWithMetadata
-  , loadModelString
+  , loadModelText
   , storeModel
 
   , describeModelType
@@ -57,11 +57,14 @@ import Control.Exception ( try, SomeException(..) )
 import Control.Monad ( forM )
 
 import           Data.Aeson                 ( decode )
-import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as LBS8
+import qualified Data.ByteString.Builder    as Builder
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
+import qualified Data.Text.IO               as Text
+import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.C                      ( Doc )
@@ -99,17 +102,14 @@ import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
-                                                       , loadModelString
+                                                       , loadModelText
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 import qualified Language.ASKEE.Storage                as Storage
 
-import System.Process ( readProcessWithExitCode )
-import System.Exit    ( ExitCode(..) )
-
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
-  do modelString <- loadModelString format source
+  do modelString <- loadModelText format source
      throwLeft ParseError (parseModel format modelString)
 
 -------------------------------------------------------------------------------
@@ -220,7 +220,7 @@ storeModel mt =
     _ -> \_ _ -> die (StorageError $ "don't know how to store model type "<>show mt)
 
 storeESL :: Text -> Text -> IO ModelDef
-storeESL name model = 
+storeESL name model =
   do  loc <- Storage.storeModel name EaselType checkESL model
       pure $ ModelDef (FromFile loc) EaselType
 
@@ -254,21 +254,24 @@ checkModel mt =
 
 checkESL :: Text -> IO ()
 checkESL t =
-  do  Easel esl <- throwLeft ParseError (parseModel EaselType (Text.unpack t))
+  do  Easel esl <- throwLeft ParseError (parseModel EaselType t)
       _ <- throwLeft ValidationError (ESL.checkModel esl)
       pure ()
 
 checkDEQ :: Text -> IO ()
 checkDEQ t =
-  do  Deq _ <- throwLeft ParseError (parseModel DeqType (Text.unpack t))
+  do  Deq _ <- throwLeft ParseError (parseModel DeqType t)
       pure ()
 
+-- XXX: not validated for the moment.
 checkGrometPrt :: Text -> IO ()
-checkGrometPrt t =
+checkGrometPrt _ = pure ()
+{-
   do  (code, _out, _err) <- readProcessWithExitCode "jq" [] (Text.unpack t)
       case code of
         ExitSuccess -> pure ()
         ExitFailure _ -> die (ValidationError "invalid gromet")
+-}
 
 
 
@@ -286,7 +289,7 @@ stratifyModel format source connectionGraph statesJSON stratificationType =
       (connGraph, vertexNamer) <- throwLeft ParseError (GG.asConnGraph connectionGraph)
       let vertexMap = Map.map Text.pack (GG.asMap connGraph vertexNamer)
       states <- 
-        case decode . B.pack <$> statesJSON of 
+        case decode . LBS8.pack <$> statesJSON of 
           Just (Just s) -> pure $ Just s
           Just Nothing -> die (ParseError "invalid states JSON")
           Nothing -> pure Nothing
@@ -307,11 +310,12 @@ fitModelToData format fitData fitParams fitScale source =
       rawData <- 
         case fitData of
           Inline s -> pure s
-          FromFile f -> Text.pack <$> readFile f
-      dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
+          FromFile f -> Text.readFile f
+      let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
+      dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
       pure $ DEQ.fitModel eqs dataSeries fitScale
            $ Map.fromList (zip fitParams (repeat 0))
-      
+
 
 simulateModel :: 
   ModelType -> 
@@ -327,11 +331,12 @@ simulateModel format source start end step parameters =
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
 
-convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString ::
+  ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
-  do  modelString <- loadModelString srcTy src
-      let model = parseModel srcTy modelString
-      pure 
+  do  bytes <- loadModelText srcTy src
+      let model = parseModel srcTy bytes
+      pure
         case destTy of
           EaselType -> model >>= toEasel >>= (printModel . Easel)
           DeqType -> model >>= toDeqs >>= (printModel . Deq)

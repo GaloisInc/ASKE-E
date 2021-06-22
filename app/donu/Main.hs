@@ -70,8 +70,8 @@ handleRequest r =
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  model <- loadModelString (modelDefType checkModelModel) (modelDefSource checkModelModel)
-          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)        
+      do  model <- loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- checkModel' (modelDefType checkModelModel) model
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
@@ -115,8 +115,8 @@ handleRequest r =
           succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->
-      do  modelString <- loadModelString (modelDefType getModelSource) (modelDefSource getModelSource)
-          let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
+      do  modelString <- loadModelText (modelDefType getModelSource) (modelDefSource getModelSource)
+          let result = getModelSource { modelDefSource = Inline modelString }
           succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 

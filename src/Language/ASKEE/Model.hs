@@ -15,6 +15,8 @@ module Language.ASKEE.Model
   , printModel
   ) where
 
+import Data.Text(Text)
+import qualified Data.Text.Encoding as Text
 import Control.Monad ( (>=>) )
 
 import qualified Language.ASKEE.Core as Core
@@ -158,7 +160,7 @@ toGrometPrc = asEither (tryConvs [unGrometPrc, notExist MT.GrometPrcType])
 toGrometFnet :: Model -> Either String JSON.Value
 toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
 
-parseModel :: MT.ModelType -> String -> Either String Model
+parseModel :: MT.ModelType -> Text -> Either String Model
 parseModel mt s =
   case mt of
     MT.EaselType ->
@@ -171,7 +173,7 @@ parseModel mt s =
     MT.GrometPrcType -> GrometPrc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
   where
-    loadJSON = JSON.eitherDecode $ BS.pack s
+    loadJSON = JSON.eitherDecodeStrict (Text.encodeUtf8 s)
 
 
 printModel :: Model -> Either String String
@@ -185,3 +187,5 @@ printModel m =
     GrometPrc v -> Right $ printJson v
   where
     printJson v = BS.unpack $ JSON.encode v
+
+

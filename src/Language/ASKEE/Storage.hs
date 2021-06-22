@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Language.ASKEE.Storage 
+module Language.ASKEE.Storage
   ( initStorage
-  , loadModelString
+  , loadModelText
   , storeModel
-  , listAllModels 
+  , listAllModels
 
   , DataSource(..)
   , ModelDef(..)
@@ -11,12 +11,12 @@ module Language.ASKEE.Storage
 
 import Control.Monad     ( when )
 
+import           Data.Text ( Text )
 import qualified Data.Text as Text
-import           Data.Text ( Text, isInfixOf )
+import qualified Data.Text.IO as Text
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
-import Language.ASKEE.Model.Basics ( ModelType(..) )
-import Language.ASKEE.Panic ( panic )
+import Language.ASKEE.Model.Basics ( ModelType(..), allModelTypes )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
@@ -37,33 +37,34 @@ initStorage :: IO ()
 initStorage = mapM_ make dirs
   where
     make = Directory.createDirectoryIfMissing True
-    dirs = 
+    dirs =
       [ baseDirectory </> formatLocation mt
-      | mt <- [EaselType, DeqType, GrometPrtType] 
+      | mt <- allModelTypes
       ]
 
-loadModelString :: ModelType -> DataSource -> IO String
-loadModelString format source =
+loadModelText :: ModelType -> DataSource -> IO Text
+loadModelText format source =
   case source of
-    Inline t -> pure $ Text.unpack t
-    _ ->
+    Inline t -> pure t
+    FromFile {} ->
       do  models <- listModels format
           when (mdef `notElem` models)
             (die $ StorageError $ "model "++show source++" doesn't exist")
-          (loadString . modelDefSource) mdef
+          loadText (modelDefSource mdef)
   where
-    mdef = ModelDef source format 
+    mdef = ModelDef source format
 
-storeModel :: Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
+storeModel ::
+  Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
 storeModel name format check model =
   do  let path = baseDirectory </> formatLocation format </> Text.unpack name
-      when (".." `isInfixOf` name || Text.singleton pathSeparator `isInfixOf` name) 
-        (die $ StorageError $ "invalid name for model: " <> name')
+          badName = ".." `Text.isInfixOf` name
+                 || Text.singleton pathSeparator `Text.isInfixOf` name
+      when badName (die (StorageError ("invalid name for model: " <> name')))
       exists <- Directory.doesFileExist path
-      when exists 
-        (die $ StorageError $ "model " <> name' <> " already exists")
+      when exists (die (StorageError ("model " <> name' <> " already exists")))
       check model
-      writeFile path (Text.unpack model)
+      Text.writeFile path model
       pure path
   where
     name' = Text.unpack name
@@ -88,7 +89,7 @@ formatLocation mt =
   case mt of
     EaselType -> "easel"
     DeqType -> "deq"
-    CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
+    CoreType -> "core"
     GrometPrtType -> "gromet-prt"
     GrometFnetType -> "gromet-fnet"
     GrometPrcType -> "gromet-prc"
@@ -96,8 +97,8 @@ formatLocation mt =
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"
 
-loadString :: DataSource -> IO String
-loadString source =
+loadText :: DataSource -> IO Text
+loadText source =
   case source of
-    FromFile file -> readFile file
-    Inline txt    -> pure (Text.unpack txt)
+    FromFile file -> Text.readFile file
+    Inline txt    -> pure txt
