@@ -128,7 +128,7 @@ instance JSON.FromJSON Literal where
            | JSON.Number x <- va -> pure (LitReal (toRealFloat x))
            | JSON.String txt <- va ->
              case readMaybe (Text.unpack txt) of
-               Just n -> pure (LitInteger n)
+               Just n -> pure (LitReal n)
                Nothing -> fail ("Invalid REAL_LITERAL: " <> Text.unpack txt)
 
          Integer

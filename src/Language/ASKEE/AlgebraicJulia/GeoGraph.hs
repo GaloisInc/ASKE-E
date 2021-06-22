@@ -1,7 +1,7 @@
 {-# Language OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-module Language.ASKEE.ModelStratify.GeoGraph where
+module Language.ASKEE.AlgebraicJulia.GeoGraph where
 
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy.Char8 as BS8

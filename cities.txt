@@ -1,2 +1,2 @@
-Portland -> Seattle
-Seattle -> Portland
+Portland -> Seattle, 1
+Seattle -> Portland, 1

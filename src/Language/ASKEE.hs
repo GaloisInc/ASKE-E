@@ -10,6 +10,8 @@ module Language.ASKEE
   , loadESLFrom
   , loadGrometPrt
   , loadGrometPrtFrom
+  , loadGrometPnc
+  , loadGrometPncFrom
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
@@ -18,7 +20,8 @@ module Language.ASKEE
   , checkModel
   , checkModel'
     
-  , simulateModel
+  , simulateModelGSL
+  , simulateModelAJ
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
@@ -54,7 +57,7 @@ module Language.ASKEE
   ) where
 
 import Control.Exception ( try, SomeException(..) )
-import Control.Monad ( forM )
+import Control.Monad     ( forM )
 
 import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
@@ -76,7 +79,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet )
+import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -86,7 +89,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toDeqs
                                                        , toEasel
                                                        , toCore
-                                                       , toGrometPrc
+                                                       , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
                                                        , Model (..) )
@@ -96,9 +99,9 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
                                                        , Port(..)
                                                        , emptyModelInterface
                                                        )
-
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
+import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
+import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
+import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
@@ -160,8 +163,13 @@ loadGrometPrtFrom format source =
 
 -------------------------------------------------------------------------------
 -- Data
+loadGrometPnc :: DataSource -> IO PetriNetClassic
+loadGrometPnc = loadGrometPncFrom GrometPncType 
 
-
+loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
+loadGrometPncFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometPnc model)
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -316,23 +324,33 @@ fitModelToData format fitData fitParams fitScale source =
       pure $ DEQ.fitModel eqs dataSeries fitScale
            $ Map.fromList (zip fitParams (repeat 0))
 
-
-simulateModel :: 
+simulateModelGSL :: 
   ModelType -> 
   DataSource -> 
-  Double -> 
-  Double ->
-  Double ->
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
   Map Text Double ->
   IO (DataSeries Double)
-simulateModel format source start end step parameters =
+simulateModelGSL format source start end step parameters =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
 
-convertModelString ::
-  ModelType -> DataSource -> ModelType -> IO (Either String String)
+simulateModelAJ ::
+  ModelType -> 
+  DataSource -> 
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModelAJ format source start stop step parameters =
+  do  pnc <- loadGrometPncFrom format source
+      AJ.simulate pnc start stop step parameters
+
+convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
   do  bytes <- loadModelText srcTy src
       let model = parseModel srcTy bytes
@@ -344,7 +362,7 @@ convertModelString srcTy src destTy =
           -- see them more than we want to see the printing error? Maybe?
           CoreType -> model >>= toCore >>= const (Left "cannot print core")
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
-          GrometPrcType -> model >>= toGrometPrc >>= (printModel . GrometPrc)
+          GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
 
 

@@ -75,10 +75,12 @@ library
                         Language.ASKEE.Latex.Print
                         Language.ASKEE.Latex.Syntax
 
-                        Language.ASKEE.ModelStratify.GeoGraph
-                        Language.ASKEE.ModelStratify.Stratify
-                        Language.ASKEE.ModelStratify.Syntax
-                        Language.ASKEE.ModelStratify.Topology
+                        Language.ASKEE.AlgebraicJulia.GeoGraph
+                        Language.ASKEE.AlgebraicJulia.Interact
+                        Language.ASKEE.AlgebraicJulia.Simulate
+                        Language.ASKEE.AlgebraicJulia.Stratify
+                        Language.ASKEE.AlgebraicJulia.Syntax
+                        Language.ASKEE.AlgebraicJulia.Topology
 
                         Language.ASKEE.RNet.GenLexer
                         Language.ASKEE.RNet.GenParser
@@ -100,7 +102,6 @@ library
                         Language.ASKEE.Model.Interface
                         Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
-                        Language.ASKEE.Simulate
                         Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
 

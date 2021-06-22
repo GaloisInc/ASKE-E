@@ -96,23 +96,24 @@ Example:
 }
 ```
 
-### `simulate` - Simulate a model using ODEs
+### `simulate-gsl` - Simulate a model using ODEs via the Gnu Scientific Library
 
 **Request:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate"`   |
-| definition       | model-def                | Definition of the model                                           |
-| start            | number                   | Start time of the simulation                                      |
-| end              | number                   | End time of the simulation                                        |
-| step             | number                   | Simulation time step size                                         |
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-gsl"`   |
+| definition       | model-def                | Definition of the model                                               |
+| start            | number                   | Start time of the simulation                                          |
+| end              | number                   | End time of the simulation                                            |
+| step             | number                   | Simulation time step size                                             |
+| parameters       | dict                     | Parameter values/initial conditions for the simulation                |
 
 Example:
 
 ```JSON
 {
-  "command": "simulate",
+  "command": "simulate-gsl",
   "definition": {
     "type": "easel",
     "source": { "file": "modelRepo/easel/sir.easel" }
@@ -121,7 +122,7 @@ Example:
   "end": 120.0,
   "step": 30.0,
   "parameters": {
-    "beta": 0.6
+    "beta": 0.9
   }
 }
 ```
@@ -175,6 +176,90 @@ Example:
   }
 }
 ```
+
+### `simulate-aj` - Simulate a model using the `AlgebraicJulia` library
+
+**Request:**
+
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-aj"`    |
+| definition       | model-def                | Definition of the model                                               |
+| start            | number                   | Start time of the simulation                                          |
+| end              | number                   | End time of the simulation                                            |
+| step             | number                   | Simulation time step size                                             |
+| parameters       | dict                     | Parameter values/initial conditions for the simulation                |
+
+Example:
+
+```JSON
+{
+  "command": "simulate-aj",
+  "definition": {
+    "type": "gromet-pnc",
+    "source": { "file": "modelRepo/gromet-pnc/sir.gromet" }
+  },
+  "start": 0,
+  "end": 120.0,
+  "step": 30.0,
+  "parameters": {
+    "beta": 0.0009
+  }
+}
+```
+
+
+**Response:**
+
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| times            | list of number           | series of times used in simulation                                |
+| values           | result series object     | values of state varaibles                                         |
+
+The object in `values` is structured identically to that of a `simulate-gsl` response.
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "values": {
+      "I": [
+        3,
+        396.2048455040716,
+        119.33468889804428,
+        35.94323586312473,
+        10.826124195680332
+      ],
+      "S": [
+        997,
+        0.001257877688698183,
+        2.48067968772645e-06,
+        3.809490286003136e-07,
+        2.1651578118562457e-07
+      ],
+      "R": [
+        0,
+        603.79389661824,
+        880.6653086212763,
+        964.0567637559265,
+        989.173875587804
+      ]
+    },
+    "times": [
+      0,
+      30,
+      60,
+      90,
+      120
+    ]
+  }
+}
+```
+
+Note: in this example we chose a `beta` orders of magnitude smaller than in the `simulate-gsl` example to obtain roughly the same results. This is because our SIR ESL model declares an infection rate of `beta * S * I / (S + I + R)`, while the SIR Gromet model declares the rate as simply `beta`. When simulating a model, `AlgebraicJulia` takes the provided rate and applies an implicit mass-action scaling effect, multiplying the given rate by the product of the variables a particular event affects. We therefore end up with an actual infection rate of `beta * S * I` in the `AlgebraicJulia` framework. Matching these rates across frameworks requires dividing our "ESL `beta`" value by `S + I + R` (in our examples, this is `1000`) to obtain the pure mass-action scaler, i.e. our "Gromet `beta`".
 
 ### `get-model-schematic` - get schematic description of a model
 

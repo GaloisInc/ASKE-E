@@ -105,7 +105,7 @@ data ModelType =
   | DeqType
   | CoreType
   | GrometPrtType
-  | GrometPrcType
+  | GrometPncType
   | GrometFnetType
   deriving(Eq, Ord, Show, Enum, Bounded)
 
@@ -119,7 +119,7 @@ parseModelType t =
     "diff-eq"     -> Just DeqType
     "core"        -> Just CoreType
     "gromet-prt"  -> Just GrometPrtType
-    "gromet-prc"  -> Just GrometPrcType
+    "gromet-pnc"  -> Just GrometPncType
     "gromet-fnet" -> Just GrometFnetType
     _ -> Nothing
 
@@ -133,7 +133,7 @@ describeModelType t =
     DeqType -> "diff-eq"
     CoreType -> "core"
     GrometPrtType -> "gromet-prt"
-    GrometPrcType -> "gromet-prc"
+    GrometPncType -> "gromet-pnc"
     GrometFnetType -> "gromet-fnet"
 
 describeModelType' :: ModelType -> String
