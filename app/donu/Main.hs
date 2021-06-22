@@ -9,6 +9,7 @@ import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
 import Language.ASKEE
+import Language.ASKEE.Model(Model(..))
 
 import Schema
 
@@ -69,7 +70,7 @@ handleRequest r =
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  model <- loadModel (modelDefType checkModelModel) (modelDefSource checkModelModel)
+      do  model <- loadModelString (modelDefType checkModelModel) (modelDefSource checkModelModel)
           checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)        
           case checkResult of
             Nothing  -> succeed' ()
@@ -114,13 +115,13 @@ handleRequest r =
           succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->
-      do  modelString <- loadModel (modelDefType getModelSource) (modelDefSource getModelSource)
+      do  modelString <- loadModelString (modelDefType getModelSource) (modelDefSource getModelSource)
           let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
           succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
       do  model <- loadESLFrom modelDefType modelDefSource
-          let res = describeModelInterface model
+          let res = describeModelInterface (Easel model)
           succeed' res
   
   where

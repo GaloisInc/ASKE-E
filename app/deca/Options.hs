@@ -24,6 +24,7 @@ data Command =
   | DumpCPP
   | DumpDEQs
   | DumpPNC
+  | DescribeInterface
   | SimulateODE Double Double Double
   | FitModel [Text] (Map Text Double)
   | ComputeError
@@ -82,13 +83,17 @@ options = OptSpec
         "Convert to GroMEt"
         $ NoArg \s -> Right s { command = ShowGromet JSON }
 
-       , Option [] ["dump-pnc-gromet"]
+      , Option [] ["dump-pnc-gromet"]
          "Parse a Petri Net Classic Gromet and print it"
         $ NoArg \s -> Right s { command = DumpPNC }
 
       , Option [] ["to-pp-gromet"]
         "Convert to human readable GroMEt"
         $ NoArg \s -> Right s { command = ShowGromet PP }
+
+      , Option [] ["describe-interface"]
+        "Desribe the interface of a model in JSON"
+        $ NoArg \s -> Right s { command = DescribeInterface }
 
       , Option [] ["to-deq"]
         "Convert to differental equations"

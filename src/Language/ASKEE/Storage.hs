@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Storage 
   ( initStorage
-  , loadModel
+  , loadModelString
   , storeModel
   , listAllModels 
 
@@ -42,8 +42,8 @@ initStorage = mapM_ make dirs
       | mt <- [EaselType, DeqType, GrometPrtType] 
       ]
 
-loadModel :: ModelType -> DataSource -> IO String
-loadModel format source =
+loadModelString :: ModelType -> DataSource -> IO String
+loadModelString format source =
   case source of
     Inline t -> pure $ Text.unpack t
     _ ->

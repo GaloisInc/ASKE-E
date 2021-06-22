@@ -38,7 +38,7 @@ data Event = Event { eventName     :: Text
                    , eventWhen     :: Maybe Expr
                    , eventRate     :: Expr
                    , eventEffect   :: [Statement]
-                   , eventMetadata :: Maybe Text
+                   , eventMetadata :: Maybe Text -- XXX: Use MetaAnn
                    }
   deriving (Show, Eq)
 

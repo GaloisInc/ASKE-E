@@ -14,6 +14,7 @@ data ValueType =
     Integer
   | Real
   | Bool
+    deriving (Show,Eq)
 
 parseValueType :: Text -> Maybe ValueType
 parseValueType txt =
@@ -54,6 +55,7 @@ data Value =
     VInteger Integer
   | VReal    Double
   | VBool    Bool
+    deriving (Show,Eq,Ord)
 
 parseVBool :: Text -> Maybe Value
 parseVBool x =

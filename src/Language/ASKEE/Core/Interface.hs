@@ -20,6 +20,8 @@ modelInterface model = ModelInterface
                                 map fst stateLets)
   }
   where
+  meta x = Map.findWithDefault Map.empty x (modelMeta model)
+
   (params, stateLets) = orderLets model
   paramDef = computeDefaults (modelParams model) params
 
@@ -27,15 +29,16 @@ modelInterface model = ModelInterface
     { portName      = x
     , portValueType = Real
     , portDefault   = VReal <$> mb
-    , portMeta      = Map.empty
+    , portMeta      = meta x
     }
 
   toState x = Port
     { portName      = x
     , portValueType = Real
     , portDefault   = Nothing
-    , portMeta      = Map.empty
+    , portMeta      = meta x
     }
+
 
 
 

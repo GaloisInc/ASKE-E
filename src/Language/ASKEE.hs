@@ -13,6 +13,7 @@ module Language.ASKEE
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
+  , loadModel
   
   , checkModel
   , checkModel'
@@ -22,7 +23,6 @@ module Language.ASKEE
   , fitModelToData
   , Core.asSchematicGraph
   , convertModelString
-  , ESL.describeModelInterface
 
   , gnuPlotScript
   , dataSeriesAsCSV
@@ -32,7 +32,7 @@ module Language.ASKEE
   , initStorage
   , listAllModels
   , listAllModelsWithMetadata
-  , loadModel
+  , loadModelString
   , storeModel
 
   , describeModelType
@@ -45,13 +45,18 @@ module Language.ASKEE
   , ModelType(..)
   , Stratify.StratificationInfo(..)
   , Stratify.StratificationType(..)
+
+
+    -- * Model Interface
+  , ModelInterface(..)
+  , Port(..)
+  , describeModelInterface
   ) where
 
-import Control.Exception (throwIO, try, SomeException(..) )
+import Control.Exception ( try, SomeException(..) )
 import Control.Monad ( forM )
 
-import           Data.Aeson                 ( Value
-                                            , decode )
+import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as B
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
@@ -84,18 +89,28 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , Model (..) )
 import           Language.ASKEE.Model.Basics           ( ModelType(..)
                                                        , describeModelType )
+import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
+                                                       , Port(..)
+                                                       , emptyModelInterface
+                                                       )
+
 import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
 import qualified Language.ASKEE.ModelStratify.Stratify as Stratify
 import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
-                                                       , loadModel
+                                                       , loadModelString
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 import qualified Language.ASKEE.Storage                as Storage
 
 import System.Process ( readProcessWithExitCode )
 import System.Exit    ( ExitCode(..) )
+
+loadModel :: ModelType -> DataSource -> IO Model
+loadModel format source =
+  do modelString <- loadModelString format source
+     throwLeft ParseError (parseModel format modelString)
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -105,8 +120,7 @@ loadESL = loadESLFrom EaselType
 
 loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
 loadESLFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       esl <- throwLeft ConversionError (toEasel model)
       _ <- throwLeft ValidationError (ESL.checkModel esl)
       pure esl
@@ -119,8 +133,7 @@ loadCore = loadCoreFrom EaselType
 
 loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
 loadCoreFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toCore model)
 
 -------------------------------------------------------------------------------
@@ -131,8 +144,7 @@ loadDiffEqs = loadDiffEqsFrom DeqType
 
 loadDiffEqsFrom :: ModelType -> DataSource -> IO DEQ.DiffEqs
 loadDiffEqsFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toDeqs model)
 
 -------------------------------------------------------------------------------
@@ -143,9 +155,13 @@ loadGrometPrt = loadGrometPrtFrom GrometPrtType
 
 loadGrometPrtFrom :: ModelType -> DataSource -> IO Gromet
 loadGrometPrtFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toGrometPrt model)
+
+-------------------------------------------------------------------------------
+-- Data
+
+
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -293,7 +309,8 @@ fitModelToData format fitData fitParams fitScale source =
           Inline s -> pure s
           FromFile f -> Text.pack <$> readFile f
       dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
-      pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
+      pure $ DEQ.fitModel eqs dataSeries fitScale
+           $ Map.fromList (zip fitParams (repeat 0))
       
 
 simulateModel :: 
@@ -312,7 +329,7 @@ simulateModel format source start end step parameters =
 
 convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
-  do  modelString <- loadModel srcTy src
+  do  modelString <- loadModelString srcTy src
       let model = parseModel srcTy modelString
       pure 
         case destTy of
@@ -337,3 +354,15 @@ listAllModelsWithMetadata =
             do  ESL.Model{..} <- loadESL modelDefSource
                 pure $ MetaAnn { metaData = meta modelName, metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
+
+
+--------------------------------------------------------------------------------
+
+describeModelInterface :: Model -> ModelInterface
+describeModelInterface model =
+  case toCore model of
+    Right core -> Core.modelInterface core
+    Left {} -> emptyModelInterface -- XXX: FN
+
+
+
