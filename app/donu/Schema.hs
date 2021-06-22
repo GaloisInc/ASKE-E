@@ -148,10 +148,11 @@ dataSourceToJSON ds =
       JS.object [ "file" .= f ]
     Inline s ->
       JS.String s
+    FromStore f ->
+      JS.object [ "model" .= f ]
 
 modelDef :: ValueSpec ModelDef
 modelDef =
-  namedSpec "model-def" $
   sectionsSpec "model-def"
     do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
         modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
@@ -160,9 +161,9 @@ modelDef =
 dataSource :: ValueSpec DataSource
 dataSource =
   namedSpec "data-source" $
-  sectionsSpec "file"
-    do f <- reqSection "file" "A file path"
-       pure (FromFile (Text.unpack f))
+  sectionsSpec "named-model"
+    do f <- reqSection "model" "A model name"
+       pure (FromStore f)
   <!>
     Inline <$> anySpec
 

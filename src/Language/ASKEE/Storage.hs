@@ -9,7 +9,7 @@ module Language.ASKEE.Storage
   , ModelDef(..)
   ) where
 
-import Control.Monad     ( when )
+import Control.Monad     ( when, unless )
 
 import           Data.Text ( Text )
 import qualified Data.Text as Text
@@ -22,8 +22,19 @@ import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
 
 
+type ModelName = Text
+
+validModelName :: Text -> Bool
+validModelName name = not bad
+  where
+  bad = or [ ".." `Text.isInfixOf` name
+           , Text.singleton pathSeparator `Text.isInfixOf` name
+           ]
+
+
 data DataSource =
     FromFile FilePath
+  | FromStore ModelName
   | Inline Text
   deriving (Eq, Show)
 
@@ -37,48 +48,51 @@ initStorage :: IO ()
 initStorage = mapM_ make dirs
   where
     make = Directory.createDirectoryIfMissing True
-    dirs =
-      [ baseDirectory </> formatLocation mt
-      | mt <- allModelTypes
-      ]
+    dirs = map modelTypeLocation allModelTypes
 
 loadModelText :: ModelType -> DataSource -> IO Text
 loadModelText format source =
   case source of
     Inline t -> pure t
-    FromFile {} ->
-      do  models <- listModels format
-          when (mdef `notElem` models)
-            (die $ StorageError $ "model "++show source++" doesn't exist")
-          loadText (modelDefSource mdef)
-  where
-    mdef = ModelDef source format
+    FromFile file -> Text.readFile file
+    FromStore name
+      | not (validModelName name) -> bad
+      | otherwise ->
+        do let path = modelLocation format name
+           yes <- Directory.doesFileExist path
+           unless yes bad
+           Text.readFile path
+      where
+      bad = die (StorageError ("model "++ show name ++ " doesn't exist"))
 
-storeModel ::
-  Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
-storeModel name format check model =
-  do  let path = baseDirectory </> formatLocation format </> Text.unpack name
-          badName = ".." `Text.isInfixOf` name
-                 || Text.singleton pathSeparator `Text.isInfixOf` name
-      when badName (die (StorageError ("invalid name for model: " <> name')))
-      exists <- Directory.doesFileExist path
-      when exists (die (StorageError ("model " <> name' <> " already exists")))
-      check model
-      Text.writeFile path model
-      pure path
-  where
-    name' = Text.unpack name
+
+storeModel :: Text -> ModelType -> Text -> IO ()
+storeModel name format model =
+  do unless (validModelName name) (die (StorageError "Invalid model name"))
+     let path = modelLocation format name
+     exists <- Directory.doesFileExist path
+     when exists
+              (die (StorageError ("model " <> show name <> " already exists")))
+     Text.writeFile path model
 
 listAllModels :: IO [ModelDef]
 listAllModels = concat <$> sequence [ listModels mt | mt <- allModelTypes ]
 
 listModels :: ModelType -> IO [ModelDef]
 listModels mt =
-  do  files <- Directory.listDirectory (baseDirectory </> loc)
-      pure $ map mdef files
-  where
-    mdef f = ModelDef (FromFile (baseDirectory </> loc </> f)) mt
-    loc = formatLocation mt
+  do files <- Directory.listDirectory (modelTypeLocation mt)
+     pure [ ModelDef { modelDefSource = FromStore f
+                     , modelDefType   = mt
+                     } | f <- map Text.pack files, validModelName f ]
+
+
+--------------------------------------------------------------------------------
+
+modelLocation :: ModelType -> ModelName -> FilePath
+modelLocation ty nm = modelTypeLocation ty </> Text.unpack nm
+
+modelTypeLocation :: ModelType -> FilePath
+modelTypeLocation ty = baseDirectory </> formatLocation ty
 
 formatLocation :: ModelType -> FilePath
 formatLocation mt =
@@ -93,8 +107,4 @@ formatLocation mt =
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"
 
-loadText :: DataSource -> IO Text
-loadText source =
-  case source of
-    FromFile file -> Text.readFile file
-    Inline txt    -> pure txt
+

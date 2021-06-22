@@ -220,33 +220,19 @@ loadCPPFrom format source =
 -- Storage
 
 storeModel :: ModelType -> Text -> Text -> IO ModelDef
-storeModel mt =
-  case mt of
-    EaselType -> storeESL
-    DeqType -> storeDEQ
-    GrometPrtType -> storeGrometPrt
-    _ -> \_ _ -> die (StorageError $ "don't know how to store model type "<>show mt)
+storeModel mt name modelText =
+  do checkModel mt modelText
+     Storage.storeModel name mt modelText
+     pure ModelDef { modelDefSource = FromStore name
+                   , modelDefType   = mt
+                   }
 
-storeESL :: Text -> Text -> IO ModelDef
-storeESL name model =
-  do  loc <- Storage.storeModel name EaselType checkESL model
-      pure $ ModelDef (FromFile loc) EaselType
-
-storeDEQ :: Text -> Text -> IO ModelDef
-storeDEQ name model =
-  do  loc <- Storage.storeModel name DeqType checkDEQ model
-      pure $ ModelDef (FromFile loc) DeqType
-
-storeGrometPrt :: Text -> Text -> IO ModelDef
-storeGrometPrt name model =
-  do  loc <- Storage.storeModel name GrometPrtType checkGrometPrt model
-      pure $ ModelDef (FromFile loc) GrometPrtType
 
 -------------------------------------------------------------------------------
 -- Validation
 
 checkModel' :: ModelType -> Text -> IO (Maybe String)
-checkModel' format source = 
+checkModel' format source =
   do  res <- try (checkModel format source)
       case res of
         Left err -> pure $ Just (show (err :: SomeException))
@@ -258,7 +244,7 @@ checkModel mt =
     EaselType -> checkESL
     DeqType -> checkDEQ
     GrometPrtType -> checkGrometPrt
-    _ -> \_ -> die (StorageError $ "don't know how to check model type "<>show mt)
+    _ -> \_ -> pure ()  -- We don't know how to validate this
 
 checkESL :: Text -> IO ()
 checkESL t =
@@ -315,7 +301,7 @@ fitModelToData ::
   -- IO (Map Text (Double, Double))
 fitModelToData format fitData fitParams fitScale source = 
   do  eqs <- loadDiffEqsFrom format source
-      rawData <- 
+      rawData <-
         case fitData of
           Inline s -> pure s
           FromFile f -> Text.readFile f
