@@ -70,11 +70,7 @@ storeModel name format check model =
     name' = Text.unpack name
 
 listAllModels :: IO [ModelDef]
-listAllModels = 
-  concat <$> sequence
-    [ listModels mt 
-    | mt <- [EaselType, DeqType, GrometPrtType] 
-    ]
+listAllModels = concat <$> sequence [ listModels mt | mt <- allModelTypes ]
 
 listModels :: ModelType -> IO [ModelDef]
 listModels mt =

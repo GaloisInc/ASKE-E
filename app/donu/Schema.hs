@@ -184,10 +184,10 @@ instance HasSpec FitCommand where
     do  reqSection' "command" (jsAtom "fit") "Fit a model to data"
         fitModel      <- reqSection' "definition" modelDef
                          "Specificaiton of the model to simulate"
-         
+
         fitData       <- reqSection' "data" dataSource
                          "Data to which to fit the model"
- 
+
         fitParams     <- reqSection' "parameters" (listSpec textSpec)
                          "Parameters to use in model fitting"
 
