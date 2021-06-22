@@ -87,7 +87,7 @@ unGrometPrt :: Model -> ConversionResult GPRT.Gromet
 unGrometPrt (GrometPrt g) = ConversionSucceded g
 unGrometPrt _ = ConversionPass
 
-unGrometPnc :: Model -> ConversionResult JSON.Value
+unGrometPnc :: Model -> ConversionResult GPNC.PetriNetClassic
 unGrometPnc (GrometPnc v) = ConversionSucceded v
 unGrometPnc _ = ConversionPass
 
@@ -155,7 +155,7 @@ toCore = asEither asCore
 toGrometPrt :: Model -> Either String GPRT.Gromet
 toGrometPrt = asEither asGrometPrt
 
-toGrometPnc :: Model -> Either String JSON.Value
+toGrometPnc :: Model -> Either String GPNC.PetriNetClassic
 toGrometPnc = asEither (tryConvs [unGrometPnc, notExist MT.GrometPncType])
 
 toGrometFnet :: Model -> Either String JSON.Value
@@ -174,6 +174,7 @@ parseModel mt s =
     MT.GrometPncType -> GrometPnc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
   where
+    loadJSON :: JSON.FromJSON a => Either String a
     loadJSON = JSON.eitherDecodeStrict (Text.encodeUtf8 s)
 
 

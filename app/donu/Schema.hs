@@ -10,10 +10,8 @@ module Schema where
 import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as Lazy
-import qualified Data.ByteString.Char8 as BS8
 import Data.Text(Text)
 import qualified Data.Text as Text
-import qualified Data.Text.Encoding as Text
 import Data.Maybe(fromMaybe, maybeToList)
 import Data.Functor(($>))
 
