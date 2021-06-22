@@ -1,17 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Exposure (tests) where
 
-import qualified Data.Map as Map
+import Data.Bifunctor (Bifunctor(..))
 import qualified Data.Text as Text
+import Data.Text (Text)
 import System.FilePath ((</>))
 import Test.Tasty.HUnit
 import qualified Test.Tasty as Tasty
 
-import Language.ASKEE.Exposure.GenLexer
-import Language.ASKEE.Exposure.GenParser
+import Language.ASKEE.Exposure.GenLexer (lexExposure)
+import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 import Paths_aske_e (getDataDir)
+
+assertRightStr :: Either String b -> IO b
+assertRightStr (Right b)  = pure b
+assertRightStr (Left err) = assertFailure err
+
+assertRightText :: Either Text b -> IO b
+assertRightText = assertRightStr . first Text.unpack
+
+lexAndParseExpr :: String -> Either String Expr
+lexAndParseExpr str = do
+  lexed <- lexExposure str
+  parseExposureExpr lexed
+
+lexAndParseStmt :: String -> Either String Stmt
+lexAndParseStmt str = do
+  lexed <- lexExposure str
+  parseExposureStmt lexed
 
 exprShouldEvalTo :: String -> Value -> Assertion
 exprShouldEvalTo actualExprStr expectedVal =
@@ -19,17 +37,17 @@ exprShouldEvalTo actualExprStr expectedVal =
     actualVal @?= expectedVal
 
 exprAssertion :: String -> (Value -> Assertion) -> Assertion
-exprAssertion = exprAssertionEnv initialEnv
+exprAssertion = exprAssertionWithStmts []
 
-exprAssertionEnv :: Env -> String -> (Value -> Assertion) -> Assertion
-exprAssertionEnv env actualExprStr k = do
-  case lexExposure actualExprStr >>= parseExposureExpr of
-    Left err         -> assertFailure err
-    Right actualExpr -> do
-      res <- runEval env $ interpretExpr actualExpr
-      case res of
-        Left err             -> assertFailure $ Text.unpack err
-        Right (actualVal, _) -> k actualVal
+exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithStmts stmtStrs actualExprStr k = do
+  stmts          <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  actualExpr     <- assertRightStr $ lexAndParseExpr actualExprStr
+  errOrEnv       <- evalStmts stmts initialEnv
+  env            <- assertRightText errOrEnv
+  errOrActualVal <- runEval env $ interpretExpr actualExpr
+  (actualVal, _) <- assertRightText errOrActualVal
+  k actualVal
 
 getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
@@ -67,9 +85,11 @@ tests =
       , testCase "Logical negation" $
           "not true" `exprShouldEvalTo` VBool False
       , testCase "Variable lookup" $
-          exprAssertionEnv (Env (Map.fromList [("x", VDouble 42)]))
-                           "x + x" $ \actualVal ->
-            actualVal @?= VDouble 84
+          exprAssertionWithStmts
+            [ "x = 42"
+            , "y = 22"
+            ] "x + y" $ \actualVal ->
+            actualVal @?= VDouble 64
       , testCase "loadESL should return a VModel" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertion loadSirEaselExpr $ \modelVal ->
