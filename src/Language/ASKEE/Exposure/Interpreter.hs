@@ -4,6 +4,7 @@ module Language.ASKEE.Exposure.Interpreter where
 import qualified Data.Aeson as JSON
 
 import qualified Control.Monad.State as State
+import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
 import Data.Foldable(traverse_)
 import Control.Monad.Trans(lift)
@@ -12,34 +13,105 @@ import Data.Map(Map)
 import Data.Maybe(isJust)
 import Data.Text(Text)
 import qualified Data.Text as Text
-import Language.ASKEE.Model as Model
-import Language.ASKEE.ModelType as MT
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.ModelType as MT
 import Language.ASKEE.Exposure.Syntax
+import Data.Set(Set)
+import qualified Data.Set as Set
 
-type Eval a = State.StateT Env (Except.ExceptT Text IO) a
+
 data ExposureInfo = ExposureInfo
   deriving Show
 
-runEval :: Env -> Eval a -> IO (Either Text (a, Env))
-runEval env ev = Except.runExceptT $ State.runStateT ev env
+runEval :: Env -> Eval a -> IO (Either Text (a, Env, EvalWrite))
+runEval env ev = Except.runExceptT $ RWS.runRWST ev (EvalRead Map.empty) env
 
 -------------------------------------------------------------------------------
 
-data Env = Env
-  { envVars :: Map Ident Value
-  }
 
-evalStmts :: [Stmt] -> Env -> IO (Either Text Env)
-evalStmts stmts env =
-  let except = State.execStateT (interpretStmt `traverse_` stmts) env
-  in Except.runExceptT except
+
+evalStmts :: [Stmt] -> Env -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
+evalStmts stmts env = evalLoop env stmts
 
 initialEnv :: Env
 initialEnv = Env Map.empty
 
 data DisplayValue
 
+evalLoop :: Env -> [Stmt] -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
+evalLoop env stmts = go Map.empty
+  where
+    go m =
+      let except = RWS.execRWST (interpretStmt `traverse_` stmts) (EvalRead m) env
+      in do lr <- Except.runExceptT except
+            case lr of
+              Left e -> pure $ Left e
+              Right (env', w)
+                | ewDeps w == Set.empty ->
+                    pure $ Right (env', ewDisplay w, ewStmtEff w)
+                | otherwise ->
+                    do  evs <- simulate (ewDeps w)
+                        case evs of
+                          Left e -> pure $ Left e
+                          Right vs -> go (m `Map.union` vs)
+
+simulate :: Set Value -> IO (Either Text (Map Value Value))
+simulate vs =
+  pure $ Left (Text.unlines $ "simulation is not implemented:":
+                              (Text.pack . show <$> Set.toList vs))
+
 -------------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------------
+-- eval monad
+data Env = Env
+  { envVars :: Map Ident Value
+  }
+data EvalWrite = EvalWrite
+  { ewDeps :: Set Value
+  , ewDisplay :: [DisplayValue]
+  , ewStmtEff :: [StmtEff]
+  }
+
+instance Semigroup EvalWrite where
+  a <> b =
+        EvalWrite (ewDeps a <> ewDeps b)
+                  (ewDisplay a <> ewDisplay b)
+                  (ewStmtEff a <> ewStmtEff b)
+
+instance Monoid EvalWrite where
+  mempty = EvalWrite Set.empty [] []
+
+setEnv :: Env -> Eval ()
+setEnv = RWS.put
+
+writeStmtEff :: StmtEff -> Eval ()
+writeStmtEff e =
+  RWS.tell (EvalWrite Set.empty [] [e])
+
+suspend :: Value -> Eval Value
+suspend v
+  | v == VSuspended = pure VSuspended
+  | otherwise =
+    do  mbV <- RWS.asks (Map.lookup v . erPrecomputed)
+        case mbV of
+          Nothing ->
+            do RWS.tell (EvalWrite (Set.singleton v) [] [])
+               pure VSuspended
+          Just v' -> pure v'
+
+data EvalRead = EvalRead
+  { erPrecomputed :: Map Value Value
+  }
+
+emptyEvalRead :: EvalRead
+emptyEvalRead = EvalRead Map.empty
+
+data StmtEff =
+  StmtEffBind Ident Value
+
+type Eval a = RWS.RWST EvalRead EvalWrite Env (Except.ExceptT Text IO) a
 
 -- TODO: catch exceptions
 liftIO :: IO a -> Eval a
@@ -47,6 +119,9 @@ liftIO = lift . lift
 
 throw :: Text -> Eval a
 throw = Except.throwError
+
+notImplemented :: Text -> Eval a
+notImplemented what = throw ("not implemented: " <> what)
 
 getVarValue :: Ident -> Eval Value
 getVarValue i =
@@ -69,12 +144,12 @@ bindVar i v =
 instance JSON.ToJSON ExposureInfo where
   toJSON ExposureInfo = JSON.object []
 
--- TODO: Finish implementing these
 interpretStmt :: Stmt -> Eval ()
 interpretStmt stmt =
   case stmt of
     StmtLet var expr     ->
       do  eval <- interpretExpr expr
+          writeStmtEff (StmtEffBind var eval)
           bindVar var eval
 
     StmtDisplay dispExpr -> undefined
@@ -84,9 +159,14 @@ interpretExpr e0 =
   case e0 of
     EVar var         -> getVarValue var
     EVal v           -> pure v
+
     ECall fun args   ->
       do  args' <- interpretExpr `traverse` args
-          interpretCall fun args'
+          if VSuspended `elem` args'
+            then pure VSuspended
+            else interpretCall fun args'
+
+    -- TODO: will we also need suspend for this?
     EMember e lab ->
       do  v <- interpretExpr e
           case v of
@@ -94,9 +174,9 @@ interpretExpr e0 =
             VModelExpr m -> pure $ VModelExpr (EMember m lab)
             _ -> throw "type error"
 
+interpretDisplayExpr :: DisplayExpr -> Eval ()
+interpretDisplayExpr (DisplayScalar scalar) = notImplemented "display"
 
-interpretDisplayExpr :: DisplayExpr -> ExposureInfo
-interpretDisplayExpr (DisplayScalar scalar) = undefined
 
 interpretCall :: FunctionName -> [Value] -> Eval Value
 interpretCall fun args =
@@ -114,22 +194,34 @@ interpretCall fun args =
     FNot         -> compilable (unaryBool not)
     FAnd         -> compilable (bincmpBool (&&))
     FOr          -> compilable (bincmpBool (||))
-    FProb        -> undefined
-    FSample      -> undefined
-    FAt          -> undefined
+    FProb        ->
+      case args of
+        [VDFold df e, VDouble d] -> suspend $ VSFold (SFProbability d) df e
+        _ -> typeError
+    FSample      ->
+      case args of
+        [VDFold df e, VDouble d] -> suspend $ VSFold (SFSample d) df e
+        _ -> typeError
+    FAt          ->
+      case args of
+        [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
+        _ -> typeError
+
     FLoadEasel   ->
       case args of
         [VString path] ->
           do  eitherVal <-
                 liftIO $
                   do  src <- readFile (Text.unpack path)
-                      let m = Model.parseModel MT.EaselType src >>= toCore
+                      let m = Model.parseModel MT.EaselType src >>= Model.toCore
                       pure (VModelExpr . EVal . VModel <$> m)
               case eitherVal of
                 Left err -> throw (Text.pack err)
                 Right m -> pure m
-        _ -> throw "type error"
+        _ -> typeError
   where
+    typeError = throw "type error"
+
     getMexpr (VModelExpr e) = Just e
     getMexpr _ = Nothing
     isMexpr e = isJust (getMexpr e)

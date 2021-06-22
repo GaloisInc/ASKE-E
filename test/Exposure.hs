@@ -44,9 +44,9 @@ exprAssertionWithStmts stmtStrs actualExprStr k = do
   stmts          <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr     <- assertRightStr $ lexAndParseExpr actualExprStr
   errOrEnv       <- evalStmts stmts initialEnv
-  env            <- assertRightText errOrEnv
+  (env,_,_)      <- assertRightText errOrEnv
   errOrActualVal <- runEval env $ interpretExpr actualExpr
-  (actualVal, _) <- assertRightText errOrActualVal
+  (actualVal, _,_) <- assertRightText errOrActualVal
   k actualVal
 
 getLoadSirEaselExpr :: IO String

@@ -22,7 +22,7 @@ data Model =
           -- (e.g., measure their values)
           -- These should not be recursive.
         }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 data Event =
@@ -31,7 +31,7 @@ data Event =
         , eventWhen   :: Expr
         , eventEffect :: Map Ident Expr
         }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 

@@ -21,7 +21,7 @@ data Expr
   | EVal Value
   | ECall FunctionName [Expr]
   | EMember Expr Ident
-  deriving (Eq, Show)
+  deriving (Show, Eq, Ord)
 
 data Value
   = VDouble Double
@@ -32,7 +32,8 @@ data Value
   | VModelExpr Expr
   | VDFold DynamicalFold Expr
   | VSFold SampleFold DynamicalFold Expr
-  deriving (Eq, Show)
+  | VSuspended
+  deriving (Show, Eq, Ord)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
 -- sir.I at 30.0
@@ -56,7 +57,7 @@ data FunctionName
   | FSample
   | FAt
   | FLoadEasel
-  deriving (Eq, Show)
+  deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
 -- compilable expr
@@ -64,12 +65,12 @@ data FunctionName
 -- P(S.I + 10.0 > 30.0 at 10.0)
 data DynamicalFold =
   DFAt Double
-  deriving (Eq, Show)
+  deriving (Show, Eq, Ord)
 
 data SampleFold =
-    SFProbability
-  | SFSample
-  deriving (Eq, Show)
+    SFProbability Double
+  | SFSample Double
+  deriving (Show, Eq, Ord)
 
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
