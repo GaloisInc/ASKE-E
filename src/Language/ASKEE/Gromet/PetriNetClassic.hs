@@ -191,10 +191,10 @@ pnToCore pn =
                             let base = case evRate t of
                                          Nothing -> Core.Var (rateName x)
                                          Just i  -> Core.NumLit i
-                            in base {-foldr (Core.:*:) base
+                            in foldr (Core.:*:) base
                                  [ Core.Var (jToName y)
                                  | y <- Map.keys (evRemove t)
-                                 ] -} -- not sure if this is state dependent or constant
+                                 ]
                         , eventWhen = whenCond (evRemove t)
                         , eventEffect =
                             mkEff (Map.unionWith (-) (evAdd t) (evRemove t))
