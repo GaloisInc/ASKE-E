@@ -48,7 +48,6 @@ library
                         Language.ASKEE.ESL.Convert
                         Language.ASKEE.ESL.GenLexer
                         Language.ASKEE.ESL.GenParser
-                        Language.ASKEE.ESL.Interface
                         Language.ASKEE.ESL.Lexer
                         Language.ASKEE.ESL.Print
                         Language.ASKEE.ESL.Syntax

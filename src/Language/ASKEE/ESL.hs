@@ -4,7 +4,6 @@ module Language.ASKEE.ESL
   -- , parseESLMeta
   , printESL
 
-  , describeModelInterface
   , modelAsCore
   -- , stripMeta
 
@@ -19,7 +18,6 @@ import Language.ASKEE.ESL.Check     ( checkModel )
 import Language.ASKEE.ESL.Convert   ( modelAsCore )
 import Language.ASKEE.ESL.GenParser ( parseModel )
 import Language.ASKEE.ESL.GenLexer  ( lexModel )
-import Language.ASKEE.ESL.Interface ( describeModelInterface )
 import Language.ASKEE.ESL.Print     ( printModel, Doc )
 import Language.ASKEE.ESL.Syntax    ( Model(..) )
 
