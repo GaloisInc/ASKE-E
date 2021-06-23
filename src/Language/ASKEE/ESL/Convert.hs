@@ -33,6 +33,8 @@ modelAsCore mdl =
           , modelMeta = extractMeta mdl
           }
 
+  -- XXX: we should not substitute the lets here if we want to be able to
+  -- overwrite the variables...
   initState (n,e) =
     (n, simplifyExpr (substExpr (modelLets modelNoInit) (expAsCore e)))
 
