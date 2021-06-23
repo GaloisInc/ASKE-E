@@ -29,7 +29,7 @@ main =
 
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
 
-        SimulateODE start stop step ->
+        SimulateODE start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
               res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts)
               let bs = A.dataSeriesAsCSV res
@@ -95,7 +95,10 @@ exactlyOne thing xs =
 
 modelsProvided :: Options -> [(FilePath, A.ModelType)]
 modelsProvided opts =
-  map (, A.DeqType) (deqFiles opts) ++ map (, A.EaselType) (modelFiles opts)
+  map (, A.DeqType) (deqFiles opts) ++
+  map (, A.EaselType) (modelFiles opts) ++
+  map (, A.GrometPncType) (pncFiles opts)
+  -- XXX: RNC not yet in Model
 
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =

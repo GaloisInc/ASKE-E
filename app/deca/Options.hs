@@ -25,7 +25,7 @@ data Command =
   | DumpDEQs
   | DumpPNC
   | DescribeInterface
-  | SimulateODE Double Double Double
+  | SimulateODE Double Double Double -- ^ Start, step, end
   | FitModel [Text] (Map Text Double)
   | ComputeError
   | ShowGromet ShowGromet
@@ -40,6 +40,7 @@ data Options = Options
   , dataFiles :: [FilePath]
   , deqFiles :: [FilePath]
   , rnetFiles :: [FilePath]
+  , pncFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
@@ -55,6 +56,7 @@ options = OptSpec
         , modelFiles = []
         , dataFiles = []
         , deqFiles = []
+        , pncFiles = []
         , rnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
@@ -153,6 +155,12 @@ options = OptSpec
       , Option ['r'] ["rnet"]
         "Use this reaction network"
         $ ReqArg "FILE" \a s -> Right s { rnetFiles = a : rnetFiles s}
+
+      , Option [] ["pnc"]
+        "Use this Petri Net Classic"
+        $ ReqArg "FILE" \a s -> Right s { pncFiles = a : pncFiles s}
+
+
 
       , Option ['o'] ["output"]
         "Use this output file"
