@@ -1,5 +1,19 @@
 {-# Language OverloadedStrings, BlockArguments, RecordWildCards #-}
-module Language.ASKEE.Gromet.PetriNetClassic where
+module Language.ASKEE.Gromet.PetriNetClassic
+  ( -- * Classic Petri Nets
+    PetriNet(..)
+  , StateVar(..)
+  , Event(..)
+  , ppPetriNet
+  , pnFromGromet
+  , pnToCore
+
+    -- * Gromet representation of Petri Nets
+  , PetriNetClassic(..)
+  , Wire(..)
+  , Junction(..)
+  , JunctionType(..)
+  ) where
 
 import Data.Text(Text)
 import qualified Data.Text as Text
@@ -11,7 +25,10 @@ import Text.PrettyPrint hiding ((<>))
 
 import Data.Aeson (ToJSON(..), FromJSON(..), (.=), (.:), (.:?))
 import qualified Data.Aeson as JSON
+
 import Language.ASKEE.Gromet.Common
+import qualified Language.ASKEE.Core.Syntax as Core
+import qualified Language.ASKEE.Core.Expr as Core
 
 
 --------------------------------------------------------------------------------
@@ -66,8 +83,8 @@ ppPetriNet pn = vcat
 
           doOp op (v,n) = ppV v <+> "=" <+> ppV v <+> op <+> integer n
 
-pnFromPNC :: PetriNetClassic -> Either String PetriNet
-pnFromPNC pnc =
+pnFromGromet :: PetriNetClassic -> Either String PetriNet
+pnFromGromet pnc =
   foldr addW (foldr addJ (Right emptyPN) (pncJunctions pnc)) (pncWires pnc)
   where
   emptyPN = PetriNet { pnName = pncName pnc
@@ -115,6 +132,91 @@ pnFromPNC pnc =
            case Map.lookup tgt (pnTransitions p) of
              Just ev -> pure (setT tgt (addIn src ev) p)
              Nothing -> Left "Incorrect wire"
+
+pnToCore :: PetriNet -> Core.Model
+pnToCore pn =
+  Core.Model
+    { modelName      = pnName pn
+    , modelParams    = sParams ++ rParams
+    , modelInitState = Map.fromList (zip sUIds sInit)
+    , modelEvents    = coreEvs
+    , modelLets      = Map.empty
+    , modelMeta      = Map.fromList
+                     $ zipWith mkMeta sParams spMeta ++
+                       zipWith mkMeta rParams rpMeta ++
+                       zipWith mkMeta sUIds   sMeta  ++
+                       zipWith mkMeta rUID    eMeta
+    }
+  where
+  ss  = Map.toList (pnStates pn)
+  evs = Map.toList (pnTransitions pn)
+  mkMeta uid ms = (uid, Map.fromList [ (k,[v]) | (k,v) <- ms ])
+
+  initName (JunctionUid x) = x <> "_init"
+  rateName (JunctionUid x) = x <> "_rate"
+  jToName  (JunctionUid x) = x
+
+  (sParams,spMeta) =
+    unzip [ (uid, theMeta)
+          | (x, s) <- ss, Nothing <- [sInitial s]
+          , let uid     = jToName x
+                theMeta = [ ("group", "Initial State")
+                          , ("name",   sName s)
+                          ]
+          ]
+
+  (rParams,rpMeta) =
+    unzip [ (uid, theMeta)
+          | (x, t) <- evs, Nothing <- [evRate t]
+          , let uid     = rateName x
+                theMeta = [ ("group", "Rate")
+                          , ("name",  evName t)
+                          ]
+          ]
+
+
+  (sUIds, sInit, sMeta) =
+    unzip3 [ (uid, e, theMeta)
+           | (x, s) <- ss
+           , let uid     = jToName x
+                 e       = case sInitial s of
+                             Nothing -> Core.Var (initName x)
+                             Just i  -> Core.NumLit (fromInteger i)
+                 theMeta = [ ("name", sName s) ]
+           ]
+
+  (rUID, coreEvs, eMeta) =
+    unzip3 [ (uid, ev, theMeta)
+           | (x, t) <- evs
+           , let uid = jToName x
+                 ev = Core.Event
+                        { eventName = uid
+                        , eventRate = case evRate t of
+                                        Nothing -> Core.Var (rateName x)
+                                        Just i  -> Core.NumLit i
+                        , eventWhen = whenCond (evRemove t)
+                        , eventEffect =
+                            mkEff (Map.unionWith (-) (evAdd t) (evRemove t))
+                        }
+                 theMeta = [ ("name", evName t) ]
+           ]
+
+  whenCond xs =
+    case Map.toList xs of
+      [] -> Core.BoolLit True
+      ys -> foldr1 (Core.:&&:)
+            [ Core.NumLit (fromInteger n) Core.:<=: Core.Var (jToName x)
+            | (x,n) <- ys
+            ]
+
+  mkEff xs = Map.fromList
+               [ (uid, op (Core.Var uid))
+               | (x,n) <- Map.toList xs, n /= 0
+               , let uid = jToName x
+                     op
+                      | n > 0     = (Core.:+: Core.NumLit (fromInteger n))
+                      | otherwise = (Core.:-: Core.NumLit (fromInteger (-n)))
+               ]
 
 --------------------------------------------------------------------------------
 -- Gromet Representation of Petri Nets

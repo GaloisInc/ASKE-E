@@ -13,7 +13,7 @@ import Numeric(showGFloat)
 
 import qualified Data.Aeson as JSON
 
-import Language.ASKEE.Gromet.PetriNetClassic(pnFromPNC, ppPetriNet)
+import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
 import qualified Language.ASKEE as A
 
 import Options
@@ -100,7 +100,7 @@ modelsProvided opts =
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =
   do mb <- JSON.eitherDecodeFileStrict' file
-     case pnFromPNC =<< mb of
+     case pnFromGromet =<< mb of
        Right a -> print (ppPetriNet a)
        Left err -> print err
 
