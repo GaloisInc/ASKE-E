@@ -32,7 +32,7 @@ A `datasource` is either an object with the single field `file` with :
 Example:
 
 ```JSON
-{ "file": "model.gromet" }
+{ "model": "model.gromet" }
 ```
 
 Or a string containing the data itself:
@@ -49,7 +49,7 @@ Example:
 
 ```
 {
-  "source": { "file": "modelRepo/easel/sir.easel" },
+  "source": { "model": "sir.easel" },
   "type": "easel"
 }
 ```
@@ -86,7 +86,7 @@ Example:
   "result": {
     "models": [
       {
-        "source": { "file": "modelRepo/easel/sir.easel" },
+        "source": { "model": "sir.easel" },
         "type": "easel",
         "name": "SIR",
         "description": "No description."
@@ -116,7 +116,7 @@ Example:
   "command": "simulate-gsl",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir.easel" }
+    "source": { "model": "sir.easel" }
   },
   "start": 0,
   "end": 120.0,
@@ -197,7 +197,7 @@ Example:
   "command": "simulate-aj",
   "definition": {
     "type": "gromet-pnc",
-    "source": { "file": "modelRepo/gromet-pnc/sir.gromet" }
+    "source": { "model": "sir.gromet" }
   },
   "start": 0,
   "end": 120.0,
@@ -279,7 +279,7 @@ Example:
   "command": "get-model-schematic",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir.easel" }
+    "source": { "model": "sir.easel" }
   }
 }
 ```
@@ -378,7 +378,7 @@ Example:
   "command": "get-model-source",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir.easel" }
+    "source": { "model": "sir.easel" }
   }
 }
 ```
@@ -414,7 +414,7 @@ May fail if the conversion is not supported.
   "command": "convert-model",
   "definition": {
     "type": "easel",
-    "source": { "file": "modelRepo/easel/sir.easel" }
+    "source": { "model": "sir.easel" }
   },
   "dest-type":"diff-eqs"
 }
@@ -449,7 +449,7 @@ The result, if successful, is a `model-def` object with the new model inline.
   "definition": {
     "type": "easel",
     "source": {
-      "file": "modelRepo/easel/sir.easel"
+      "model": "sir.easel"
     }
   }
 }
@@ -459,73 +459,135 @@ The result, if successful, is a `model-def` object with the new model inline.
 
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
-| stateVars        | list of state variable   | A state variable has a `name` and some `metadata`                 |
-| parameters       | list of parameter        | A parameter has a `name`, some `metadata`, and a `defaultValue`   |
+| measures         | list of state variables  | Something the can be measured                                     |
+| parameters       | list of parameter        | Something that can be tweaked                                     |
+
+Both `measures` and `parameters` are lists of objects, where each object has
+a `uid`, `value_type` and a `metadata` field. In addition, parameters may have
+a `defaultValue` field.
+
+The `metdata` is an object with variable fields, but some of interest
+`Description`, `name`, and `group`.  In particular, `group` may be used
+as a hint to group related parameters.
+
+
+**Response:**
 
 ```JSON
 {
   "status": "success",
   "result": {
-    "stateVars": [
+    "measures": [
       {
         "metadata": {
-          "Description": "Susceptible population"
+          "name": "I"
         },
-        "name": "S"
+        "value_type": "Real",
+        "uid": "I"
       },
       {
         "metadata": {
-          "Description": "Infected population"
+          "name": "R"
         },
-        "name": "I"
+        "value_type": "Real",
+        "uid": "R"
       },
       {
         "metadata": {
-          "Description": "Recovered population"
+          "name": "S"
         },
-        "name": "R"
+        "value_type": "Real",
+        "uid": "S"
+      },
+      {
+        "metadata": {
+          "name": "total_population"
+        },
+        "value_type": "Real",
+        "uid": "total_population"
       }
     ],
     "parameters": [
       {
         "metadata": {
-          "Description": "The average number of contacts per person per time, multiplied by the probability of disease transmission in a contact between a susceptible and an infectious subject"
+          "name": "beta"
         },
-        "name": "beta",
-        "defaultValue": 0.4
+        "value_type": "Real",
+        "uid": "beta"
       },
       {
         "metadata": {
-          "Description": "Rate of recovery from infection"
+          "name": "gamma"
         },
-        "name": "gamma",
-        "defaultValue": 0.04
+        "value_type": "Real",
+        "uid": "gamma"
       },
       {
         "metadata": {
-          "Description": "Initial population of suceptible people."
+          "name": "i_initial"
         },
-        "name": "s_initial",
-        "defaultValue": 997
+        "value_type": "Real",
+        "uid": "i_initial"
       },
       {
         "metadata": {
-          "Description": "Initial population of infected people."
+          "name": "r_initial"
         },
-        "name": "i_initial",
-        "defaultValue": 3
+        "value_type": "Real",
+        "uid": "r_initial"
       },
       {
         "metadata": {
-          "Description": "Initial population of recovered people."
+          "name": "s_initial"
         },
-        "name": "r_initial",
-        "defaultValue": 0
+        "value_type": "Real",
+        "uid": "s_initial"
+      },
+      {
+        "metadata": {
+          "name": "beta"
+        },
+        "value_type": "Real",
+        "default": 0.4,
+        "uid": "beta"
+      },
+      {
+        "metadata": {
+          "name": "gamma"
+        },
+        "value_type": "Real",
+        "default": 0.04,
+        "uid": "gamma"
+      },
+      {
+        "metadata": {
+          "name": "i_initial"
+        },
+        "value_type": "Real",
+        "default": 3,
+        "uid": "i_initial"
+      },
+      {
+        "metadata": {
+          "name": "r_initial"
+        },
+        "value_type": "Real",
+        "default": 0,
+        "uid": "r_initial"
+      },
+      {
+        "metadata": {
+          "name": "s_initial"
+        },
+        "value_type": "Real",
+        "default": 997,
+        "uid": "s_initial"
       }
     ]
   }
 }
 ```
+
 
 ### `upload-model` - Upload a new model
 
@@ -560,7 +622,7 @@ Example:
 {
   "status": "success",
   "result": {
-    "source": { "file": "modelRepo/easel/sir.easel" },
+    "source": { "model": "sir.easel" },
     "type": "easel"
   }
 }
