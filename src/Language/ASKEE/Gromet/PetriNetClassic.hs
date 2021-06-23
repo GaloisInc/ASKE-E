@@ -187,9 +187,14 @@ pnToCore pn =
            , let uid = jToName x
                  ev = Core.Event
                         { eventName = uid
-                        , eventRate = case evRate t of
-                                        Nothing -> Core.Var (rateName x)
-                                        Just i  -> Core.NumLit i
+                        , eventRate =
+                            let base = case evRate t of
+                                         Nothing -> Core.Var (rateName x)
+                                         Just i  -> Core.NumLit i
+                            in base {-foldr (Core.:*:) base
+                                 [ Core.Var (jToName y)
+                                 | y <- Map.keys (evRemove t)
+                                 ] -} -- not sure if this is state dependent or constant
                         , eventWhen = whenCond (evRemove t)
                         , eventEffect =
                             mkEff (Map.unionWith (-) (evAdd t) (evRemove t))
