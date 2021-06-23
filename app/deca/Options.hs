@@ -195,8 +195,9 @@ parseScale xs =
 
 parseOverwrite :: String -> Either String (Text,Double)
 parseOverwrite xs =
-  case break (==':') xs of
-    (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
+  case break (==':') (reverse xs) of
+    (as,_:bs)
+      | [(d,"")] <- reads (reverse as) -> Right (Text.pack (reverse bs), d)
     _ -> Left "Invalid overwite, format is NAME:DOUBLE"
 
 
