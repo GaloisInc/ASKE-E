@@ -40,7 +40,7 @@ data PetriNet = PetriNet
 
 data StateVar = StateVar
   { sName    :: Text
-  , sInitial :: Maybe Integer
+  , sInitial :: Maybe Double
   } deriving Show
 
 data Event = Event
@@ -62,7 +62,7 @@ ppPetriNet pn = vcat
   ppU (JunctionUid x) = ppT x
   ppS s = "state" <+> ppT (sName s) <+> case sInitial s of
                                           Nothing -> empty
-                                          Just i -> "=" <+> integer i
+                                          Just i -> "=" <+> double i
   ppV uid = case Map.lookup uid (pnStates pn) of
               Just s  -> ppT (sName s)
               Nothing -> ppU uid -- BUG
@@ -98,10 +98,6 @@ pnFromGromet pnc =
   emptyS n mb =
     StateVar { sName = n, sInitial = mb }
 
-  toInt l = case l of
-              LitInteger i -> Right i
-              _            -> Left "Expected an integer"
-
   toDouble l = case l of
                  LitInteger i -> Right (fromIntegral i)
                  LitReal i    -> Right i
@@ -115,7 +111,7 @@ pnFromGromet pnc =
     do p <- pn
        case jType j of
          State ->
-           do mb <- traverse toInt (jValue j)
+           do mb <- traverse toDouble (jValue j)
               pure (addS (jUID j) (jName j) mb p)
          Transition ->
            do mb <- traverse toDouble (jValue j)
@@ -159,7 +155,7 @@ pnToCore pn =
   (sParams,spMeta) =
     unzip [ (uid, theMeta)
           | (x, s) <- ss, Nothing <- [sInitial s]
-          , let uid     = jToName x
+          , let uid     = initName x
                 theMeta = [ ("group", "Initial State")
                           , ("name",   sName s)
                           ]
@@ -181,7 +177,7 @@ pnToCore pn =
            , let uid     = jToName x
                  e       = case sInitial s of
                              Nothing -> Core.Var (initName x)
-                             Just i  -> Core.NumLit (fromInteger i)
+                             Just i  -> Core.NumLit i
                  theMeta = [ ("name", sName s) ]
            ]
 

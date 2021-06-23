@@ -53,9 +53,13 @@ asEasel :: Model -> ConversionResult ESL.Model
 asEasel = tryConvs [ unEasel, notExist MT.EaselType ]
 
 asCore :: Model -> ConversionResult Core.Model
-asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist MT.CoreType ]
+asCore = tryConvs [ unCore
+                  , unGrometPnc >=> pncToCore
+                  , asEasel >=> easelToCore
+                  , notExist MT.CoreType ]
   where
     easelToCore e = fromEither (ESL.modelAsCore e)
+    pncToCore x = fromEither (GPNC.pnToCore <$> GPNC.pnFromGromet x)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
@@ -94,6 +98,7 @@ unGrometPnc _ = ConversionPass
 unGrometFNet :: Model -> ConversionResult JSON.Value
 unGrometFNet (GrometFnet v) = ConversionSucceded v
 unGrometFNet _ = ConversionPass
+
 
 -------------------------------------------------------------------------------
 -- ConversionResult

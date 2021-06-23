@@ -9,7 +9,6 @@ import qualified Data.Text as Text
 import qualified Data.Aeson as JS
 
 import Language.ASKEE
-import Language.ASKEE.Model(Model(..))
 
 import Schema
 
@@ -131,8 +130,8 @@ handleRequest r =
           succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
-      do  model <- loadESLFrom modelDefType modelDefSource
-          let res = describeModelInterface (Easel model)
+      do  model <- loadModel modelDefType modelDefSource
+          let res = describeModelInterface model
           succeed' res
   
   where
