@@ -164,7 +164,7 @@ for the ASKE-E program.</p>
 <tr><td>file</td><td>string</td><td>Filename to use as a data source</td></tr>
 </tbody></table>
 <p>Example:</p>
-<pre><code class="language-JSON">{ &quot;file&quot;: &quot;model.gromet&quot; }
+<pre><code class="language-JSON">{ &quot;model&quot;: &quot;model.gromet&quot; }
 </code></pre>
 <p>Or a string containing the data itself:</p>
 <pre><code class="language-JSON">&quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n  let s_initial = 997...&quot;
@@ -173,7 +173,7 @@ for the ASKE-E program.</p>
 <p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eqs</code>, <code>core</code>, and <code>gromet-prt</code>.</p>
 <p>Example:</p>
 <pre><code>{
-  &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+  &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; },
   &quot;type&quot;: &quot;easel&quot;
 }
 </code></pre>
@@ -196,7 +196,7 @@ for the ASKE-E program.</p>
   &quot;result&quot;: {
     &quot;models&quot;: [
       {
-        &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+        &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; },
         &quot;type&quot;: &quot;easel&quot;,
         &quot;name&quot;: &quot;SIR&quot;,
         &quot;description&quot;: &quot;No description.&quot;
@@ -220,7 +220,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;simulate-gsl&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; }
   },
   &quot;start&quot;: 0,
   &quot;end&quot;: 120.0,
@@ -288,7 +288,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;simulate-aj&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;gromet-pnc&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/gromet-pnc/sir.gromet&quot; }
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.gromet&quot; }
   },
   &quot;start&quot;: 0,
   &quot;end&quot;: 120.0,
@@ -354,7 +354,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;get-model-schematic&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; }
   }
 }
 </code></pre>
@@ -443,7 +443,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;get-model-source&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; }
   }
 }
 </code></pre>
@@ -469,7 +469,7 @@ for the ASKE-E program.</p>
   &quot;command&quot;: &quot;convert-model&quot;,
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; }
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; }
   },
   &quot;dest-type&quot;:&quot;diff-eqs&quot;
 }
@@ -495,74 +495,131 @@ for the ASKE-E program.</p>
   &quot;definition&quot;: {
     &quot;type&quot;: &quot;easel&quot;,
     &quot;source&quot;: {
-      &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot;
+      &quot;model&quot;: &quot;sir.easel&quot;
     }
   }
 }
 </code></pre>
 <p><strong>Response</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>stateVars</td><td>list of state variable</td><td>A state variable has a <code>name</code> and some <code>metadata</code></td></tr>
-<tr><td>parameters</td><td>list of parameter</td><td>A parameter has a <code>name</code>, some <code>metadata</code>, and a <code>defaultValue</code></td></tr>
+<tr><td>measures</td><td>list of state variables</td><td>Something the can be measured</td></tr>
+<tr><td>parameters</td><td>list of parameter</td><td>Something that can be tweaked</td></tr>
 </tbody></table>
+<p>Both <code>measures</code> and <code>parameters</code> are lists of objects, where each object has
+a <code>uid</code>, <code>value_type</code> and a <code>metadata</code> field. In addition, parameters may have
+a <code>defaultValue</code> field.</p>
+<p>The <code>metdata</code> is an object with variable fields, but some of interest
+<code>Description</code>, <code>name</code>, and <code>group</code>.  In particular, <code>group</code> may be used
+as a hint to group related parameters.</p>
+<p><strong>Response:</strong></p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
   &quot;result&quot;: {
-    &quot;stateVars&quot;: [
+    &quot;measures&quot;: [
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Susceptible population&quot;
+          &quot;name&quot;: &quot;I&quot;
         },
-        &quot;name&quot;: &quot;S&quot;
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;I&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Infected population&quot;
+          &quot;name&quot;: &quot;R&quot;
         },
-        &quot;name&quot;: &quot;I&quot;
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;R&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Recovered population&quot;
+          &quot;name&quot;: &quot;S&quot;
         },
-        &quot;name&quot;: &quot;R&quot;
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;S&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;total_population&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;total_population&quot;
       }
     ],
     &quot;parameters&quot;: [
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;The average number of contacts per person per time, multiplied by the probability of disease transmission in a contact between a susceptible and an infectious subject&quot;
+          &quot;name&quot;: &quot;beta&quot;
         },
-        &quot;name&quot;: &quot;beta&quot;,
-        &quot;defaultValue&quot;: 0.4
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;beta&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Rate of recovery from infection&quot;
+          &quot;name&quot;: &quot;gamma&quot;
         },
-        &quot;name&quot;: &quot;gamma&quot;,
-        &quot;defaultValue&quot;: 0.04
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;gamma&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Initial population of suceptible people.&quot;
+          &quot;name&quot;: &quot;i_initial&quot;
         },
-        &quot;name&quot;: &quot;s_initial&quot;,
-        &quot;defaultValue&quot;: 997
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;i_initial&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Initial population of infected people.&quot;
+          &quot;name&quot;: &quot;r_initial&quot;
         },
-        &quot;name&quot;: &quot;i_initial&quot;,
-        &quot;defaultValue&quot;: 3
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;r_initial&quot;
       },
       {
         &quot;metadata&quot;: {
-          &quot;Description&quot;: &quot;Initial population of recovered people.&quot;
+          &quot;name&quot;: &quot;s_initial&quot;
         },
-        &quot;name&quot;: &quot;r_initial&quot;,
-        &quot;defaultValue&quot;: 0
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;uid&quot;: &quot;s_initial&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;beta&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;default&quot;: 0.4,
+        &quot;uid&quot;: &quot;beta&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;gamma&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;default&quot;: 0.04,
+        &quot;uid&quot;: &quot;gamma&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;i_initial&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;default&quot;: 3,
+        &quot;uid&quot;: &quot;i_initial&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;r_initial&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;default&quot;: 0,
+        &quot;uid&quot;: &quot;r_initial&quot;
+      },
+      {
+        &quot;metadata&quot;: {
+          &quot;name&quot;: &quot;s_initial&quot;
+        },
+        &quot;value_type&quot;: &quot;Real&quot;,
+        &quot;default&quot;: 997,
+        &quot;uid&quot;: &quot;s_initial&quot;
       }
     ]
   }
@@ -591,7 +648,7 @@ for the ASKE-E program.</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
   &quot;result&quot;: {
-    &quot;source&quot;: { &quot;file&quot;: &quot;modelRepo/easel/sir.easel&quot; },
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; },
     &quot;type&quot;: &quot;easel&quot;
   }
 }
