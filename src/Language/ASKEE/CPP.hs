@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Language.ASKEE.CPP ( genModel, simulate ) where
 
-import           Data.Aeson                 ( decode )
+import           Data.Aeson                 ( eitherDecode )
 import qualified Data.ByteString.Lazy.Char8 as B
 import qualified Data.List                  as List
 import           Data.Map                   ( Map )
@@ -30,9 +30,9 @@ simulate model start end step =
           program = modelCPP <+> modelDriver
       res <- compileAndRun GCC [("model.cpp", program)]
       json <- 
-        case decode @[Map Text Double] (B.pack res) of
-          Nothing -> panic "simulateCPP" ["Couldn't decode C++-produced JSON"]
-          Just json' -> pure json'
+        case eitherDecode @[Map Text Double] (B.pack res) of
+          Left err -> panic "simulateCPP" ["Couldn't decode C++-produced JSON", err, res]
+          Right json' -> pure json'
       let stateVars = List.delete "time" (Map.keys (head json))
       pure $ buildDataSeries stateVars json
 
