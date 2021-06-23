@@ -45,17 +45,20 @@ extractMeta model =
   where
   meta xs = Map.fromListWith (++) [ (k,[v]) | (k,v) <- xs ]
 
+  addName x = ("name",x)
+
   declMeta d =
     case metaValue d of
-      Src.Let   x _     -> Just (x, meta (metaData d))
-      Src.State x _     -> Just (x, meta (metaData d))
-      Src.Parameter x _ -> Just (x, meta (metaData d))
+      Src.Let   x _     -> Just (x, meta (addName x : metaData d))
+      Src.State x _     -> Just (x, meta (addName x : metaData d))
+      Src.Parameter x _ -> Just (x, meta (addName x : metaData d))
       Src.Assert _      -> Nothing
 
   -- XXX
   eventMeta ev =
     do v <- Src.eventMetadata ev
-       pure (Src.eventName ev, meta [("description",v)])
+       pure (Src.eventName ev, meta [ addName (Src.eventName ev)
+                                    , ("description",v)])
 
 
 
