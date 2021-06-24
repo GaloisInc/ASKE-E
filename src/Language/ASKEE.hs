@@ -336,7 +336,8 @@ simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
       AJ.simulate pnc start stop step parameters
 
-convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString ::
+  ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
   do  bytes <- loadModelText srcTy src
       let model = parseModel srcTy bytes
@@ -350,6 +351,7 @@ convertModelString srcTy src destTy =
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
+          RNetType  -> Left "Don't know how to convert to RNet yet"
 
 
           

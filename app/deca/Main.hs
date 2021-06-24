@@ -101,8 +101,8 @@ modelsProvided :: Options -> [(FilePath, A.ModelType)]
 modelsProvided opts =
   map (, A.DeqType) (deqFiles opts) ++
   map (, A.EaselType) (modelFiles opts) ++
-  map (, A.GrometPncType) (pncFiles opts)
-  -- XXX: RNC not yet in Model
+  map (, A.GrometPncType) (pncFiles opts) ++
+  map (, A.RNetType) (rnetFiles opts)
 
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =

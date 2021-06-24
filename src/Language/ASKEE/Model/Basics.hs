@@ -103,6 +103,7 @@ instance FromJSON Value where
 data ModelType =
     EaselType
   | DeqType
+  | RNetType
   | CoreType
   | GrometPrtType
   | GrometPncType
@@ -117,6 +118,7 @@ parseModelType t =
   case t of
     "easel"       -> Just EaselType
     "diff-eq"     -> Just DeqType
+    "rnet"        -> Just RNetType
     "core"        -> Just CoreType
     "gromet-prt"  -> Just GrometPrtType
     "gromet-pnc"  -> Just GrometPncType
@@ -131,6 +133,7 @@ describeModelType t =
   case t of
     EaselType -> "easel"
     DeqType -> "diff-eq"
+    RNetType -> "rnet"
     CoreType -> "core"
     GrometPrtType -> "gromet-prt"
     GrometPncType -> "gromet-pnc"

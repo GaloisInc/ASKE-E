@@ -23,6 +23,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
+import qualified Language.ASKEE.RNet as RNet
 import qualified Language.ASKEE.ESL as ESL
 
 import qualified Language.ASKEE.Model.Basics as MT
@@ -33,6 +34,7 @@ data Model =
     Easel     ESL.Model
   | Core      Core.Model
   | Deq       DEQ.DiffEqs
+  | RNet      RNet.ReactionNet
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
   | GrometFnet JSON.Value
@@ -43,6 +45,7 @@ modelTypeOf m =
     Easel _ -> MT.EaselType
     Core _ -> MT.CoreType
     Deq _ -> MT.DeqType
+    RNet _ -> MT.RNetType
     GrometPrt _ -> MT.GrometPrtType
     GrometPnc _ -> MT.GrometPncType
     GrometFnet _ -> MT.GrometFnetType
@@ -55,11 +58,13 @@ asEasel = tryConvs [ unEasel, notExist MT.EaselType ]
 asCore :: Model -> ConversionResult Core.Model
 asCore = tryConvs [ unCore
                   , unGrometPnc >=> pncToCore
+                  , unRNet >=> rnetToCore
                   , asEasel >=> easelToCore
                   , notExist MT.CoreType ]
   where
     easelToCore e = fromEither (ESL.modelAsCore e)
     pncToCore x = fromEither (GPNC.pnToCore <$> GPNC.pnFromGromet x)
+    rnetToCore x = pure (RNet.rnetToCore x)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
@@ -86,6 +91,12 @@ unCore _ = ConversionPass
 unDeq :: Model -> ConversionResult DEQ.DiffEqs
 unDeq (Deq d) = ConversionSucceded d
 unDeq _ = ConversionPass
+
+unRNet :: Model -> ConversionResult RNet.ReactionNet
+unRNet x =
+  case x of
+    RNet r -> ConversionSucceded r
+    _      -> ConversionPass
 
 unGrometPrt :: Model -> ConversionResult GPRT.Gromet
 unGrometPrt (GrometPrt g) = ConversionSucceded g
@@ -175,6 +186,8 @@ parseModel mt s =
       Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
+    MT.RNetType ->
+      RNet <$> RNet.parseRNet s
     MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
     MT.GrometPncType -> GrometPnc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
@@ -189,6 +202,7 @@ printModel m =
     Easel esl -> (Right . show . ESL.printESL) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core c -> Right $ show $ Core.ppModel c
+    RNet _ -> Left "XXX: no printer for RNet yet"
     GrometPrt g -> Right $ GPRT.grometString g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v

@@ -81,10 +81,12 @@ library
                         Language.ASKEE.AlgebraicJulia.Syntax
                         Language.ASKEE.AlgebraicJulia.Topology
 
+                        Language.ASKEE.RNet
                         Language.ASKEE.RNet.GenLexer
                         Language.ASKEE.RNet.GenParser
                         Language.ASKEE.RNet.Lexer
                         Language.ASKEE.RNet.Reaction
+                        Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
 
                         -- General
