@@ -188,7 +188,7 @@ printModel m =
   case m of
     Easel esl -> (Right . show . ESL.printESL) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
-    Core _ -> Left "cannot print core - core has no concrete syntax"
+    Core c -> Right $ show $ Core.ppModel c
     GrometPrt g -> Right $ GPRT.grometString g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v

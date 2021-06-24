@@ -24,6 +24,7 @@ data Command =
   | DumpCPP
   | DumpDEQs
   | DumpPNC
+  | DumpCore
   | DescribeInterface
   | SimulateODE Double Double Double -- ^ Start, step, end
   | FitModel [Text] (Map Text Double)
@@ -88,6 +89,10 @@ options = OptSpec
       , Option [] ["dump-pnc-gromet"]
          "Parse a Petri Net Classic Gromet and print it"
         $ NoArg \s -> Right s { command = DumpPNC }
+
+      , Option [] ["dump-core"]
+         "Try to convert input to Core"
+        $ NoArg \s -> Right s { command = DumpCore }
 
       , Option [] ["to-pp-gromet"]
         "Convert to human readable GroMEt"

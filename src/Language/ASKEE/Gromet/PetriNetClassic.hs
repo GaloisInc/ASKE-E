@@ -136,12 +136,14 @@ pnToCore pn =
     , modelParams    = sParams ++ rParams
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
-    , modelLets      = Map.empty
+    , modelLets      = Map.fromList
+                     $ [ (x,y) | (x, Just y) <- zip sParamLets sLets ] ++
+                       [ (x,y) | (x, Just y) <- zip rParamLets rLets ]
     , modelMeta      = Map.fromList
-                     $ zipWith mkMeta sParams spMeta ++
-                       zipWith mkMeta rParams rpMeta ++
-                       zipWith mkMeta sUIds   sMeta  ++
-                       zipWith mkMeta rUID    eMeta
+                     $ zipWith mkMeta sParamLets spMeta ++
+                       zipWith mkMeta rParamLets rpMeta ++
+                       zipWith mkMeta sUIds      sMeta  ++
+                       zipWith mkMeta rUID       eMeta
     }
   where
   ss  = Map.toList (pnStates pn)
@@ -152,32 +154,35 @@ pnToCore pn =
   rateName (JunctionUid x) = x <> "_rate"
   jToName  (JunctionUid x) = x
 
-  (sParams,spMeta) =
-    unzip [ (uid, theMeta)
-          | (x, s) <- ss, Nothing <- [sInitial s]
-          , let uid     = initName x
-                theMeta = [ ("group", "Initial State")
-                          , ("name",   sName s)
-                          ]
-          ]
+  sParams = [ x | (x,Nothing) <- zip sParamLets sLets ]
+  rParams = [ x | (x,Nothing) <- zip rParamLets rLets ]
 
-  (rParams,rpMeta) =
-    unzip [ (uid, theMeta)
-          | (x, t) <- evs, Nothing <- [evRate t]
-          , let uid     = rateName x
-                theMeta = [ ("group", "Rate")
-                          , ("name",  evName t)
-                          ]
-          ]
+  (sParamLets,sLets,spMeta) =
+    unzip3 [ (uid, def,theMeta)
+           | (x, s) <- ss
+           , let uid     = initName x
+                 def     = Core.NumLit <$> sInitial s
+                 theMeta = [ ("group", "Initial State")
+                           , ("name",   sName s)
+                           ]
+           ]
+
+  (rParamLets,rLets,rpMeta) =
+    unzip3 [ (uid, def, theMeta)
+           | (x, t) <- evs
+           , let uid     = rateName x
+                 def     = Core.NumLit <$> evRate t
+                 theMeta = [ ("group", "Rate")
+                           , ("name",  evName t)
+                           ]
+           ]
 
 
   (sUIds, sInit, sMeta) =
     unzip3 [ (uid, e, theMeta)
            | (x, s) <- ss
            , let uid     = jToName x
-                 e       = case sInitial s of
-                             Nothing -> Core.Var (initName x)
-                             Just i  -> Core.NumLit i
+                 e       = Core.Var (initName x)
                  theMeta = [ ("name", sName s) ]
            ]
 
@@ -188,9 +193,7 @@ pnToCore pn =
                  ev = Core.Event
                         { eventName = uid
                         , eventRate =
-                            let base = case evRate t of
-                                         Nothing -> Core.Var (rateName x)
-                                         Just i  -> Core.NumLit i
+                            let base = Core.Var (rateName x)
                             in foldr (Core.:*:) base
                                  [ Core.Var (jToName y)
                                  | y <- Map.keys (evRemove t)

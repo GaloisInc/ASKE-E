@@ -15,9 +15,11 @@ import qualified Data.Aeson as JSON
 
 import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
 import qualified Language.ASKEE as A
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.DEQ as DEQ
+import qualified Language.ASKEE.Core as Core
 
 import Options
-import qualified Language.ASKEE.DEQ as DEQ
 
 main :: IO ()
 main =
@@ -26,6 +28,8 @@ main =
 
 
         DumpPNC -> mapM_ dumpPNC (modelFiles opts)
+
+        DumpCore -> mapM_ dumpCore (modelsProvided opts)
 
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
 
@@ -106,6 +110,19 @@ dumpPNC file =
      case pnFromGromet =<< mb of
        Right a -> print (ppPetriNet a)
        Left err -> print err
+
+dumpCore :: (FilePath, A.ModelType) -> IO ()
+dumpCore (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toCore m of
+       Right c -> print (Core.ppModel c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to Core"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
+
 
 
 testDescirbeInterface :: (FilePath, A.ModelType) -> IO ()
