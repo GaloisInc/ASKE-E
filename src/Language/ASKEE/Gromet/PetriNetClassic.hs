@@ -32,6 +32,7 @@ import qualified Language.ASKEE.Core.Expr as Core
 
 
 --------------------------------------------------------------------------------
+-- XXX: This and RNets are basically the same thing, so reuse?
 data PetriNet = PetriNet
   { pnName        :: Text
   , pnStates      :: Map JunctionUid StateVar
@@ -200,7 +201,8 @@ pnToCore pn =
                                  ]
                         , eventWhen = whenCond (evRemove t)
                         , eventEffect =
-                            mkEff (Map.unionWith (-) (evAdd t) (evRemove t))
+                            mkEff (Map.unionWith (+) (evAdd t)
+                                                     (negate <$> evRemove t))
                         }
                  theMeta = [ ("name", evName t) ]
            ]
