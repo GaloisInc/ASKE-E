@@ -2,12 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
-module Language.ASKEE.ModelStratify.Stratify where
+module Language.ASKEE.AlgebraicJulia.Stratify where
 
-import           Data.Aeson ( encode
-                            , decode
+import           Data.Aeson ( eitherDecode
                             , object
-                            , Value(..)
                             , FromJSON
                             , ToJSON
                             , (.=) )
@@ -18,13 +16,14 @@ import           Data.Text  ( Text )
 import GHC.Generics ( Generic )
 
 import qualified Language.ASKEE.ESL.Syntax as ESL
-import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
+import           Language.ASKEE.AlgebraicJulia.Topology ( modelAsTopology
                                                        , topologyAsModel
                                                        , insertHoles
                                                        , nameHoles )
 
-import System.Process ( readProcess )
-import qualified Language.ASKEE.ModelStratify.Syntax as Topology
+import qualified Language.ASKEE.AlgebraicJulia.Syntax as Topology
+import Language.ASKEE.AlgebraicJulia.GeoGraph ( ConnGraph )
+import Language.ASKEE.AlgebraicJulia.Interact ( queryServer )
 
 data States = States
   { sus :: Text
@@ -50,29 +49,31 @@ data StratificationInfo = StratificationInfo
   
 stratifyModel :: 
   ESL.Model -> 
-  Value ->
+  ConnGraph ->
   Map Int Text -> 
   Maybe States -> 
   StratificationType ->
   IO StratificationInfo
 stratifyModel model connections vertices states strat =
   do  let topology = modelAsTopology model
-      -- (gtriConnections, vertices) <- loadConnectionGraph connections
-      -- states <- case statesM of 
-      --             Just d -> decode @States . B.pack <$> loadString d
-      --             Nothing -> pure Nothing
-      let payload = object $  [ "top" .= topology 
-                              , "conn" .= connections
-                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
-                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
-      result <- readProcess "curl"  [ "-X", "POST"
-                                    , "-H", "Content-type: application/json"
-                                    , "-d", B.unpack $ encode payload
-                                    , "localhost:8001"
-                                    ] ""
-      rawTopology <- case decode (B.pack result) of
-        Just t -> pure t
-        Nothing -> error $ "failed to parse JSON of returned topology "++result
+          payload = 
+            object $  
+              [ "top" .= topology 
+              , "conn" .= connections
+              , "strat-type" .= stratType
+              ] ++ 
+              maybe [] (\s -> [ "states" .= s ]) states
+      result <- queryServer payload
+      rawTopology <- case eitherDecode (B.pack result) of
+        Right t -> pure t
+        Left err -> error $ "failed to parse JSON of returned topology "++err
       let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
           prettyModel = nameHoles vertices rawModel
       pure $ StratificationInfo{..}
+
+  where
+    stratType :: String
+    stratType = 
+      case strat of 
+        Demographic -> "dem"
+        Spatial -> "spat"

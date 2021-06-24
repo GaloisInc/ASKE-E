@@ -4,7 +4,9 @@ module Language.ASKEE.Gromet.Common where
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Aeson as JSON
-import Data.Aeson ((.=))
+import Text.Read(readMaybe)
+import Data.Aeson ((.=),(.:))
+import Data.Scientific(toRealFloat,floatingOrInteger)
 
 
 
@@ -97,7 +99,6 @@ instance JSON.FromJSON ValueType where
       _           -> fail ("Unknown VALUE_TYPE: " <> Text.unpack txt)
 
 
-
 instance JSON.ToJSON Literal where
   toJSON l =
     case l of
@@ -107,7 +108,50 @@ instance JSON.ToJSON Literal where
 
     where
     lit ty val = JSON.object [ "type"     .= ty
-                             , "value"    .= val
+                             , "syntax"   .= jsText "Literal"
+                             , "value"    .=
+                                 JSON.object [ "syntax" .= jsText "Val"
+                                             , "val"    .= val
+                                             ]
                              , "metadata" .= JSON.Null
                              ]
+
+
+instance JSON.FromJSON Literal where
+  parseJSON = JSON.withObject "LITERAL" \o ->
+    do ty     <- o      .: "type"
+       vaWrap <- o      .: "value"
+       va     <- vaWrap .: "val"
+       case ty of
+
+         Real
+           | JSON.Number x <- va -> pure (LitReal (toRealFloat x))
+           | JSON.String txt <- va ->
+             case readMaybe (Text.unpack txt) of
+               Just n -> pure (LitReal n)
+               Nothing -> fail ("Invalid REAL_LITERAL: " <> Text.unpack txt)
+
+         Integer
+           | JSON.Number x <- va ->
+             case floatingOrInteger x of
+               Right i -> pure (LitInteger i)
+               Left r ->
+                    fail ("Invalid INTEGER_LITERAL: " ++ show (r :: Double))
+           | JSON.String txt <- va ->
+             case readMaybe (Text.unpack txt) of
+               Just n -> pure (LitInteger n)
+               Nothing -> fail ("Invalid INTEGER_LITERAL: " <> Text.unpack txt)
+
+         Bool
+           | JSON.Bool b <- va -> pure (LitBool b)
+           | JSON.String txt <- va ->
+             if      Text.toLower txt == "true" then pure (LitBool True)
+             else if Text.toLower txt == "false" then pure (LitBool False)
+             else fail ("Invalid BOOL_LITERAL: " <> Text.unpack txt)
+
+         _ -> fail "Invalid LITERAL"
+
+
+
+
 

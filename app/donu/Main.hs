@@ -60,20 +60,31 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    Simulate SimulateCommand{..} ->
+    SimulateGSL SimulateGSLCommand{..} ->
       do  res <-
-            simulateModel
-              (modelDefType simModel)
-              (modelDefSource simModel)
-              simStart
-              simEnd
-              simStep
-              simParameterValues
+            simulateModelGSL
+              (modelDefType simModelGSL)
+              (modelDefSource simModelGSL)
+              simStartGSL
+              simEndGSL
+              simStepGSL
+              simParameterValuesGSL
+          succeed' res
+
+    SimulateAJ SimulateAJCommand{..} ->
+      do  res <-
+            simulateModelAJ
+              (modelDefType simModelAJ)
+              (modelDefSource simModelAJ)
+              simStartAJ
+              simEndAJ
+              simStepAJ
+              simParameterValuesAJ
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  model <- loadModel (modelDefType checkModelModel) (modelDefSource checkModelModel)
-          checkResult <- checkModel' (modelDefType checkModelModel) (Text.pack model)
+      do  model <- loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- checkModel' (modelDefType checkModelModel) model
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
@@ -117,12 +128,12 @@ handleRequest r =
           succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->
-      do  modelString <- loadModel (modelDefType getModelSource) (modelDefSource getModelSource)
-          let result = getModelSource { modelDefSource = Inline (Text.pack modelString) }
+      do  modelString <- loadModelText (modelDefType getModelSource) (modelDefSource getModelSource)
+          let result = getModelSource { modelDefSource = Inline modelString }
           succeed' result
 
     DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) ->
-      do  model <- loadESLFrom modelDefType modelDefSource
+      do  model <- loadModel modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
 

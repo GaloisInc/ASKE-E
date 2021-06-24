@@ -26,7 +26,8 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    Simulate SimulateCommand
+    SimulateGSL SimulateGSLCommand
+  | SimulateAJ SimulateAJCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
@@ -41,7 +42,8 @@ data Input =
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (Simulate <$> anySpec)
+  anySpec =  (SimulateGSL <$> anySpec)
+         <!> (SimulateAJ <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
@@ -135,7 +137,7 @@ instance HasSpec ModelType where
          <!> (jsAtom "diff-eqs"   $> DeqType )
          <!> (jsAtom "core"       $> CoreType)
          <!> (jsAtom "gromet-prt" $> GrometPrtType)
-         <!> (jsAtom "gromet-prc" $> GrometPrcType)
+         <!> (jsAtom "gromet-pnc" $> GrometPncType)
          <!> (jsAtom "gromet-fnet" $> GrometFnetType)
 
 instance JS.ToJSON ModelType where
@@ -148,10 +150,11 @@ dataSourceToJSON ds =
       JS.object [ "file" .= f ]
     Inline s ->
       JS.String s
+    FromStore f ->
+      JS.object [ "model" .= f ]
 
 modelDef :: ValueSpec ModelDef
 modelDef =
-  namedSpec "model-def" $
   sectionsSpec "model-def"
     do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
         modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
@@ -160,9 +163,9 @@ modelDef =
 dataSource :: ValueSpec DataSource
 dataSource =
   namedSpec "data-source" $
-  sectionsSpec "file"
-    do f <- reqSection "file" "A file path"
-       pure (FromFile (Text.unpack f))
+  sectionsSpec "named-model"
+    do f <- reqSection "model" "A model name"
+       pure (FromStore f)
   <!>
     Inline <$> anySpec
 
@@ -196,35 +199,66 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
-data SimulateCommand = SimulateCommand
-  { simModel           :: ModelDef
-  , simStart           :: Double
-  , simStep            :: Double
-  , simEnd             :: Double
-  , simParameterValues :: Map Text Double
+data SimulateGSLCommand = SimulateGSLCommand
+  { simModelGSL           :: ModelDef
+  , simStartGSL           :: Double
+  , simStepGSL            :: Double
+  , simEndGSL             :: Double
+  , simParameterValuesGSL :: Map Text Double
   } deriving Show
 
 
-instance HasSpec SimulateCommand where
+instance HasSpec SimulateGSLCommand where
   anySpec =
-    sectionsSpec "simulate-command"
-    do reqSection' "command" (jsAtom "simulate") "Run a simulation"
-       simModel   <- reqSection' "definition" modelDef
+    sectionsSpec "simulate-gsl-command"
+    do reqSection' "command" (jsAtom "simulate-gsl") "Run a simulation"
+       simModelGSL   <- reqSection' "definition" modelDef
                        "Specification of the model to simulate"
 
-       simStart     <- reqSection "start"
+       simStartGSL     <- reqSection "start"
                        "Start time of simulation"
-       simStep      <- fromMaybe 1 <$>
+       simStepGSL      <- fromMaybe 1 <$>
                        optSection "step"
                        "Time step (defaults to 1)"
-       simEnd       <- reqSection "end"
+       simEndGSL       <- reqSection "end"
                        "End time of simulation"
 
-       simParameterValues <- maybe Map.empty Map.fromList <$>
+       simParameterValuesGSL <- maybe Map.empty Map.fromList <$>
                        optSection' "parameters" (assocSpec anySpec)
                        "Use these values for model parameters"
 
-       pure SimulateCommand { .. }
+       pure SimulateGSLCommand { .. }
+
+
+data SimulateAJCommand = SimulateAJCommand
+  { simModelAJ           :: ModelDef
+  , simStartAJ           :: Double
+  , simStepAJ            :: Double
+  , simEndAJ             :: Double
+  , simParameterValuesAJ :: Map Text Double
+  } deriving Show
+
+
+instance HasSpec SimulateAJCommand where
+  anySpec =
+    sectionsSpec "simulate-aj-command"
+    do reqSection' "command" (jsAtom "simulate-aj") "Run a simulation"
+       simModelAJ   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStartAJ     <- reqSection "start"
+                       "Start time of simulation"
+       simStepAJ      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEndAJ       <- reqSection "end"
+                       "End time of simulation"
+
+       simParameterValuesAJ <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
+                       "Use these values for model parameters"
+
+       pure SimulateAJCommand { .. }
 
 --------------------------------------------------------------------------------
 -- Stratify

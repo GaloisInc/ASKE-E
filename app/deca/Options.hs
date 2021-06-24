@@ -23,7 +23,9 @@ data Command =
   | OnlyCheck
   | DumpCPP
   | DumpDEQs
-  | SimulateODE Double Double Double
+  | DumpPNC
+  | DescribeInterface
+  | SimulateODE Double Double Double -- ^ Start, step, end
   | FitModel [Text] (Map Text Double)
   | ComputeError
   | ShowGromet ShowGromet
@@ -38,6 +40,7 @@ data Options = Options
   , dataFiles :: [FilePath]
   , deqFiles :: [FilePath]
   , rnetFiles :: [FilePath]
+  , pncFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
@@ -53,6 +56,7 @@ options = OptSpec
         , modelFiles = []
         , dataFiles = []
         , deqFiles = []
+        , pncFiles = []
         , rnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
@@ -81,9 +85,17 @@ options = OptSpec
         "Convert to GroMEt"
         $ NoArg \s -> Right s { command = ShowGromet JSON }
 
+      , Option [] ["dump-pnc-gromet"]
+         "Parse a Petri Net Classic Gromet and print it"
+        $ NoArg \s -> Right s { command = DumpPNC }
+
       , Option [] ["to-pp-gromet"]
         "Convert to human readable GroMEt"
         $ NoArg \s -> Right s { command = ShowGromet PP }
+
+      , Option [] ["describe-interface"]
+        "Desribe the interface of a model in JSON"
+        $ NoArg \s -> Right s { command = DescribeInterface }
 
       , Option [] ["to-deq"]
         "Convert to differental equations"
@@ -144,6 +156,12 @@ options = OptSpec
         "Use this reaction network"
         $ ReqArg "FILE" \a s -> Right s { rnetFiles = a : rnetFiles s}
 
+      , Option [] ["pnc"]
+        "Use this Petri Net Classic"
+        $ ReqArg "FILE" \a s -> Right s { pncFiles = a : pncFiles s}
+
+
+
       , Option ['o'] ["output"]
         "Use this output file"
         $ ReqArg "FILE" \a s -> case outFile s of
@@ -177,8 +195,9 @@ parseScale xs =
 
 parseOverwrite :: String -> Either String (Text,Double)
 parseOverwrite xs =
-  case break (==':') xs of
-    (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
+  case break (==':') (reverse xs) of
+    (as,_:bs)
+      | [(d,"")] <- reads (reverse as) -> Right (Text.pack (reverse bs), d)
     _ -> Left "Invalid overwite, format is NAME:DOUBLE"
 
 

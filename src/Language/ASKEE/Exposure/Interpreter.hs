@@ -13,8 +13,9 @@ import Data.Map(Map)
 import Data.Maybe(isJust)
 import Data.Text(Text)
 import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 import qualified Language.ASKEE.Model as Model
-import qualified Language.ASKEE.ModelType as MT
+import qualified Language.ASKEE.Model.Basics as MB
 import Language.ASKEE.Exposure.Syntax
 import Data.Set(Set)
 import qualified Data.Set as Set
@@ -212,8 +213,8 @@ interpretCall fun args =
         [VString path] ->
           do  eitherVal <-
                 liftIO $
-                  do  src <- readFile (Text.unpack path)
-                      let m = Model.parseModel MT.EaselType src >>= Model.toCore
+                  do  src <- Text.readFile (Text.unpack path)
+                      let m = Model.parseModel MB.EaselType src >>= Model.toCore
                       pure (VModelExpr . EVal . VModel <$> m)
               case eitherVal of
                 Left err -> throw (Text.pack err)
