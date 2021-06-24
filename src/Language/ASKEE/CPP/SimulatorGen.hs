@@ -108,12 +108,15 @@ genExecStep mdl =
 
 genNextStep :: [Core.Event] -> C.Doc
 genNextStep evts =
-  C.function C.void nextEventFunctionName [ C.refArg C.int    "nextEvent"
+  C.function C.bool nextEventFunctionName [ C.refArg C.int    "nextEvent"
                                           , C.refArg C.double "nextTime" ]
   $ [ C.declareInit C.double (effRateName evt) (effRateExpr evt)
                                                           | evt <- evts ] ++
 
     [ C.declareInit C.double "total_rate" (foldr1 (C.+) (effRateName <$> evts))
+    , C.ifThen 
+      ("total_rate" C.== C.doubleLit 0) 
+      [ C.returnWith (C.boolLit False) ]
     , C.declareInit C.auto "rate_dist"
         (C.callCon "std::uniform_real_distribution<double>"
                                                       [ "0.0", "total_rate" ])
@@ -125,14 +128,15 @@ genNextStep evts =
 
     , C.assign "nextTime" (timeName C.+ C.call "dt_dist" [rngName])
     ] ++
-    concatMap runEffectCondStmt evts
+    concatMap runEffectCondStmt evts ++
+    [ C.returnWith (C.boolLit False) ]
 
   where
   runEffectCondStmt evt =
     [ "random" C.-= effRateName evt
     , C.ifThen ("random" C.<= "0.0")
         [ C.assign "nextEvent" (C.intLit (eventNum evts (Core.eventName evt)))
-        , C.return
+        , C.returnWith (C.boolLit True)
         ]
     ]
 
@@ -275,33 +279,52 @@ genDriver ::
   Double {- ^ time step -} -> 
   C.Doc
 genDriver model start stop step = C.main
-  [ C.declare (modelClassName model) "model"
-  , C.declareInit C.double "start" (C.doubleLit start)
-  , C.declareInit C.double "stop" (C.doubleLit stop)
-  , C.declareInit C.double "step" (C.doubleLit step)
-  , C.declare (C.ident "std::vector" <> C.typeArgList [C.double]) "times"
-  , C.for 
-    (C.declareInit' C.double "time" "start") 
-    ("time" C.< "stop") 
-    "time += step" 
-    [ C.stmt $ C.call (C.member "times" "push_back") ["time"] ]
-  , C.declare C.int next_event
-  , C.declareInit C.double next_time (C.doubleLit 0)
+  [ C.declare (modelClassName model) cModel
+  , C.declareInit C.double cStart (C.doubleLit start)
+  , C.declareInit C.double cStop (C.doubleLit stop)
+  , C.declareInit C.double cStep (C.doubleLit step)
+  , C.declare C.int cModelEvent
+  , C.declareInit C.double cModelTime (C.doubleLit 0)
+  , C.declareInit C.double cTargetTime (cStart C.+ "step")
+  , C.declareInit C.bool cEventSelected (C.boolLit True)
   , cout "\"[\""
-  , C.for 
-    (C.declareInit' C.int "i" (C.doubleLit 0)) 
-    ("i" C.< C.call (C.member "times" "size") []) 
-    "i++"
-    [ C.while (next_time C.< C.subscript "times" "i") 
-      [ C.stmt $ C.call (C.member "model" "next_event") [ next_event, next_time ]
-      , C.stmt $ C.call (C.member "model" "run_event") [ next_event, next_time ]
+
+  , C.while (cModelTime C.< cStart)
+    [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
+    , C.ifThenElse 
+      cEventSelected 
+      [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
+      [ cout "\"]\""
+      , C.returnWith (C.intLit 0) 
       ]
-    , C.stmt $ C.call (C.member "model" "print") []
-    , C.ifThen ("i" C.< (C.call (C.member "times" "size") [] C.- C.doubleLit 1)) [cout "\",\""]
+    ]
+
+  , printModelState
+
+  , C.while (cTargetTime C.< cStop C.&& cModelTime C.< cStop)
+    [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
+    , C.ifThenElse 
+      cEventSelected 
+      [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
+      [ C.break ]
+    , C.ifThenElse 
+      (cModelTime C.< cTargetTime)
+      [ C.continue ]
+      [ cout "\",\""
+      , printModelState
+      , C.assign cTargetTime (cTargetTime C.+ cStep)
+      ]
     ]
   , cout "\"]\""
   ]
   where
     cout s = C.stmt ("std::cout" C.<< s)
-    next_event = C.ident "next_event"
-    next_time = C.ident "next_time"
+    cModel = C.ident "model"
+    cStart = C.ident "start"
+    cStop = C.ident "stop"
+    cStep = C.ident "step"
+    cModelEvent = C.ident "modelEvent"
+    cModelTime = C.ident "modelTime"
+    cTargetTime = C.ident "targetTime"
+    cEventSelected = C.ident "eventSelected"
+    printModelState = C.stmt (C.call (C.member cModel "print") [])

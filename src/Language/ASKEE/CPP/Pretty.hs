@@ -243,6 +243,9 @@ for c1 c2 c3 =
 break :: Doc
 break = stmt "break"
 
+continue :: Doc
+continue = stmt "continue"
+
 return :: Doc
 return = stmt "return"
 
