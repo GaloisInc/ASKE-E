@@ -32,6 +32,7 @@ library
                         Language.ASKEE.Core.Expr
                         Language.ASKEE.Core.Print
                         Language.ASKEE.Core.Syntax
+                        Language.ASKEE.Core.Interface
                         Language.ASKEE.Core.Visualization
 
                         Language.ASKEE.CPP
@@ -52,7 +53,6 @@ library
                         Language.ASKEE.ESL.Convert
                         Language.ASKEE.ESL.GenLexer
                         Language.ASKEE.ESL.GenParser
-                        Language.ASKEE.ESL.Interface
                         Language.ASKEE.ESL.Lexer
                         Language.ASKEE.ESL.Print
                         Language.ASKEE.ESL.Syntax
@@ -86,10 +86,12 @@ library
                         Language.ASKEE.AlgebraicJulia.Syntax
                         Language.ASKEE.AlgebraicJulia.Topology
 
+                        Language.ASKEE.RNet
                         Language.ASKEE.RNet.GenLexer
                         Language.ASKEE.RNet.GenParser
                         Language.ASKEE.RNet.Lexer
                         Language.ASKEE.RNet.Reaction
+                        Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
 
                         -- General
@@ -101,7 +103,8 @@ library
                         Language.ASKEE.Graph
                         Language.ASKEE.Metadata
                         Language.ASKEE.Model
-                        Language.ASKEE.ModelType
+                        Language.ASKEE.Model.Interface
+                        Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
                         Language.ASKEE.Storage
 

@@ -15,6 +15,7 @@ module Language.ASKEE
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
+  , loadModel
   
   , checkModel
   , checkModel'
@@ -27,7 +28,6 @@ module Language.ASKEE
   , fitModelToData
   , Core.asSchematicGraph
   , convertModelString
-  , ESL.describeModelInterface
 
   , gnuPlotScript
   , dataSeriesAsCSV
@@ -37,7 +37,7 @@ module Language.ASKEE
   , initStorage
   , listAllModels
   , listAllModelsWithMetadata
-  , loadModel
+  , loadModelText
   , storeModel
 
   , describeModelType
@@ -50,17 +50,26 @@ module Language.ASKEE
   , ModelType(..)
   , Stratify.StratificationInfo(..)
   , Stratify.StratificationType(..)
+
+
+    -- * Model Interface
+  , ModelInterface(..)
+  , Port(..)
+  , describeModelInterface
   ) where
 
 import Control.Exception ( try, SomeException(..) )
 import Control.Monad     ( forM )
 
 import           Data.Aeson                 ( decode )
-import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.ByteString.Lazy.Char8 as LBS8
+import qualified Data.ByteString.Builder    as Builder
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
+import qualified Data.Text.IO               as Text
+import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.CPP.Pretty             ( Doc )
@@ -86,20 +95,27 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPrt
                                                        , toGrometFnet
                                                        , Model (..) )
-import           Language.ASKEE.ModelType              ( ModelType(..), describeModelType )
+import           Language.ASKEE.Model.Basics           ( ModelType(..)
+                                                       , describeModelType )
+import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
+                                                       , Port(..)
+                                                       , emptyModelInterface
+                                                       )
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
 import qualified Language.ASKEE.CPP                     as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
-                                                       , loadModel
+                                                       , loadModelText
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 import qualified Language.ASKEE.Storage                as Storage
 
-import System.Process ( readProcessWithExitCode )
-import System.Exit    ( ExitCode(..) )
+loadModel :: ModelType -> DataSource -> IO Model
+loadModel format source =
+  do modelString <- loadModelText format source
+     throwLeft ParseError (parseModel format modelString)
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -109,8 +125,7 @@ loadESL = loadESLFrom EaselType
 
 loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
 loadESLFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       esl <- throwLeft ConversionError (toEasel model)
       _ <- throwLeft ValidationError (ESL.checkModel esl)
       pure esl
@@ -123,8 +138,7 @@ loadCore = loadCoreFrom EaselType
 
 loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
 loadCoreFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toCore model)
 
 -------------------------------------------------------------------------------
@@ -135,8 +149,7 @@ loadDiffEqs = loadDiffEqsFrom DeqType
 
 loadDiffEqsFrom :: ModelType -> DataSource -> IO DEQ.DiffEqs
 loadDiffEqsFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toDeqs model)
 
 -------------------------------------------------------------------------------
@@ -147,17 +160,17 @@ loadGrometPrt = loadGrometPrtFrom GrometPrtType
 
 loadGrometPrtFrom :: ModelType -> DataSource -> IO Gromet
 loadGrometPrtFrom format source =
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+  do  model <- loadModel format source
       throwLeft ConversionError (toGrometPrt model)
 
+-------------------------------------------------------------------------------
+-- Data
 loadGrometPnc :: DataSource -> IO PetriNetClassic
 loadGrometPnc = loadGrometPncFrom GrometPncType 
 
 loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
-loadGrometPncFrom format source = 
-  do  modelString <- loadModel format source
-      model <- throwLeft ParseError (parseModel format modelString)
+loadGrometPncFrom format source =
+  do  model <- loadModel format source
       throwLeft ConversionError (toGrometPnc model)
 
 -------------------------------------------------------------------------------
@@ -209,33 +222,19 @@ loadCPPFrom format source =
 -- Storage
 
 storeModel :: ModelType -> Text -> Text -> IO ModelDef
-storeModel mt =
-  case mt of
-    EaselType -> storeESL
-    DeqType -> storeDEQ
-    GrometPrtType -> storeGrometPrt
-    _ -> \_ _ -> die (StorageError $ "don't know how to store model type "<>show mt)
+storeModel mt name modelText =
+  do checkModel mt modelText
+     Storage.storeModel name mt modelText
+     pure ModelDef { modelDefSource = FromStore name
+                   , modelDefType   = mt
+                   }
 
-storeESL :: Text -> Text -> IO ModelDef
-storeESL name model = 
-  do  loc <- Storage.storeModel name EaselType checkESL model
-      pure $ ModelDef (FromFile loc) EaselType
-
-storeDEQ :: Text -> Text -> IO ModelDef
-storeDEQ name model =
-  do  loc <- Storage.storeModel name DeqType checkDEQ model
-      pure $ ModelDef (FromFile loc) DeqType
-
-storeGrometPrt :: Text -> Text -> IO ModelDef
-storeGrometPrt name model =
-  do  loc <- Storage.storeModel name GrometPrtType checkGrometPrt model
-      pure $ ModelDef (FromFile loc) GrometPrtType
 
 -------------------------------------------------------------------------------
 -- Validation
 
 checkModel' :: ModelType -> Text -> IO (Maybe String)
-checkModel' format source = 
+checkModel' format source =
   do  res <- try (checkModel format source)
       case res of
         Left err -> pure $ Just (show (err :: SomeException))
@@ -247,25 +246,28 @@ checkModel mt =
     EaselType -> checkESL
     DeqType -> checkDEQ
     GrometPrtType -> checkGrometPrt
-    _ -> \_ -> die (StorageError $ "don't know how to check model type "<>show mt)
+    _ -> \_ -> pure ()  -- We don't know how to validate this
 
 checkESL :: Text -> IO ()
 checkESL t =
-  do  Easel esl <- throwLeft ParseError (parseModel EaselType (Text.unpack t))
+  do  Easel esl <- throwLeft ParseError (parseModel EaselType t)
       _ <- throwLeft ValidationError (ESL.checkModel esl)
       pure ()
 
 checkDEQ :: Text -> IO ()
 checkDEQ t =
-  do  Deq _ <- throwLeft ParseError (parseModel DeqType (Text.unpack t))
+  do  Deq _ <- throwLeft ParseError (parseModel DeqType t)
       pure ()
 
+-- XXX: not validated for the moment.
 checkGrometPrt :: Text -> IO ()
-checkGrometPrt t =
+checkGrometPrt _ = pure ()
+{-
   do  (code, _out, _err) <- readProcessWithExitCode "jq" [] (Text.unpack t)
       case code of
         ExitSuccess -> pure ()
         ExitFailure _ -> die (ValidationError "invalid gromet")
+-}
 
 
 
@@ -283,7 +285,7 @@ stratifyModel format source connectionGraph statesJSON stratificationType =
       (connGraph, vertexNamer) <- throwLeft ParseError (GG.asConnGraph connectionGraph)
       let vertexMap = Map.map Text.pack (GG.asMap connGraph vertexNamer)
       states <- 
-        case decode . B.pack <$> statesJSON of 
+        case decode . LBS8.pack <$> statesJSON of 
           Just (Just s) -> pure $ Just s
           Just Nothing -> die (ParseError "invalid states JSON")
           Nothing -> pure Nothing
@@ -301,13 +303,14 @@ fitModelToData ::
   -- IO (Map Text (Double, Double))
 fitModelToData format fitData fitParams fitScale source = 
   do  eqs <- loadDiffEqsFrom format source
-      rawData <- 
+      rawData <-
         case fitData of
           Inline s -> pure s
-          FromFile f -> Text.pack <$> readFile f
-      dataSeries <- throwLeft DataSeriesError (parseDataSeries (B.pack $ Text.unpack rawData))
-      pure $ DEQ.fitModel eqs dataSeries fitScale (Map.fromList (zip fitParams (repeat 0)))
-      
+          FromFile f -> Text.readFile f
+      let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
+      dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
+      pure $ DEQ.fitModel eqs dataSeries fitScale
+           $ Map.fromList (zip fitParams (repeat 0))
 
 simulateModelGSL :: 
   ModelType -> 
@@ -346,11 +349,12 @@ simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
       AJ.simulate pnc start stop step parameters
 
-convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString ::
+  ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
-  do  modelString <- loadModel srcTy src
-      let model = parseModel srcTy modelString
-      pure 
+  do  bytes <- loadModelText srcTy src
+      let model = parseModel srcTy bytes
+      pure
         case destTy of
           EaselType -> model >>= toEasel >>= (printModel . Easel)
           DeqType -> model >>= toDeqs >>= (printModel . Deq)
@@ -360,6 +364,9 @@ convertModelString srcTy src destTy =
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
+          RNetType  -> Left "Don't know how to convert to RNet yet"
+
+
           
 listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
 listAllModelsWithMetadata =
@@ -371,3 +378,15 @@ listAllModelsWithMetadata =
             do  ESL.Model{..} <- loadESL modelDefSource
                 pure $ MetaAnn { metaData = meta modelName, metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
+
+
+--------------------------------------------------------------------------------
+
+describeModelInterface :: Model -> ModelInterface
+describeModelInterface model =
+  case toCore model of
+    Right core -> Core.modelInterface core
+    Left {} -> emptyModelInterface -- XXX: FN
+
+
+

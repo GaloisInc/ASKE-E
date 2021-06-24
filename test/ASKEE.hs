@@ -82,6 +82,7 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
       where
         modelInitState = Map.fromList [xInit, yInit]
         modelEvents = [event "E1" [xSub1, yAdd1]]
+        modelMeta = mempty
 
     -- Two events named E1 subtract from X and add to Y
     stateToStateWithDupsGraph = stateToStateGraph
@@ -89,6 +90,7 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
       where
         modelInitState = Map.fromList [xInit, yInit]
         modelEvents = replicate 2 (event "E1" [xSub1, yAdd1])
+        modelMeta = mempty
 
     -- E1 subtracts from X
     stateToEventGraph = Viz.Graph [(xNode, e1Node)]
@@ -96,6 +98,7 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
       where
         modelInitState = Map.fromList [xInit]
         modelEvents = [event "E1" [xSub1]]
+        modelMeta = mempty
 
     -- E1 adds to Y
     eventToStateGraph = Viz.Graph [(e1Node, yNode)]
@@ -103,6 +106,7 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
       where
         modelInitState = Map.fromList [yInit]
         modelEvents = [event "E1" [yAdd1]]
+        modelMeta = mempty
 
     -- E1 adds to X, E2 subtracts from X
     eventToEventGraph = Viz.Graph [(e1Node, xNode), (xNode, e2Node)]
@@ -111,6 +115,7 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
         modelInitState = Map.fromList [xInit]
         modelEvents = [ event "E1" [xAdd1]
                       , event "E2" [xSub1]]
+        modelMeta = mempty
 
     -- No actions
     noneToNoneGraph = Viz.Graph []
@@ -118,14 +123,15 @@ s2s, s2e, e2s, e2e, n2n, s2sd :: (Core.Model, Viz.Graph)
       where
         modelInitState = mempty
         modelEvents = mempty
-    
+        modelMeta = mempty
+
     -- Common parameters
     modelName = "foo"
     modelParams = mempty
     modelLets = mempty
 
     -- Schematic graphs don't care about event rates and enabling predicates
-    event name eff = 
+    event name eff =
       Core.Event
         { Core.eventName = name
         , Core.eventRate = CExp.NumLit 0
