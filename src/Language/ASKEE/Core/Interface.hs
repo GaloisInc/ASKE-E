@@ -23,7 +23,7 @@ modelInterface model = ModelInterface
   meta x = Map.findWithDefault Map.empty x (modelMeta model)
 
   (params, stateLets) = orderLets model
-  paramDef = computeDefaults (modelParams model) params
+  paramDef = computeDefaults [p | (p, Nothing) <- Map.toList $ modelParams model] params
 
   toParam (x,mb) = Port
     { portName      = x
