@@ -48,7 +48,7 @@ convertCoreToGromet m =
 convertModel :: Core.Model -> GrometGen BoxUid
 convertModel model =
   do uid <- newBoxUid
-     paramPorts <- forM (Core.modelParams model) \paramName ->
+     paramPorts <- forM (Map.keys $ Core.modelParams model) \paramName ->
         do puid <- newPortUid
            let p = Port { portUid       = puid
                         , portBox       = uid

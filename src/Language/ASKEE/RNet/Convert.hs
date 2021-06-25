@@ -1,4 +1,5 @@
 {-# Language OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 module Language.ASKEE.RNet.Convert (rnetToCore) where
 
 import Data.Text(Text)
@@ -17,7 +18,7 @@ rnetToCore :: Src.ReactionNet -> Model
 rnetToCore rn = Model
   { modelName   = "reaction-net"    -- XXX: maybe  these should have a name?
 
-  , modelParams = map initName params
+  , modelParams = Map.fromList (map ((,Nothing) . initName) params)
 
   , modelInitState =
     Map.fromList [ (x, Var (initName x)) | x <- Set.toList states ]

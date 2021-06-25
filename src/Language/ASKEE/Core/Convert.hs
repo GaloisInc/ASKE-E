@@ -15,7 +15,7 @@ import           Language.ASKEE.DEQ.Syntax        ( DiffEqs(..) )
 
 asDiffEqs :: Model -> DiffEqs
 asDiffEqs mdl =
-  DiffEqs { deqParams  = modelParams mdl
+  DiffEqs { deqParams  = Map.keys (modelParams mdl)
           , deqInitial = modelInitState mdl
           , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
           , deqLets    = modelLets mdl

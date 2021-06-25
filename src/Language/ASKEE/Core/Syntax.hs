@@ -13,7 +13,7 @@ import Language.ASKEE.Core.Expr
 
 data Model =
   Model { modelName      :: Text
-        , modelParams    :: [Ident]
+        , modelParams    :: Map Ident (Maybe Expr)
         , modelInitState :: Map Ident Expr
         , modelEvents    :: [Event]
         , modelLets      :: Map Ident Expr
@@ -81,8 +81,8 @@ inlineLets model = model { modelEvents = map substEvent (modelEvents model)
 applyParams' :: Map Ident Expr -> Model -> Model
 applyParams' su = dropParams . mapExprs (substExpr su)
   where
-  dropParams m = m { modelParams = [ x | x <- modelParams m
-                                       , not (x `Set.member` pSet) ] }
+  dropParams m = m
+    { modelParams = Map.filterWithKey (\p _ -> not (p `Set.member` pSet)) (modelParams m) }
   pSet = Map.keysSet su
 
 

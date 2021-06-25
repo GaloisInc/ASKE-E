@@ -23,7 +23,7 @@ modelAsCore mdl =
   modelNoInit =
     mapExprs simplifyExpr $
     Model { modelName      = Src.modelName mdl
-          , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
+          , modelParams    = Map.map (fmap NumLit) (Map.fromList $ Src.parameterDecls decls)
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
           , modelLets      =
             Map.fromList $

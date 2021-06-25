@@ -134,7 +134,7 @@ pnToCore :: PetriNet -> Core.Model
 pnToCore pn =
   Core.Model
     { modelName      = pnName pn
-    , modelParams    = sParams ++ rParams
+    , modelParams    = Map.fromList (sParams ++ rParams)
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
     , modelLets      = Map.fromList
@@ -155,8 +155,8 @@ pnToCore pn =
   rateName (JunctionUid x) = x <> "_rate"
   jToName  (JunctionUid x) = x
 
-  sParams = [ x | (x,Nothing) <- zip sParamLets sLets ]
-  rParams = [ x | (x,Nothing) <- zip rParamLets rLets ]
+  sParams = [ (x,e) | (x,e) <- zip sParamLets sLets ]
+  rParams = [ (x,e) | (x,e) <- zip rParamLets rLets ]
 
   (sParamLets,sLets,spMeta) =
     unzip3 [ (uid, def,theMeta)

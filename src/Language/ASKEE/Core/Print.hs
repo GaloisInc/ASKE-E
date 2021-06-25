@@ -22,7 +22,7 @@ ppModel :: Model ->  Doc
 ppModel m =
   section
     ("model" <+> pretty (modelName m)) $
-      [ "param" <+> pretty x | x <- modelParams m ] ++
+      [ "param" <+> pretty x | (x,_) <- Map.toList $ modelParams m ] ++
 
       [ "let" <+> pretty x <+> "=" <+> ppExpr e
       | (x,e) <- Map.toList (modelLets m)
