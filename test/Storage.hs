@@ -60,7 +60,7 @@ testStoreModel = temp \dir ->
 testStoreDotDotModel :: Assertion
 testStoreDotDotModel = temp \dir ->
   do  Storage.initStorage dir
-      path <- try $ Storage.storeModel' dir "sir.easel" EaselType sir
+      path <- try $ Storage.storeModel' dir "sir..easel" EaselType sir
       case path of
         Left (_ :: SomeException) -> pure ()
         Right _ -> assertFailure "Successfully stored an illegally-named model"
