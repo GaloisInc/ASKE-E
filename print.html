@@ -286,9 +286,9 @@ for the ASKE-E program.</p>
 <p>The provided examples reflect this schema.</p>
 <h2 id="types"><a class="header" href="#types">Types</a></h2>
 <h3 id="datasource"><a class="header" href="#datasource"><code>datasource</code></a></h3>
-<p>A <code>datasource</code> is either an object with the single field <code>file</code> with :</p>
+<p>A <code>datasource</code> is either an object with the single field <code>model</code> with :</p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>file</td><td>string</td><td>Filename to use as a data source</td></tr>
+<tr><td>model</td><td>string</td><td>Filename to use as a data source</td></tr>
 </tbody></table>
 <p>Example:</p>
 <pre><code class="language-JSON">{ &quot;model&quot;: &quot;model.gromet&quot; }
@@ -297,7 +297,7 @@ for the ASKE-E program.</p>
 <pre><code class="language-JSON">&quot;model SIR:\n  let beta = 0.4\n  let gamma = 0.04\n  let s_initial = 997...&quot;
 </code></pre>
 <h3 id="model-def"><a class="header" href="#model-def"><code>model-def</code></a></h3>
-<p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eqs</code>, <code>core</code>, and <code>gromet-prt</code>.</p>
+<p>A model def is a <code>datasource</code> along with a model type.  Valid model types are <code>easel</code>, <code>diff-eqs</code>, <code>core</code>, <code>gromet-pnc</code>, and <code>gromet-prt</code>.</p>
 <p>Example:</p>
 <pre><code>{
   &quot;source&quot;: { &quot;model&quot;: &quot;sir.easel&quot; },
@@ -697,10 +697,10 @@ for the ASKE-E program.</p>
 <tr><td>parameters</td><td>list of parameter</td><td>Something that can be tweaked</td></tr>
 </tbody></table>
 <p>Both <code>measures</code> and <code>parameters</code> are lists of objects, where each object has
-a <code>uid</code>, <code>value_type</code> and a <code>metadata</code> field. In addition, parameters may have
-a <code>defaultValue</code> field.</p>
-<p>The <code>metdata</code> is an object with variable fields, but some of interest
-<code>Description</code>, <code>name</code>, and <code>group</code>.  In particular, <code>group</code> may be used
+<code>uid</code>, <code>value_type</code> and <code>metadata</code> fields. In addition, parameters may have
+a <code>default</code> field.</p>
+<p>The <code>metadata</code> is an object with variable fields, but some of interest
+are <code>description</code>, <code>name</code>, and <code>group</code>.  In particular, <code>group</code> may be used
 as a hint to group related parameters.</p>
 <p><strong>Response:</strong></p>
 <pre><code class="language-JSON">{
