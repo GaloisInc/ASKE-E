@@ -133,6 +133,9 @@ handleRequest r =
       do  model <- loadModel modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
+
+    QueryModels QueryModelsCommand {..} ->
+      succeed <$> queryModels queryParameters 
   
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result

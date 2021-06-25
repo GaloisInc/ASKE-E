@@ -38,6 +38,7 @@ data Input =
   | GetModelSource GetModelSourceCommand
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
+  | QueryModels QueryModelsCommand
     deriving Show
 
 instance HasSpec Input where
@@ -53,6 +54,7 @@ instance HasSpec Input where
          <!> (GetModelSource <$> anySpec)
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
+         <!> (QueryModels <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -424,3 +426,18 @@ instance HasSpec DescribeModelInterfaceCommand where
         describeModelInterfaceSource  <- reqSection' "definition" modelDef "Specification of the model"
 
         pure DescribeModelInterfaceCommand { .. }
+
+---------------------------------------------------------------------------
+-- Query
+
+newtype QueryModelsCommand = QueryModelsCommand
+  { queryParameters :: [(Text, Text)] }
+  deriving Show
+
+instance HasSpec QueryModelsCommand where
+  anySpec =
+    sectionsSpec "query-models"
+    do  reqSection' "command" (jsAtom "query-models") "Query available models"
+        queryParameters <- reqSection' "query" (assocSpec anySpec) 
+                           "Query parameters expressed a set of key-value pairs"
+        pure QueryModelsCommand { .. }
