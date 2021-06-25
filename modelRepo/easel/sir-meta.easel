@@ -1,5 +1,5 @@
 [-- Description: A simple Susceptible/Infected/Removed model. --]
-model SIR:
+model SIR_MetaParam:
   [-- Description: The average number of contacts per person per time, multiplied by the probability of disease transmission in a contact between a susceptible and an infectious subject --]
   parameter beta = 0.4
 

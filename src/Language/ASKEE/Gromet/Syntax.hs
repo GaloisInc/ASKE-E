@@ -1,24 +1,21 @@
 {-# Language OverloadedStrings #-}
 {-# Language BlockArguments #-}
-module Language.ASKEE.Gromet.Syntax where
+module Language.ASKEE.Gromet.Syntax
+  ( module Language.ASKEE.Gromet.Syntax
+  , BoxUid(..)
+  , WireUid(..)
+  , PortUid(..)
+  , JunctionUid(..)
+  , ValueType(..)
+  , Literal(..)
+  ) where
 
 import Data.Text(Text)
 import qualified Data.Aeson as JSON
 import Data.Aeson((.=))
 
-type Uid = Text
+import Language.ASKEE.Gromet.Common
 
-newtype PortUid = PortUid Uid
-  deriving (Show, Eq, Ord)
-
-newtype BoxUid = BoxUid Uid
-  deriving (Show, Eq, Ord)
-
-newtype WireUid = WireUid Uid
-  deriving (Show, Eq, Ord)
-
-newtype JunctionId = JunctionId Uid
-  deriving (Show, Eq, Ord)
 
 data Gromet =
   Gromet { grometName  :: Text
@@ -30,7 +27,7 @@ data Gromet =
          } deriving (Show,Eq)
 
 data Junction =
-  Junction { jUID       :: JunctionId
+  Junction { jUID       :: JunctionUid
            , jName      :: Text
            , jValueType :: ValueType
            } deriving (Show,Eq)
@@ -50,11 +47,6 @@ data PortType =
   | OutputPort        -- ^ Generic output port
     deriving (Show,Eq)
 
-data ValueType =
-    Bool
-  | Real
-    deriving (Show,Eq)
-
 data Wire = Wire
   { wireUid       :: WireUid
   , wireType      :: WireType
@@ -69,13 +61,13 @@ data WireType =
   | Undirected
   deriving (Show,Eq)
 
-data WirePort = JPort JunctionId | PPort PortUid
+data WirePort = JPort JunctionUid | PPort PortUid
   deriving (Show,Eq)
 
 
 data Arg =
     ArgPort PortUid
-  | ArgLiteral Text ValueType -- value, type
+  | ArgLiteral Literal
   | ArgCall Text [Arg]        -- operator, arguments
   deriving(Show, Eq)
 
@@ -86,7 +78,7 @@ data Box = Box
   , boxPorts  :: [PortUid]  -- ports
   , boxBoxes  :: [BoxUid]   -- nested boxed
   , boxWires  :: [WireUid]  -- connections betweed ports and nested boxes
-  , boxJuncitons :: [JunctionId]
+  , boxJuncitons :: [JunctionUid]
   } deriving(Show, Eq)
 
 data BoxSyntax =
@@ -107,10 +99,6 @@ data BoxRelType =
 ---------------------------------------------------------------------
 -- JSON
 
--- | Helper to resolve overloaded string
-jsText :: Text -> JSON.Value
-jsText = JSON.toJSON
-
 instance JSON.ToJSON Gromet where
   toJSON g =
     JSON.object [ "syntax"    .= jsText "Gromet"
@@ -129,7 +117,7 @@ instance JSON.ToJSON Junction where
   toJSON j =
     JSON.object [ "syntax"     .= jsText "Junction"
                 , "uid"        .= jUID j
-                , "type"       .= jsText "T:State"   -- are there any others?
+                , "type"       .= jsText "State"   -- are there any others?
                 , "value_type" .= jValueType j
                 ]
 
@@ -176,32 +164,14 @@ instance JSON.ToJSON Box where
 
 
 
-instance JSON.ToJSON ValueType where
-  toJSON ty =
-    case ty of
-      Real -> "T:Real"
-      Bool -> "T:Boolean"
-
 instance JSON.ToJSON BoxRelType where
   toJSON ty =
     case ty of
-      EnableRel -> "T:Enable"
-      EventRel  -> "T:Event"
-      RateRel   -> "T:Rate"
-      EffectRel -> "T:Effect"
+      EnableRel -> "Enable"
+      EventRel  -> "Event"
+      RateRel   -> "Rate"
+      EffectRel -> "Effect"
       PrTNet    -> "PrTNet"   -- for some reason this has no T: at the front?
-
-instance JSON.ToJSON PortUid where
-  toJSON (PortUid uid) = JSON.toJSON ("P:" <> uid)
-
-instance JSON.ToJSON WireUid where
-  toJSON (WireUid uid) = JSON.toJSON ("W:" <> uid)
-
-instance JSON.ToJSON BoxUid where
-  toJSON (BoxUid uid) = JSON.toJSON ("B:" <> uid)
-
-instance JSON.ToJSON JunctionId where
-  toJSON (JunctionId uid) = JSON.toJSON ("J:" <> uid)
 
 instance JSON.ToJSON WirePort where
   toJSON p =
@@ -212,24 +182,20 @@ instance JSON.ToJSON WirePort where
 instance JSON.ToJSON PortType where
   toJSON pt =
     case pt of
-      ParameterPort  -> "T:Parameter"
-      InputPort      -> "T:Input"
-      OutputPort     -> "T:Output"
+      ParameterPort  -> "Parameter"
+      InputPort      -> "Input"
+      OutputPort     -> "Output"
 
 instance JSON.ToJSON WireType where
   toJSON wt =
     case wt of
-      Directed   -> "T:Directed"
-      Undirected -> "T:Undirected"
+      Directed   -> "Directed"
+      Undirected -> "Undirected"
 
 instance JSON.ToJSON Arg where
   toJSON a =
     case a of
-      ArgLiteral val ty ->
-        JSON.object [ "type" .= ty
-                    , "value" .= val
-                    , "metadata" .= JSON.Null
-                    ]
+      ArgLiteral l -> JSON.toJSON l
       ArgPort (PortUid p) -> JSON.String p
       ArgCall op args ->
         JSON.object [ "syntax" .= jsText "Expr"

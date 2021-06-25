@@ -1,7 +1,12 @@
+{-# Language OverloadedStrings #-}
 module Language.ASKEE.ESL.Convert where
 
+import Data.Text(Text)
+import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe(catMaybes)
 
+import           Language.ASKEE.Metadata
 import           Language.ASKEE.Core.Expr
 import           Language.ASKEE.Core.Syntax ( Event(..), Model(..) )
 import qualified Language.ASKEE.ESL.Syntax  as Src
@@ -21,15 +26,44 @@ modelAsCore mdl =
     Model { modelName      = metaValue $ Src.modelName mdl
           , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
-          , modelLets      = 
+          , modelLets      =
             Map.fromList $
               [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ] ++
               [ (x, expAsCore (Src.LitD d)) | (x,Just d) <- Src.parameterDecls decls ]
           , modelInitState = Map.empty
+          , modelMeta = extractMeta mdl
           }
 
+  -- XXX: we should not substitute the lets here if we want to be able to
+  -- overwrite the variables...
   initState (n,e) =
     (n, simplifyExpr (substExpr (modelLets modelNoInit) (expAsCore e)))
+
+
+extractMeta :: Src.Model -> Map Ident (Map Text [Text])
+extractMeta model =
+  Map.fromList
+    $ catMaybes $ map declMeta  (Src.modelDecls model) ++
+                  map eventMeta (Src.modelEvents model)
+  where
+  meta xs = Map.fromListWith (++) [ (k,[v]) | (k,v) <- xs ]
+
+  addName x = ("name",x)
+
+  declMeta d =
+    case metaValue d of
+      Src.Let   x _     -> Just (x, meta (addName x : metaData d))
+      Src.State x _     -> Just (x, meta (addName x : metaData d))
+      Src.Parameter x _ -> Just (x, meta (addName x : metaData d))
+      Src.Assert _      -> Nothing
+
+  -- XXX
+  eventMeta ev =
+    do v <- Src.eventMetadata ev
+       pure (Src.eventName ev, meta [ addName (Src.eventName ev)
+                                    , ("description",v)])
+
+
 
 
 eventAsCore :: Src.Event -> Event

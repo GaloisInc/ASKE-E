@@ -1,4 +1,4 @@
-model SIR_VD:
+model SIR_VitalDynamics:
   let beta = 0.4
   let gamma = 0.04
 

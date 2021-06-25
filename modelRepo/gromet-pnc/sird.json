@@ -1,0 +1,197 @@
+{
+  "junctions": [
+    {
+      "value_type": "Integer",
+      "name": "S",
+      "uid": "J:S",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "I",
+      "uid": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "R",
+      "uid": "J:R",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "D",
+      "uid": "J:D",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "inf",
+      "uid": "J:inf",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "rec",
+      "uid": "J:rec",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "death",
+      "uid": "J:death",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    }
+  ],
+  "root": "B:SimpleSIRD",
+  "wires": [
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:I.inf",
+      "src": "J:I",
+      "tgt": "J:inf",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:S.inf",
+      "src": "J:S",
+      "tgt": "J:inf",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:I.rec",
+      "src": "J:I",
+      "tgt": "J:rec",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:I.death",
+      "src": "J:I",
+      "tgt": "J:death",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:inf.I",
+      "src": "J:inf",
+      "tgt": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:inf.I_0",
+      "src": "J:inf",
+      "tgt": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:rec.R",
+      "src": "J:rec",
+      "tgt": "J:R",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:death.D",
+      "src": "J:death",
+      "tgt": "J:D",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    }
+  ],
+  "types": null,
+  "name": "SimpleSIRD",
+  "variables": null,
+  "literals": null,
+  "uid": "SimpleSIRDPetriNetClassic",
+  "boxes": [
+    {
+      "junctions": [
+        "J:S",
+        "J:I",
+        "J:R",
+        "J:D",
+        "J:inf",
+        "J:rec",
+        "J:death"
+      ],
+      "syntax": "Relation",
+      "name": "SimpleSIRD",
+      "uid": "B:SimpleSIRD",
+      "ports": null,
+      "boxes": null,
+      "metadata": null,
+      "type": null,
+      "wires": [
+        "W:I.inf",
+        "W:S.inf",
+        "W:I.rec",
+        "W:I.death",
+        "W:inf.I",
+        "W:inf.I_0",
+        "W:rec.R",
+        "W:death.D"
+      ]
+    }
+  ],
+  "ports": null,
+  "metadata": null,
+  "type": "PetriNetClassic",
+  "syntax": "Gromet"
+}

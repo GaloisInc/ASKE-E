@@ -32,6 +32,7 @@ library
                         Language.ASKEE.Core.Expr
                         Language.ASKEE.Core.Print
                         Language.ASKEE.Core.Syntax
+                        Language.ASKEE.Core.Interface
                         Language.ASKEE.Core.Visualization
 
                         Language.ASKEE.DEQ
@@ -47,7 +48,6 @@ library
                         Language.ASKEE.ESL.Convert
                         Language.ASKEE.ESL.GenLexer
                         Language.ASKEE.ESL.GenParser
-                        Language.ASKEE.ESL.Interface
                         Language.ASKEE.ESL.Lexer
                         Language.ASKEE.ESL.Print
                         Language.ASKEE.ESL.Syntax
@@ -65,6 +65,8 @@ library
                         Language.ASKEE.Gromet.FromEasel
                         Language.ASKEE.Gromet.See
                         Language.ASKEE.Gromet.Syntax
+                        Language.ASKEE.Gromet.PetriNetClassic
+                        Language.ASKEE.Gromet.Common
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
@@ -72,15 +74,19 @@ library
                         Language.ASKEE.Latex.Print
                         Language.ASKEE.Latex.Syntax
 
-                        Language.ASKEE.ModelStratify.GeoGraph
-                        Language.ASKEE.ModelStratify.Stratify
-                        Language.ASKEE.ModelStratify.Syntax
-                        Language.ASKEE.ModelStratify.Topology
+                        Language.ASKEE.AlgebraicJulia.GeoGraph
+                        Language.ASKEE.AlgebraicJulia.Interact
+                        Language.ASKEE.AlgebraicJulia.Simulate
+                        Language.ASKEE.AlgebraicJulia.Stratify
+                        Language.ASKEE.AlgebraicJulia.Syntax
+                        Language.ASKEE.AlgebraicJulia.Topology
 
+                        Language.ASKEE.RNet
                         Language.ASKEE.RNet.GenLexer
                         Language.ASKEE.RNet.GenParser
                         Language.ASKEE.RNet.Lexer
                         Language.ASKEE.RNet.Reaction
+                        Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
 
                         -- General
@@ -94,14 +100,15 @@ library
                         Language.ASKEE.Graph
                         Language.ASKEE.Metadata
                         Language.ASKEE.Model
-                        Language.ASKEE.ModelType
+                        Language.ASKEE.Model.Interface
+                        Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
-                        Language.ASKEE.Simulate
                         Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
+                      , scientific
                       , alex-tools
                       , array
                       , bytestring

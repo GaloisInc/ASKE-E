@@ -9,29 +9,34 @@ module Language.ASKEE.Model
   , toCore
   , toEasel
   , toGrometPrt
-  , toGrometPrc
+  , toGrometPnc
   , toGrometFnet
   , parseModel
   , printModel
   ) where
 
+import Data.Text(Text)
+import qualified Data.Text.Encoding as Text
 import Control.Monad ( (>=>) )
+import qualified Data.Aeson as JSON
+import qualified Data.ByteString.Lazy.Char8 as BS
 
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
+import qualified Language.ASKEE.RNet as RNet
 import qualified Language.ASKEE.ESL as ESL
 
-import qualified Language.ASKEE.ModelType as MT
+import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
-import qualified Data.Aeson as JSON
-import qualified Data.ByteString.Lazy.Char8 as BS
+import qualified Language.ASKEE.Gromet.PetriNetClassic as GPNC
 
 data Model =
     Easel     ESL.Model
   | Core      Core.Model
   | Deq       DEQ.DiffEqs
+  | RNet      RNet.ReactionNet
   | GrometPrt GPRT.Gromet
-  | GrometPrc JSON.Value
+  | GrometPnc GPNC.PetriNetClassic
   | GrometFnet JSON.Value
 
 modelTypeOf :: Model -> MT.ModelType
@@ -40,8 +45,9 @@ modelTypeOf m =
     Easel _ -> MT.EaselType
     Core _ -> MT.CoreType
     Deq _ -> MT.DeqType
+    RNet _ -> MT.RNetType
     GrometPrt _ -> MT.GrometPrtType
-    GrometPrc _ -> MT.GrometPrcType
+    GrometPnc _ -> MT.GrometPncType
     GrometFnet _ -> MT.GrometFnetType
 
 -------------------------------------------------------------------------------
@@ -50,9 +56,15 @@ asEasel :: Model -> ConversionResult ESL.Model
 asEasel = tryConvs [ unEasel, notExist MT.EaselType ]
 
 asCore :: Model -> ConversionResult Core.Model
-asCore = tryConvs [ unCore, asEasel >=> easelToCore, notExist MT.CoreType ]
+asCore = tryConvs [ unCore
+                  , unGrometPnc >=> pncToCore
+                  , unRNet >=> rnetToCore
+                  , asEasel >=> easelToCore
+                  , notExist MT.CoreType ]
   where
     easelToCore e = fromEither (ESL.modelAsCore e)
+    pncToCore x = fromEither (GPNC.pnToCore <$> GPNC.pnFromGromet x)
+    rnetToCore x = pure (RNet.rnetToCore x)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
@@ -60,7 +72,7 @@ asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
     coreToDeqs c = pure $ Core.asDiffEqs c
 
 asGrometPrt :: Model -> ConversionResult GPRT.Gromet
-asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrcType ]
+asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPncType ]
   where
     fromCore = pure . GPRT.convertCoreToGromet
 
@@ -80,17 +92,24 @@ unDeq :: Model -> ConversionResult DEQ.DiffEqs
 unDeq (Deq d) = ConversionSucceded d
 unDeq _ = ConversionPass
 
+unRNet :: Model -> ConversionResult RNet.ReactionNet
+unRNet x =
+  case x of
+    RNet r -> ConversionSucceded r
+    _      -> ConversionPass
+
 unGrometPrt :: Model -> ConversionResult GPRT.Gromet
 unGrometPrt (GrometPrt g) = ConversionSucceded g
 unGrometPrt _ = ConversionPass
 
-unGrometPrc :: Model -> ConversionResult JSON.Value
-unGrometPrc (GrometPrc v) = ConversionSucceded v
-unGrometPrc _ = ConversionPass
+unGrometPnc :: Model -> ConversionResult GPNC.PetriNetClassic
+unGrometPnc (GrometPnc v) = ConversionSucceded v
+unGrometPnc _ = ConversionPass
 
 unGrometFNet :: Model -> ConversionResult JSON.Value
 unGrometFNet (GrometFnet v) = ConversionSucceded v
 unGrometFNet _ = ConversionPass
+
 
 -------------------------------------------------------------------------------
 -- ConversionResult
@@ -152,13 +171,13 @@ toCore = asEither asCore
 toGrometPrt :: Model -> Either String GPRT.Gromet
 toGrometPrt = asEither asGrometPrt
 
-toGrometPrc :: Model -> Either String JSON.Value
-toGrometPrc = asEither (tryConvs [unGrometPrc, notExist MT.GrometPrcType])
+toGrometPnc :: Model -> Either String GPNC.PetriNetClassic
+toGrometPnc = asEither (tryConvs [unGrometPnc, notExist MT.GrometPncType])
 
 toGrometFnet :: Model -> Either String JSON.Value
 toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
 
-parseModel :: MT.ModelType -> String -> Either String Model
+parseModel :: MT.ModelType -> Text -> Either String Model
 parseModel mt s =
   case mt of
     MT.EaselType ->
@@ -167,11 +186,14 @@ parseModel mt s =
       Deq <$> DEQ.parseDiffEqs s
     MT.CoreType ->
       Left "Cannot parse into core syntax - core has no concrete syntax"
+    MT.RNetType ->
+      RNet <$> RNet.parseRNet s
     MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
-    MT.GrometPrcType -> GrometPrc <$> loadJSON
+    MT.GrometPncType -> GrometPnc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
   where
-    loadJSON = JSON.eitherDecode $ BS.pack s
+    loadJSON :: JSON.FromJSON a => Either String a
+    loadJSON = JSON.eitherDecodeStrict (Text.encodeUtf8 s)
 
 
 printModel :: Model -> Either String String
@@ -179,9 +201,12 @@ printModel m =
   case m of
     Easel esl -> (Right . show . ESL.printESL) esl
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
-    Core _ -> Left "cannot print core - core has no concrete syntax"
+    Core c -> Right $ show $ Core.ppModel c
+    RNet _ -> Left "XXX: no printer for RNet yet"
     GrometPrt g -> Right $ GPRT.grometString g
     GrometFnet v -> Right $ printJson v
-    GrometPrc v -> Right $ printJson v
+    GrometPnc v -> Right $ printJson v
   where
     printJson v = BS.unpack $ JSON.encode v
+
+

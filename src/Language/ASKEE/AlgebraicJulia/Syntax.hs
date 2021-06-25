@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.ASKEE.ModelStratify.Syntax where
+module Language.ASKEE.AlgebraicJulia.Syntax where
 
 import Data.Aeson
 

@@ -82,6 +82,7 @@ Exp                                      :: { Expr }
   | '(' Exp ')'                             { $2 }
   | SYM                                     { Var $1 }
   | REAL                                    { LitD $1 }
+  | INT                                     { LitD (fromIntegral $1) }
 
 {
 parseError :: [Located Token] -> Either String a

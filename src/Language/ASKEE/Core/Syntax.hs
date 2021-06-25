@@ -21,6 +21,10 @@ data Model =
           -- We keep them here, in case one wants to observe them
           -- (e.g., measure their values)
           -- These should not be recursive.
+
+        , modelMeta      :: !(Map Ident (Map Text [Text]))
+          -- ^ Optional metadata (key/value pairs) for named things
+          -- (parameters, lets, states, events)
         }
   deriving (Show, Eq)
 
