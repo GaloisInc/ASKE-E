@@ -8,6 +8,7 @@ author:              Galois Inc.
 maintainer:          james.lamar@galois.com
 extra-source-files:  README.md
                    , modelRepo/easel/sir.easel
+                   , modelRepo/easel/sir-no-parameters.easel
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
