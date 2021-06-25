@@ -9,6 +9,7 @@ maintainer:          james.lamar@galois.com
 extra-source-files:  README.md
                    , modelRepo/easel/sir.easel
                    , modelRepo/easel/sir-no-parameters.easel
+                   , modelRepo/deq/sir.deq
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
@@ -108,6 +109,7 @@ library
                         Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
                         Language.ASKEE.Storage
+                        Language.ASKEE.Storage.Internal
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
@@ -193,13 +195,17 @@ test-suite tests
   main-is:              Main.hs
   other-modules:        ASKEE
                       , ModelCheck
+                      , Storage
   build-depends:        base
                       , aske-e
                       , containers
+                      , directory
+                      , filepath
                       , file-embed
                       , mtl
                       , tasty
                       , tasty-hunit
+                      , temporary
                       , text
   default-language:     Haskell2010
   ghc-options:          -Wall

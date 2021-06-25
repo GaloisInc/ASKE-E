@@ -1,0 +1,12 @@
+let beta = 0.4
+let gamma = 0.04
+let i_initial = 3.0
+let r_initial = 0.0
+let s_initial = 997.0
+let total_population = S + I + R
+I(0) = 3.0
+R(0) = 0.0
+S(0) = 997.0
+d/dt I = (if 0.0 < S and 0.0 < I then beta * S * I / total_population else 0.0) + (if 0.0 < I then -gamma * I else 0.0)
+d/dt R = if 0.0 < I then gamma * I else 0.0
+d/dt S = if 0.0 < S and 0.0 < I then -beta * S * I / total_population else 0.0
