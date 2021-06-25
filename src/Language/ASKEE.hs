@@ -22,6 +22,8 @@ module Language.ASKEE
     
   , simulateModelGSL
   , simulateModelAJ
+  , simulateModelDiscrete
+  
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
@@ -72,7 +74,7 @@ import qualified Data.Text.IO               as Text
 import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.C                      ( Doc )
+import           Language.ASKEE.CPP.Pretty             ( Doc )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
@@ -104,7 +106,7 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
-import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
+import qualified Language.ASKEE.CPP                     as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModelText
@@ -216,7 +218,7 @@ loadGrometPncFrom format source =
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
   do  coreModel <- loadCoreFrom format source
-      pure $ SimulatorGen.genModel coreModel
+      pure $ CPP.genModel coreModel
 
 -------------------------------------------------------------------------------
 -- Storage
@@ -326,6 +328,18 @@ simulateModelGSL format source start end step parameters =
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
 
+simulateModelDiscrete ::
+  ModelType ->
+  DataSource ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
+  Maybe Int {- ^ seed -} ->
+  IO (DataSeries Double)
+simulateModelDiscrete format source start end step seed =
+  do  model <- loadCoreFrom format source
+      CPP.simulate model start end step seed
+      
 simulateModelAJ ::
   ModelType -> 
   DataSource -> 

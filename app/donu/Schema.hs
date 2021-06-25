@@ -26,7 +26,8 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    SimulateGSL SimulateGSLCommand
+    SimulateDiscrete SimulateDiscreteCommand
+  | SimulateGSL SimulateGSLCommand
   | SimulateAJ SimulateAJCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
@@ -42,7 +43,8 @@ data Input =
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (SimulateGSL <$> anySpec)
+  anySpec =  (SimulateDiscrete <$> anySpec)
+         <!> (SimulateGSL <$> anySpec)
          <!> (SimulateAJ <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
@@ -199,6 +201,32 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
+data SimulateDiscreteCommand = SimulateDiscreteCommand
+  { simModelDiscrete           :: ModelDef
+  , simStartDiscrete           :: Double
+  , simStepDiscrete            :: Double
+  , simEndDiscrete             :: Double
+  , simSeedDiscrete            :: Maybe Int
+  } deriving Show
+
+instance HasSpec SimulateDiscreteCommand where
+  anySpec =
+    sectionsSpec "simulate-discrete-command"
+    do reqSection' "command" (jsAtom "simulate-discrete") "Run a simulation using a discrete event simulator"
+       simModelDiscrete   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStartDiscrete     <- reqSection "start"
+                       "Start time of simulation"
+       simStepDiscrete      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEndDiscrete       <- reqSection "end"
+                       "End time of simulation"
+        
+       simSeedDiscrete <- optSection "seed" "Seed for simulation"
+
+       pure SimulateDiscreteCommand { .. }
 data SimulateGSLCommand = SimulateGSLCommand
   { simModelGSL           :: ModelDef
   , simStartGSL           :: Double

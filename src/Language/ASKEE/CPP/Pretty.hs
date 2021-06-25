@@ -1,5 +1,5 @@
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.C where
+module Language.ASKEE.CPP.Pretty where
 
 import Data.Text(Text)
 import Data.List(intersperse)
@@ -242,6 +242,9 @@ for c1 c2 c3 =
 
 break :: Doc
 break = stmt "break"
+
+continue :: Doc
+continue = stmt "continue"
 
 return :: Doc
 return = stmt "return"

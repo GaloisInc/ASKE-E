@@ -261,6 +261,82 @@ Example:
 
 Note: in this example we chose a `beta` orders of magnitude smaller than in the `simulate-gsl` example to obtain roughly the same results. This is because our SIR ESL model declares an infection rate of `beta * S * I / (S + I + R)`, while the SIR Gromet model declares the rate as simply `beta`. When simulating a model, `AlgebraicJulia` takes the provided rate and applies an implicit mass-action scaling effect, multiplying the given rate by the product of the variables a particular event affects. We therefore end up with an actual infection rate of `beta * S * I` in the `AlgebraicJulia` framework. Matching these rates across frameworks requires dividing our "ESL `beta`" value by `S + I + R` (in our examples, this is `1000`) to obtain the pure mass-action scaler, i.e. our "Gromet `beta`".
 
+
+### `simulate-discrete` - Simulate a model using a custom-built discrete event simulator
+
+**Request:**
+
+| Field            | Type                     | Description                                                                |
+|------------------|--------------------------|----------------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"simulate-discrete"`   |
+| definition       | model-def                | Definition of the model                                                    |
+| start            | number                   | Start time of the simulation                                               |
+| end              | number                   | End time of the simulation                                                 |
+| step             | number                   | Simulation time step size                                                  |
+| seed             | integer                  | (optional) use this seed for random number generation/event selection                     |
+
+
+```JSON
+{
+  "command": "simulate-discrete",
+  "definition": {
+    "type": "easel",
+    "source": { "file": "modelRepo/easel/sirs.easel" }
+  },
+  "start": 0,
+  "end": 120.0,
+  "step": 30.0
+}
+```
+
+**Response:**
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| times            | list of number           | series of times used in simulation                                |
+| values           | result series object     | values of state varaibles                                         |
+
+The object in `values` is structured identically to that of a `simulate-gsl` response.
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "values": {
+      "D": [
+        0,
+        113,
+        246,
+        346
+      ],
+      "I": [
+        3,
+        558,
+        377,
+        303
+      ],
+      "S": [
+        997,
+        50,
+        74,
+        69
+      ],
+      "R": [
+        0,
+        279,
+        303,
+        282
+      ]
+    },
+    "times": [
+      30.0028,
+      60.0238,
+      90.0006
+    ]
+  }
+}
+```
+
 ### `get-model-schematic` - get schematic description of a model
 
 This call gets a high level schematic description of a model as a graph.  Not all models support this visualization.

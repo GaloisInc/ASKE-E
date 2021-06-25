@@ -21,6 +21,11 @@ import           Test.Tasty.HUnit ( Assertion
 sir :: Text
 sir = $(Embed.embedStringFile "modelRepo/easel/sir.easel")
 
+sirSansParameters :: Text
+sirSansParameters = $(Embed.embedStringFile "modelRepo/easel/sir-no-parameters.easel")
+
+
+-- Generated via GSL simulation
 series1 :: DataSeries Double
 series1 =
   DataSeries { times = [0,30,60,90,120]
@@ -31,10 +36,26 @@ series1 =
                 ]
              }
 
+-- Generated via discrete event simulation using seed 123 at times [0,30..120]
+series2 :: DataSeries Double
+series2 = 
+  DataSeries { times = [0.0,30.0428,60.2816,90.7133]
+             , values = Map.fromList 
+                [ ("I",[3.0,604.0,188.0,70.0])
+                , ("R",[0.0,361.0,812.0,930.0])
+                , ("S",[997.0,35.0,0.0,0.0])
+                ]
+             }
+
 testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
       actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty
+      assertDataClose actual expected
+
+testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
+testSimulateEslDiscrete mdlSrc start stop step expected =
+  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step (Just 123)
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
@@ -159,7 +180,8 @@ testAsSchematicGraph (model, graph) =
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
-    [ testCase "Basic SIR simulation test" $ testSimulateEsl (Inline sir) series1
+    [ testCase "Basic SIR ODE simulation test" $ testSimulateEsl (Inline sir) series1
+    , testCase "Basic SIR discrete event simulation test" $ testSimulateEslDiscrete (Inline sirSansParameters) 0 120 30 series2
     , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
     , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e
     , testCase "Event-to-state flow schematic" $ testAsSchematicGraph e2s

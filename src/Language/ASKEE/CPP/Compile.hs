@@ -1,9 +1,9 @@
 {-# Language BlockArguments #-}
 {-# Language OverloadedStrings #-}
-module Language.ASKEE.CppCompiler where
+module Language.ASKEE.CPP.Compile where
 
 import Data.Foldable(traverse_)
-import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CPP.Pretty as C
 import qualified System.Exit as Exit
 import qualified System.Process as Process
 import qualified System.IO.Temp as Temp
@@ -20,12 +20,12 @@ compilerCmd :: Compiler -> String
 compilerCmd c =
   case c of
     GCC -> "g++"
-    Clang -> "clang"
+    Clang -> "clang++"
 
 compileExe :: Compiler -> [FilePath] -> FilePath -> IO ()
 compileExe compiler src dst =
   do  ec <- Process.rawSystem (compilerCmd compiler)
-                              (src ++ ["-o", dst ])
+                              (src ++ ["--std=c++11", "-o", dst ])
       case ec of
         Exit.ExitSuccess   -> pure ()
         Exit.ExitFailure _ -> panic "compileExe" ["Compilation failed"]

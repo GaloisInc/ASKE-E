@@ -8,6 +8,7 @@ author:              Galois Inc.
 maintainer:          james.lamar@galois.com
 extra-source-files:  README.md
                    , modelRepo/easel/sir.easel
+                   , modelRepo/easel/sir-no-parameters.easel
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
@@ -34,6 +35,11 @@ library
                         Language.ASKEE.Core.Syntax
                         Language.ASKEE.Core.Interface
                         Language.ASKEE.Core.Visualization
+
+                        Language.ASKEE.CPP
+                        Language.ASKEE.CPP.Compile
+                        Language.ASKEE.CPP.Pretty
+                        Language.ASKEE.CPP.SimulatorGen
 
                         Language.ASKEE.DEQ
                         Language.ASKEE.DEQ.GenLexer
@@ -90,9 +96,7 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         -- General
-                        Language.ASKEE.C
                         Language.ASKEE.Convert
-                        Language.ASKEE.CppCompiler
                         Language.ASKEE.DataSeries
                         Language.ASKEE.Error
                         Language.ASKEE.Expr
@@ -103,7 +107,6 @@ library
                         Language.ASKEE.Model.Interface
                         Language.ASKEE.Model.Basics
                         Language.ASKEE.Panic
-                        Language.ASKEE.SimulatorGen
                         Language.ASKEE.Storage
 
   build-depends:        base >=4.13.0.0 && <5

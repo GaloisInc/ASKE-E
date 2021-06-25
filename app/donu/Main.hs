@@ -57,6 +57,17 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
+    SimulateDiscrete SimulateDiscreteCommand{..} ->
+      do  res <- 
+            simulateModelDiscrete
+              (modelDefType simModelDiscrete)
+              (modelDefSource simModelDiscrete)
+              simStartDiscrete
+              simEndDiscrete
+              simStepDiscrete
+              simSeedDiscrete
+          succeed' res
+
     SimulateGSL SimulateGSLCommand{..} ->
       do  res <- 
             simulateModelGSL
