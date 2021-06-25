@@ -8,8 +8,8 @@ module Storage where
 import Control.Exception ( try, SomeException )
 
 import qualified Data.FileEmbed as Embed
-import qualified Data.List as List
-import           Data.Text      ( Text )
+import qualified Data.List      as List
+import           Data.Text      ( Text, unpack )
 
 import           Language.ASKEE.Error            ( die, ASKEEError(StorageError) )
 import           Language.ASKEE.Model.Basics     ( allModelTypes, ModelType(..) )
@@ -85,13 +85,26 @@ testStorePreexistingModel = temp \dir ->
 testLoadModel :: Assertion
 testLoadModel = temp \dir ->
   do  Storage.initStorage dir
-      path <- Storage.storeModel' dir "sir.easel" EaselType sir
-      path' <- try $ Storage.loadModelText dir EaselType (Storage.FromFile path)
-      sir' <- case path' of
+      path <- Storage.storeModel' dir modelName EaselType sir
+
+      -- Find by path
+      mdlPathE <- try $ Storage.loadModelText dir EaselType (Storage.FromFile path)
+      sir' <- case mdlPathE of
         Left (err :: SomeException) -> 
-          assertFailure ("Couldn't find SIR model just stored at "<>path<>": "<>show err)
+          assertFailure ("Couldn't find SIR model (by FilePath reference) just stored at "<>path<>": "<>show err)
         Right p -> pure p
       assertBool "Fetched model didn't match stored model" (sir == sir')
+
+      -- Find by name
+      mdlE <- try $ Storage.loadModelText dir EaselType (Storage.FromStore modelName)
+      sir'' <- case mdlE of
+        Left (err :: SomeException) -> 
+          assertFailure ("Couldn't find SIR model (by name reference) just stored as "<>unpack modelName<>": "<>show err)
+        Right m -> pure m
+      assertBool "Fetched model didn't match stored model" (sir == sir'')
+
+  where
+    modelName = "sir.easel"
       
 testLoadNonexistentModel :: Assertion
 testLoadNonexistentModel = temp \dir ->
