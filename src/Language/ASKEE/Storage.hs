@@ -1,30 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Language.ASKEE.Storage 
+module Language.ASKEE.Storage
   ( initStorage
-  , loadModel
+  , loadModelText
   , storeModel
-  , listAllModels 
+  , listAllModels
 
-  , DataSource(..)
-  , ModelDef(..)
+  , Storage.DataSource(..)
+  , Storage.ModelDef(..)
   ) where
 
 import           Data.Text ( Text )
 
-import           Language.ASKEE.ModelType ( ModelType(..) )
-import           Language.ASKEE.Storage.Internal ( DataSource(..), ModelDef(..) )
+import           Language.ASKEE.Model.Basics ( ModelType(..) )
 import qualified Language.ASKEE.Storage.Internal as Storage
+
 
 initStorage :: IO ()
 initStorage = Storage.initStorage baseDirectory
 
-loadModel :: ModelType -> DataSource -> IO String
-loadModel = Storage.loadModel baseDirectory
+loadModelText :: ModelType -> Storage.DataSource -> IO Text
+loadModelText = Storage.loadModelText baseDirectory
 
-storeModel :: Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
+storeModel :: Text -> ModelType -> Text -> IO ()
 storeModel = Storage.storeModel baseDirectory
 
-listAllModels :: IO [ModelDef]
+listAllModels :: IO [Storage.ModelDef]
 listAllModels = Storage.listAllModels baseDirectory
 
 baseDirectory :: FilePath

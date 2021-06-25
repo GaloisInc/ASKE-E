@@ -11,7 +11,9 @@
 ###   FILE1: formal model; FILE2: executable model
 ###   FILE1: informal model; FILE2: executable model
 
+import os
 import sys
+import math
 import optparse
 import gensim
 
@@ -44,13 +46,13 @@ check_content(fp2)
 ## Compare similiarity
 corpus = []
 f = open(fp1, "r")
-corpus.append(gensim.utils.simple_preprocess(f.read()))
+corpus.append(gensim.utils.simple_preprocess(f.read(), min_len=1))
 f.close()
 dictionary = gensim.corpora.Dictionary(corpus)
 bow_corpus = [dictionary.doc2bow(text) for text in corpus]
 lsi = gensim.models.LsiModel(bow_corpus, id2word=dictionary, num_topics=2)
 f = open(fp2, "r")
-doc = gensim.utils.simple_preprocess(f.read())
+doc = gensim.utils.simple_preprocess(f.read(), min_len=1)
 f.close()
 doc_bow = dictionary.doc2bow(doc)
 vec_lsi = lsi[doc_bow]
@@ -65,7 +67,7 @@ while (True):
 		break
 	loc1 += 1
 f1.seek(0)
-corpus1.append(gensim.utils.simple_preprocess(f1.read()))
+corpus1.append(gensim.utils.simple_preprocess(f1.read(), min_len=1))
 f1.close()
 dictionary1 = gensim.corpora.Dictionary(corpus1)
 
@@ -79,7 +81,7 @@ while (True):
 		break
 	loc2 += 1
 f2.seek(0)
-corpus2.append(gensim.utils.simple_preprocess(f2.read()))
+corpus2.append(gensim.utils.simple_preprocess(f2.read(), min_len=1))
 f2.close()
 dictionary2 = gensim.corpora.Dictionary(corpus2)
 
@@ -89,6 +91,24 @@ def occurs(dict):
 		return
 	for token, id in dict.token2id.items():
 		print("{}: {}".format(token, dict.cfs[id]))
+
+## Calculate Shannon entropy, token-wise
+def shannon(dict):
+	len = dict.num_pos
+	ent = 0.0
+	for token, id in dict.token2id.items():
+		freq = dict.cfs[id] / len
+		ent = ent + freq / math.log(freq, 2)
+	return(-ent)
+
+## Calculate compressibility of document
+def compressibility(file):
+	os.system('cp '+file+' /tmp/askee')
+	raw = os.stat('/tmp/askee')
+	os.system('compress /tmp/askee')
+	cmp = os.stat('/tmp/askee.Z')
+	os.system('rm -f /tmp/askee.Z')
+	return(cmp.st_size/raw.st_size)
 
 ## Report
 # files, tokens and frequencies
@@ -103,6 +123,12 @@ print("LOC:\t{:>8}\t{:>8}".format(loc1, loc2))
 print("TNT:\t{:>8}\t{:>8}".format(dictionary1.num_pos, dictionary2.num_pos))
 # number of unique tokens
 print("NUT:\t{:>8}\t{:>8}".format(dictionary1.num_nnz, dictionary2.num_nnz))
+# Shannon entropy
+print("ENT:\t{:8.5f}\t{:8.5f}".format(shannon(dictionary1), shannon(dictionary2)))
+print("1/ENT:\t{:8.5f}\t{:8.5f}".format(1/shannon(dictionary1), 1/shannon(dictionary2)))
+# Compressibility
+print("CMP:\t{:8.5f}\t{:8.5f}".format(compressibility(fp1), compressibility(fp2)))
+print("1/CMP:\t{:8.5f}\t{:8.5f}".format(1/compressibility(fp1), 1/compressibility(fp2)))
 # latent similarity index
 print(lsi)
 print(vec_lsi)

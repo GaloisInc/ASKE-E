@@ -3,7 +3,6 @@
 module Main(main) where
 
 import qualified Data.Map as Map
-import Data.Text(Text)
 import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..),throwIO)
 import Control.Monad(when,forM_)
@@ -12,41 +11,31 @@ import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
+import qualified Data.Aeson as JSON
+
+import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
 import qualified Language.ASKEE as A
--- import qualified Language.ASKEE.Core as Core
--- import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
--- import           Language.ASKEE.DEQ.Print (printDiffEqs)
--- import qualified Language.ASKEE.Core.DiffEq as DiffEq
--- import qualified Language.ASKEE.Core.GSLODE as ODE
--- import qualified Language.ASKEE.DataSeries as DS
--- import qualified Language.ASKEE.ESL.Print as PP
--- import Language.ASKEE.RNet.Reaction (reactionsAsModel)
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.DEQ as DEQ
+import qualified Language.ASKEE.Core as Core
 
 import Options
-import Language.ASKEE.Error
-import qualified Language.ASKEE.DEQ as DEQ
 
 main :: IO ()
 main =
   do  opts <- getOptions
       case command opts of
 
-      -- --  OnlyLex ->
-      -- --     forM_ (modelFiles opts) (lexModel . FromFile)
-      -- --  OnlyParse ->
-      -- --     forM_ (modelFiles opts) (parseModel . FromFile)
-      -- --  OnlyCheck ->
-      -- --     forM_ (modelFiles opts) (loadModel . FromFile)
-      -- --  DumpCPP ->
-      -- --     forM_ (modelFiles opts)
-      -- --       (genCppRunner . FromFile)
 
-      --  DumpDEQs ->
-      --    do ds <- exactlyOne "model" =<< loadDiffEqs opts []
-      --       print (ppDiffEqs ds)
-        SimulateODE start stop step ->
+        DumpPNC -> mapM_ dumpPNC (modelFiles opts)
+
+        DumpCore -> mapM_ dumpCore (modelsProvided opts)
+
+        DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
+
+        SimulateODE start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
-              res <- A.simulateModel modelType (A.FromFile modelFile) start stop step (overwrite opts)
+              res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts)
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out
@@ -110,4 +99,35 @@ exactlyOne thing xs =
 
 modelsProvided :: Options -> [(FilePath, A.ModelType)]
 modelsProvided opts =
-  map (, A.DeqType) (deqFiles opts) ++ map (, A.EaselType) (modelFiles opts)
+  map (, A.DeqType) (deqFiles opts) ++
+  map (, A.EaselType) (modelFiles opts) ++
+  map (, A.GrometPncType) (pncFiles opts) ++
+  map (, A.RNetType) (rnetFiles opts)
+
+dumpPNC :: FilePath -> IO ()
+dumpPNC file =
+  do mb <- JSON.eitherDecodeFileStrict' file
+     case pnFromGromet =<< mb of
+       Right a -> print (ppPetriNet a)
+       Left err -> print err
+
+dumpCore :: (FilePath, A.ModelType) -> IO ()
+dumpCore (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toCore m of
+       Right c -> print (Core.ppModel c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to Core"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
+
+
+
+testDescirbeInterface :: (FilePath, A.ModelType) -> IO ()
+testDescirbeInterface (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     LBS.putStrLn (JSON.encode (A.describeModelInterface m))
+
+

@@ -1,0 +1,197 @@
+{
+  "junctions": [
+    {
+      "value_type": "Integer",
+      "name": "S",
+      "uid": "J:S",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "E",
+      "uid": "J:E",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "I",
+      "uid": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Integer",
+      "name": "R",
+      "uid": "J:R",
+      "metadata": null,
+      "value": null,
+      "type": "State",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "inf",
+      "uid": "J:inf",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "rec",
+      "uid": "J:rec",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    },
+    {
+      "value_type": "Real",
+      "name": "exp",
+      "uid": "J:exp",
+      "metadata": null,
+      "value": null,
+      "type": "Rate",
+      "syntax": "Junction"
+    }
+  ],
+  "root": "B:SimpleSEIR",
+  "wires": [
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:E.inf",
+      "src": "J:E",
+      "tgt": "J:inf",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:I.rec",
+      "src": "J:I",
+      "tgt": "J:rec",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:S.exp",
+      "src": "J:S",
+      "tgt": "J:exp",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:I.exp",
+      "src": "J:I",
+      "tgt": "J:exp",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:inf.I",
+      "src": "J:inf",
+      "tgt": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:rec.R",
+      "src": "J:rec",
+      "tgt": "J:R",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:exp.E",
+      "src": "J:exp",
+      "tgt": "J:E",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    },
+    {
+      "value_type": null,
+      "name": null,
+      "uid": "W:exp.I",
+      "src": "J:exp",
+      "tgt": "J:I",
+      "metadata": null,
+      "value": null,
+      "type": null,
+      "syntax": "Wire"
+    }
+  ],
+  "types": null,
+  "name": "SimpleSEIR",
+  "variables": null,
+  "literals": null,
+  "uid": "SimpleSEIRPetriNetClassic",
+  "boxes": [
+    {
+      "junctions": [
+        "J:S",
+        "J:E",
+        "J:I",
+        "J:R",
+        "J:inf",
+        "J:rec",
+        "J:exp"
+      ],
+      "syntax": "Relation",
+      "name": "SimpleSEIR",
+      "uid": "B:SimpleSEIR",
+      "ports": null,
+      "boxes": null,
+      "metadata": null,
+      "type": null,
+      "wires": [
+        "W:E.inf",
+        "W:I.rec",
+        "W:S.exp",
+        "W:I.exp",
+        "W:inf.I",
+        "W:rec.R",
+        "W:exp.E",
+        "W:exp.I"
+      ]
+    }
+  ],
+  "ports": null,
+  "metadata": null,
+  "type": "PetriNetClassic",
+  "syntax": "Gromet"
+}

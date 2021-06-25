@@ -1,21 +1,31 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Storage.Internal where
 
-import Control.Monad     ( when )
+import Control.Monad     ( when, unless, void )
 
+import           Data.Text ( Text )
 import qualified Data.Text as Text
-import           Data.Text ( Text, isInfixOf )
+import qualified Data.Text.IO as Text
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
-import Language.ASKEE.ModelType ( ModelType(..), allModelTypes )
-import Language.ASKEE.Panic ( panic )
+import Language.ASKEE.Model.Basics ( ModelType(..), allModelTypes )
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
-import qualified Data.List as List
+
+type ModelName = Text
+
+validModelName :: Text -> Bool
+validModelName name = not bad
+  where
+  bad = or [ ".." `Text.isInfixOf` name
+           , Text.singleton pathSeparator `Text.isInfixOf` name
+           ]
+
 
 data DataSource =
     FromFile FilePath
+  | FromStore ModelName
   | Inline Text
   deriving (Eq, Show)
 
@@ -26,67 +36,66 @@ data ModelDef =
   deriving (Eq, Show)
 
 initStorage :: FilePath -> IO ()
-initStorage baseDir = mapM_ make dirs
+initStorage baseDirectory = mapM_ make dirs
   where
     make = Directory.createDirectoryIfMissing True
-    dirs = 
-      [ baseDir </> formatLocation mt
-      | mt <- List.delete CoreType allModelTypes
-      ]
+    dirs = map (modelTypeLocation baseDirectory) allModelTypes
 
-loadModel :: FilePath -> ModelType -> DataSource -> IO String
-loadModel baseDir format source =
+loadModelText :: FilePath -> ModelType -> DataSource -> IO Text
+loadModelText baseDirectory format source =
   case source of
-    Inline t -> pure $ Text.unpack t
-    _ ->
-      do  models <- listModels baseDir format
-          when (mdef `notElem` models)
-            (die $ StorageError $ "model "++show source++" doesn't exist")
-          (loadString . modelDefSource) mdef
-  where
-    mdef = ModelDef source format 
+    Inline t -> pure t
+    FromFile file -> Text.readFile file
+    FromStore name
+      | not (validModelName name) -> bad
+      | otherwise ->
+        do let path = modelLocation baseDirectory format name
+           yes <- Directory.doesFileExist path
+           unless yes bad
+           Text.readFile path
+      where
+      bad = die (StorageError ("model "++ show name ++ " doesn't exist"))
 
-storeModel :: FilePath -> Text -> ModelType -> (Text -> IO ()) -> Text -> IO FilePath
-storeModel baseDir name format check model =
-  do  let path = baseDir </> formatLocation format </> Text.unpack name
-      when (".." `isInfixOf` name || Text.singleton pathSeparator `isInfixOf` name) 
-        (die $ StorageError $ "invalid name for model: " <> name')
-      exists <- Directory.doesFileExist path
-      when exists 
-        (die $ StorageError $ "model " <> name' <> " already exists")
-      check model
-      writeFile path (Text.unpack model)
-      pure path
-  where
-    name' = Text.unpack name
+storeModel' :: FilePath -> Text -> ModelType -> Text -> IO FilePath
+storeModel' baseDirectory name format model =
+  do unless (validModelName name) (die (StorageError "Invalid model name"))
+     let path = modelLocation baseDirectory format name
+     exists <- Directory.doesFileExist path
+     when exists
+              (die (StorageError ("model " <> show name <> " already exists")))
+     Text.writeFile path model
+     pure path 
+
+storeModel :: FilePath -> Text -> ModelType -> Text -> IO ()
+storeModel baseDirectory name format model = 
+  void $ storeModel' baseDirectory name format model
 
 listAllModels :: FilePath -> IO [ModelDef]
-listAllModels baseDir =
-  concat <$> sequence
-    [ listModels baseDir mt 
-    | mt <- List.delete CoreType allModelTypes 
-    ]
+listAllModels baseDirectory = concat <$> sequence [ listModels baseDirectory mt | mt <- allModelTypes ]
 
 listModels :: FilePath -> ModelType -> IO [ModelDef]
-listModels baseDir format =
-  do  files <- Directory.listDirectory (baseDir </> loc)
-      pure $ map mdef files
-  where
-    mdef f = ModelDef (FromFile (baseDir </> loc </> f)) format
-    loc = formatLocation format
+listModels baseDirectory mt =
+  do files <- Directory.listDirectory (modelTypeLocation baseDirectory mt)
+     pure [ ModelDef { modelDefSource = FromStore f
+                     , modelDefType   = mt
+                     } | f <- map Text.pack files, validModelName f ]
+
+
+--------------------------------------------------------------------------------
+
+modelLocation :: FilePath -> ModelType -> ModelName -> FilePath
+modelLocation baseDirectory ty nm = modelTypeLocation baseDirectory ty </> Text.unpack nm
+
+modelTypeLocation :: FilePath -> ModelType -> FilePath
+modelTypeLocation baseDirectory ty = baseDirectory </> formatLocation ty
 
 formatLocation :: ModelType -> FilePath
 formatLocation mt =
   case mt of
     EaselType -> "easel"
     DeqType -> "deq"
-    CoreType -> panic "formatLocation" ["attempted to generate a location for core models, which have no concrete syntax"]
+    CoreType -> "core"
     GrometPrtType -> "gromet-prt"
     GrometFnetType -> "gromet-fnet"
-    GrometPrcType -> "gromet-prc"
-
-loadString :: DataSource -> IO String
-loadString source =
-  case source of
-    FromFile file -> readFile file
-    Inline txt    -> pure (Text.unpack txt)
+    GrometPncType -> "gromet-pnc"
+    RNetType  -> "rnet"
