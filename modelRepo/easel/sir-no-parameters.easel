@@ -1,0 +1,33 @@
+model SIR:
+  let beta = 0.4
+  let gamma = 0.04
+
+  let s_initial = 997
+  let i_initial = 3
+  let r_initial = 0
+
+  state S = s_initial
+  state I = i_initial
+  state R = r_initial
+
+  let total_population = S + I + R
+
+  event Infect:
+    when:
+      S > 0 and I > 0
+    rate: 
+      beta * S * I / total_population
+    effect:
+      S -= 1
+      I += 1
+      
+  event Remove:
+    when:
+      I > 0
+    rate: 
+      gamma * I
+    effect:
+      I -= 1
+      R += 1
+      
+      

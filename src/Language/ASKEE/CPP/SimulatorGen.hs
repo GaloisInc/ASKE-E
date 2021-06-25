@@ -12,6 +12,7 @@ import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.CPP.Pretty as C
 import Data.List (intercalate)
+import Data.Maybe (fromMaybe)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -277,9 +278,11 @@ genDriver ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Maybe Int {- ^ seed -} -> 
   C.Doc
-genDriver model start stop step = C.main
+genDriver model start stop step seed = C.main
   [ C.declare (modelClassName model) cModel
+  , C.stmt (C.call (C.member cModel "set_seed") [C.intLit (fromMaybe 0xdeadbeef seed)])
   , C.declareInit C.double cStart (C.doubleLit start)
   , C.declareInit C.double cStop (C.doubleLit stop)
   , C.declareInit C.double cStep (C.doubleLit step)

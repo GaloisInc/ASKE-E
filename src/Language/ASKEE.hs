@@ -332,10 +332,11 @@ simulateModelDiscrete ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Maybe Int {- ^ seed -} ->
   IO (DataSeries Double)
-simulateModelDiscrete format source start end step =
+simulateModelDiscrete format source start end step seed =
   do  model <- loadCoreFrom format source
-      CPP.simulate model start end step
+      CPP.simulate model start end step seed
       
 simulateModelAJ ::
   ModelType -> 

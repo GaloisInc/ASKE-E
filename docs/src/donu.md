@@ -273,6 +273,7 @@ Note: in this example we chose a `beta` orders of magnitude smaller than in the 
 | start            | number                   | Start time of the simulation                                               |
 | end              | number                   | End time of the simulation                                                 |
 | step             | number                   | Simulation time step size                                                  |
+| seed             | integer                  | (optional) use this seed for random number generation/event selection                     |
 
 
 ```JSON

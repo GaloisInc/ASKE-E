@@ -23,10 +23,11 @@ simulate ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Maybe Int {- ^ seed -} -> 
   IO (DataSeries Double)
-simulate model start end step =
+simulate model start end step seed =
   do  let modelCPP = genModel model
-          modelDriver = genDriver model start end step
+          modelDriver = genDriver model start end step seed
           program = modelCPP <+> modelDriver
       res <- compileAndRun GCC [("model.cpp", program)]
       points <- 

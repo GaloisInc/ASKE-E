@@ -204,6 +204,7 @@ data SimulateDiscreteCommand = SimulateDiscreteCommand
   , simStartDiscrete           :: Double
   , simStepDiscrete            :: Double
   , simEndDiscrete             :: Double
+  , simSeedDiscrete            :: Maybe Int
   } deriving Show
 
 instance HasSpec SimulateDiscreteCommand where
@@ -220,6 +221,8 @@ instance HasSpec SimulateDiscreteCommand where
                        "Time step (defaults to 1)"
        simEndDiscrete       <- reqSection "end"
                        "End time of simulation"
+        
+       simSeedDiscrete <- optSection "seed" "Seed for simulation"
 
        pure SimulateDiscreteCommand { .. }
 data SimulateGSLCommand = SimulateGSLCommand
