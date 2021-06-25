@@ -56,7 +56,7 @@ loadModelText baseDirectory format source =
       where
       bad = die (StorageError ("model "++ show name ++ " doesn't exist"))
 
-storeModel' :: FilePath -> Text -> ModelType -> Text -> IO FilePath
+storeModel' :: FilePath -> ModelName -> ModelType -> Text -> IO FilePath
 storeModel' baseDirectory name format model =
   do unless (validModelName name) (die (StorageError "Invalid model name"))
      let path = modelLocation baseDirectory format name
@@ -66,7 +66,7 @@ storeModel' baseDirectory name format model =
      Text.writeFile path model
      pure path 
 
-storeModel :: FilePath -> Text -> ModelType -> Text -> IO ()
+storeModel :: FilePath -> ModelName -> ModelType -> Text -> IO ()
 storeModel baseDirectory name format model = 
   void $ storeModel' baseDirectory name format model
 

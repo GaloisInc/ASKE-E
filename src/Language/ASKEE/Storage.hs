@@ -21,7 +21,7 @@ initStorage = Storage.initStorage baseDirectory
 loadModelText :: ModelType -> Storage.DataSource -> IO Text
 loadModelText = Storage.loadModelText baseDirectory
 
-storeModel :: Text -> ModelType -> Text -> IO ()
+storeModel :: Storage.ModelName -> ModelType -> Text -> IO ()
 storeModel = Storage.storeModel baseDirectory
 
 listAllModels :: IO [Storage.ModelDef]
