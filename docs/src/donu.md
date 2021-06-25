@@ -23,11 +23,11 @@ The provided examples reflect this schema.
 
 ### `datasource`
 
-A `datasource` is either an object with the single field `file` with :
+A `datasource` is either an object with the single field `model` with :
 
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
-| file             | string                   | Filename to use as a data source                                  |
+| model             | string                   | Filename to use as a data source                                  |
 
 Example:
 
@@ -43,7 +43,7 @@ Or a string containing the data itself:
 
 ### `model-def`
 
-A model def is a `datasource` along with a model type.  Valid model types are `easel`, `diff-eqs`, `core`, and `gromet-prt`.
+A model def is a `datasource` along with a model type.  Valid model types are `easel`, `diff-eqs`, `core`, `gromet-pnc`, and `gromet-prt`.
 
 Example:
 
@@ -539,11 +539,11 @@ The result, if successful, is a `model-def` object with the new model inline.
 | parameters       | list of parameter        | Something that can be tweaked                                     |
 
 Both `measures` and `parameters` are lists of objects, where each object has
-a `uid`, `value_type` and a `metadata` field. In addition, parameters may have
-a `defaultValue` field.
+`uid`, `value_type` and `metadata` fields. In addition, parameters may have
+a `default` field.
 
-The `metdata` is an object with variable fields, but some of interest
-`Description`, `name`, and `group`.  In particular, `group` may be used
+The `metadata` is an object with variable fields, but some of interest
+are `description`, `name`, and `group`.  In particular, `group` may be used
 as a hint to group related parameters.
 
 
