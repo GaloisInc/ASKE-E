@@ -14,7 +14,7 @@
       "name": "S",
       "metadata": null,
       "value": {
-        "type": "Real",
+        "type": "Integer",
         "syntax": "Literal",
         "value": {
           "syntax": "Val",
@@ -31,7 +31,7 @@
       "name": "I",
       "metadata": null,
       "value": {
-        "type": "Real",
+        "type": "Integer",
         "syntax": "Literal",
         "value": {
           "syntax": "Val",
@@ -48,7 +48,7 @@
       "name": "R",
       "metadata": null,
       "value": {
-        "type": "Real",
+        "type": "Integer",
         "syntax": "Literal",
         "value": {
           "syntax": "Val",

@@ -103,6 +103,7 @@ formatLocation mt =
     GrometPrtType -> "gromet-prt"
     GrometFnetType -> "gromet-fnet"
     GrometPncType -> "gromet-pnc"
+    RNetType  -> "rnet"
 
 baseDirectory :: FilePath
 baseDirectory = "modelRepo"

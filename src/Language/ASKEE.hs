@@ -39,6 +39,7 @@ module Language.ASKEE
   , listAllModelsWithMetadata
   , loadModelText
   , storeModel
+  , queryModels
 
   , describeModelType
 
@@ -66,6 +67,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
+import           Data.Maybe                 ( fromMaybe )
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as Text
@@ -379,6 +381,33 @@ listAllModelsWithMetadata =
             do  ESL.Model{..} <- loadESL modelDefSource
                 pure $ MetaAnn { metaData = meta modelName, metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
+
+
+queryModels :: [(Text, Text)] -> IO [MetaAnn ModelDef]
+queryModels query = 
+  filter match_model <$> listAllModelsWithMetadata
+  where
+    match_model annModel =
+      all (match_metadata annModel) query    
+    match_metadata annModel (key, pattern) =
+      let mData = metaData annModel
+          mValue = fromMaybe "" $ lookup key mData
+      in match_wildcard (Text.toLower mValue) (Text.toLower pattern)
+    match_wildcard s pat
+      | Text.null pat        = Text.null s
+      | Text.head pat == '*' = handleStar
+      | Text.head pat == '?' = handleQM
+      | otherwise            = handleChar
+      where
+        handleStar =
+          match_wildcard s (Text.tail pat) 
+          || (not (Text.null s) && match_wildcard (Text.tail s) pat)
+        handleQM =
+          not (Text.null s) && match_wildcard (Text.tail s) (Text.tail pat)
+        handleChar =
+          not (Text.null s) && Text.head s == Text.head pat
+          && match_wildcard (Text.tail s) (Text.tail pat)
+
 
 
 --------------------------------------------------------------------------------
