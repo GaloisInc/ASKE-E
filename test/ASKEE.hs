@@ -36,9 +36,20 @@ series1 =
                 ]
              }
 
--- Generated via discrete event simulation using seed 123 at times [0,30..120]
+-- Generated via GSL simulation with beta=0.5
 series2 :: DataSeries Double
-series2 = 
+series2 =
+  DataSeries { times = [0,30,60,90,120]
+             , values = Map.fromList 
+                [ ("I",[3,504.70103993445787,152.77443346245198,46.02318509849733,13.86300422788101])
+                , ("S",[997,2.0953177959873206,2.5090771953370807e-2,6.605341099589403e-3,4.418715256915984e-3])
+                , ("R",[0,493.2036422695545,847.2004757655942,953.9702095604024,986.1325770568615])
+                ]
+             }
+
+-- Generated via discrete event simulation using seed 123 at times [0,30..120]
+series3 :: DataSeries Double
+series3 = 
   DataSeries { times = [0.0,30.0428,60.2816,90.7133]
              , values = Map.fromList 
                 [ ("I",[3.0,604.0,188.0,70.0])
@@ -51,6 +62,12 @@ testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
       actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty
+      assertDataClose actual expected
+
+testSimulateEslParameterized :: DataSource -> DataSeries Double -> Assertion
+testSimulateEslParameterized mdlSrc expected =
+  do  (start, step, stop) <- asRange (times expected)
+      actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5)
       assertDataClose actual expected
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
@@ -181,7 +198,8 @@ tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
     [ testCase "Basic SIR ODE simulation test" $ testSimulateEsl (Inline sir) series1
-    , testCase "Basic SIR discrete event simulation test" $ testSimulateEslDiscrete (Inline sirSansParameters) 0 120 30 series2
+    , testCase "Parameterized SIR ODE simulation test" $ testSimulateEslParameterized (Inline sir) series2
+    , testCase "Basic SIR discrete event simulation test" $ testSimulateEslDiscrete (Inline sirSansParameters) 0 120 30 series3
     , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
     , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e
     , testCase "Event-to-state flow schematic" $ testAsSchematicGraph e2s
