@@ -105,7 +105,7 @@ Decl                                  :: { Decl }
   : 'let'    SYM '=' Exp                 { Let $2 $4 }
   | 'state'  SYM '=' Exp                 { State $2 $4 }
   | 'assert' Exp                         { Assert $2 }
-  | 'parameter' SYM '=' REAL             { Parameter $2 (Just $4) }
+  | 'parameter' SYM '=' Exp              { Parameter $2 (Just $4) }
   | 'parameter' SYM                      { Parameter $2 Nothing }
 
 Event                                 :: { Event }

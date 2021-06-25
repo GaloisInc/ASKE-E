@@ -68,8 +68,8 @@ transformModelExprs exprT mdl =
     transformDecl (MetaAnn m (Syntax.Let n v)) = MetaAnn m . Syntax.Let n <$> expr v
     transformDecl (MetaAnn m (Syntax.State n v)) = MetaAnn m . Syntax.State n <$> expr v
     transformDecl (MetaAnn m (Syntax.Assert e)) = MetaAnn m . Syntax.Assert <$> expr e
-    -- change this if `v` becomes an expr
-    transformDecl (MetaAnn m (Syntax.Parameter n v)) =  pure $ MetaAnn m $ Syntax.Parameter n (v :: Maybe Double)
+    transformDecl (MetaAnn m (Syntax.Parameter n Nothing)) =  pure $ MetaAnn m $ Syntax.Parameter n Nothing
+    transformDecl (MetaAnn m (Syntax.Parameter n (Just e))) =  expr e >>= \e' -> pure $ MetaAnn m $ Syntax.Parameter n (Just e')
 
     transformStmt (n, v) = (,) n <$> expr v
     transformEvent evt =

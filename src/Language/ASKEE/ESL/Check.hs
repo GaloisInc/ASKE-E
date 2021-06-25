@@ -82,7 +82,7 @@ checkDecls = mapM_ checkDecl
             -- TODO: this is questionable, but this module needs some work to
             --       support this correctly
             Nothing -> bindCheck parameterRepr n (LitD 0)
-            Just v  -> bindCheck parameterRepr n (LitD v)
+            Just v  -> bindCheck parameterRepr n v
 
 -- Scope- and type-check model events
 checkEvents :: [Event] -> Check ()

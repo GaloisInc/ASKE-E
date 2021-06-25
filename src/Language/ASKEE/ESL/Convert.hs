@@ -23,12 +23,12 @@ modelAsCore mdl =
   modelNoInit =
     mapExprs simplifyExpr $
     Model { modelName      = Src.modelName mdl
-          , modelParams    = Map.map (fmap NumLit) (Map.fromList $ Src.parameterDecls decls)
+          , modelParams    = Map.map (fmap expAsCore) (Map.fromList $ Src.parameterDecls decls)
           , modelEvents    = map eventAsCore (Src.modelEvents mdl)
           , modelLets      =
             Map.fromList $
               [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ] ++
-              [ (x, expAsCore (Src.LitD d)) | (x,Just d) <- Src.parameterDecls decls ]
+              [ (x, expAsCore d) | (x,Just d) <- Src.parameterDecls decls ]
           , modelInitState = Map.empty
           , modelMeta = extractMeta mdl
           }
