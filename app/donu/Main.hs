@@ -15,11 +15,13 @@ import qualified Data.Aeson as JS
 import qualified Snap
 
 import           Language.ASKEE
+import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 import           Language.ASKEE.Exposure.GenLexer (lexExposure)
 import           Language.ASKEE.Exposure.GenParser (parseExposureStmt)
 
 import           Schema
-import ExposureSession (initExposureSessionManager, ExposureSessionManager, putExposureSessionState, getExposureSessionState, cullOldSessions)
+import           ExposureSession
+import Data.Maybe (fromMaybe)
 
 -- Snaplet Definition ---------------------------------------------------------
 
@@ -29,28 +31,10 @@ newtype Donu sim = Donu
 
 makeLenses ''Donu
 
--- getExposureState :: s -> Snap.Handler (Donu s) (Donu s) s
--- getExposureState emp =
---   do tk    <- Snap.with exposureSessions Session.csrfToken
---      stRef <- view exposureState
---      findWithDefault emp tk <$> liftIO (readIORef stRef)
-
--- setExposureState :: s -> Snap.Handler (Donu s) (Donu s) ()
--- setExposureState v =
---   do tk    <- Snap.with exposureSessions Session.csrfToken
---      stRef <- view exposureState
---      liftIO $ modifyIORef stRef $ insert tk v
-
--- deleteExposureState :: Snap.Handler (Donu s) (Donu s) ()
--- deleteExposureState =
---   do tk    <- Snap.with exposureSessions Session.csrfToken
---      stRef <- view exposureState
---      liftIO $ modifyIORef stRef $ delete tk
-
 -------------------------------------------------------------------------------
 
-type ExposureState st = (Int, st)
-type DonuApp = Donu (ExposureState ())
+type ExposureState = Exposure.Env
+type DonuApp = Donu ExposureState
 
 initDonu :: Snap.SnapletInit DonuApp DonuApp
 initDonu =
@@ -188,22 +172,22 @@ handleRequest r =
       case lexExposure (Text.unpack code) >>= parseExposureStmt of
         Left err   ->
           pure $ FailureResult $ Text.pack err
-        Right _stmt ->
-          do x <- Snap.with exposureSessions $
-               do st  <- getExposureSessionState
-                  case st of
-                    Just (i, ()) ->
-                     do  putExposureSessionState (i+1, ())
-                         return (i+1, ())
-                    Nothing ->
-                      do putExposureSessionState (0, ())
-                         return (0, ())
-             succeed' x
+        Right stmt ->
+          do env <- Snap.with exposureSessions $
+               fromMaybe Exposure.initialEnv <$> getExposureSessionState
+             res <- liftIO $ Exposure.evalStmts [stmt] env
+             case res of
+               Left err ->
+                 pure $ FailureResult err
+               Right (env', displays, effs) ->
+                 do Snap.with exposureSessions $
+                      putExposureSessionState env'
+                    succeed' (length displays, length effs)
 
     ResetExposureState _ ->
       do Snap.with exposureSessions $
-           putExposureSessionState (0, ())
-         succeed' (0::Int, ())
+           putExposureSessionState Exposure.initialEnv
+         succeed' ()
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
