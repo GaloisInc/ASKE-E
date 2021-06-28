@@ -3,7 +3,7 @@
 module Language.ASKEE.Core.Convert where
 
 import qualified Data.Map      as Map
-import           Data.Maybe    ( mapMaybe )
+import           Data.Maybe    ( mapMaybe, isNothing, fromJust )
 
 import           Language.ASKEE.Core.Expr
 import qualified Language.ASKEE.Core.Expr         as Core
@@ -15,16 +15,18 @@ import           Language.ASKEE.DEQ.Syntax        ( DiffEqs(..) )
 
 asDiffEqs :: Model -> DiffEqs
 asDiffEqs mdl =
-  DiffEqs { deqParams  = Map.keys (modelParams mdl)
+  DiffEqs { deqParams  = Map.keys woInitCond
           , deqInitial = modelInitState mdl
           , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
-          , deqLets    = modelLets mdl
+          , deqLets    = modelLets mdl `Map.union` Map.map fromJust wInitCond
           }
   where
   stateEq sv _ = simplifyExpr
                $ foldr (:+:) (NumLit 0)
                $ mapMaybe (eventTerm sv)
                $ modelEvents mdl
+
+  (woInitCond, wInitCond) = Map.partition isNothing (modelParams mdl)
 
 -- Eventually we may want to consider approaches to try to make guard
 -- continues (e.g., sigmoid?)
