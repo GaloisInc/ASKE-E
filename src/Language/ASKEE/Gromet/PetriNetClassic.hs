@@ -155,7 +155,7 @@ pnToCore pn =
   rateName (JunctionUid x) = x <> "_rate"
   jToName  (JunctionUid x) = x
 
-  sParams = [ (x,e) | (x,e) <- zip sParamLets sLets ]
+  sParams = zip sParamLets sLets
   rParams = [ (x,e) | (x,e) <- zip rParamLets rLets ]
 
   (sParamLets,sLets,spMeta) =
@@ -338,7 +338,6 @@ instance FromJSON PetriNetClassic where
        pncJunctions <- o .: "junctions"
        pncWires     <- o .: "wires"
        pure PetriNetClassic { .. }
-
 
 
 
