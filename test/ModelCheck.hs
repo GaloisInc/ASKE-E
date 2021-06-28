@@ -2,28 +2,30 @@
 
 module ModelCheck where
 
-import Control.Monad (when)
 import Control.Monad.State (evalStateT)
-
-import Data.Either (isLeft)
 
 import Language.ASKEE.ESL.Check
 import Language.ASKEE.Expr as Expr
 import Language.ASKEE.ESL.Syntax
 
-import Test.Tasty(TestTree, TestName)
+import Test.Tasty(TestTree, TestName, testGroup)
 import Test.Tasty.HUnit
 
-import System.Exit (exitFailure)
 
 simpleCheckDecls :: [Decl] -> Either String ()
 simpleCheckDecls ds = evalStateT (checkDecls ds) initExprInfo
 
-expectLeft, expectRight :: Either String a -> IO ()
-expectLeft = assert . isLeft
-expectRight = either assertFailure pass
-  where
-    pass = const (pure ())
+expectLeft :: Show a => Either String a -> IO ()
+expectLeft x =
+  case x of
+    Right _ -> assertFailure ("Expected `Left`, received "<>show x)
+    Left _ -> pure ()
+
+expectRight :: Show a => Either String a -> IO ()
+expectRight x =
+  case x of
+    Right _ -> pure ()
+    Left _ -> assertFailure ("Expected `Right`, received "<>show x)
 
 (~:) :: TestName -> Assertion -> TestTree
 (~:) = testCase
@@ -337,8 +339,8 @@ testTimeRefErr =
   "well-typed time variable in ill-typed expression" ~:
     expectLeft $ simpleTypeOf (And (Var "time") (Var "time"))
 
-tests :: [TestTree]
-tests = 
+tests :: TestTree
+tests = testGroup "Model checking tests"
   [ testEmpty
   , testLet
   , testState
