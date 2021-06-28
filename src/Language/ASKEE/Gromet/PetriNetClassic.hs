@@ -137,9 +137,7 @@ pnToCore pn =
     , modelParams    = Map.fromList (sParams ++ rParams)
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
-    , modelLets      = Map.fromList
-                     $ [ (x,y) | (x, Just y) <- zip sParamLets sLets ] ++
-                       [ (x,y) | (x, Just y) <- zip rParamLets rLets ]
+    , modelLets      = mempty
     , modelMeta      = Map.fromList
                      $ zipWith mkMeta sParamLets spMeta ++
                        zipWith mkMeta rParamLets rpMeta ++
@@ -156,7 +154,8 @@ pnToCore pn =
   jToName  (JunctionUid x) = x
 
   sParams = zip sParamLets sLets
-  rParams = zip rParamLets rLets
+  rParams = zip rParamLets rLets 
+  -- would need to remove any state-dependent rates from `rParams`, if we allowed them
 
   (sParamLets,sLets,spMeta) =
     unzip3 [ (uid, def,theMeta)
