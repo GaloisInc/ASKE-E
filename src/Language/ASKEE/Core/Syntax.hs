@@ -64,15 +64,28 @@ instance TraverseExprs Event where
        eff  <- traverse f (eventEffect ev)
        pure ev { eventRate = rate, eventWhen = cond, eventEffect = eff }
 
-
-inlineParams :: Model -> Model
-inlineParams m@Model{..} = m 
+-- One-level let-inlining
+inlineLets :: Model -> Model
+inlineLets m@Model{..} = m
   { modelEvents = substEvent <$> modelEvents
   , modelInitState = substExpr substitution <$> modelInitState
   }
   where
-    wInitCond = Map.mapMaybe id modelParams
-    substitution = substExpr substitution <$> wInitCond
+    substitution = modelLets
+    substEvent = mapExprs (substExpr substitution)
+
+-- Multi-level parameter-inlining
+inlineParams :: Model -> Model
+inlineParams m@Model{..} = m 
+  { modelEvents = substEvent <$> modelEvents
+  , modelInitState = substExpr substitution <$> modelInitState
+  , modelLets = substExpr substitution <$> modelLets
+  , modelParams = fmap (substExpr substitution) <$> modelParams 
+  --  ^ chase down chains of parameter dependencies
+  }
+  where
+    withInitCond = Map.mapMaybe id modelParams
+    substitution = substExpr substitution <$> withInitCond
     substEvent = mapExprs (substExpr substitution)
 
 -- | Instantiate some of the model parameters

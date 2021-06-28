@@ -216,7 +216,7 @@ genModel mdl
   
   cout s = C.stmt (C.ident "std::cout" C.<< s)
 
-  mdl' = Core.inlineParams mdl
+  mdl' = (Core.inlineLets . Core.inlineParams) mdl
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
