@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
 module Language.ASKEE.Core.Interface where
 
 import qualified Data.Map as Map
@@ -11,36 +13,38 @@ import Language.ASKEE.Model.Interface
 import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Core.Expr
 import Language.ASKEE.Core.Eval(evalDouble)
-
+import Data.Maybe
 
 modelInterface :: Model -> ModelInterface
-modelInterface model = ModelInterface
-  { modelInputs = map toParam paramDef
-  , modelOutputs = map toState (Map.keys (modelInitState model) ++
-                                map fst stateLets)
+modelInterface Model{..} = ModelInterface
+  { modelInputs = map toParam (Map.toList parameters) 
+  , modelOutputs = map toState (Map.keys modelInitState ++ Map.keys modelLets)
   }
   where
-  meta x = Map.findWithDefault Map.empty x (modelMeta model)
+    parameters = Map.union
+      (Map.map Just initialConditions)
+      (Map.map (const Nothing) $ Map.filter isNothing modelParams)
 
-  (params, stateLets) = orderLets model
-  paramDef = computeDefaults [p | (p, Nothing) <- Map.toList $ modelParams model] params
+    initialConditions = 
+      Map.mapMaybe 
+        (\case Just e -> Just (evalDouble e initialConditions); Nothing -> Nothing) 
+        modelParams
 
-  toParam (x,mb) = Port
-    { portName      = x
-    , portValueType = Real
-    , portDefault   = VReal <$> mb
-    , portMeta      = meta x
-    }
+    toParam (x,mb) = Port
+      { portName      = x
+      , portValueType = Real
+      , portDefault   = VReal <$> mb
+      , portMeta      = meta x
+      }
 
-  toState x = Port
-    { portName      = x
-    , portValueType = Real
-    , portDefault   = Nothing
-    , portMeta      = meta x
-    }
+    toState x = Port
+      { portName      = x
+      , portValueType = Real
+      , portDefault   = Nothing
+      , portMeta      = meta x
+      }
 
-
-
+    meta x = Map.findWithDefault Map.empty x modelMeta
 
 -- Order lets by dependency and split into lets that don't depend on
 -- state variables, and ones that do.
@@ -70,6 +74,3 @@ computeDefaults ps0 defs =
     | not (Set.null (collectExprVars e `Set.intersection` ps))
       = (Set.insert x ps, env)
     | otherwise = (ps, Map.insert x (evalDouble e env) env)
-
-  
-
