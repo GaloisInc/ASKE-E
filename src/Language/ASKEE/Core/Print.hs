@@ -10,7 +10,7 @@ import Language.ASKEE.Core.Expr
 import Language.ASKEE.Panic       ( panic )
 
 import qualified Prettyprinter as PP
-import           Prettyprinter ((<+>), pretty, hang, vcat)
+import           Prettyprinter ((<+>), pretty, hang, vcat, emptyDoc)
 import           Text.Printf      ( printf )
 
 type Doc = PP.Doc ()
@@ -22,7 +22,7 @@ ppModel :: Model ->  Doc
 ppModel m =
   section
     ("model" <+> pretty (modelName m)) $
-      [ "param" <+> pretty x | (x,_) <- Map.toList $ modelParams m ] ++
+      [ "param" <+> pretty x <+> maybe emptyDoc (\e' -> "=" <+> ppExpr e') e | (x,e) <- Map.toList $ modelParams m ] ++
 
       [ "let" <+> pretty x <+> "=" <+> ppExpr e
       | (x,e) <- Map.toList (modelLets m)
