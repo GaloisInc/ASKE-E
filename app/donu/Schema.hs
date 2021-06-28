@@ -39,6 +39,7 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | ExecuteExposureCode ExecuteExposureCodeCommand
+  | ResetExposureState ResetExposureStateCommand
     deriving Show
 
 instance HasSpec Input where
@@ -55,6 +56,7 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (ExecuteExposureCode <$> anySpec)
+         <!> (ResetExposureState <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -442,3 +444,12 @@ instance HasSpec ExecuteExposureCodeCommand where
                     "Execute an Exposure command"
         executeExposureCode <- reqSection' "code" textSpec "The code to execute"
         pure ExecuteExposureCodeCommand{..}
+
+newtype ResetExposureStateCommand = ResetExposureStateCommand ()
+  deriving Show
+
+instance HasSpec ResetExposureStateCommand where
+  anySpec =
+    sectionsSpec "clear-exposure" $
+      do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
+         pure $ ResetExposureStateCommand ()
