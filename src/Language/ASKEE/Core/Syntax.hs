@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Language.ASKEE.Core.Syntax where
 
@@ -64,18 +65,15 @@ instance TraverseExprs Event where
        pure ev { eventRate = rate, eventWhen = cond, eventEffect = eff }
 
 
-
-
-
--- | Inline all occurances of let-bound variables.
-inlineLets :: Model -> Model
-inlineLets model = model { modelEvents = map substEvent (modelEvents model)
-                         , modelLets   = su
-                         }
+inlineParams :: Model -> Model
+inlineParams m@Model{..} = m 
+  { modelEvents = substEvent <$> modelEvents
+  , modelInitState = substExpr substitution <$> modelInitState
+  }
   where
-  su         = substExpr su <$> modelLets model
-  substEvent = mapExprs (substExpr su)
-
+    wInitCond = Map.mapMaybe id modelParams
+    substitution = substExpr substitution <$> wInitCond
+    substEvent = mapExprs (substExpr substitution)
 
 -- | Instantiate some of the model parameters
 applyParams' :: Map Ident Expr -> Model -> Model
