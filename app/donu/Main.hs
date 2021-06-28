@@ -3,60 +3,67 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main ( main ) where
 
+import Control.Monad.State
+
 import           Control.Applicative ((<|>))
 import           Control.Lens.TH
-import           Control.Lens (view)
-import           Control.Monad.IO.Class ( liftIO )
 import qualified Web.ClientSession as ClientSession
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
-import           Data.IORef (IORef, newIORef, readIORef)
-import           Data.Map.Strict (Map, findWithDefault)
-import           Data.Text (Text)
 
 import qualified Snap
-import qualified Snap.Snaplet.Session as Session
-import qualified Snap.Snaplet.Session.Backends.CookieSession as Session
 
 import           Language.ASKEE
 import           Language.ASKEE.Exposure.GenLexer (lexExposure)
 import           Language.ASKEE.Exposure.GenParser (parseExposureStmt)
-import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 
 import           Schema
+import ExposureSession (initExposureSessionManager, ExposureSessionManager, putExposureSessionState, getExposureSessionState, cullOldSessions)
 
 -- Snaplet Definition ---------------------------------------------------------
 
-data Donu sim = Donu
- { _simulatorSessions :: Snap.Snaplet Session.SessionManager
- , _simulatorState    :: IORef (Map Text sim)
+newtype Donu sim = Donu
+ { _exposureSessions :: Snap.Snaplet (ExposureSessionManager sim)
  }
 
 makeLenses ''Donu
 
-exposureState :: s -> Snap.Handler (Donu s) (Donu s) s
-exposureState emp =
-  do tk    <- Snap.with simulatorSessions Session.csrfToken
-     stRef <- view simulatorState
-     findWithDefault emp tk <$> liftIO (readIORef stRef)
+-- getExposureState :: s -> Snap.Handler (Donu s) (Donu s) s
+-- getExposureState emp =
+--   do tk    <- Snap.with exposureSessions Session.csrfToken
+--      stRef <- view exposureState
+--      findWithDefault emp tk <$> liftIO (readIORef stRef)
+
+-- setExposureState :: s -> Snap.Handler (Donu s) (Donu s) ()
+-- setExposureState v =
+--   do tk    <- Snap.with exposureSessions Session.csrfToken
+--      stRef <- view exposureState
+--      liftIO $ modifyIORef stRef $ insert tk v
+
+-- deleteExposureState :: Snap.Handler (Donu s) (Donu s) ()
+-- deleteExposureState =
+--   do tk    <- Snap.with exposureSessions Session.csrfToken
+--      stRef <- view exposureState
+--      liftIO $ modifyIORef stRef $ delete tk
 
 -------------------------------------------------------------------------------
 
-initDonu :: Snap.SnapletInit (Donu ()) (Donu ())
+type ExposureState st = (Int, st)
+type DonuApp = Donu (ExposureState ())
+
+initDonu :: Snap.SnapletInit DonuApp DonuApp
 initDonu =
   Snap.makeSnaplet "donu" "donu" Nothing $
-    do sess <- Snap.nestSnaplet "sessions" simulatorSessions $
-                 Session.initCookieSessionManager
+    do sess <- Snap.nestSnaplet "sessions" exposureSessions $
+                 initExposureSessionManager
                    ClientSession.defaultKeyFile -- TODO: Do we care about this?
                    "exposure-env-id"
-                   Nothing -- TODO: Do we need to set a domain?
-                   Nothing -- TODO: We should probably set a timeout
+                   1800
        Snap.addRoutes [ ("/help", showHelp)
                       , ("/", endpoint)
                       ]
-       m <- liftIO $ newIORef mempty
-       return $ Donu sess m
+       return $ Donu sess
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -93,9 +100,10 @@ showHelp = Snap.writeLBS helpHTML
 --------------------------------------------------------------------------------
 
 
-handleRequest :: Input -> Snap.Handler (Donu ()) (Donu ()) Result
+handleRequest :: Input -> Snap.Handler DonuApp DonuApp Result
 handleRequest r =
   liftIO (print r) >>
+  Snap.with exposureSessions cullOldSessions  >>
   case r of
     SimulateGSL SimulateGSLCommand{..} ->
       do  res <-
@@ -180,10 +188,22 @@ handleRequest r =
       case lexExposure (Text.unpack code) >>= parseExposureStmt of
         Left err   ->
           pure $ FailureResult $ Text.pack err
-        Right stmt ->
-          Session.withSession simulatorSessions $
-            do _state <- exposureState ()
-               return $ undefined -- succeed $ Exposure.interpretStmt stmt
+        Right _stmt ->
+          do x <- Snap.with exposureSessions $
+               do st  <- getExposureSessionState
+                  case st of
+                    Just (i, ()) ->
+                     do  putExposureSessionState (i+1, ())
+                         return (i+1, ())
+                    Nothing ->
+                      do putExposureSessionState (0, ())
+                         return (0, ())
+             succeed' x
+
+    ResetExposureState _ ->
+      do Snap.with exposureSessions $
+           putExposureSessionState (0, ())
+         succeed' (0::Int, ())
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
