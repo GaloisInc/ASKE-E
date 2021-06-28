@@ -156,7 +156,7 @@ pnToCore pn =
   jToName  (JunctionUid x) = x
 
   sParams = zip sParamLets sLets
-  rParams = [ (x,e) | (x,e) <- zip rParamLets rLets ]
+  rParams = zip rParamLets rLets
 
   (sParamLets,sLets,spMeta) =
     unzip3 [ (uid, def,theMeta)
@@ -338,6 +338,5 @@ instance FromJSON PetriNetClassic where
        pncJunctions <- o .: "junctions"
        pncWires     <- o .: "wires"
        pure PetriNetClassic { .. }
-
 
 
