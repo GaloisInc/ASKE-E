@@ -1,0 +1,12 @@
+
+//1. What is the probability of infections become zero eventually
+//P=?[F Inf=0]
+
+// 2. What is the probability of recovered individuals equal to the total population
+//P=?[F Rec=N]
+
+// 3. What is the probability of number of recovered individuals will be greater than the susceptible individuals
+//P=?[F Rec > Sus]
+
+//4. What is the probability of number of susceptible individuals will be zero
+P=?[F Sus=N]
