@@ -62,7 +62,7 @@ asCore = tryConvs [ unCore
                   , asEasel >=> easelToCore
                   , notExist MT.CoreType ]
   where
-    easelToCore e = fromEither (ESL.modelAsCore e)
+    easelToCore e = pure (ESL.modelAsCore e)
     pncToCore x = fromEither (GPNC.pnToCore <$> GPNC.pnFromGromet x)
     rnetToCore x = pure (RNet.rnetToCore x)
 

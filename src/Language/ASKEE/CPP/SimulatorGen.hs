@@ -12,7 +12,7 @@ import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.CPP.Pretty as C
 import Data.List (intercalate)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -150,7 +150,7 @@ genNextStep evts =
 
 genModel :: Core.Model -> C.Doc
 genModel mdl
-  | not $ null $ Core.modelParams mdl =
+  | not $ null $ Map.filter isNothing $ Core.modelParams mdl =
     panic "genModel" [ "Model parameters not yet supported." ]
   | otherwise =
   C.stmts
@@ -180,7 +180,7 @@ genModel mdl
     ]
   where
   mkInit = genExpr' \x -> panic "genModel"
-                            [ "Unexpected vairable in initial condition:"
+                            [ "Unexpected variable in initial condition:"
                             , show x ]
 
   mkEventEffectDecl evt =
@@ -216,7 +216,7 @@ genModel mdl
   
   cout s = C.stmt (C.ident "std::cout" C.<< s)
 
-  mdl' = Core.inlineLets mdl
+  mdl' = (Core.inlineLets . Core.inlineParams) mdl
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
