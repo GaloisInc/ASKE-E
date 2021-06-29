@@ -4,31 +4,25 @@ module Language.ASKEE.Core.Interface where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.Graph (stronglyConnComp)
-import Data.List(partition,foldl')
-import Data.Foldable(toList)
+import Data.List(foldl')
 
 import Language.ASKEE.Model.Basics
 import Language.ASKEE.Model.Interface
 import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Core.Expr
 import Language.ASKEE.Core.Eval(evalDouble)
-import Data.Maybe
 
+-- NOTE: the parameters defaults in our representations are expressions,
+-- white the ones in the interface are constants.    To make the two fit
 modelInterface :: Model -> ModelInterface
 modelInterface Model{..} = ModelInterface
-  { modelInputs = map toParam (Map.toList parameters) 
+  { modelInputs = map toParam params
   , modelOutputs = map toState (Map.keys modelInitState ++ Map.keys modelLets)
   }
   where
-    parameters = Map.union
-      (Map.map Just initialConditions)
-      (Map.map (const Nothing) $ Map.filter isNothing modelParams)
-
-    initialConditions = 
-      Map.mapMaybe 
-        (\case Just e -> Just (evalDouble e initialConditions); Nothing -> Nothing) 
-        modelParams
+    noDefault   = [ x | (x,Nothing) <- Map.toList modelParams ]
+    params      = computeDefaults noDefault
+                $ orderDecls [ (x,e) | (x,Just e) <- Map.toList modelParams ]
 
     toParam (x,mb) = Port
       { portName      = x
@@ -45,24 +39,6 @@ modelInterface Model{..} = ModelInterface
       }
 
     meta x = Map.findWithDefault Map.empty x modelMeta
-
--- Order lets by dependency and split into lets that don't depend on
--- state variables, and ones that do.
-orderLets :: Model -> ( [(Ident,Expr)], [(Ident,Expr)] )
-orderLets model = (map fst without, map fst with)
-  where
-  stateVars = Map.keysSet (modelInitState model)
-  lets      = modelLets model
-
-  (with,without) =
-         partition snd
-       $ concatMap toList
-       $ stronglyConnComp
-       $ [ ((n,usesState), x, Set.toList vs)
-         | n@(x,e) <- Map.toList lets
-         , let vs = collectExprVars e
-               usesState = not $ Set.null $ Set.intersection vs stateVars
-         ]
 
 computeDefaults :: [Ident] -> [(Ident,Expr)] -> [(Ident, Maybe Double)]
 computeDefaults ps0 defs =

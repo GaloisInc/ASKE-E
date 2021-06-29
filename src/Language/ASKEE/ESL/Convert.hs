@@ -13,47 +13,31 @@ import           Language.ASKEE.Core.Syntax ( Event(..), Model(..) )
 import qualified Language.ASKEE.ESL.Syntax  as Src
 import qualified Language.ASKEE.Expr        as Src
 import qualified Data.Set as Set
-import Data.List (foldl')
-import Data.Graph ( stronglyConnComp, SCC(..) )
-import Language.ASKEE.Panic (panic)
 
--- XXX maybe make non-Either
-modelAsCore :: Src.Model -> Either String Model
-modelAsCore mdl = pure model
+modelAsCore :: Src.Model -> Model
+modelAsCore mdl =
+  mapExprs simplifyExpr
+  Model { modelName      = Src.modelName mdl
+        , modelParams    = mParams
+        , modelEvents    = map eventAsCore (Src.modelEvents mdl)
+        , modelLets      = Map.fromList mLets
+        , modelInitState =
+            Map.fromList [(v, expAsCore e) | (v, e) <- Src.stateDecls decls]
+        , modelMeta = extractMeta mdl
+        }
+
   where
   decls = Src.modelDecls mdl
 
-  model =
-    mapExprs simplifyExpr $
-    Model { modelName      = Src.modelName mdl
-          , modelParams    = mParams
-          , modelEvents    = map eventAsCore (Src.modelEvents mdl)
-          , modelLets      = mLets
-          , modelInitState = Map.fromList [(v, expAsCore e) | (v, e) <- Src.stateDecls decls]
-          , modelMeta = extractMeta mdl
-          }
-  
-  (mParams, mLets) = partitionStatefulLets mdl
+  mParams = Map.fromList
+          $ [ (x, expAsCore <$> e) | (x,e) <- Src.parameterDecls decls ] ++
+            [ (x, Just e)          | (x,e) <- letParams ]
 
-partitionStatefulLets :: Src.Model -> (Map Text (Maybe Expr), Map Text Expr)
-partitionStatefulLets Src.Model{..} = fst $ foldl' part ((mParams, mempty), svs) ordered
-  where
-    ordered = stronglyConnComp 
-      [ ((v, expAsCore e, vs), v, Set.toList vs) 
-      | (v, e) <- Src.letDecls modelDecls
-      , let e' = expAsCore e
-            vs = collectExprVars e'
-      ]
-    part ((params, lets), stateful) x =
-      case x of
-        CyclicSCC _ -> panic "partitionStatefulLets" ["cyclic lets"]
-        AcyclicSCC (v, e, vs) -> 
-          -- if variable does not involve something stateful
-          if Set.null $ stateful `Set.intersection` vs
-            then ((Map.insert v (Just e) params, lets), stateful)
-            else ((params, Map.insert v e lets), Set.insert v stateful)
-    mParams = Map.map (fmap expAsCore) (Map.fromList $ Src.parameterDecls modelDecls)
-    svs = Set.insert "time" $ Set.fromList (map fst (Src.stateDecls modelDecls))
+  (letParams,mLets) =
+    partOrderDecls
+      (Set.fromList ("time" : map fst (Src.stateDecls decls)))
+      [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
+
 
 extractMeta :: Src.Model -> Map Ident (Map Text [Text])
 extractMeta model =

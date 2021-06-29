@@ -15,7 +15,6 @@ import qualified Data.Set as Set
 import Language.ASKEE.Panic(panic)
 import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Core.Expr as Core
-import qualified Language.ASKEE.Core.Interface as Core
 
 import Language.ASKEE.Gromet.Common(Uid)
 import Language.ASKEE.Gromet.Syntax
@@ -48,7 +47,8 @@ convertCoreToGromet m =
 convertModel :: Core.Model -> GrometGen BoxUid
 convertModel model =
   do uid <- newBoxUid
-     paramPorts <- forM (Map.keys $ Core.modelParams model) \paramName ->
+     let mparams = Map.toList (Core.modelParams model)
+     paramPorts <- forM [ x | (x,Nothing) <- mparams ] \paramName ->
         do puid <- newPortUid
            let p = Port { portUid       = puid
                         , portBox       = uid
@@ -60,7 +60,8 @@ convertModel model =
            pure (paramName, Left p)
 
      let vars = Core.modelInitState model
-         (pureLets,stateLets) = Core.orderLets model
+         stateLets = Core.orderDecls $ Map.toList (Core.modelLets model)
+         pureLets  = Core.orderDecls [ (x,e) | (x,Just e) <- mparams ]
 
      startNestedBox uid (Core.modelName model) PrTNet
 

@@ -18,24 +18,33 @@ rnetToCore :: Src.ReactionNet -> Model
 rnetToCore rn = Model
   { modelName   = "reaction-net"    -- XXX: maybe  these should have a name?
 
-  , modelParams = Map.fromList (map ((,Nothing) . initName) params)
+  , modelParams = Map.fromList params
 
   , modelInitState =
     Map.fromList [ (x, Var (initName x)) | x <- Set.toList states ]
 
   , modelEvents = zipWith rToEvent [1..] (Src.reactions rn)
-  , modelLets   = Map.union (doLets initName initBinds)
-                            (doLets id       otherBinds)
+  , modelLets   = Map.fromList lets
   , modelMeta   = Map.empty -- XXX
   }
   where
-  params = Set.toList (states `Set.difference` Map.keysSet initBinds)
+  params = [ (initName x, Nothing)
+           | x <- Set.toList (states `Set.difference` Map.keysSet initBinds)
+           ] ++
+           [ (x, Just e) | (x,e) <- letParams ]
+
+  (letParams,lets) = partOrderDecls states
+                   $ doLets initName initBinds ++
+                     doLets id       otherBinds
 
   states = Set.unions (map rVars (Src.reactions rn))
+
   (initBinds,otherBinds) = Map.partitionWithKey (\x _ -> x `Set.member` states)
                                                 (Src.bindings rn)
 
-  doLets f mp = Map.fromList [ (f x, ESL.expAsCore e) | (x,e) <- Map.toList mp ]
+  doLets f mp = [ (f x, ESL.expAsCore e) | (x,e) <- Map.toList mp ]
+
+
 
 initName :: Text -> Text
 initName name = name <> "_init"
@@ -52,11 +61,12 @@ rToEvent name r = Event
            foldr (:*:) val
             (Var <$> (Set.toList (reVars (Src.reactionSubstrates r))))
 
-    -- XXX: add enough input
   , eventWhen =
-    case Src.reactionEnabled r of
-      Nothing -> BoolLit True
-      Just c  -> ESL.expAsCore c
+    case (ESL.expAsCore <$> Src.reactionEnabled r, enoughInput) of
+      (Nothing,Nothing) -> BoolLit True
+      (Just a, Nothing) -> a
+      (Nothing, Just b) -> b
+      (Just a, Just b)  -> a :&&: b
 
   , eventEffect =
     let eqn x y = if y > 0 then Var x :+: NumLit (fromIntegral y)
@@ -66,6 +76,13 @@ rToEvent name r = Event
   where
   ins  = groupRE (Src.reactionSubstrates r)
   outs = groupRE (Src.reactionProducts r)
+
+  enoughInput =
+    case [ NumLit (fromIntegral n) :<=: Var x | (x,n) <- Map.toList ins
+                                              , n /= 0 ] of
+      [] -> Nothing
+      es -> Just (foldr1 (:&&:) es)
+
 
 groupRE :: Src.ReactionExp -> Map Text Int
 groupRE re =
