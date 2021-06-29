@@ -273,7 +273,8 @@ Note: in this example we chose a `beta` orders of magnitude smaller than in the 
 | start            | number                   | Start time of the simulation                                               |
 | end              | number                   | End time of the simulation                                                 |
 | step             | number                   | Simulation time step size                                                  |
-| seed             | integer                  | (optional) use this seed for random number generation/event selection                     |
+| seed             | integer                  | (optional) use this seed for random number generation/event selection      |
+| iterations       | integer                  | Run this many simulations                                                  |
 
 
 ```JSON
@@ -285,7 +286,8 @@ Note: in this example we chose a `beta` orders of magnitude smaller than in the 
   },
   "start": 0,
   "end": 120.0,
-  "step": 30.0
+  "step": 30.0,
+  "iterations": 1
 }
 ```
 
@@ -296,44 +298,46 @@ Note: in this example we chose a `beta` orders of magnitude smaller than in the 
 | times            | list of number           | series of times used in simulation                                |
 | values           | result series object     | values of state varaibles                                         |
 
-The object in `values` is structured identically to that of a `simulate-gsl` response.
+The object in `result` is a list of values, each structured identically to that of a `simulate-gsl` response.
 
 ```JSON
 {
   "status": "success",
-  "result": {
-    "values": {
-      "D": [
-        0,
-        113,
-        246,
-        346
-      ],
-      "I": [
-        3,
-        558,
-        377,
-        303
-      ],
-      "S": [
-        997,
-        50,
-        74,
-        69
-      ],
-      "R": [
-        0,
-        279,
-        303,
-        282
+  "result": [
+    {
+      "values": {
+        "D": [
+          0,
+          113,
+          246,
+          346
+        ],
+        "I": [
+          3,
+          558,
+          377,
+          303
+        ],
+        "S": [
+          997,
+          50,
+          74,
+          69
+        ],
+        "R": [
+          0,
+          279,
+          303,
+          282
+        ]
+      },
+      "times": [
+        30.0028,
+        60.0238,
+        90.0006
       ]
-    },
-    "times": [
-      30.0028,
-      60.0238,
-      90.0006
-    ]
-  }
+    }
+  ]
 }
 ```
 

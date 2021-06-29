@@ -66,6 +66,7 @@ handleRequest r =
               simEndDiscrete
               simStepDiscrete
               simSeedDiscrete
+              simItersDiscrete
           succeed' res
 
     SimulateGSL SimulateGSLCommand{..} ->

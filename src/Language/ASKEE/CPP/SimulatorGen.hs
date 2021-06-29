@@ -12,7 +12,7 @@ import Language.ASKEE.Panic(panic)
 
 import qualified Language.ASKEE.CPP.Pretty as C
 import Data.List (intercalate)
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (isNothing)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -278,11 +278,15 @@ genDriver ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
-  Maybe Int {- ^ seed -} -> 
+  -- Maybe Int {- ^ seed -} -> 
   C.Doc
-genDriver model start stop step seed = C.main
+genDriver model start stop step = C.main
   [ C.declare (modelClassName model) cModel
-  , C.stmt (C.call (C.member cModel "set_seed") [C.intLit (fromMaybe 0xdeadbeef seed)])
+  , C.declare "uint32_t" cSeed
+  , C.ifThenElse ("argc" C.> C.intLit 1) 
+    [C.assign cSeed (C.call "strtoul" [C.subscript "argv" (C.intLit 1), C.nullptr, C.intLit 10])]
+    [C.assign cSeed (C.call "time" [C.nullptr])]
+  , C.stmt (C.call (C.member cModel "set_seed") [cSeed])
   , C.declareInit C.double cStart (C.doubleLit start)
   , C.declareInit C.double cStop (C.doubleLit stop)
   , C.declareInit C.double cStep (C.doubleLit step)
@@ -326,6 +330,7 @@ genDriver model start stop step seed = C.main
     cStart = C.ident "start"
     cStop = C.ident "stop"
     cStep = C.ident "step"
+    cSeed = C.ident "seed"
     cModelEvent = C.ident "modelEvent"
     cModelTime = C.ident "modelTime"
     cTargetTime = C.ident "targetTime"
