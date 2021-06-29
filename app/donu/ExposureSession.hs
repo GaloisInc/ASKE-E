@@ -1,37 +1,54 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-module ExposureSession where
+module ExposureSession (
+    ExposureSessionManager
+  , initExposureSessionManager
+  , getExposureSessionState
+  , putExposureSessionState
+  , cullOldSessions
+  ) where
 
-import Snap.Snaplet.Session
+{-
+The implementation for this module is mostly derived from the CookieSession
+provided by Snap. The session key is set as a cookie on the client, and the
+session ExposureSessionManager is essentially a map from keys to state.
+-}
 
-import Control.Monad.State
-import Data.Map.Strict (Map)
+import           Control.Concurrent (MVar, modifyMVar_, newMVar, readMVar)
+import           Control.Monad.State
+import           Data.ByteString
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Text (Text)
-import Data.Time (UTCTime)
 import qualified Data.Serialize as S
+import           Data.Time (UTCTime)
+import           Data.Time.Clock (getCurrentTime)
+import           Data.Text (Text)
+import           Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
-import Web.ClientSession
-import Data.ByteString
-import Data.Time.Clock (getCurrentTime)
-import Data.Text.Encoding (encodeUtf8, decodeUtf8)
-import Control.Concurrent (MVar, modifyMVar_, newMVar, readMVar)
+import           Web.ClientSession
+import           Snap.Snaplet.Session
+import           Snap (Snap, SnapletInit, makeSnaplet, Handler, liftSnap)
 
-import Snap (Snap, SnapletInit, makeSnaplet, Handler, liftSnap)
+type SessionKey = Text
 
 data ExposureSessionManager st = ExposureSessionManager
-  { stateMap        :: MVar (Map Text st)
-  , timeoutMap      :: MVar (Map Text UTCTime)
+  { stateMap        :: MVar (Map SessionKey st)
+    -- ^ Map from session key to Exposure state
+    -- Needs to be an MVar because this is shared across handler threads
+  , timeoutMap      :: MVar (Map SessionKey UTCTime)
+    -- ^ Map from session key to the expiration date of the session.
+    -- Needs to be an MVar because this is shared across handler threads
+  , session         :: Maybe ExposureSession
+    -- ^ Cached session
   , key             :: Key
   , cookieName      :: ByteString
   , timeout         :: Int
-  , session         :: Maybe ExposureSession
   , randomNumGen    :: RNG
   }
 
 newtype ExposureSession = ExposureSession
-  { esToken :: Text }
+  { esToken :: SessionKey }
   deriving (Eq, Show)
 
 newtype Payload = Payload ByteString
@@ -52,7 +69,7 @@ initExposureSessionManager keyPath c t =
          rng <- liftIO mkRNG
          sm <- newMVar mempty
          tm <- newMVar mempty
-         return $! ExposureSessionManager sm tm k c t Nothing rng
+         return $! ExposureSessionManager sm tm Nothing k c t rng
 
 cullOldSessions :: Handler b (ExposureSessionManager s) ()
 cullOldSessions =
@@ -78,7 +95,7 @@ getExposureSessionState =
        Nothing ->
          return Nothing
 
-putExposureSessionState :: st -> Handler b (ExposureSessionManager st) ()
+putExposureSessionState :: s -> Handler b (ExposureSessionManager s) ()
 putExposureSessionState st =
   do esm <- get
      esm' <- liftSnap $ loadSession esm
@@ -93,6 +110,8 @@ mkExposureSession :: RNG -> IO ExposureSession
 mkExposureSession rng =
   ExposureSession <$> liftIO (mkCSRFToken rng)
 
+-- | If the current session has been loadede, then touch it, resetting its
+-- timeout.
 pokeSession :: ExposureSessionManager st -> Snap (ExposureSessionManager st)
 pokeSession esm =
   case session esm of
@@ -103,12 +122,14 @@ pokeSession esm =
     Nothing ->
       return esm
 
+-- | Remove a session's state from the manager
 deleteSession :: ExposureSession -> ExposureSessionManager st -> Snap ()
 deleteSession s esm = liftIO $
   do modifyMVar_ (timeoutMap esm) (pure . Map.delete (esToken s))
      modifyMVar_ (stateMap esm) (pure . Map.delete (esToken s))
      return ()
 
+-- | Load the session corresponding to the current request
 loadSession :: ExposureSessionManager st -> Snap (ExposureSessionManager st)
 loadSession esm =
   case session esm of
@@ -124,15 +145,3 @@ loadSession esm =
              do sess <- liftIO $ mkExposureSession (randomNumGen esm)
                 setSecureCookie (cookieName esm) Nothing (key esm) (Just $ timeout esm) (Payload (S.encode sess))
                 pokeSession esm { session = Just sess }
-
-commitExposureSession :: ExposureSessionManager st -> Snap ()
-commitExposureSession esm =
-  do pl <- case session esm of
-             Just s  ->
-               do void $ pokeSession esm
-                  return $ Payload (S.encode s)
-             Nothing ->
-               do sess <- liftIO $ mkExposureSession (randomNumGen esm)
-                  void $ pokeSession esm { session = Just sess }
-                  return $ Payload (S.encode sess)
-     setSecureCookie (cookieName esm) Nothing (key esm) (Just $ timeout esm) pl

@@ -11,6 +11,7 @@ import qualified Web.ClientSession as ClientSession
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
+import           Data.Maybe (fromMaybe)
 
 import qualified Snap
 
@@ -21,12 +22,12 @@ import           Language.ASKEE.Exposure.GenParser (parseExposureStmt)
 
 import           Schema
 import           ExposureSession
-import Data.Maybe (fromMaybe)
 
 -- Snaplet Definition ---------------------------------------------------------
 
 newtype Donu sim = Donu
  { _exposureSessions :: Snap.Snaplet (ExposureSessionManager sim)
+   -- ^ Snaplet implementing Exposure REPL sessions
  }
 
 makeLenses ''Donu
@@ -58,7 +59,6 @@ initDonu =
                runHandler a
            <|> do Snap.modifyResponse
                    (Snap.setResponseStatus 400 "Bad request")
-                  -- Snap.writeText $ Text.pack "ASDF")
           Left err ->
             do  Snap.writeText $ Text.pack err
                 Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
@@ -182,7 +182,7 @@ handleRequest r =
                Right (env', displays, effs) ->
                  do Snap.with exposureSessions $
                       putExposureSessionState env'
-                    succeed' (length displays, length effs)
+                    succeed' (length displays, length effs) -- TODO: Fill this in once `evalStmt` returns more stuff
 
     ResetExposureState _ ->
       do Snap.with exposureSessions $
