@@ -85,7 +85,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="easel.html"><strong aria-hidden="true">1.</strong> EASEL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.1.</strong> model</a></li><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.2.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.3.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.4.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.5.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.6.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.7.</strong> effect</a></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">1.8.</strong> Example</a></li></ol></li><li class="chapter-item expanded "><a href="donu.html"><strong aria-hidden="true">2.</strong> Donu</a></li><li class="chapter-item expanded "><a href="gromet/PrTNet.html"><strong aria-hidden="true">3.</strong> Gromet</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">4.</strong> Milestones</a></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="easel.html"><strong aria-hidden="true">1.</strong> EASEL</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="model.html"><strong aria-hidden="true">1.1.</strong> model</a></li><li class="chapter-item expanded "><a href="parameter-variable.html"><strong aria-hidden="true">1.2.</strong> parameter-Declared Variables</a></li><li class="chapter-item expanded "><a href="let-variable.html"><strong aria-hidden="true">1.3.</strong> let-Declared Variables</a></li><li class="chapter-item expanded "><a href="state-variable.html"><strong aria-hidden="true">1.4.</strong> state-Declared Variables</a></li><li class="chapter-item expanded "><a href="event.html"><strong aria-hidden="true">1.5.</strong> events</a></li><li class="chapter-item expanded "><a href="when.html"><strong aria-hidden="true">1.6.</strong> when</a></li><li class="chapter-item expanded "><a href="rate.html"><strong aria-hidden="true">1.7.</strong> rate</a></li><li class="chapter-item expanded "><a href="effect.html"><strong aria-hidden="true">1.8.</strong> effect</a></li><li class="chapter-item expanded "><a href="example.html"><strong aria-hidden="true">1.9.</strong> Example</a></li></ol></li><li class="chapter-item expanded "><a href="donu.html"><strong aria-hidden="true">2.</strong> Donu</a></li><li class="chapter-item expanded "><a href="gromet/PrTNet.html"><strong aria-hidden="true">3.</strong> Gromet</a></li><li class="chapter-item expanded "><a href="milestones.html"><strong aria-hidden="true">4.</strong> Milestones</a></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -161,6 +161,30 @@ declarations of state and other variables, followed by a set of declarations of
 events that may depend on or modify these variables, modulo some rules.</p>
 <p><code>model</code>s are constructed blockwise in a whitespace-sensitive way that should be
 familiar to users of YAML and other similar languages.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="parameter-declared-variables"><a class="header" href="#parameter-declared-variables"><code>parameter</code>-Declared Variables</a></h1>
+<pre><code class="language-easel">parameter contact_rate = 0.05
+parameter contact_multiplier = 1 - contact_rate
+</code></pre>
+<p>Variables declared with <code>parameter</code> are meant to function as the &quot;inputs&quot; to a
+model. They are optionally bound to expressions in a model's specification, as
+is the case with both above parameters. These bindings represent parameter
+defaults. If a default is not provided, it is incumbent on the user to provide a
+parameter value when requesting the simulation of a model. See
+<a href="./donu.html"><code>donu</code></a> for more on simulation requests. Though CHIME does not
+include any, a parameter declaration without a default is formed in this way:</p>
+<pre><code class="language-easel">parameter A
+</code></pre>
+<p>While a user is required to provide values for parameters without defaults, they
+are also allowed to override the defaults specified for any other parameter(s)
+they choose, when simulating. This has implications for the interplay between
+<code>contact_rate</code> and <code>contact_multiplier</code>: as the model sits, the default for
+<code>contact_rate</code> is <code>0.05</code> and the default for <code>contact_multiplier</code> is <code>0.95</code>. If
+a user manually overrides <code>contact_rate</code> but does not manually override
+<code>contact_multiplier</code>, their parameterization will nonetheless affect the value
+of <code>contact_multiplier</code>, as it depends on <code>contact_rate</code>.</p>
+<p>Note: <code>parameter</code> variables <em>may not</em> depend on any of the model's state - that
+is, they must be constant throughout a model's simulation. If you want to create
+a variable that can depend on state, see <a href="./let-variable.html"><code>let</code></a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="let-declared-variables"><a class="header" href="#let-declared-variables"><code>let</code>-Declared Variables</a></h1>
 <pre><code class="language-easel">  let s_Initial = 999.0
   ...
@@ -170,12 +194,12 @@ familiar to users of YAML and other similar languages.</p>
       gamma + 0.1486983  if time &lt;= policy_days1
       gamma + 0.0717734  otherwise
 </code></pre>
-<p>Variables declared with <code>let</code> may represent a constant (in the case of
-<code>s_Initial</code>) or an expression (in the case of <code>beta</code>). During model
-simulation/execution, at use sites, <code>let</code> variable right-hand sides are
-inlined. It follows that the value of a <code>let</code> variable might not remain the same
-throughout a model (indeed, <code>beta</code> does not). It is also the case that <code>let</code>
-variables cannot be modified in an <code>event</code>'s <code>effect</code> section.</p>
+<p>Variables declared with <code>let</code> are bound to expressions - these may be constants,
+in the case of <code>s_Initial</code>, or more complex, state-dependent expressions, in the
+case of <code>beta</code>. As they can depend on <code>state</code> variables, unlike
+<a href="./parameter-variable.html"><code>parameter</code></a>s, <code>let</code>s may change their value
+throughout a model's simulation. Unlike <code>state</code> variables, <code>let</code>s cannot be
+directly modified in an <code>event</code>'s <code>effect</code> section.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="state-declared-variables"><a class="header" href="#state-declared-variables"><code>state</code>-Declared Variables</a></h1>
 <pre><code class="language-easel">  state Susceptible = s_Initial
   state Infected    = i_Initial
@@ -203,7 +227,7 @@ have a true <code>when</code> <em>and</em> be chosen stochastically based on its
 fire.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="rate"><a class="header" href="#rate"><code>rate</code></a></h1>
 <pre><code class="language-easel">    rate:
-      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+      beta * contact_multiplier * Susceptible * Infected / total_pop
 </code></pre>
 <p>An expression defined on <code>let</code> variables and <code>state</code> variables, evaluating to a
 real, which represents the frequency with which an event fires. In simulation,
@@ -230,7 +254,8 @@ order, that may change the value of some or all of the <code>state</code> variab
   let gamma = 1.0 / 14.0
   let policy_days0 = 37.0
   let policy_days1 = 77.0
-  let contact_rate = 0.05
+  parameter contact_rate = 0.05
+  parameter contact_multiplier = 1 - contact_rate
 
   let total_pop = Susceptible + Infected + Recovered
   let beta =
@@ -253,7 +278,7 @@ order, that may change the value of some or all of the <code>state</code> variab
       Susceptible &gt; 0.0 and Infected &gt; 0.0
 
     rate: 
-      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+      beta * contact_multiplier * Susceptible * Infected / total_pop
 
     effect:
       Susceptible = Susceptible - 1.0
