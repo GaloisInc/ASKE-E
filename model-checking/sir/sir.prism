@@ -1,7 +1,7 @@
 // Specifying the type of probabilistic model
 ctmc
 
-const int N = 10; // Population size
+const int N; // Population size
 
 const double beta = 0.4;
 const double gamma = 0.04;

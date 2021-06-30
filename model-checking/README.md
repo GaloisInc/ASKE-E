@@ -12,8 +12,9 @@ We consider working on a problem of model-checking COVID-19 widespread using com
 
 ## Running Storm
 
-One can verify properties (specified in *sir.csl*) of a model (specified in *sir.sm*) using the command
+One can verify properties, specified in sir.prism, of a model, sir.props, using the command:
 
 ```shell
-storm --prism sir.sm --prop sir.csl -pc
+storm --prism sir.prism -prop sir.props --prismcompat --constants N=100 --timemem 
 ```
+We can also obtain precise probabilities using the keyword `--exact` keyword
