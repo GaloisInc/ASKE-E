@@ -56,6 +56,7 @@ library
                         Language.ASKEE.ESL.GenLexer
                         Language.ASKEE.ESL.GenParser
                         Language.ASKEE.ESL.Lexer
+                        Language.ASKEE.ESL.Manipulate
                         Language.ASKEE.ESL.Print
                         Language.ASKEE.ESL.Syntax
 
