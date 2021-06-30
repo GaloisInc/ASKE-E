@@ -18,19 +18,19 @@ import Language.ASKEE.Panic            ( panic )
 
 import Prettyprinter ( (<+>) )
 
-simulate :: 
-  Model -> 
+simulate ::
+  Model ->
   Double {- ^ start time -} ->
-  Double {- ^ end time -} -> 
-  Double {- ^ time step -} -> 
-  Maybe Int {- ^ seed -} -> 
+  Double {- ^ end time -} ->
+  Double {- ^ time step -} ->
+  Maybe Int {- ^ seed -} ->
   IO (DataSeries Double)
 simulate model start end step seed =
   do  let modelCPP = genModel model
           modelDriver = genDriver model start end step seed
           program = modelCPP <+> modelDriver
       res <- compileAndRun GCC [("model.cpp", program)]
-      points <- 
+      points <-
         case eitherDecode @[Map Text Double] (B.pack res) of
           Left err -> panic "simulateCPP" ["Couldn't decode C++-produced JSON", err, res]
           Right points' -> pure points'

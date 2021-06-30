@@ -43,7 +43,7 @@ data Event =
 
 
 modelStateVars :: Model -> [Ident]
-modelStateVars mdl = fst <$> Map.toList (modelInitState mdl)
+modelStateVars mdl = Map.keys (modelInitState mdl)
 
 isStateVar :: Ident -> Model -> Bool
 isStateVar x m = Map.member x (modelInitState m)
@@ -76,11 +76,11 @@ inlineLets m@Model{..} = m
 
 -- Multi-level parameter-inlining
 inlineParams :: Model -> Model
-inlineParams m@Model{..} = m 
+inlineParams m@Model{..} = m
   { modelEvents = substEvent <$> modelEvents
   , modelInitState = substExpr substitution <$> modelInitState
   , modelLets = substExpr substitution <$> modelLets
-  , modelParams = fmap (substExpr substitution) <$> modelParams 
+  , modelParams = fmap (substExpr substitution) <$> modelParams
   --  ^ chase down chains of parameter dependencies
   }
   where

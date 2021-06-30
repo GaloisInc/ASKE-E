@@ -5,6 +5,7 @@ module ASKEE ( tests ) where
 
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map       as Map
+import qualified Data.Set       as Set
 import           Data.Text      ( Text, pack )
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
@@ -44,7 +45,7 @@ series1 =
 series2 :: DataSeries Double
 series2 =
   DataSeries { times = [0,30,60,90,120]
-             , values = Map.fromList 
+             , values = Map.fromList
                 [ ("I",[3,504.70103993445787,152.77443346245198,46.02318509849733,13.86300422788101])
                 , ("S",[997,2.0953177959873206,2.5090771953370807e-2,6.605341099589403e-3,4.418715256915984e-3])
                 , ("R",[0,493.2036422695545,847.2004757655942,953.9702095604024,986.1325770568615])
@@ -53,9 +54,9 @@ series2 =
 
 -- Generated via discrete event simulation using seed 123 at times [0,30..120]
 series3 :: DataSeries Double
-series3 = 
+series3 =
   DataSeries { times = [0.0,30.0428,60.2816,90.7133]
-             , values = Map.fromList 
+             , values = Map.fromList
                 [ ("I",[3.0,604.0,188.0,70.0])
                 , ("R",[0.0,361.0,812.0,930.0])
                 , ("S",[997.0,35.0,0.0,0.0])
@@ -93,7 +94,8 @@ assertDataClose actual expected =
   do  assertBool "Data series times are not close"
                  (and (zipWith isClose (times actual) (times expected)))
 
-      Map.keysSet (values expected) @=? Map.keysSet (values actual)
+      assertBool "Input data series value not a subset of the output data series"
+                 (Map.keysSet (values expected) `Set.isSubsetOf` Map.keysSet (values actual))
 
       -- TODO: maybe slightly better error messages
       assertBool  "Series data is not close"

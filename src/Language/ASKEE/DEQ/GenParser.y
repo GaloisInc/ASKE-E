@@ -98,16 +98,16 @@ data EqnType = Let | Init | Rate
   deriving Eq
 
 parseError :: [Located Lexer.Token] -> Either String a
-parseError [] = 
+parseError [] =
   Left $ "parse error at end of file"
-parseError ((Located lin col t):ts) = 
+parseError ((Located lin col t):ts) =
   Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
 mkVar :: Ident -> Double -> Expr -> Either String (EqnType, Ident, Expr)
 mkVar i d e
   | d == 0 = pure (Init, i, e)
   | otherwise = Left $ "initial value for "++i'++" not declared as "++i'++"(0)"
-  
+
   where
     i' = T.unpack i
 
@@ -116,7 +116,7 @@ mkDiffEqs decls =
   let deqLets    = Map.fromList $ mapMaybe (match Let)   decls
       deqInitial = Map.fromList $ mapMaybe (match Init) decls
       deqRates   = Map.fromList $ mapMaybe (match Rate)  decls
-      deqParams  = []
+      deqParams  = Map.empty
   in  DiffEqs{..}
 
   where
