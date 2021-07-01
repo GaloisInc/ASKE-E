@@ -19,6 +19,6 @@ printDiffEqs DiffEqs{..} = vcat [params, lets, initial, rates]
     initial = vcat $ map initBinding (toList deqInitial)
     rates   = vcat $ map (binding "d/dt") (toList deqRates)
 
-    paramBinding (i,mbE) = hsep ["param", text (unpack i), foldMap (\e -> hsep ["=", ppExpr e]) mbE]
+    paramBinding (i,mbE) = hsep ["parameter", text (unpack i), foldMap (\e -> hsep ["=", ppExpr e]) mbE]
     binding decl (i,e) = hsep [decl, text (unpack i), "=", ppExpr e]
     initBinding (i,e) = hsep [hcat [text (unpack i),parens (pretty (0::Int))], "=", ppExpr e]
