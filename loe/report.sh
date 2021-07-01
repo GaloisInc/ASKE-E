@@ -1,6 +1,6 @@
 #! /usr/bin/env sh
 
-PROGRAMS="hello quicksort"
+PROGRAMS="hello quicksort toposort ackermann"
 EXTENSIONS="c cpp f90 hs"
 
 header_filter () {
