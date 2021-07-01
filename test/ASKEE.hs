@@ -5,7 +5,6 @@ module ASKEE ( tests ) where
 
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map       as Map
-import qualified Data.Set       as Set
 import           Data.Text      ( Text, pack )
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
@@ -38,6 +37,7 @@ series1 =
                 [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
                 , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
                 , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
+                , ("total_population",[1000,1000,1000,1000])
                 ]
              }
 
@@ -49,6 +49,7 @@ series2 =
                 [ ("I",[3,504.70103993445787,152.77443346245198,46.02318509849733,13.86300422788101])
                 , ("S",[997,2.0953177959873206,2.5090771953370807e-2,6.605341099589403e-3,4.418715256915984e-3])
                 , ("R",[0,493.2036422695545,847.2004757655942,953.9702095604024,986.1325770568615])
+                , ("total_population",[1000,1000,1000,1000])
                 ]
              }
 
@@ -60,6 +61,7 @@ series3 =
                 [ ("I",[3.0,604.0,188.0,70.0])
                 , ("R",[0.0,361.0,812.0,930.0])
                 , ("S",[997.0,35.0,0.0,0.0])
+                , ("total_population",[1000,1000,1000,1000])
                 ]
              }
 
@@ -94,8 +96,7 @@ assertDataClose actual expected =
   do  assertBool "Data series times are not close"
                  (and (zipWith isClose (times actual) (times expected)))
 
-      assertBool "Input data series value not a subset of the output data series"
-                 (Map.keysSet (values expected) `Set.isSubsetOf` Map.keysSet (values actual))
+      Map.keysSet (values expected) @=? Map.keysSet (values actual)
 
       -- TODO: maybe slightly better error messages
       assertBool  "Series data is not close"
