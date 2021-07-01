@@ -13,18 +13,6 @@ import Language.ASKEE.ESL.Syntax
 import Language.ASKEE.Expr
 import Language.ASKEE.ExprTransform
 import Control.Monad.Identity
-import Language.ASKEE.Metadata
-
-data Renaming =
-    Suffix Text
-  | Substitute Text
-  deriving (Show)
-
-{- 
-Rename every variable in every event in B:
-  If the variable doesn't appear in the renaming map, just freshen
-  If it does, rename it to its partner
--}
 
 -- TODO propagate metadata somehow
 -- Map values are state variables in model1
@@ -86,32 +74,27 @@ renameExprVarsWith r e = runIdentity $ transformExpr go e
         _ -> pure ex
 
 renameEventVarsWith :: (Text -> Text) -> Event -> Event
-renameEventVarsWith r = runIdentity . transformEventVars (pure . r)
-
-transformEventVars ::
-  Monad m =>
-  (Text -> m Text) ->
-  Event ->
-  m Event
-transformEventVars varT evt =
-  do  when'   <- expr `traverse` eventWhen evt
-      rate'   <- expr (eventRate evt)
-      effect' <- transformStmt `traverse` eventEffect evt
-      name' <- varT (eventName evt)
-      pure $ evt  { eventWhen = when'
-                  , eventRate = rate'
-                  , eventEffect = effect'
-                  , eventName = name'
-                  }
+renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
   where
-    exprT e =
-      case e of
-        Var v -> Var <$> varT v
-        _     -> pure e
+    modifyEventVars varT evt =
+      do  when'   <- expr `traverse` eventWhen evt
+          rate'   <- expr (eventRate evt)
+          effect' <- transformStmt `traverse` eventEffect evt
+          name' <- varT (eventName evt)
+          pure $ evt  { eventWhen = when'
+                      , eventRate = rate'
+                      , eventEffect = effect'
+                      , eventName = name'
+                      }
+      where
+        exprT e =
+          case e of
+            Var v -> Var <$> varT v
+            _     -> pure e
 
-    transformStmt (n, v) = 
-      do  n' <- varT n
-          v' <- expr v
-          pure (n', v')
+        transformStmt (n, v) = 
+          do  n' <- varT n
+              v' <- expr v
+              pure (n', v')
 
-    expr = transformExpr exprT
+        expr = transformExpr exprT
