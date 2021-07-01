@@ -45,6 +45,18 @@ main =
                 writeFile (replaceExtension out "gnuplot") $
                   A.gnuPlotScript res out
 
+        SimulateCPP start step stop ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              res <- A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (seed opts)
+              let bs = A.dataSeriesAsCSV res
+                  out = outFile opts
+              if null out
+                then LBS.putStrLn bs
+                else LBS.writeFile out bs
+              when (gnuplot opts && not (null out)) $
+                writeFile (replaceExtension out "gnuplot") $
+                  A.gnuPlotScript res out
+
         ComputeError ->
           do  eqss <- mapM (A.loadDiffEqs . A.FromFile) (deqFiles opts)
               forM_ eqss \eqs ->
