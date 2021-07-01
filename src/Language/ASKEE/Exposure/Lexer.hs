@@ -6,6 +6,8 @@ data Token
   = EOF
   | LitD Double
   | LitS Text
+  | Define
+  | DefModel Text
   | Assign
   | Comma
   | OpenP
