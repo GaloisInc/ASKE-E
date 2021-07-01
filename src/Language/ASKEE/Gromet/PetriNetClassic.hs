@@ -32,6 +32,7 @@ import qualified Language.ASKEE.Core.Expr as Core
 
 
 --------------------------------------------------------------------------------
+-- XXX: This and RNets are basically the same thing, so reuse?
 data PetriNet = PetriNet
   { pnName        :: Text
   , pnStates      :: Map JunctionUid StateVar
@@ -133,15 +134,15 @@ pnToCore :: PetriNet -> Core.Model
 pnToCore pn =
   Core.Model
     { modelName      = pnName pn
-    , modelParams    = sParams ++ rParams
+    , modelParams    = Map.fromList (sParams ++ rParams)
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
-    , modelLets      = Map.empty
+    , modelLets      = mempty
     , modelMeta      = Map.fromList
-                     $ zipWith mkMeta sParams spMeta ++
-                       zipWith mkMeta rParams rpMeta ++
-                       zipWith mkMeta sUIds   sMeta  ++
-                       zipWith mkMeta rUID    eMeta
+                     $ zipWith mkMeta sParamLets spMeta ++
+                       zipWith mkMeta rParamLets rpMeta ++
+                       zipWith mkMeta sUIds      sMeta  ++
+                       zipWith mkMeta rUID       eMeta
     }
   where
   ss  = Map.toList (pnStates pn)
@@ -152,32 +153,36 @@ pnToCore pn =
   rateName (JunctionUid x) = x <> "_rate"
   jToName  (JunctionUid x) = x
 
-  (sParams,spMeta) =
-    unzip [ (uid, theMeta)
-          | (x, s) <- ss, Nothing <- [sInitial s]
-          , let uid     = initName x
-                theMeta = [ ("group", "Initial State")
-                          , ("name",   sName s)
-                          ]
-          ]
+  sParams = zip sParamLets sLets
+  rParams = zip rParamLets rLets 
+  -- would need to remove any state-dependent rates from `rParams`, if we allowed them
 
-  (rParams,rpMeta) =
-    unzip [ (uid, theMeta)
-          | (x, t) <- evs, Nothing <- [evRate t]
-          , let uid     = rateName x
-                theMeta = [ ("group", "Rate")
-                          , ("name",  evName t)
-                          ]
-          ]
+  (sParamLets,sLets,spMeta) =
+    unzip3 [ (uid, def,theMeta)
+           | (x, s) <- ss
+           , let uid     = initName x
+                 def     = Core.NumLit <$> sInitial s
+                 theMeta = [ ("group", "Initial State")
+                           , ("name",   sName s)
+                           ]
+           ]
+
+  (rParamLets,rLets,rpMeta) =
+    unzip3 [ (uid, def, theMeta)
+           | (x, t) <- evs
+           , let uid     = rateName x
+                 def     = Core.NumLit <$> evRate t
+                 theMeta = [ ("group", "Rate")
+                           , ("name",  evName t)
+                           ]
+           ]
 
 
   (sUIds, sInit, sMeta) =
     unzip3 [ (uid, e, theMeta)
            | (x, s) <- ss
            , let uid     = jToName x
-                 e       = case sInitial s of
-                             Nothing -> Core.Var (initName x)
-                             Just i  -> Core.NumLit i
+                 e       = Core.Var (initName x)
                  theMeta = [ ("name", sName s) ]
            ]
 
@@ -188,16 +193,15 @@ pnToCore pn =
                  ev = Core.Event
                         { eventName = uid
                         , eventRate =
-                            let base = case evRate t of
-                                         Nothing -> Core.Var (rateName x)
-                                         Just i  -> Core.NumLit i
+                            let base = Core.Var (rateName x)
                             in foldr (Core.:*:) base
                                  [ Core.Var (jToName y)
                                  | y <- Map.keys (evRemove t)
                                  ]
                         , eventWhen = whenCond (evRemove t)
                         , eventEffect =
-                            mkEff (Map.unionWith (-) (evAdd t) (evRemove t))
+                            mkEff (Map.unionWith (+) (evAdd t)
+                                                     (negate <$> evRemove t))
                         }
                  theMeta = [ ("name", evName t) ]
            ]
@@ -333,7 +337,5 @@ instance FromJSON PetriNetClassic where
        pncJunctions <- o .: "junctions"
        pncWires     <- o .: "wires"
        pure PetriNetClassic { .. }
-
-
 
 

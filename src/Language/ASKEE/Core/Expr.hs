@@ -2,13 +2,17 @@
 module Language.ASKEE.Core.Expr where
 
 import Data.Text ( Text )
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Graph ( stronglyConnComp, SCC(..) )
 import Data.List (foldl', sortBy)
 import Data.Ord (comparing)
 import Data.Functor.Identity (runIdentity)
 import qualified Data.Functor.Const as Const
-import qualified Data.Set as Set
+
+import Language.ASKEE.Panic (panic)
 
 type Ident = Text
 
@@ -285,3 +289,39 @@ instance TraverseExprs Expr where
       Var {}       -> pure expr
       If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
       Fail {}      -> pure expr
+
+
+--------------------------------------------------------------------------------
+
+-- | Order declarations in dependency order, and partition them into
+-- two groups:  the first one only contains declarations that *DO NOT*
+-- depend on the given set, while the second ones do.
+-- Assumes that no variables are recursive
+partOrderDecls ::
+  Set Ident -> [(Ident,Expr)] -> ( [(Ident,Expr)], [(Ident,Expr)] )
+partOrderDecls s0 decls =
+  case foldl' part ([], [], s0) ordered of
+    (ps,ss,_) -> (reverse ps, reverse ss)
+
+  where
+  ordered = stronglyConnComp
+    [ ((v, e, vs), v, Set.toList vs)
+    | (v, e) <- decls
+    , let vs = collectExprVars e
+    ]
+
+  part (params, lets, stateful) x =
+    case x of
+      CyclicSCC _ -> panic "orderDecls" ["cyclic declarations"]
+      AcyclicSCC (v, e, vs) ->
+        -- if variable does not involve something stateful
+        if Set.null (stateful `Set.intersection` vs)
+          then ((v,e) : params, lets, stateful)
+          else (params, (v,e) : lets, Set.insert v stateful)
+
+-- | Order declaratoins in dependency order, assumng no recursion
+orderDecls :: [(Ident,Expr)] -> [(Ident,Expr)]
+orderDecls = fst . partOrderDecls Set.empty
+
+
+

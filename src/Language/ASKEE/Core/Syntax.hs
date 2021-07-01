@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Language.ASKEE.Core.Syntax where
 
@@ -13,7 +14,7 @@ import Language.ASKEE.Core.Expr
 
 data Model =
   Model { modelName      :: Text
-        , modelParams    :: [Ident]
+        , modelParams    :: Map Ident (Maybe Expr)
         , modelInitState :: Map Ident Expr
         , modelEvents    :: [Event]
         , modelLets      :: Map Ident Expr
@@ -42,7 +43,7 @@ data Event =
 
 
 modelStateVars :: Model -> [Ident]
-modelStateVars mdl = fst <$> Map.toList (modelInitState mdl)
+modelStateVars mdl = Map.keys (modelInitState mdl)
 
 isStateVar :: Ident -> Model -> Bool
 isStateVar x m = Map.member x (modelInitState m)
@@ -63,26 +64,36 @@ instance TraverseExprs Event where
        eff  <- traverse f (eventEffect ev)
        pure ev { eventRate = rate, eventWhen = cond, eventEffect = eff }
 
-
-
-
-
--- | Inline all occurances of let-bound variables.
+-- One-level let-inlining
 inlineLets :: Model -> Model
-inlineLets model = model { modelEvents = map substEvent (modelEvents model)
-                         , modelLets   = su
-                         }
+inlineLets m@Model{..} = m
+  { modelEvents = substEvent <$> modelEvents
+  , modelInitState = substExpr substitution <$> modelInitState
+  }
   where
-  su         = substExpr su <$> modelLets model
-  substEvent = mapExprs (substExpr su)
+    substitution = modelLets
+    substEvent = mapExprs (substExpr substitution)
 
+-- Multi-level parameter-inlining
+inlineParams :: Model -> Model
+inlineParams m@Model{..} = m
+  { modelEvents = substEvent <$> modelEvents
+  , modelInitState = substExpr substitution <$> modelInitState
+  , modelLets = substExpr substitution <$> modelLets
+  , modelParams = fmap (substExpr substitution) <$> modelParams
+  --  ^ chase down chains of parameter dependencies
+  }
+  where
+    withInitCond = Map.mapMaybe id modelParams
+    substitution = substExpr substitution <$> withInitCond
+    substEvent = mapExprs (substExpr substitution)
 
 -- | Instantiate some of the model parameters
 applyParams' :: Map Ident Expr -> Model -> Model
 applyParams' su = dropParams . mapExprs (substExpr su)
   where
-  dropParams m = m { modelParams = [ x | x <- modelParams m
-                                       , not (x `Set.member` pSet) ] }
+  dropParams m = m
+    { modelParams = Map.filterWithKey (\p _ -> not (p `Set.member` pSet)) (modelParams m) }
   pSet = Map.keysSet su
 
 

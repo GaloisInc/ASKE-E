@@ -26,7 +26,8 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    SimulateGSL SimulateGSLCommand
+    SimulateDiscrete SimulateDiscreteCommand
+  | SimulateGSL SimulateGSLCommand
   | SimulateAJ SimulateAJCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
@@ -38,12 +39,14 @@ data Input =
   | GetModelSource GetModelSourceCommand
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
+  | QueryModels QueryModelsCommand
   | ExecuteExposureCode ExecuteExposureCodeCommand
   | ResetExposureState ResetExposureStateCommand
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (SimulateGSL <$> anySpec)
+  anySpec =  (SimulateDiscrete <$> anySpec)
+         <!> (SimulateGSL <$> anySpec)
          <!> (SimulateAJ <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
@@ -55,6 +58,7 @@ instance HasSpec Input where
          <!> (GetModelSource <$> anySpec)
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
+         <!> (QueryModels <$> anySpec)
          <!> (ExecuteExposureCode <$> anySpec)
          <!> (ResetExposureState <$> anySpec)
 
@@ -201,6 +205,32 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
+data SimulateDiscreteCommand = SimulateDiscreteCommand
+  { simModelDiscrete           :: ModelDef
+  , simStartDiscrete           :: Double
+  , simStepDiscrete            :: Double
+  , simEndDiscrete             :: Double
+  , simSeedDiscrete            :: Maybe Int
+  } deriving Show
+
+instance HasSpec SimulateDiscreteCommand where
+  anySpec =
+    sectionsSpec "simulate-discrete-command"
+    do reqSection' "command" (jsAtom "simulate-discrete") "Run a simulation using a discrete event simulator"
+       simModelDiscrete   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStartDiscrete     <- reqSection "start"
+                       "Start time of simulation"
+       simStepDiscrete      <- fromMaybe 1 <$>
+                       optSection "step"
+                       "Time step (defaults to 1)"
+       simEndDiscrete       <- reqSection "end"
+                       "End time of simulation"
+
+       simSeedDiscrete <- optSection "seed" "Seed for simulation"
+
+       pure SimulateDiscreteCommand { .. }
 data SimulateGSLCommand = SimulateGSLCommand
   { simModelGSL           :: ModelDef
   , simStartGSL           :: Double
@@ -428,6 +458,21 @@ instance HasSpec DescribeModelInterfaceCommand where
         describeModelInterfaceSource  <- reqSection' "definition" modelDef "Specification of the model"
 
         pure DescribeModelInterfaceCommand { .. }
+
+---------------------------------------------------------------------------
+-- Query
+
+newtype QueryModelsCommand = QueryModelsCommand
+  { queryParameters :: [(Text, Text)] }
+  deriving Show
+
+instance HasSpec QueryModelsCommand where
+  anySpec =
+    sectionsSpec "query-models"
+    do  reqSection' "command" (jsAtom "query-models") "Query available models"
+        queryParameters <- reqSection' "query" (assocSpec anySpec)
+                           "Query parameters expressed a set of key-value pairs"
+        pure QueryModelsCommand { .. }
 
 -------------------------------------------------------------------------------
 -- TODO RGS: Document all of this

@@ -22,6 +22,8 @@ module Language.ASKEE
     
   , simulateModelGSL
   , simulateModelAJ
+  , simulateModelDiscrete
+  
   , stratifyModel
   , fitModelToData
   , Core.asSchematicGraph
@@ -37,6 +39,7 @@ module Language.ASKEE
   , listAllModelsWithMetadata
   , loadModelText
   , storeModel
+  , queryModels
 
   , describeModelType
 
@@ -64,13 +67,14 @@ import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
+import           Data.Maybe                 ( fromMaybe )
 import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
 import qualified Data.Text.IO               as Text
 import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.C                      ( Doc )
+import           Language.ASKEE.CPP.Pretty             ( Doc )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
@@ -102,7 +106,7 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
-import qualified Language.ASKEE.SimulatorGen           as SimulatorGen
+import qualified Language.ASKEE.CPP                     as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModelText
@@ -214,7 +218,7 @@ loadGrometPncFrom format source =
 loadCPPFrom :: ModelType -> DataSource -> IO Doc
 loadCPPFrom format source =
   do  coreModel <- loadCoreFrom format source
-      pure $ SimulatorGen.genModel coreModel
+      pure $ CPP.genModel coreModel
 
 -------------------------------------------------------------------------------
 -- Storage
@@ -324,6 +328,18 @@ simulateModelGSL format source start end step parameters =
                  $ iterate (+ step) start
       pure $ DEQ.simulate equations parameters times'
 
+simulateModelDiscrete ::
+  ModelType ->
+  DataSource ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
+  Maybe Int {- ^ seed -} ->
+  IO (DataSeries Double)
+simulateModelDiscrete format source start end step seed =
+  do  model <- loadCoreFrom format source
+      CPP.simulate model start end step seed
+      
 simulateModelAJ ::
   ModelType -> 
   DataSource -> 
@@ -334,9 +350,13 @@ simulateModelAJ ::
   IO (DataSeries Double)
 simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
-      AJ.simulate pnc start stop step parameters
+      let parameters' = Map.mapKeys demangle parameters
+      AJ.simulate pnc start stop step parameters'
+  where
+    demangle t = head $ Text.split (== '_') t
 
-convertModelString :: ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString ::
+  ModelType -> DataSource -> ModelType -> IO (Either String String)
 convertModelString srcTy src destTy =
   do  bytes <- loadModelText srcTy src
       let model = parseModel srcTy bytes
@@ -350,6 +370,7 @@ convertModelString srcTy src destTy =
           GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
+          RNetType  -> Left "Don't know how to convert to RNet yet"
 
 
           
@@ -363,6 +384,33 @@ listAllModelsWithMetadata =
             do  ESL.Model{..} <- loadESL modelDefSource
                 pure $ MetaAnn { metaData = meta modelName, metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
+
+
+queryModels :: [(Text, Text)] -> IO [MetaAnn ModelDef]
+queryModels query = 
+  filter match_model <$> listAllModelsWithMetadata
+  where
+    match_model annModel =
+      all (match_metadata annModel) query    
+    match_metadata annModel (key, pattern) =
+      let mData = metaData annModel
+          mValue = fromMaybe "" $ lookup key mData
+      in match_wildcard (Text.toLower mValue) (Text.toLower pattern)
+    match_wildcard s pat
+      | Text.null pat        = Text.null s
+      | Text.head pat == '*' = handleStar
+      | Text.head pat == '?' = handleQM
+      | otherwise            = handleChar
+      where
+        handleStar =
+          match_wildcard s (Text.tail pat) 
+          || (not (Text.null s) && match_wildcard (Text.tail s) pat)
+        handleQM =
+          not (Text.null s) && match_wildcard (Text.tail s) (Text.tail pat)
+        handleChar =
+          not (Text.null s) && Text.head s == Text.head pat
+          && match_wildcard (Text.tail s) (Text.tail pat)
+
 
 
 --------------------------------------------------------------------------------

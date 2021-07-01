@@ -89,6 +89,17 @@ handleRequest r =
   liftIO (print r) >>
   Snap.with exposureSessions cullOldSessions  >>
   case r of
+    SimulateDiscrete SimulateDiscreteCommand{..} ->
+      do  res <-
+            liftIO $ simulateModelDiscrete
+              (modelDefType simModelDiscrete)
+              (modelDefSource simModelDiscrete)
+              simStartDiscrete
+              simEndDiscrete
+              simStepDiscrete
+              simSeedDiscrete
+          succeed' res
+
     SimulateGSL SimulateGSLCommand{..} ->
       do  res <-
             liftIO $ simulateModelGSL
@@ -167,6 +178,9 @@ handleRequest r =
       do  model <- liftIO $ loadModel modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
+
+    QueryModels QueryModelsCommand {..} ->
+      succeed <$> liftIO (queryModels queryParameters)
 
     ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
       case lexExposure (Text.unpack code) >>= parseExposureStmt of

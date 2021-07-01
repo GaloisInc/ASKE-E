@@ -1,4 +1,4 @@
-{-# Language BlockArguments, OverloadedStrings #-}
+{-# Language BlockArguments, OverloadedStrings, PatternSynonyms #-}
 module Language.ASKEE.DEQ.Simulate where
 
 
@@ -8,7 +8,7 @@ import           Data.List ( transpose )
 
 import Language.ASKEE.Core.Expr   ( mapExprs
                                   , substExpr
-                                  , Expr
+                                  , Expr(..), pattern (:-:), pattern NumLit
                                   , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
 import Language.ASKEE.DataSeries  ( foldDataSeries
@@ -31,17 +31,27 @@ evalDiffEqs xs es ps t s = [ evalDouble e env | e <- es ]
 simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
 simulate eqs paramVs ts =
   DataSeries { times = ts
-             , values = Map.fromList (zip xs (map upd rows))
+             , values = Map.fromList (zip observableNames (map upd rows))
              }
-  -- XXX: evalute lets also?
-
   where
-  (xs,es) = unzip (Map.toList (deqRates eqs'))
-  initS  = [ evalDouble e paramVs | e <- Map.elems (deqInitial eqs') ]
+  (stateNames,stateInitExprs) = unzip (Map.toList (deqRates eqs'))
+  letList                     = Map.toList (deqLets eqs')
+  (letNames,letInitExprs)     = unzip letList
 
-  resMatrix = ODE.odeSolve (evalDiffEqs xs es paramVs)
-                           initS
-                           (LinAlg.fromList ts')
+  observableNames = stateNames ++ letNames
+  observableInitExprs = stateInitExprs
+                     ++ map (\(letName, letExpr) -> letExpr :-: Var letName)
+                            letList
+
+  initMap = Map.map (\e -> evalDouble e paramVs) (deqInitial eqs')
+  initS   = Map.elems initMap
+         ++ [ evalDouble l (paramVs `Map.union` initMap)
+            | l <- letInitExprs ]
+
+  resMatrix = ODE.odeSolve
+                (evalDiffEqs observableNames observableInitExprs paramVs)
+                initS
+                (LinAlg.fromList ts')
 
   -- we add time 0, because our initial state is for time 0
   -- also we assume no -ve times
@@ -49,10 +59,10 @@ simulate eqs paramVs ts =
                 t:_ | t > 0 -> (tail,0 : ts)
                 _           -> (id,ts)
 
-  rows = LinAlg.toList <$> LinAlg.toColumns resMatrix
-  eqs' = mapExprs inlineEqLets eqs
-  lets = foldr Map.delete (deqLets eqs') (Map.keys paramVs)
-  inlineEqLets = substExpr lets
+  rows   = LinAlg.toList <$> LinAlg.toColumns resMatrix
+  eqs'   = mapExprs inlineEqParams eqs
+  params = foldr Map.delete (Map.mapMaybe id (deqParams eqs')) (Map.keys paramVs)
+  inlineEqParams = substExpr params
 
 
 
@@ -96,7 +106,7 @@ fitModel eqs ds scaled start =
   )
   where
   (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
-  ps            = map asText $ deqParams eqs'
+  ps            = map asText $ Map.keys $ deqParams eqs'
   initParams    = psToVec start
   psToVec vs    = [ vs Map.! p | p <- ps ]
   psFromVec vs  = Map.fromList (ps `zip` vs)
@@ -122,4 +132,4 @@ fitModel eqs ds scaled start =
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
-  eqs' = addParams (Map.keys start) eqs
+  eqs' = addParams (Map.map (Just . NumLit) start) eqs

@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.ASKEE.SimulatorGen where
+module Language.ASKEE.CPP.SimulatorGen where
 
 import qualified Language.ASKEE.Core.Expr as Core
 import qualified Language.ASKEE.Core.Syntax as Core
@@ -10,7 +10,9 @@ import qualified Data.Map as Map
 
 import Language.ASKEE.Panic(panic)
 
-import qualified Language.ASKEE.C as C
+import qualified Language.ASKEE.CPP.Pretty as C
+import Data.List (intercalate)
+import Data.Maybe (fromMaybe, isNothing)
 
 --------------------------------------------------------------------------------
 -- API Names
@@ -65,6 +67,7 @@ genIncludes = C.stmts [ C.include i | i <- includes ]
     [ "random"
     , "stdint.h"
     , "math.h"
+    , "iostream"
     ]
 
 eventNum :: [Core.Event]-> Core.Ident -> Int
@@ -84,6 +87,9 @@ genExecStep mdl =
     [ C.declareInit C.auto (stateVarCurName v) (stateVarName v)
                                            | v <- Core.modelStateVars mdl ] ++
     [ C.switch "nextEvent" (mkCase <$> evts)
+    ] ++
+    [ C.assign (C.ident l) (genExpr rhs)
+    | (l, rhs) <- Map.toList (Core.modelLets mdl)
     ]
 
 
@@ -106,12 +112,15 @@ genExecStep mdl =
 
 genNextStep :: [Core.Event] -> C.Doc
 genNextStep evts =
-  C.function C.void nextEventFunctionName [ C.refArg C.int    "nextEvent"
+  C.function C.bool nextEventFunctionName [ C.refArg C.int    "nextEvent"
                                           , C.refArg C.double "nextTime" ]
   $ [ C.declareInit C.double (effRateName evt) (effRateExpr evt)
                                                           | evt <- evts ] ++
 
     [ C.declareInit C.double "total_rate" (foldr1 (C.+) (effRateName <$> evts))
+    , C.ifThen
+      ("total_rate" C.== C.doubleLit 0)
+      [ C.returnWith (C.boolLit False) ]
     , C.declareInit C.auto "rate_dist"
         (C.callCon "std::uniform_real_distribution<double>"
                                                       [ "0.0", "total_rate" ])
@@ -123,14 +132,15 @@ genNextStep evts =
 
     , C.assign "nextTime" (timeName C.+ C.call "dt_dist" [rngName])
     ] ++
-    concatMap runEffectCondStmt evts
+    concatMap runEffectCondStmt evts ++
+    [ C.returnWith (C.boolLit False) ]
 
   where
   runEffectCondStmt evt =
     [ "random" C.-= effRateName evt
     , C.ifThen ("random" C.<= "0.0")
         [ C.assign "nextEvent" (C.intLit (eventNum evts (Core.eventName evt)))
-        , C.return
+        , C.returnWith (C.boolLit True)
         ]
     ]
 
@@ -143,32 +153,39 @@ genNextStep evts =
 
 genModel :: Core.Model -> C.Doc
 genModel mdl
-  | not $ null $ Core.modelParams mdl =
+  | not $ null $ Map.filter isNothing $ Core.modelParams mdl =
     panic "genModel" [ "Model parameters not yet supported." ]
   | otherwise =
   C.stmts
     [ genIncludes
-    , C.struct (modelClassName mdl)
-         $ (mkEventWhenDecl   <$> Core.modelEvents mdl)
-        ++ (mkEventRateDecl   <$> Core.modelEvents mdl)
-        ++ (mkEventEffectDecl <$> Core.modelEvents mdl)
+    , C.struct (modelClassName mdl')
+         $ (mkEventWhenDecl   <$> Core.modelEvents mdl')
+        ++ (mkEventRateDecl   <$> Core.modelEvents mdl')
+        ++ (mkEventEffectDecl <$> Core.modelEvents mdl')
 
-        ++ [ genNextStep (Core.modelEvents mdl)
-           , genExecStep mdl
+        ++ [ genNextStep (Core.modelEvents mdl')
+           , genExecStep mdl'
            , setSeedFunc
            ]
 
         ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
-           | (v,val) <- Map.toList (Core.modelInitState mdl)
+           | (v,val) <- Map.toList (Core.modelInitState mdl')
            ]
+
+        ++ [ C.declareInit C.double (stateVarName v)
+                           (genExpr' stateVarName val)
+           | (v,val) <- Map.toList (Core.modelLets mdl')]
 
         ++ [ C.declareInit C.double timeName (C.doubleLit 0.0)
            , C.declare randEngineType rngName
            ]
+
+        ++ [ mkPrintFn [ v | v <- Core.modelStateVars mdl'
+                          ++ Map.keys (Core.modelLets mdl') ] ]
     ]
   where
   mkInit = genExpr' \x -> panic "genModel"
-                            [ "Unexpected vairable in initial condition:"
+                            [ "Unexpected variable in initial condition:"
                             , show x ]
 
   mkEventEffectDecl evt =
@@ -189,7 +206,22 @@ genModel mdl
     C.function C.void setSeed1Name  [ C.arg "uint32_t" "seed" ]
       [ C.stmt (C.call (C.member rngName "seed") ["seed"]) ]
 
+  mkPrintFn vs = C.function C.void (C.ident "print") [] $
+    cout (C.stringLit "{") :
+    intercalate [cout (C.stringLit ",")] (map printV ("time":vs)) ++
+    [cout (C.stringLit "}")]
+    where
+      printV :: Core.Ident -> [C.Doc]
+      printV v =
+        [ cout (quotedStrLit v)
+        , cout (C.stringLit ":")
+        , cout (C.ident v)
+        ]
+      quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
 
+  cout s = C.stmt (C.ident "std::cout" C.<< s)
+
+  mdl' = Core.inlineParams mdl
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
@@ -246,3 +278,61 @@ genExprSub f e =
   noparen = genExpr' f e
 
 
+genDriver ::
+  Core.Model ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} ->
+  Double {- ^ time step -} ->
+  Maybe Int {- ^ seed -} ->
+  C.Doc
+genDriver model start stop step seed = C.main
+  [ C.declare (modelClassName model) cModel
+  , C.stmt (C.call (C.member cModel "set_seed") [C.intLit (fromMaybe 0xdeadbeef seed)])
+  , C.declareInit C.double cStart (C.doubleLit start)
+  , C.declareInit C.double cStop (C.doubleLit stop)
+  , C.declareInit C.double cStep (C.doubleLit step)
+  , C.declare C.int cModelEvent
+  , C.declareInit C.double cModelTime (C.doubleLit 0)
+  , C.declareInit C.double cTargetTime (cStart C.+ "step")
+  , C.declareInit C.bool cEventSelected (C.boolLit True)
+  , cout "\"[\""
+
+  , C.while (cModelTime C.< cStart)
+    [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
+    , C.ifThenElse
+      cEventSelected
+      [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
+      [ cout "\"]\""
+      , C.returnWith (C.intLit 0)
+      ]
+    ]
+
+  , printModelState
+
+  , C.while (cTargetTime C.< cStop C.&& cModelTime C.< cStop)
+    [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
+    , C.ifThenElse
+      cEventSelected
+      [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
+      [ C.break ]
+    , C.ifThenElse
+      (cModelTime C.< cTargetTime)
+      [ C.continue ]
+      [ cout "\",\""
+      , printModelState
+      , C.assign cTargetTime (cTargetTime C.+ cStep)
+      ]
+    ]
+  , cout "\"]\""
+  ]
+  where
+    cout s = C.stmt ("std::cout" C.<< s)
+    cModel = C.ident "model"
+    cStart = C.ident "start"
+    cStop = C.ident "stop"
+    cStep = C.ident "step"
+    cModelEvent = C.ident "modelEvent"
+    cModelTime = C.ident "modelTime"
+    cTargetTime = C.ident "targetTime"
+    cEventSelected = C.ident "eventSelected"
+    printModelState = C.stmt (C.call (C.member cModel "print") [])

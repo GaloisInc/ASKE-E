@@ -1,0 +1,45 @@
+The Problem
+
+Propose a Level of Effort (LOE) metric to quantify the amount of programming work required to develop a correct implementation of a simulation of an epidemiological model.
+
+The Initial Proposal
+
+We propose that LOE is related to program complexity, which in turn is related primarily to the size of the program. To a first approximation, a longer program takes longer to write. The challenge then becomes finding a way to quantify the length of a program in a way that is somewhat predictable despite variations in programmer style and preference, for example the presence or absence of comments and whitespace and use of short versus long identifier names.
+
+The Kolmogorov complexity[1] metric suggests a solution which is independent of choice of representation: find the shortest program which emits the text of the program to be measured. While Kolmogorov complexity is not computable[2], compressibility of the program text serves as an approximate upper bound on the vale expected of the the text's Kolmogorov complexity[3,4].
+
+Caveats
+
+Kolmogorov complexity (and our computable proxy: compressibility) considers the entire program text, including comments (which are informative to the reader, but do not contribute to the behavior of the program) and translation directives of various kinds (e.g. compiler directives, pragmas and makefiles). We should always strip comments. It's less clear what to do about translation directives; we will attend to this question after discussions about whether our proposal satisifies the desire for an LOE metric.
+
+Other Considerations
+
+The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm. Additionally, some compression methods are known to emit multiple dictionaries; this can happen when the compressor encounters new text in the input stream and that text is not adequately compressible using the active dictionary[5]. It's not clear how or whether this will affect the compressibility measurement.
+
+Implementations of a given compression method may differ in their encodings while still being considered to be the same method[6]; we don't know how significant these differences may be as regards a compressibility measure.
+
+Other Approaches
+
+We attempted to apply Latent Semantic Indexing[7] as a measure of document similarity. We thought of this not as LOE for a specific program text, but rather as a measure of the effort required to transform one text into a larger, more complex text (e.g. ODE to RNET or RNET to a discrete event simulation written in a general-purpose programming language). We quickly discovered that the method is not useful when scaled down to using a single document as a corpus.
+
+We considered and rejected the use of edit distance[8] (e.g. Levenshtein distance[9]) to measure document similiarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical. 
+
+Results
+
+FINISH: Show compressibility of selected texts (ODE, RNET, ..., C++) related to ASKE-E; do the same for C programs and their translation to assembler code and for Java to JVM bytecode.
+
+References
+
+[1] https://en.wikipedia.org/wiki/Kolmogorov_complexity
+[2] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Uncomputability_of_Kolmogorov_complexity
+[3] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Compression
+[4] https://en.wikipedia.org/wiki/Lempel-Ziv_complexity
+[5] ? - streaming compression dictionary update
+[6] https://en.wikipedia.org/wiki/LZ77_and_LZ78
+[7] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
+[8] https://en.wikipedia.org/wiki/Edit_distance
+[9] https://en.wikipedia.org/wiki/Levenshtein_distance
+
+Artifacts
+
+FINISH: Gensim-based LSI comparison code, compressibility measure code, program texts used in Results.

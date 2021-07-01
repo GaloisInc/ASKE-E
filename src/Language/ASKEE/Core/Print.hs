@@ -1,16 +1,53 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.ASKEE.Core.Print where
+module Language.ASKEE.Core.Print (ppModel, ppEvent, ppExpr, text, Doc) where
 
 import qualified Data.Text as Text
+import qualified Data.Map as Map
 
+import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Core.Expr
 import Language.ASKEE.Panic       ( panic )
 
 import qualified Prettyprinter as PP
+import           Prettyprinter ((<+>), pretty, hang, vcat, emptyDoc)
 import           Text.Printf      ( printf )
 
 type Doc = PP.Doc ()
+
+section :: Doc -> [Doc] -> Doc
+section x xs = hang 2 (vcat (x : xs))
+
+ppModel :: Model ->  Doc
+ppModel m =
+  section
+    ("model" <+> pretty (modelName m)) $
+      [ "param" <+> pretty x <+> maybe emptyDoc (\e' -> "=" <+> ppExpr e') e | (x,e) <- Map.toList $ modelParams m ] ++
+
+      [ "let" <+> pretty x <+> "=" <+> ppExpr e
+      | (x,e) <- Map.toList (modelLets m)
+      ] ++
+
+      [ "state" <+> pretty x <+> "=" <+> ppExpr e
+      | (x,e) <- Map.toList (modelInitState m)
+      ] ++
+
+      map ppEvent (modelEvents m) ++
+
+      [ section ("meta" <+> pretty x)
+          [ pretty k <> ":" <+> pretty v | (k,v) <- Map.toList mp]
+      | (x,mp) <- Map.toList (modelMeta m)
+      ]
+
+ppEvent :: Event -> Doc
+ppEvent ev =
+  section ("event" <+> pretty (eventName ev))
+    [ "rate:" <+> ppExpr (eventRate ev)
+    , "when:" <+> ppExpr (eventWhen ev)
+    , section "effect:"
+        [ pretty x <+> "=" <+> ppExpr e | (x,e) <- Map.toList (eventEffect ev) ]
+    ]
+
 
 ppExpr :: Expr -> Doc
 ppExpr expr =

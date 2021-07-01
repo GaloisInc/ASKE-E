@@ -15,9 +15,11 @@ import qualified Data.Aeson as JSON
 
 import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
 import qualified Language.ASKEE as A
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.DEQ as DEQ
+import qualified Language.ASKEE.Core as Core
 
 import Options
-import qualified Language.ASKEE.DEQ as DEQ
 
 main :: IO ()
 main =
@@ -27,11 +29,25 @@ main =
 
         DumpPNC -> mapM_ dumpPNC (modelFiles opts)
 
+        DumpCore -> mapM_ dumpCore (modelsProvided opts)
+
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
 
         SimulateODE start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
               res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts)
+              let bs = A.dataSeriesAsCSV res
+                  out = outFile opts
+              if null out
+                then LBS.putStrLn bs
+                else LBS.writeFile out bs
+              when (gnuplot opts && not (null out)) $
+                writeFile (replaceExtension out "gnuplot") $
+                  A.gnuPlotScript res out
+
+        SimulateCPP start step stop ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              res <- A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (seed opts)
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out
@@ -97,8 +113,8 @@ modelsProvided :: Options -> [(FilePath, A.ModelType)]
 modelsProvided opts =
   map (, A.DeqType) (deqFiles opts) ++
   map (, A.EaselType) (modelFiles opts) ++
-  map (, A.GrometPncType) (pncFiles opts)
-  -- XXX: RNC not yet in Model
+  map (, A.GrometPncType) (pncFiles opts) ++
+  map (, A.RNetType) (rnetFiles opts)
 
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =
@@ -106,6 +122,19 @@ dumpPNC file =
      case pnFromGromet =<< mb of
        Right a -> print (ppPetriNet a)
        Left err -> print err
+
+dumpCore :: (FilePath, A.ModelType) -> IO ()
+dumpCore (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toCore m of
+       Right c -> print (Core.ppModel c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to Core"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
+
 
 
 testDescirbeInterface :: (FilePath, A.ModelType) -> IO ()

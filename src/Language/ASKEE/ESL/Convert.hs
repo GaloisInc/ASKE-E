@@ -1,4 +1,5 @@
 {-# Language OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ESL.Convert where
 
 import Data.Text(Text)
@@ -11,32 +12,31 @@ import           Language.ASKEE.Core.Expr
 import           Language.ASKEE.Core.Syntax ( Event(..), Model(..) )
 import qualified Language.ASKEE.ESL.Syntax  as Src
 import qualified Language.ASKEE.Expr        as Src
+import qualified Data.Set as Set
 
-modelAsCore :: Src.Model -> Either String Model
+modelAsCore :: Src.Model -> Model
 modelAsCore mdl =
-  do let inits = initState <$> Src.stateDecls decls
-     pure modelNoInit { modelInitState = Map.fromList inits }
+  mapExprs simplifyExpr
+  Model { modelName      = Src.modelName mdl
+        , modelParams    = mParams
+        , modelEvents    = map eventAsCore (Src.modelEvents mdl)
+        , modelLets      = Map.fromList mLets
+        , modelInitState =
+            Map.fromList [(v, expAsCore e) | (v, e) <- Src.stateDecls decls]
+        , modelMeta = extractMeta mdl
+        }
 
   where
   decls = Src.modelDecls mdl
 
-  modelNoInit =
-    mapExprs simplifyExpr $
-    Model { modelName      = Src.modelName mdl
-          , modelParams    = [n | (n, _) <- Src.parameterDecls decls ]
-          , modelEvents    = map eventAsCore (Src.modelEvents mdl)
-          , modelLets      =
-            Map.fromList $
-              [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ] ++
-              [ (x, expAsCore (Src.LitD d)) | (x,Just d) <- Src.parameterDecls decls ]
-          , modelInitState = Map.empty
-          , modelMeta = extractMeta mdl
-          }
+  mParams = Map.fromList
+          $ [ (x, expAsCore <$> e) | (x,e) <- Src.parameterDecls decls ] ++
+            [ (x, Just e)          | (x,e) <- letParams ]
 
-  -- XXX: we should not substitute the lets here if we want to be able to
-  -- overwrite the variables...
-  initState (n,e) =
-    (n, simplifyExpr (substExpr (modelLets modelNoInit) (expAsCore e)))
+  (letParams,mLets) =
+    partOrderDecls
+      (Set.fromList ("time" : map fst (Src.stateDecls decls)))
+      [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
 
 
 extractMeta :: Src.Model -> Map Ident (Map Text [Text])
