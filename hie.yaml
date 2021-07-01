@@ -21,6 +21,9 @@ cradle:
     - path: "app/donu/Schema.hs"
       component: "aske-e:exe:donu"
 
+    - path: "app/donu/ExposureSession.hs"
+      component: "aske-e:exe:donu"
+
     - path: "app/donu/HTML.hs"
       component: "aske-e:exe:donu"
 

@@ -176,7 +176,8 @@ executable deca
 executable donu
   hs-source-dirs:       app/donu
   main-is:              Main.hs
-  other-modules:        HTML
+  other-modules:        ExposureSession
+                        HTML
                         Schema
                         SchemaGeneric
                         SchemaJS
@@ -185,18 +186,24 @@ executable donu
                       , aeson
                       , aske-e
                       , bytestring
+                      , cereal
+                      , clientsession
                       , config-schema
                       , config-value
                       , containers
                       , directory
                       , filepath
+                      , lens
+                      , mtl
                       , pretty
                       , process
                       , scientific
                       , semigroupoids
                       , snap-core
                       , snap-server
+                      , snap
                       , text
+                      , time
                       , unordered-containers
                       , vector
 

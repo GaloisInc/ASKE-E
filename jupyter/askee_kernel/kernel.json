@@ -1,6 +1,3 @@
 {"argv":["python","-m","askeekernel", "-f", "{connection_file}"],
-  "display_name":"ASKE-E",
-  "env": {
-    "PYTHONPATH": "/home/jlamar/prj/aske-e/aske-e/jupyter/impl"
-  }
+  "display_name":"ASKE-E"
  }
