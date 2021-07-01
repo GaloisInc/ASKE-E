@@ -1,12 +1,16 @@
 {
 module Language.ASKEE.Exposure.GenParser where
 
+import Language.ASKEE.Core.Syntax (Model(..))
+import Language.ASKEE.Model (parseModel, toCore)
+import Language.ASKEE.Model.Basics (ModelType(..))
 import Language.ASKEE.ESL.Lexer ( Located(..) )
 import Language.ASKEE.Exposure.GenLexer
 import qualified Language.ASKEE.Exposure.Lexer as Lexer
 import Language.ASKEE.Exposure.Syntax as Syntax
 }
 
+%name        parseExposureStmts stmts
 %name        parseExposureStmt stmt
 %name        parseExposureExpr expr
 %tokentype   { Located Lexer.Token }
@@ -38,6 +42,8 @@ IDENT   { Located _ _ (Lexer.Ident $$) }
 'true'  { Located _ _ Lexer.BoolTrue   }
 '.'     { Located _ _ Lexer.Dot        }
 'at'    { Located _ _ Lexer.At         }
+'define' { Located _ _ Lexer.Define }
+MODELDEF { Located _ _ (Lexer.DefModel $$) }
 
 %nonassoc 'at'
 %left 'or'
@@ -50,9 +56,19 @@ IDENT   { Located _ _ (Lexer.Ident $$) }
 
 %%
 
+stmts :: { [Stmt] }
+stmts : rev_stmts { reverse $1 }
+
+rev_stmts :: { [Stmt] }
+rev_stmts : stmt       { [$1] }
+          | rev_stmts stmt { $2 : $1 }
+
 stmt :: { Stmt }
-stmt  : IDENT '=' expr { StmtLet $1 $3  }
-      | dispExpr       { StmtDisplay $1 }
+stmt  : IDENT '=' expr         { StmtLet $1 $3  }
+      | 'define' MODELDEF      {% do { m <- toCore =<< parseModel EaselType $2
+                                     ; let e = EVal (VModel m)
+                                     ; pure (StmtLet (modelName m) e) }}
+      | dispExpr               { StmtDisplay $1 }
 
 expr :: { Expr }
 expr : IDENT                        { EVar $1 }

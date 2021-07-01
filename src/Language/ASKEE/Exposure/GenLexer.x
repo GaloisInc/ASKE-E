@@ -13,6 +13,7 @@ $upper   = [A-Z]
 $lower   = [a-z]
 $digit   = [0-9]
 $graphic = $printable # $white
+$allText = [^\}]
 
 @string    = \" ($graphic # \")* \"
 @exp       = e [\+\-]? $digit+
@@ -20,6 +21,7 @@ $graphic = $printable # $white
 @identHead = [$upper $lower _]
 @identBody = [$upper $lower $digit _]
 @ident     = @identHead @identBody*
+@modelDef  = (\n $white $white .+)+
 
 tokens :-
 
@@ -44,10 +46,12 @@ tokens :-
 "false"     { atomic BoolFalse }
 "true"      { atomic BoolTrue  }
 "at"        { atomic At        }
+"define"    { atomic Define }
 
-@string { str   }
-@real   { real  }
-@ident  { ident }
+@string   { str   }
+@real     { real  }
+@ident    { ident }
+@modelDef { modelDef }
 
 $white+	 ;
 
@@ -62,6 +66,9 @@ ident (_,_,_,s) len = (pure . Ident . T.pack . take len) s
 
 str :: Action
 str (_,_,_,s) len = (pure . LitS . T.pack . init . tail . take len) s
+
+modelDef :: Action
+modelDef (_,_,_,s) len = (pure . DefModel . T.pack . init . tail . take len) s
 
 atomic :: Token -> Action
 atomic tok = \_ _ -> pure tok
