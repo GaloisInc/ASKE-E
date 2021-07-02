@@ -77,6 +77,7 @@ handleRequest r =
               simEndGSL
               simStepGSL
               simParameterValuesGSL
+              mempty -- XXX: get measures from request
           succeed' res
     
     SimulateAJ SimulateAJCommand{..} ->

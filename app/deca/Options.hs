@@ -9,6 +9,8 @@ module Options
   ) where
 
 import Data.Text(Text)
+import Data.Set(Set)
+import qualified Data.Set as Set
 import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -46,6 +48,7 @@ data Options = Options
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
+  , measures :: Set Text
   , seed :: Maybe Int
   , onlyShowHelp :: Bool
   }
@@ -63,6 +66,7 @@ options = OptSpec
         , rnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
+        , measures = Set.empty
         , overwrite = Map.empty
         , seed = Nothing
         , outFile = ""
@@ -114,6 +118,11 @@ options = OptSpec
         $ ReqArg "START:STEP:END"
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
+
+      , Option [] ["obs"]
+        "Observe this variable"
+        $ ReqArg "IDENT"
+        \a s -> Right s { measures = Set.insert (Text.pack a) (measures s) }
 
       , Option [] ["sim-cpp"]
         "Solve a model using a C++-based discrete event simulator"
