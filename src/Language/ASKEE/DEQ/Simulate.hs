@@ -6,8 +6,7 @@ import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import           Data.List ( transpose )
 
-import Language.ASKEE.Core.Expr   ( mapExprs
-                                  , substExpr
+import Language.ASKEE.Core.Expr   ( substExpr, simplifyExpr
                                   , Expr(..), pattern (:-:), pattern NumLit
                                   , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
@@ -23,10 +22,38 @@ import qualified Numeric.GSL.Fitting        as Fit
 import Data.Text (Text)
 
 evalDiffEqs ::
-  [Ident] -> [Expr] -> Map Ident Double -> Double -> [Double] -> [Double]
-evalDiffEqs xs es ps t s = [ evalDouble e env | e <- es ]
+  [Ident] -> [Expr] -> Double -> [Double] -> [Double]
+evalDiffEqs xs es t s = [ evalDouble e env | e <- es ]
   where
-  env = Map.insert "time" t (Map.fromList (zip xs s)) `Map.union` ps
+  env = Map.insert "time" t (Map.fromList (zip xs s))
+
+
+getParams ::
+  DiffEqs ->
+  Map Ident Double {- ^ Overwrites for parameters -} ->
+  Map Ident Double
+getParams eqs val = fin
+  where
+  evalP :: Ident -> Maybe Expr -> Double
+  evalP x mb = case Map.lookup x val of
+                 Just d -> d
+                 Nothing ->
+                   case mb of
+                     Just e  -> evalDouble e fin
+                     Nothing -> 0   -- XXX: unspecified
+  fin :: Map Ident Double
+  fin = Map.mapWithKey evalP (deqParams eqs)
+
+specializeDiffEqs :: Map Ident Double -> DiffEqs -> DiffEqs
+specializeDiffEqs paramVs eqs =
+  DiffEqs { deqParams  = mempty
+          , deqInitial = spec <$> deqInitial eqs
+          , deqRates   = spec <$> deqRates  eqs
+          , deqLets    = spec <$> deqLets eqs
+          }
+  where
+  su   = NumLit <$> paramVs
+  spec = simplifyExpr . substExpr su
 
 simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
 simulate eqs paramVs ts =
@@ -40,16 +67,19 @@ simulate eqs paramVs ts =
 
   observableNames = stateNames ++ letNames
   observableInitExprs = stateInitExprs
+                      -- XXX: we should be able to compute these after the
+                      -- computation without sending the to the solver.
+                      -- I wonder how much it matters.
                      ++ map (\(letName, letExpr) -> letExpr :-: Var letName)
                             letList
 
-  initMap = Map.map (\e -> evalDouble e paramVs) (deqInitial eqs')
+  initMap = Map.map (\e -> evalDouble e mempty) (deqInitial eqs')
   initS   = Map.elems initMap
-         ++ [ evalDouble l (paramVs `Map.union` initMap)
+         ++ [ evalDouble l initMap
             | l <- letInitExprs ]
 
   resMatrix = ODE.odeSolve
-                (evalDiffEqs observableNames observableInitExprs paramVs)
+                (evalDiffEqs observableNames observableInitExprs)
                 initS
                 (LinAlg.fromList ts')
 
@@ -60,10 +90,8 @@ simulate eqs paramVs ts =
                 _           -> (id,ts)
 
   rows   = LinAlg.toList <$> LinAlg.toColumns resMatrix
-  eqs'   = mapExprs inlineEqParams eqs
-  params = foldr Map.delete (Map.mapMaybe id (deqParams eqs')) (Map.keys paramVs)
-  inlineEqParams = substExpr params
 
+  eqs'   = specializeDiffEqs (getParams eqs paramVs) eqs
 
 
 -- | Compute the difference between the model and the data, using

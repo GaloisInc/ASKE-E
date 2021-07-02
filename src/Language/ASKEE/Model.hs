@@ -69,7 +69,7 @@ asCore = tryConvs [ unCore
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
   where
-    coreToDeqs c = pure $ Core.asDiffEqs c
+    coreToDeqs c = pure $ Core.asDiffEqs Core.NoGuards c
 
 asGrometPrt :: Model -> ConversionResult GPRT.Gromet
 asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPncType ]
