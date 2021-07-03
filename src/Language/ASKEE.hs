@@ -334,11 +334,18 @@ simulateModelDiscrete ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Map Text Double ->
   Maybe Int {- ^ seed -} ->
   IO (DataSeries Double)
-simulateModelDiscrete format source start end step seed =
+simulateModelDiscrete format source start end step parameters seed =
   do  model <- loadCoreFrom format source
-      CPP.simulate model start end step seed
+      let parameterizedModel = Core.addParams parameters model
+          (withLegalNames, newNames) = Core.legalize parameterizedModel
+      DataSeries{..} <- CPP.simulate withLegalNames start end step seed
+      pure $ DataSeries { values = adjust newNames values, .. }
+
+  where
+    adjust vs = Map.fromList . map (\(v, e) -> (vs Map.! v, e)) . Map.toList
       
 simulateModelAJ ::
   ModelType -> 
