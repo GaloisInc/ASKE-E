@@ -24,9 +24,61 @@ We attempted to apply Latent Semantic Indexing[7] as a measure of document simil
 
 We considered and rejected the use of edit distance[8] (e.g. Levenshtein distance[9]) to measure document similiarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical. 
 
+As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
+
 Results
 
-FINISH: Show compressibility of selected texts (ODE, RNET, ..., C++) related to ASKE-E; do the same for C programs and their translation to assembler code and for Java to JVM bytecode.
+We collected from the Rosetta Code website[10] a number of sample programs written in C, C++, FORTRAN and Haskell. Each of these programs is compiled to its corresponding assembler-code text. The assembler program is likely not representative of what an experienced programmer would write from scratch. This is intentional. By comparing the LOE of the source text to that of the assembler-code text targeting the same execution model and runtime libraries, we form a notion of the difference in LOE due to the different representations of the same program.
+
+The following table shows the LOE analysis of both the source-language text and its corresponding assembler code.
+
+    Source text       Compressed Size         Unique Symbols      Product
+                   src    asm     ratio    src    asm     ratio     ratio
+        hello.c     90    373      4.14     11     53      4.81     19.91
+      hello.cpp    118   1340     11.35     15     91      6.06     68.78
+      hello.f90     69    944     13.68      7     87     12.42    169.91
+       hello.hs     32   1594     49.81      3     97     32.33   1610.36
+
+    Source text       Compressed Size         Unique Symbols      Product
+                   src    asm     ratio    src    asm     ratio     ratio
+    quicksort.c    456   1443      3.16     40    109      2.72      8.60
+  quicksort.cpp    443    320      0.72     25     24      0.96      0.69
+  quicksort.f90   1333   4864      3.64    108    258      2.38      8.66
+   quicksort.hs    110   3599     32.71     14    200     14.28    467.10
+
+    Source text       Compressed Size         Unique Symbols      Product
+                   src    asm     ratio    src    asm     ratio     ratio
+     toposort.c   1497   3436      2.29     95    208      2.18      4.99
+   toposort.cpp   2122  77823     36.67    142   1943     13.68    501.65
+   toposort.f90    386   1652      4.27     30    127      4.23     18.06
+    toposort.hs    831  22900     27.55     75   1017     13.56    373.58
+
+    Source text       Compressed Size         Unique Symbols      Product
+                   src    asm     ratio    src    asm     ratio     ratio
+    ackermann.c    257    910      3.54     19     82      4.31     15.26
+  ackermann.cpp    293   2036      6.94     20    117      5.85     40.60
+  ackermann.f90    323   1811      5.60     28    126      4.50     25.20
+   ackermann.hs    141   3073     21.79     17    167      9.82    213.98
+
+Note that the number of source lines for the sample programs ranges over a couple orders of magnitude. This metric should be considered when evaluating the predictive value of LOE for a given source language.
+
+   18 samples/ackermann.c
+   19 samples/ackermann.cpp
+   27 samples/ackermann.f90
+    7 samples/ackermann.hs
+    5 samples/hello.c
+    6 samples/hello.cpp
+    4 samples/hello.f90
+    1 samples/hello.hs
+   44 samples/quicksort.c
+   22 samples/quicksort.cpp
+  100 samples/quicksort.f90
+    6 samples/quicksort.hs
+  122 samples/toposort.c
+  137 samples/toposort.cpp
+   37 samples/toposort.f90
+   44 samples/toposort.hs
+  599 total
 
 References
 
@@ -39,7 +91,4 @@ References
 [7] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
 [8] https://en.wikipedia.org/wiki/Edit_distance
 [9] https://en.wikipedia.org/wiki/Levenshtein_distance
-
-Artifacts
-
-FINISH: Gensim-based LSI comparison code, compressibility measure code, program texts used in Results.
+[10] https://rosettacode.org/
