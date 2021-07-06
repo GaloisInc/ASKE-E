@@ -13,8 +13,6 @@ import qualified Data.Text as Text
 import           Data.Text ( Text )
 
 import Language.ASKEE.Core.Expr
-import Control.Monad.Identity
-import Debug.Trace
 
 data Model =
   Model { modelName      :: Text
@@ -110,13 +108,8 @@ applyParams parameters = applyParams' parameters'
 addParams' :: Map Ident Expr -> Model -> Model
 addParams' newParams m@Model{..} = m { modelParams = params' }
   where
-    params' = Map.unionWith u modelParams (Map.map Just newParams)
-
-    u x y =
-      case (x, y) of
-        (Just jx, _) -> Just jx
-        (_, Just jy) -> Just jy
-        _ -> x
+    -- Map.union is left-biased, so this picks new parameters over existing
+    params' = Map.union (Map.map Just newParams) modelParams
 
 addParams :: Map Text Double -> Model -> Model
 addParams parameters = addParams' parameters'
@@ -125,7 +118,7 @@ addParams parameters = addParams' parameters'
 
 -- Give a model's (let | parameter | state) variables and event names C++-legal
 -- identifiers, and also record the mapping of new names to old
--- TODO rename things in metadata as well
+-- TODO rename things in metadata as well?
 legalize :: Model -> (Model, Map Text Ident)
 legalize m@Model{..} = (m', Map.unions (map flipMap [svs', pvs', lvs', ens']))
   where
