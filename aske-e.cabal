@@ -162,6 +162,7 @@ executable champ
                       , extra
                       , haskeline
                       , optparse-applicative
+                      , text
   default-language:     Haskell2010
   ghc-options:          -Wall
 

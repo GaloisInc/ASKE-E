@@ -1,10 +1,14 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 module Main (main) where
 
 import Control.Applicative ((<**>))
+import Control.Exception
 import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO(..))
 import Data.Foldable
 import qualified Data.List.Extra as L
+import qualified Data.Text as T
 import qualified Options.Applicative as Opt
 import System.Console.Haskeline
 
@@ -30,7 +34,7 @@ main = do
 champ :: Options -> IO ()
 champ opts = do
   displayLogo (optColor opts) (optUnicode opts)
-  runInputT defaultSettings $ withInterrupt $ loop
+  runInputT defaultSettings $ withInterrupt $ loop Exposure.initialEnv
 
 data Options = Options
   { optColor   :: Bool
@@ -51,15 +55,15 @@ data Input
   | CaughtCtrlC
   | SuccessfulInput String
 
-loop :: InputT IO ()
-loop = do
+loop :: Exposure.Env -> InputT IO ()
+loop env = do
   mbInput <- handleInterrupt handleCtrlC (toInput <$> getInputLine "champ> ")
   case mbInput of
     FailedInput -> pure ()
-    CaughtCtrlC -> loop
+    CaughtCtrlC -> loop env
     SuccessfulInput input -> do
-      keepGoing <- liftIO $ runCommand $ L.trim input
-      when keepGoing loop
+      (env', keepGoing) <- liftIO $ runCommand env $ L.trim input
+      when keepGoing $ loop env'
   where
     handleCtrlC :: InputT IO Input
     handleCtrlC = liftIO $ do
@@ -70,27 +74,30 @@ loop = do
     toInput Nothing  = FailedInput
     toInput (Just s) = SuccessfulInput s
 
-runCommand :: String -> IO Bool
-runCommand command =
+runCommand :: Exposure.Env -> String -> IO (Exposure.Env, Bool)
+runCommand env command =
   case command of
-    ":" -> pure True
+    ""  -> carryOn
+    ":" -> carryOn
     builtinCmd@(':':builtinCmdName) -> do
       let possibleBuiltins = filter (\c -> any (builtinCmdName `L.isPrefixOf`)
                                                (commandNames c))
                                     builtins
       case possibleBuiltins of
         []        -> do putStrLn $ "Unknown command: " ++ builtinCmd
-                        pure True
-        [builtin] -> commandAction builtin
+                        carryOn
+        [builtin] -> (env,) <$> commandAction builtin
         (_:_)     -> do putStrLn $ unlines
                           [ builtinCmd ++ " is ambiguous, it could mean one of:"
                           , "\t" ++ L.intercalate ", "
                                     (map (':':) (concatMap commandNames possibleBuiltins))
                           ]
-                        pure True
+                        carryOn
     _ -> do
-      exposureStmt command
-      pure True
+      env' <- exposureStmt env command
+      pure (env', True)
+  where
+    carryOn = pure (env, True)
 
 data Command = Command
   { commandNames  :: [String]
@@ -130,9 +137,17 @@ quitCmd :: IO ()
 quitCmd = pure ()
 
 -- TODO: Make this smarter
-exposureStmt :: String -> IO ()
-exposureStmt code =
+exposureStmt :: Exposure.Env -> String -> IO Exposure.Env
+exposureStmt env code =
   case lexExposure code >>= parseExposureStmt of
-    Left err   -> putStrLn err
-    Right stmt -> do _ <- Exposure.evalStmts [stmt] Exposure.initialEnv
-                     putStrLn "It parsed. Yay!"
+    Left err   -> failure err
+    Right stmt -> do
+      res <- try $ Exposure.evalLoop env [stmt]
+      case res of
+        Left (exc :: SomeException) -> failure (show exc)
+        Right (Left err)            -> failure $ T.unpack err
+        Right (Right (env', _, _))  -> do
+          putStrLn "It parsed. Yay!"
+          pure env'
+  where
+    failure err = putStrLn err *> pure env
