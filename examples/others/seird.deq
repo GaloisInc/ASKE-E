@@ -1,0 +1,44 @@
+let beta = 0.4
+let gamma = 0.04
+let sigma = 0.1
+let rho = 0.01
+let lambda = 0.2
+
+let S_initial = 995.0 
+let E_initial = 2.0
+let I_initial = 3.0
+let R_initial = 0.0
+let H_initial = 0.0
+let D_initial = 0.0
+let C_initial = 3.0
+
+S(0) = S_initial
+E(0) = E_initial
+I(0) = I_initial
+R(0) = R_initial
+H(0) = H_initial
+D(0) = D_initial
+C(0) = C_initial
+
+let N = S + E + I + R + H + D
+
+d/dt S = if S > 0.0 and I > 0.0 then -beta * S * I / N else 0.0
+
+d/dt E = 
+  (if S > 0.0 and I > 0.0 then beta * S * I / N else 0.0) - 
+  (if E > 0.0 then sigma * E else 0.0)
+
+d/dt I = 
+  (if E > 0.0 then sigma * E else 0) -
+  (if I > 0.0 then gamma * (1 - rho) * I else 0) -
+  (if I > 0.0 then gamma * rho * I else 0)
+  
+d/dt H = 
+  (if I > 0.0 then rho * gamma * I else 0) -
+  (if H > 0.0 then lambda * H else 0)
+  
+d/dt D = if H > 0.0 then lambda * H else 0.0
+
+d/dt R = if I > 0.0 then gamma * (1 - rho) * I else 0.0
+    
+d/dt C = if E > 0.0 then sigma * E else 0.0
