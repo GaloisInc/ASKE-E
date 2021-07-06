@@ -1,13 +1,15 @@
 {-# Language BlockArguments, OverloadedStrings, PatternSynonyms #-}
 module Language.ASKEE.DEQ.Simulate where
 
-
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
+import           Data.Set   ( Set )
+import qualified Data.Set  as Set
 import           Data.List ( transpose )
 
 import Language.ASKEE.Core.Expr   ( substExpr, simplifyExpr
                                   , Expr(..), pattern (:-:), pattern NumLit
+                                  , collectExprVars
                                   , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
 import Language.ASKEE.DataSeries  ( foldDataSeries
@@ -15,11 +17,15 @@ import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAlignedWithTimeAndLabel
                                   , DataSeries(..) )
 import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..), addParams )
+import Language.ASKEE.DEQ.Print
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
 import qualified Numeric.GSL.Fitting        as Fit
 import Data.Text (Text)
+import qualified Data.Text as Text
+
+import Debug.Trace
 
 evalDiffEqs ::
   [Ident] -> [Expr] -> Double -> [Double] -> [Double]
@@ -55,8 +61,53 @@ specializeDiffEqs paramVs eqs =
   su   = NumLit <$> paramVs
   spec = simplifyExpr . substExpr su
 
-simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
-simulate eqs paramVs ts =
+
+pruneEqns :: Set Ident -> DiffEqs -> DiffEqs
+pruneEqns xs eqs
+  | Set.null xs = eqs
+  | otherwise =    eqs { deqInitial = restrict deqInitial
+                       , deqLets    = restrict deqLets
+                       , deqRates   = restrict deqRates
+                       }
+  where
+
+  restrict f = Map.restrictKeys (f eqs) vars
+  vars = complete xs
+
+  deps = Map.fromList
+           [ (x, collectExprVars e)
+           | (x,e) <- Map.toList (deqRates eqs) ++ Map.toList (deqLets eqs)
+           ]
+
+  depsofSet ys = Set.unions
+                  [ Map.findWithDefault mempty y deps | y <- Set.toList ys ]
+
+  complete vs =
+    trace (vs `seq` "iterate")
+    let ds = depsofSet vs
+    in if ds `Set.isSubsetOf` vs then vs else complete (Set.union ds vs)
+
+renameHack :: DiffEqs -> DiffEqs
+renameHack eqs =
+  eqs { deqInitial = Map.fromList [ (names Map.! x, e) | (x,e) <- Map.toList (deqInitial eqs) ]
+      , deqRates = Map.fromList [ (names Map.! x, change e) | (x,e) <- Map.toList (deqRates eqs) ]
+      , deqLets = change <$> deqLets eqs
+      }
+  where
+  change = substExpr su
+  su = Var <$> names
+  names = Map.fromList
+          [ (x, Text.pack ("S" <> show n))
+          | (n,x) <- zip [1 :: Int ..] (Map.keys (deqRates eqs)) ]
+
+
+simulate ::
+  DiffEqs ->
+  Map Ident Double {- ^ Parameters -} ->
+  Set Ident {- ^ Variables to simuate; [] means all -} ->
+  [Double] {- ^ Times of interest -} ->
+  DataSeries Double
+simulate eqs paramVs vars ts =
   DataSeries { times = ts
              , values = Map.fromList (zip observableNames (map upd rows))
              }
@@ -67,9 +118,6 @@ simulate eqs paramVs ts =
 
   observableNames = stateNames ++ letNames
   observableInitExprs = stateInitExprs
-                      -- XXX: we should be able to compute these after the
-                      -- computation without sending the to the solver.
-                      -- I wonder how much it matters.
                      ++ map (\(letName, letExpr) -> letExpr :-: Var letName)
                             letList
 
@@ -91,7 +139,8 @@ simulate eqs paramVs ts =
 
   rows   = LinAlg.toList <$> LinAlg.toColumns resMatrix
 
-  eqs'   = specializeDiffEqs (getParams eqs paramVs) eqs
+  eqs'   = let eqs1 = pruneEqns vars eqs
+           in specializeDiffEqs (getParams eqs1 paramVs) eqs1
 
 
 -- | Compute the difference between the model and the data, using
@@ -100,7 +149,7 @@ modelErrorWith ::
   (Ident -> Double -> Double -> Double) {- ^ how to compute difference -} ->
   DiffEqs -> DataSeries Double -> Map Ident Double -> DataSeries Double
 modelErrorWith err eqs expected ps =
-  zipAlignedWithTimeAndLabel err' (simulate eqs ps (times expected)) expected
+  zipAlignedWithTimeAndLabel err' (simulate eqs ps mempty (times expected)) expected
   where err' l _ x y = err l x y
 
 
@@ -146,7 +195,7 @@ fitModel eqs ds scaled start =
                               Just m  -> 1 / m
                   ]
 
-  simWith vs = simulate eqs' vs (times ds)
+  simWith vs = simulate eqs' vs mempty (times ds)
 
   model pvec = let ans = simWith (psFromVec pvec)
                in \x -> values ans Map.! x

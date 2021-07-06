@@ -65,6 +65,7 @@ import Control.Monad     ( forM )
 import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import           Data.Set                   ( Set )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -320,13 +321,14 @@ simulateModelGSL ::
   Double {- ^ start -} ->
   Double {- ^ stop -} -> 
   Double {- ^ step -} -> 
-  Map Text Double ->
+  Map Text Double {- ^ parameters -} ->
+  Set Text {- ^ Variables to observe, empty for everything -} ->
   IO (DataSeries Double)
-simulateModelGSL format source start end step parameters =
+simulateModelGSL format source start end step parameters vars =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ DEQ.simulate equations parameters times'
+      pure $ DEQ.simulate equations parameters vars times'
 
 simulateModelDiscrete ::
   ModelType ->
