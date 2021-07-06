@@ -87,6 +87,9 @@ genExecStep mdl =
     [ C.declareInit C.auto (stateVarCurName v) (stateVarName v)
                                            | v <- Core.modelStateVars mdl ] ++
     [ C.switch "nextEvent" (mkCase <$> evts)
+    ] ++
+    [ C.assign (C.ident l) (genExpr rhs)
+    | (l, rhs) <- Map.toList (Core.modelLets mdl)
     ]
 
 
@@ -115,8 +118,8 @@ genNextStep evts =
                                                           | evt <- evts ] ++
 
     [ C.declareInit C.double "total_rate" (foldr1 (C.+) (effRateName <$> evts))
-    , C.ifThen 
-      ("total_rate" C.== C.doubleLit 0) 
+    , C.ifThen
+      ("total_rate" C.== C.doubleLit 0)
       [ C.returnWith (C.boolLit False) ]
     , C.declareInit C.auto "rate_dist"
         (C.callCon "std::uniform_real_distribution<double>"
@@ -168,15 +171,17 @@ genModel mdl
         ++ [ C.declareInit C.double (stateVarName v) (mkInit val)
            | (v,val) <- Map.toList (Core.modelInitState mdl')
            ]
-        
-        ++ [ C.declareInit C.double (stateVarName v) (C.doubleLit l)
-           | (v, Core.NumLit l) <- Map.toList (Core.modelLets mdl')]
+
+        ++ [ C.declareInit C.double (stateVarName v)
+                           (genExpr' stateVarName val)
+           | (v,val) <- Map.toList (Core.modelLets mdl')]
 
         ++ [ C.declareInit C.double timeName (C.doubleLit 0.0)
            , C.declare randEngineType rngName
            ]
 
-        ++ [ mkPrintFn [ v | v <- Core.modelStateVars mdl' ] ]
+        ++ [ mkPrintFn [ v | v <- Core.modelStateVars mdl'
+                          ++ Map.keys (Core.modelLets mdl') ] ]
     ]
   where
   mkInit = genExpr' \x -> panic "genModel"
@@ -207,16 +212,16 @@ genModel mdl
     [cout (C.stringLit "}")]
     where
       printV :: Core.Ident -> [C.Doc]
-      printV v = 
+      printV v =
         [ cout (quotedStrLit v)
         , cout (C.stringLit ":")
         , cout (C.ident v)
         ]
       quotedStrLit s = C.stringLit ("\\\"" <> s <> "\\\"")
-  
+
   cout s = C.stmt (C.ident "std::cout" C.<< s)
 
-  mdl' = (Core.inlineLets . Core.inlineParams) mdl
+  mdl' = Core.inlineParams mdl
 
 genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
@@ -273,12 +278,12 @@ genExprSub f e =
   noparen = genExpr' f e
 
 
-genDriver :: 
-  Core.Model -> 
+genDriver ::
+  Core.Model ->
   Double {- ^ start time -} ->
-  Double {- ^ end time -} -> 
-  Double {- ^ time step -} -> 
-  Maybe Int {- ^ seed -} -> 
+  Double {- ^ end time -} ->
+  Double {- ^ time step -} ->
+  Maybe Int {- ^ seed -} ->
   C.Doc
 genDriver model start stop step seed = C.main
   [ C.declare (modelClassName model) cModel
@@ -294,11 +299,11 @@ genDriver model start stop step seed = C.main
 
   , C.while (cModelTime C.< cStart)
     [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
-    , C.ifThenElse 
-      cEventSelected 
+    , C.ifThenElse
+      cEventSelected
       [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
       [ cout "\"]\""
-      , C.returnWith (C.intLit 0) 
+      , C.returnWith (C.intLit 0)
       ]
     ]
 
@@ -306,11 +311,11 @@ genDriver model start stop step seed = C.main
 
   , C.while (cTargetTime C.< cStop C.&& cModelTime C.< cStop)
     [ C.assign cEventSelected (C.call (C.member cModel "next_event") [cModelEvent, cModelTime])
-    , C.ifThenElse 
-      cEventSelected 
+    , C.ifThenElse
+      cEventSelected
       [ C.stmt (C.call (C.member cModel "run_event") [cModelEvent, cModelTime]) ]
       [ C.break ]
-    , C.ifThenElse 
+    , C.ifThenElse
       (cModelTime C.< cTargetTime)
       [ C.continue ]
       [ cout "\",\""

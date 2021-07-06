@@ -146,3 +146,14 @@ Embeddings
 
 The Gensim suite of NLP tools provides embeddings other than the LSI/LSA
 used in the first draft of our tooling to estimate LOE.
+
+
+
+
+NOTES for late-June edit
+
+https://en.wikipedia.org/wiki/Algorithmic_information_theory
+https://en.wikipedia.org/wiki/Minimum_description_length
+https://en.wikipedia.org/wiki/Information-based_complexity
+https://en.wikipedia.org/wiki/Solomonoff%27s_theory_of_inductive_inference
+https://en.wikipedia.org/wiki/Simplicity_theory

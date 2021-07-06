@@ -27,6 +27,7 @@ data Command =
   | DumpCore
   | DescribeInterface
   | SimulateODE Double Double Double -- ^ Start, step, end
+  | SimulateCPP Double Double Double -- ^ Start, step, end
   | FitModel [Text] (Map Text Double)
   | ComputeError
   | ShowGromet ShowGromet
@@ -45,6 +46,7 @@ data Options = Options
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
+  , seed :: Maybe Int
   , onlyShowHelp :: Bool
   }
   deriving Show
@@ -62,6 +64,7 @@ options = OptSpec
         , onlyShowHelp = False
         , gnuplot = False
         , overwrite = Map.empty
+        , seed = Nothing
         , outFile = ""
         }
 
@@ -112,6 +115,12 @@ options = OptSpec
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
 
+      , Option [] ["sim-cpp"]
+        "Solve a model using a C++-based discrete event simulator"
+        $ ReqArg "START:STEP:END"
+          \a s -> do (start,step,end) <- parseODETimes a
+                     Right s { command = SimulateCPP start step end }
+
       , Option [] ["fit"]
         "Fit model parameters with optional residual scaling"
         $ ReqArg "PNAME"
@@ -136,6 +145,12 @@ options = OptSpec
         $ ReqArg "VNAME:DOUBLE"
         \a s -> do (x,d) <- parseOverwrite a
                    Right s { overwrite = Map.insert x d (overwrite s) }
+
+      , Option [] ["seed"]
+        "Use a particular seed during discrete event simulation"
+        $ ReqArg "INT"
+        \a s -> do i <- parseInt a
+                   Right s { seed = Just i }
 
       , Option [] ["error-ode"]
         "Compute difference between model and data"
@@ -182,6 +197,12 @@ options = OptSpec
   , progParams = \_ _ -> Left "Unexpected parameter"
 
   }
+
+parseInt :: String -> Either String Int
+parseInt xs =
+  case reads xs of
+    [(i, "")] -> Right i
+    _         -> Left "Malformed integer"
 
 parseODETimes :: String -> Either String (Double,Double,Double)
 parseODETimes xs =

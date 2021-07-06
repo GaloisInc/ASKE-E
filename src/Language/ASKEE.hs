@@ -103,6 +103,7 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
                                                        , Port(..)
                                                        , emptyModelInterface
                                                        )
+import           Language.ASKEE.Panic                  ( panic )
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
@@ -309,6 +310,7 @@ fitModelToData format fitData fitParams fitScale source =
         case fitData of
           Inline s -> pure s
           FromFile f -> Text.readFile f
+          FromStore _ -> panic "fitModelToData" ["reading data from store is not yet supported"]
       let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
       dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
       pure $ DEQ.fitModel eqs dataSeries fitScale

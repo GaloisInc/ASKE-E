@@ -29,7 +29,7 @@ instance TypeOf Expr where
           Just t -> t
           Nothing -> panic "typeOf" ["Missing type in selector"]
 
-      Call f es ->
+      Call f _ ->
         case f of
           Add -> TypeNumber
           Multiply -> TypeNumber
