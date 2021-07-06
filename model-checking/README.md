@@ -17,4 +17,5 @@ One can verify properties, specified in sir.prism, of a model, sir.props, using 
 ```shell
 storm --prism sir.prism -prop sir.props --prismcompat --constants N=100 --timemem 
 ```
+
 We can also obtain precise probabilities using the keyword `--exact` keyword
