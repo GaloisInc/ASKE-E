@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  donu:
+    build:
+      context: .
+      target: donu-execute
+    volumes:
+      - "./modelRepo:/build/modelRepo"
+
+      # Propagate local changes inside the container
+      - "./src:/build/src"
+    ports:
+      - "8000:8000"
+    networks:
+      - donu-network
+    environment:
+      # This should be the same as the name of the service serving
+      # AlgebraicJulia functionality
+      DONU_AJ_HOSTNAME: algebraic-julia
+
+  algebraic-julia:
+    build: ASKE-E-Simulation-WG/AlgebraicPetri-Stratification
+    volumes:
+      - "./modelRepo:/models"
+    expose:
+      - "localhost:8001:8001"
+    networks:
+      - donu-network
+
+volumes:
+  models:
+
+networks:
+  donu-network:
