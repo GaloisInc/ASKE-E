@@ -316,7 +316,8 @@ compileExpr prec expr =
     Var x     -> compileVar x
     Call f es -> compileCall prec f es
     Dot e l _ -> C.member (compileExpr 1 e) (labelName l)
-    -- Point [(Text, Expr)]
+    -- TODO
+    Point _ -> panic "compileExpr" ["compiling point expressions not yet supported"]
 
 compileVar :: TypedName -> C.Doc
 compileVar = varName . tnName

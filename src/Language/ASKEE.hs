@@ -66,6 +66,7 @@ import Control.Monad     ( forM )
 import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import           Data.Set                   ( Set )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -104,6 +105,7 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
                                                        , Port(..)
                                                        , emptyModelInterface
                                                        )
+import           Language.ASKEE.Panic                  ( panic )
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
@@ -310,6 +312,7 @@ fitModelToData format fitData fitParams fitScale source =
         case fitData of
           Inline s -> pure s
           FromFile f -> Text.readFile f
+          FromStore _ -> panic "fitModelToData" ["reading data from store is not yet supported"]
       let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
       dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
       pure $ DEQ.fitModel eqs dataSeries fitScale
@@ -321,13 +324,14 @@ simulateModelGSL ::
   Double {- ^ start -} ->
   Double {- ^ stop -} -> 
   Double {- ^ step -} -> 
-  Map Text Double ->
+  Map Text Double {- ^ parameters -} ->
+  Set Text {- ^ Variables to observe, empty for everything -} ->
   IO (DataSeries Double)
-simulateModelGSL format source start end step parameters =
+simulateModelGSL format source start end step parameters vars =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ DEQ.simulate equations parameters times'
+      pure $ DEQ.simulate equations parameters vars times'
 
 simulateModelDiscrete ::
   ModelType ->
