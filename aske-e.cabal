@@ -72,6 +72,7 @@ library
                         Language.ASKEE.Exposure.GenParser
                         Language.ASKEE.Exposure.Interpreter
                         Language.ASKEE.Exposure.Lexer
+                        Language.ASKEE.Exposure.Pretty
                         Language.ASKEE.Exposure.Syntax
 
                         Language.ASKEE.Gromet

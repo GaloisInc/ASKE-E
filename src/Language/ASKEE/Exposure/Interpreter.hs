@@ -37,8 +37,6 @@ evalStmts stmts env = evalLoop env stmts
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-data DisplayValue
-
 evalLoop :: Env -> [Stmt] -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
 evalLoop env stmts = go Map.empty
   where
@@ -90,6 +88,10 @@ setEnv = RWS.put
 writeStmtEff :: StmtEff -> Eval ()
 writeStmtEff e =
   RWS.tell (EvalWrite Set.empty [] [e])
+
+displayValue :: Value -> Eval ()
+displayValue v =
+  RWS.tell (EvalWrite Set.empty [DisplayValue v] [])
 
 suspend :: Value -> Eval Value
 suspend v
@@ -153,7 +155,7 @@ interpretStmt stmt =
           writeStmtEff (StmtEffBind var eval)
           bindVar var eval
 
-    StmtDisplay dispExpr -> undefined
+    StmtDisplay dispExpr -> interpretDisplayExpr dispExpr
 
 interpretExpr :: Expr -> Eval Value
 interpretExpr e0 =
@@ -176,7 +178,9 @@ interpretExpr e0 =
             _ -> throw "type error"
 
 interpretDisplayExpr :: DisplayExpr -> Eval ()
-interpretDisplayExpr (DisplayScalar scalar) = notImplemented "display"
+interpretDisplayExpr (DisplayScalar scalar) = do
+  v <- interpretExpr scalar
+  displayValue v
 
 
 interpretCall :: FunctionName -> [Value] -> Eval Value

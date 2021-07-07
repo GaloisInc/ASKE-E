@@ -16,6 +16,10 @@ newtype DisplayExpr
   = DisplayScalar Expr
   deriving (Eq, Show)
 
+newtype DisplayValue
+  = DisplayValue { unDisplayValue :: Value }
+  deriving (Eq, Show)
+
 data Expr
   = EVar Text
   | EVal Value

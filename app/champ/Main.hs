@@ -15,6 +15,8 @@ import System.Console.Haskeline
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
+import qualified Language.ASKEE.Exposure.Pretty as Exposure
+import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 import Logo (displayLogo)
 
@@ -144,10 +146,10 @@ exposureStmt env code =
     Right stmt -> do
       res <- try $ Exposure.evalLoop env [stmt]
       case res of
-        Left (exc :: SomeException) -> failure (show exc)
-        Right (Left err)            -> failure $ T.unpack err
-        Right (Right (env', _, _))  -> do
-          putStrLn "It parsed. Yay!"
+        Left (exc :: SomeException)  -> failure (show exc)
+        Right (Left err)             -> failure $ T.unpack err
+        Right (Right (env', dvs, _)) -> do
+          traverse_ (print . Exposure.ppValue . Exposure.unDisplayValue) dvs
           pure env'
   where
     failure err = putStrLn err *> pure env
