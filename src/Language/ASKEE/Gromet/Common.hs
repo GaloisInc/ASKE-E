@@ -113,7 +113,6 @@ instance JSON.ToJSON Literal where
                                  JSON.object [ "syntax" .= jsText "Val"
                                              , "val"    .= val
                                              ]
-                             , "metadata" .= JSON.Null
                              ]
 
 

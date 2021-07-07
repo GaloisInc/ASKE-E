@@ -13,8 +13,10 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 
 import Language.ASKEE.Panic(panic)
+import Language.ASKEE.Utils(render)
 import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Core.Expr as Core
+import Language.ASKEE.Core.Print(ppExpr)
 
 import Language.ASKEE.Gromet.Common(Uid)
 import Language.ASKEE.Gromet.Syntax
@@ -55,6 +57,7 @@ convertModel model =
                         , portType      = ParameterPort
                         , portValueType = Real
                         , portName      = paramName
+                        , portMeta      = getMeta paramName
                         }
            addPort p
            pure (paramName, Left p)
@@ -67,7 +70,7 @@ convertModel model =
 
      ports1 <- foldM doLet (Map.fromList paramPorts) pureLets
 
-     let addJ ps s@(x,_) = do j <- convertState ports1 s
+     let addJ ps s@(x,_) = do j <- convertState (getMeta x) ports1 s
                               pure (Map.insert x (Right j) ps)
      ports2 <- foldM addJ ports1 (Map.toList vars)
 
@@ -79,6 +82,8 @@ convertModel model =
      pure uid
 
   where
+  getMeta x = Map.findWithDefault mempty x (Core.modelMeta model)
+
   doLet ports (x,e) =
     do uid    <- newBoxUid
        lports <- fmap portUid <$>
@@ -89,6 +94,7 @@ convertModel model =
                        , portType = OutputPort
                        , portValueType = Real -- XXX: infer from expr
                        , portName = x
+                       , portMeta = mempty
                        }
        addPort outP
        addBox Box { boxUid    = uid
@@ -98,19 +104,22 @@ convertModel model =
                   , boxBoxes  = []
                   , boxWires  = []
                   , boxJuncitons = []
+                  , boxMeta = getMeta x
                   }
 
        pure (Map.insert x (Left outP) ports)
 
 
 convertState ::
+  Map Text [Text] {- ^ Metadata -} ->
   Map Core.Ident (Either Port Junction) ->
   (Core.Ident, Core.Expr) -> GrometGen Junction
-convertState inPorts (v,e) =
+convertState meta inPorts (v,e) =
   do jid <- newJunctionUid
      let ju = Junction { jUID = jid
                        , jName = v
                        , jValueType = Real  -- XXX: infer from Expr?
+                       , jMeta = meta
                        }
      addJunction ju
      convertExpr ("Initial value for " <> v) inPorts (Just (Right ju)) e
@@ -224,6 +233,10 @@ convertExpr name inPorts mbOutPort expr =
                connectInputPorts inPorts uid (Core.collectExprVars expr)
      ourOut <- traverse (freshOutputPort uid) mbOutPort
 
+     let meta = Map.fromList [ ("expression"
+                               , [ render (ppExpr expr) ]
+                               ) ]
+
      addBox Box { boxUid    = uid
                 , boxName   = name
                 , boxSyntax = BoxExpression (exprToArg varMap expr)
@@ -231,6 +244,7 @@ convertExpr name inPorts mbOutPort expr =
                 , boxBoxes  = []
                 , boxWires  = []
                 , boxJuncitons = []
+                , boxMeta = meta
                 }
 
 
@@ -378,6 +392,7 @@ startNestedBox uid name ty =
               , boxBoxes = []
               , boxWires = []
               , boxJuncitons = []
+              , boxMeta = mempty
               }
 
 endNestedBox :: [PortUid] -> GrometGen ()
@@ -401,6 +416,7 @@ freshInputPort' boxid p' =
                                      , portType      = InputPort
                                      , portValueType = jValueType j
                                      , portName      = jName j
+                                     , portMeta      = mempty
                                      }
      addPort newPort
      wuid <- newWireUid
@@ -432,6 +448,7 @@ freshOutputPort' boxid p' =
                                      , portType      = OutputPort
                                      , portValueType = jValueType j
                                      , portName      = jName j
+                                     , portMeta      = mempty
                                      }
      addPort newPort
 

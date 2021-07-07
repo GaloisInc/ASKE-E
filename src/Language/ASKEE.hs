@@ -121,7 +121,6 @@ import qualified Language.ASKEE.Storage                as Storage
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
   do yes <- doesModelExist format source
-     print yes
      if yes
        then doLoadModel format source
 
