@@ -50,6 +50,7 @@ data Event = Event
   , evName   :: Text
   , evRemove :: Map JunctionUid Integer
   , evAdd    :: Map JunctionUid Integer
+  , evTy     :: ValueType
   } deriving Show
 
 ppPetriNet :: PetriNet -> Doc
@@ -94,9 +95,9 @@ pnFromGromet pnc =
   addS uid nm ty mb pn =
     pn { pnStates = Map.insert uid (emptyS nm mb ty) (pnStates pn) }
   setT uid ev pn = pn { pnTransitions = Map.insert uid ev (pnTransitions pn) }
-  addEv uid nm mb = setT uid (emptyEv nm mb)
-  emptyEv n mb =
-    Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty }
+  addEv uid nm ty mb = setT uid (emptyEv nm mb ty)
+  emptyEv n mb ty =
+    Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty, evTy = ty }
   emptyS n mb ty =
     StateVar { sName = n, sInitial = mb, sType = ty}
 
@@ -117,7 +118,7 @@ pnFromGromet pnc =
               pure (addS (jUID j) (jName j) (jValueType j) mb p)
          Transition ->
            do mb <- traverse toDouble (jValue j)
-              pure (addEv (jUID j) (jName j) mb p)
+              pure (addEv (jUID j) (jName j) (jValueType j) mb p)
 
   addW :: Wire -> Either String PetriNet -> Either String PetriNet
   addW w pn =
@@ -176,6 +177,7 @@ pnToCore pn =
                  def     = Core.NumLit <$> evRate t
                  theMeta = [ ("group", "Rate")
                            , ("name",  evName t)
+                           , ("type", (Text.pack . show . evTy) t)
                            ]
            ]
 
