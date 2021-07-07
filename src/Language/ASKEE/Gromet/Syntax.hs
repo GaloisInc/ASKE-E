@@ -26,6 +26,7 @@ data Gromet =
          , grometJunctions :: [Junction]
          , grometWires :: [Wire]
          , grometBoxes :: [Box]
+         , grometMeta :: Meta -- ^ model level metadata
          } deriving (Show,Eq)
 
 type Meta = Map Text [Text]
@@ -118,7 +119,7 @@ instance JSON.ToJSON Gromet where
     JSON.object [ "syntax"    .= jsText "Gromet"
                 , "type"      .= jsText "PrTNet"
                 , "name"      .= grometName g
-                , "metadata"  .= JSON.Null
+                , "metadata"  .= doMeta (grometMeta g)
                 , "uid"       .= jsText (grometName g) -- XXX: ?
                 , "root"      .= grometRoot g
                 , "ports"     .= grometPorts g

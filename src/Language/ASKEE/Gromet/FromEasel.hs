@@ -33,6 +33,7 @@ convertCoreToGromet m =
          , grometJunctions = gcJunctions finS
          , grometWires = gcWires finS
          , grometBoxes = gcBoxes finS
+         , grometMeta  = Map.findWithDefault mempty "" (Core.modelMeta m)
          }
   where
   (rootUID,finS) = State.runState (convertModel m) initState

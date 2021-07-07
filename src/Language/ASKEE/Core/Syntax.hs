@@ -26,6 +26,7 @@ data Model =
         , modelMeta      :: !(Map Ident (Map Text [Text]))
           -- ^ Optional metadata (key/value pairs) for named things
           -- (parameters, lets, states, events)
+          -- Model level metadata is under the empty identifier ""
         }
   deriving (Show, Eq)
 

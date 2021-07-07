@@ -13,7 +13,7 @@ class PP t where
   pp :: t -> Doc
 
 instance PP Gromet where
-  pp g = ppBox g (grometRoot g)
+  pp g = ppMeta (grometMeta g) $$ ppBox g (grometRoot g)
 
 instance PP Text where
   pp = text . Text.unpack

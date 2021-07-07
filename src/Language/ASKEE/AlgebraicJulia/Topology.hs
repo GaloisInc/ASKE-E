@@ -73,7 +73,7 @@ modelAsTopology Model{..} = Net states transitions stateOutputs transitionOutput
 -- | Lift the topology into a proper model, inserting undefined expressions
 -- where necessary - rates and initial variable values, namely
 topologyAsModel :: Net -> Model
-topologyAsModel Net{..} = Model "foo" decls events
+topologyAsModel Net{..} = Model "foo" decls events []
   where
     decls = map (pure . flip State undef) (Map.elems netStates)
     events = map mkEvent (Map.toList netTransitions)
@@ -106,6 +106,7 @@ insertHoles Model{..} = evalRWS fill () 0
   where
     fill :: RWS () [Text] Int Model
     fill = Model "foo" <$> (map pure <$> newDecls) <*> newEvents
+                                                   <*> pure modelMeta
 
     newDecls :: RWS () [Text] Int [Decl]
     newDecls = forM (map metaValue modelDecls) $ \case
@@ -141,7 +142,8 @@ insertHoles Model{..} = evalRWS fill () 0
             pure (Var var)
 
 nameHoles :: Map Int Text -> Model -> Model
-nameHoles nodeNames Model{..} = Model modelName (map pure renamedDecls) renamedEvents
+nameHoles nodeNames Model{..} =
+  Model modelName (map pure renamedDecls) renamedEvents []
   where
     renamedDecls :: [Decl]
     renamedDecls = for (map metaValue modelDecls) $ \case
