@@ -1,0 +1,3 @@
+function ode_fn(dx,x,p,t)
+    -dx -2.0 * x
+end
