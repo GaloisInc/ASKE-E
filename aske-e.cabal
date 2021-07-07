@@ -160,6 +160,7 @@ executable champ
   build-depends:        base
                       , ansi-terminal
                       , aske-e
+                      , containers
                       , exceptions
                       , extra
                       , haskeline

@@ -9,10 +9,12 @@ import Control.Exception
 import Control.Monad (when)
 import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.State (MonadState(..), StateT(..), evalStateT)
+import Control.Monad.State (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Data.Foldable
 import qualified Data.List.Extra as L
+import qualified Data.Sequence as Seq
+import Data.Sequence (Seq)
 import qualified Data.Text as T
 import qualified Options.Applicative as Opt
 import System.Console.Haskeline
@@ -41,7 +43,7 @@ main = do
 champ :: Options -> IO ()
 champ opts = do
   displayLogo (optColor opts) (optUnicode opts)
-  evalChampT Exposure.initialEnv
+  evalChampT initialState
     $ runInputT defaultSettings
     $ withInterrupt loop
 
@@ -64,11 +66,28 @@ data Input
   | CaughtCtrlC
   | SuccessfulInput String
 
-newtype ChampM a = ChampM { unChampM :: StateT Exposure.Env IO a }
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState Exposure.Env)
+data ChampState = ChampState
+  { champEnv          :: Exposure.Env
+  , champBatchedStmts :: Seq Exposure.Stmt
+  }
 
-evalChampT :: Exposure.Env -> ChampM a -> IO a
-evalChampT env c = evalStateT (unChampM c) env
+initialState :: ChampState
+initialState = ChampState
+  { champEnv          = Exposure.initialEnv
+  , champBatchedStmts = Seq.empty
+  }
+
+putEnv :: Exposure.Env -> ChampM ()
+putEnv env = modify $ \s -> s{champEnv = env}
+
+batchStmt :: Exposure.Stmt -> ChampM ()
+batchStmt stmt = modify $ \s -> s{champBatchedStmts = champBatchedStmts s Seq.|> stmt}
+
+newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState)
+
+evalChampT :: ChampState -> ChampM a -> IO a
+evalChampT st c = evalStateT (unChampM c) st
 
 loop :: InputT ChampM ()
 loop = do
@@ -101,7 +120,7 @@ runCommand command =
       case possibleBuiltins of
         []        -> do liftIO $ putStrLn $ "Unknown command: " ++ builtinCmd
                         pure True
-        [builtin] -> liftIO $ commandAction builtin
+        [builtin] -> commandAction builtin
         (_:_)     -> do liftIO $ putStrLn $ unlines
                           [ builtinCmd ++ " is ambiguous, it could mean one of:"
                           , "\t" ++ L.intercalate ", "
@@ -109,13 +128,13 @@ runCommand command =
                           ]
                         pure True
     _ -> do
-      exposureStmt command
+      batchExposureStmt command
       pure True
 
 data Command = Command
   { commandNames  :: [String]
   , commandHelp   :: String
-  , commandAction :: IO Bool
+  , commandAction :: ChampM Bool
   }
 
 builtins :: [Command]
@@ -126,16 +145,19 @@ builtins =
   , Command ["q", "quit"]
             "Exit the REPL."
             (stop quitCmd)
+  , Command ["e", "exec"]
+            "Execute the batched statements."
+            (keepGoing executeBatchedStmts)
   ]
   where
-    keepGoing :: IO () -> IO Bool
+    keepGoing :: ChampM () -> ChampM Bool
     keepGoing action = action *> pure True
 
-    stop :: IO () -> IO Bool
+    stop :: ChampM () -> ChampM Bool
     stop action = action *> pure False
 
-helpCmd :: IO ()
-helpCmd = traverse_ showHelp builtins
+helpCmd :: ChampM ()
+helpCmd = traverse_ (liftIO . showHelp) builtins
   where
     showHelp :: Command -> IO ()
     showHelp command = do
@@ -146,22 +168,25 @@ helpCmd = traverse_ showHelp builtins
       putStr "\t"
       putStrLn $ commandHelp command
 
-quitCmd :: IO ()
+quitCmd :: ChampM ()
 quitCmd = pure ()
 
--- TODO: Make this smarter
-exposureStmt :: String -> ChampM ()
-exposureStmt code =
+batchExposureStmt :: String -> ChampM ()
+batchExposureStmt code =
   case lexExposure code >>= parseExposureStmt of
-    Left err   -> failure err
-    Right stmt -> do
-      env <- get
-      res <- liftIO $ try $ Exposure.evalLoop env [stmt]
-      case res of
-        Left (exc :: SomeException)  -> failure (show exc)
-        Right (Left err)             -> failure $ T.unpack err
-        Right (Right (env', dvs, _)) -> do
-          traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
-          put env'
+    Left err   -> liftIO $ putStrLn err
+    Right stmt -> batchStmt stmt
+
+executeBatchedStmts :: ChampM ()
+executeBatchedStmts = do
+  env   <- gets champEnv
+  stmts <- gets champBatchedStmts
+  res   <- liftIO $ try $ Exposure.evalLoop env (toList stmts)
+  case res of
+    Left (exc :: SomeException)  -> failure (show exc)
+    Right (Left err)             -> failure $ T.unpack err
+    Right (Right (env', dvs, _)) -> do
+      traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
+      putEnv env'
   where
     failure = liftIO . putStrLn
