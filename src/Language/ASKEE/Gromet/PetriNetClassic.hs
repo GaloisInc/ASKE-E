@@ -42,6 +42,7 @@ data PetriNet = PetriNet
 data StateVar = StateVar
   { sName    :: Text
   , sInitial :: Maybe Double
+  , sType    :: ValueType
   } deriving Show
 
 data Event = Event
@@ -90,14 +91,14 @@ pnFromGromet pnc =
   where
   emptyPN = PetriNet { pnName = pncName pnc
                      , pnStates = mempty, pnTransitions = mempty }
-  addS uid nm mb pn =
-    pn { pnStates = Map.insert uid (emptyS nm mb) (pnStates pn) }
+  addS uid nm ty mb pn =
+    pn { pnStates = Map.insert uid (emptyS nm mb ty) (pnStates pn) }
   setT uid ev pn = pn { pnTransitions = Map.insert uid ev (pnTransitions pn) }
   addEv uid nm mb = setT uid (emptyEv nm mb)
   emptyEv n mb =
     Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty }
-  emptyS n mb =
-    StateVar { sName = n, sInitial = mb }
+  emptyS n mb ty =
+    StateVar { sName = n, sInitial = mb, sType = ty}
 
   toDouble l = case l of
                  LitInteger i -> Right (fromIntegral i)
@@ -113,7 +114,7 @@ pnFromGromet pnc =
        case jType j of
          State ->
            do mb <- traverse toDouble (jValue j)
-              pure (addS (jUID j) (jName j) mb p)
+              pure (addS (jUID j) (jName j) (jValueType j) mb p)
          Transition ->
            do mb <- traverse toDouble (jValue j)
               pure (addEv (jUID j) (jName j) mb p)
@@ -164,6 +165,7 @@ pnToCore pn =
                  def     = Core.NumLit <$> sInitial s
                  theMeta = [ ("group", "Initial State")
                            , ("name",   sName s)
+                           , ("type", (Text.pack . show . sType) s)
                            ]
            ]
 

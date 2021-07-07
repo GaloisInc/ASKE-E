@@ -27,7 +27,7 @@ instance PP ValueType where
   pp vt =
     case vt of
       Real    -> "real"
-      Bool    -> "bool"
+      Boolean -> "bool"
       Integer -> "integer"
 
 instance PP Port where

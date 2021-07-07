@@ -13,8 +13,8 @@ import Data.Scientific(floatingOrInteger)
 data ValueType =
     Integer
   | Real
-  | Bool
-    deriving (Show,Eq)
+  | Boolean
+    deriving (Show,Read,Eq)
 
 parseValueType :: Text -> Maybe ValueType
 parseValueType txt =
@@ -22,8 +22,8 @@ parseValueType txt =
     "integer" -> pure Integer
     "real"    -> pure Real
     "float"   -> pure Real
-    "bool"    -> pure Bool
-    "boolean" -> pure Bool
+    "bool"    -> pure Boolean
+    "boolean" -> pure Boolean
     _         -> Nothing
 
 -- Note that these match Gromet
@@ -32,7 +32,7 @@ describeValueType vt =
   case vt of
     Integer -> "Integer"
     Real    -> "Real"
-    Bool    -> "Boolean"
+    Boolean -> "Boolean"
 
 
 
