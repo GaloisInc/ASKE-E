@@ -14,11 +14,22 @@ import Language.ASKEE.Expr
 import Language.ASKEE.ExprTransform
 import Control.Monad.Identity
 
+composeSerial :: Map Text Text -> Model -> Model -> Expr -> Expr -> Model
+composeSerial stateShare m1 m2 stop1 start2 = unionWith stateShare m1' m2'
+  where
+    m1' = m1 { modelEvents = map (doWhen (Not stop1)) (modelEvents m1) }
+    m2' = m2 { modelEvents = map (doWhen start2) (modelEvents m2) }
+
+    doWhen e Event{..} =
+      case eventWhen of
+        Nothing -> Event { eventWhen = Just e, .. }
+        Just w -> Event { eventWhen = Just (e `And` w), .. }
+
 -- TODO propagate metadata somehow
 -- Map values are state variables in model1
 -- Map keys are state variables in model2
-unionWith :: Model -> Model -> Map Text Text -> Model
-unionWith model1 model2 renaming = 
+unionWith :: Map Text Text -> Model -> Model -> Model
+unionWith renaming model1 model2 = 
   Model "foo" newDecls newEvents
   where
     newDecls =
@@ -54,7 +65,6 @@ unionWith model1 model2 renaming =
           | t `elem` m2vars -> t `Text.append` "_prime"
           | otherwise -> t
 
-    m1vars = modelVars model1
     m2vars = modelVars model2
 
 
