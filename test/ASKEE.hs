@@ -68,13 +68,13 @@ series3 =
 testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty
+      actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty mempty
       assertDataClose actual expected
 
 testSimulateEslParameterized :: DataSource -> DataSeries Double -> Assertion
 testSimulateEslParameterized mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5)
+      actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5) mempty
       assertDataClose actual expected
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
