@@ -160,10 +160,13 @@ executable champ
   build-depends:        base
                       , ansi-terminal
                       , aske-e
+                      , exceptions
                       , extra
                       , haskeline
+                      , mtl
                       , optparse-applicative
                       , text
+                      , transformers
   default-language:     Haskell2010
   ghc-options:          -Wall
 

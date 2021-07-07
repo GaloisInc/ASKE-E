@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 module Main (main) where
@@ -5,7 +7,10 @@ module Main (main) where
 import Control.Applicative ((<**>))
 import Control.Exception
 import Control.Monad (when)
+import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
 import Control.Monad.IO.Class (MonadIO(..))
+import Control.Monad.State (MonadState(..), StateT(..), evalStateT)
+import Control.Monad.Trans.Class (MonadTrans(..))
 import Data.Foldable
 import qualified Data.List.Extra as L
 import qualified Data.Text as T
@@ -36,7 +41,9 @@ main = do
 champ :: Options -> IO ()
 champ opts = do
   displayLogo (optColor opts) (optUnicode opts)
-  runInputT defaultSettings $ withInterrupt $ loop Exposure.initialEnv
+  evalChampT Exposure.initialEnv
+    $ runInputT defaultSettings
+    $ withInterrupt loop
 
 data Options = Options
   { optColor   :: Bool
@@ -57,49 +64,53 @@ data Input
   | CaughtCtrlC
   | SuccessfulInput String
 
-loop :: Exposure.Env -> InputT IO ()
-loop env = do
+newtype ChampM a = ChampM { unChampM :: StateT Exposure.Env IO a }
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState Exposure.Env)
+
+evalChampT :: Exposure.Env -> ChampM a -> IO a
+evalChampT env c = evalStateT (unChampM c) env
+
+loop :: InputT ChampM ()
+loop = do
   mbInput <- handleInterrupt handleCtrlC (toInput <$> getInputLine "champ> ")
   case mbInput of
     FailedInput -> pure ()
-    CaughtCtrlC -> loop env
+    CaughtCtrlC -> loop
     SuccessfulInput input -> do
-      (env', keepGoing) <- liftIO $ runCommand env $ L.trim input
-      when keepGoing $ loop env'
+      keepGoing <- lift $ runCommand $ L.trim input
+      when keepGoing loop
   where
-    handleCtrlC :: InputT IO Input
+    handleCtrlC :: InputT ChampM Input
     handleCtrlC = liftIO $ do
-      putStrLn "Ctrl-C"
+      liftIO $ putStrLn "Ctrl-C"
       pure CaughtCtrlC
 
     toInput :: Maybe String -> Input
     toInput Nothing  = FailedInput
     toInput (Just s) = SuccessfulInput s
 
-runCommand :: Exposure.Env -> String -> IO (Exposure.Env, Bool)
-runCommand env command =
+runCommand :: String -> ChampM Bool
+runCommand command =
   case command of
-    ""  -> carryOn
-    ":" -> carryOn
+    ""  -> pure True
+    ":" -> pure True
     builtinCmd@(':':builtinCmdName) -> do
       let possibleBuiltins = filter (\c -> any (builtinCmdName `L.isPrefixOf`)
                                                (commandNames c))
                                     builtins
       case possibleBuiltins of
-        []        -> do putStrLn $ "Unknown command: " ++ builtinCmd
-                        carryOn
-        [builtin] -> (env,) <$> commandAction builtin
-        (_:_)     -> do putStrLn $ unlines
+        []        -> do liftIO $ putStrLn $ "Unknown command: " ++ builtinCmd
+                        pure True
+        [builtin] -> liftIO $ commandAction builtin
+        (_:_)     -> do liftIO $ putStrLn $ unlines
                           [ builtinCmd ++ " is ambiguous, it could mean one of:"
                           , "\t" ++ L.intercalate ", "
                                     (map (':':) (concatMap commandNames possibleBuiltins))
                           ]
-                        carryOn
+                        pure True
     _ -> do
-      env' <- exposureStmt env command
-      pure (env', True)
-  where
-    carryOn = pure (env, True)
+      exposureStmt command
+      pure True
 
 data Command = Command
   { commandNames  :: [String]
@@ -139,17 +150,18 @@ quitCmd :: IO ()
 quitCmd = pure ()
 
 -- TODO: Make this smarter
-exposureStmt :: Exposure.Env -> String -> IO Exposure.Env
-exposureStmt env code =
+exposureStmt :: String -> ChampM ()
+exposureStmt code =
   case lexExposure code >>= parseExposureStmt of
     Left err   -> failure err
     Right stmt -> do
-      res <- try $ Exposure.evalLoop env [stmt]
+      env <- get
+      res <- liftIO $ try $ Exposure.evalLoop env [stmt]
       case res of
         Left (exc :: SomeException)  -> failure (show exc)
         Right (Left err)             -> failure $ T.unpack err
         Right (Right (env', dvs, _)) -> do
-          traverse_ (print . Exposure.ppValue . Exposure.unDisplayValue) dvs
-          pure env'
+          traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
+          put env'
   where
-    failure err = putStrLn err *> pure env
+    failure = liftIO . putStrLn
