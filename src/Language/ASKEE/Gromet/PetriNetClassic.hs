@@ -185,7 +185,9 @@ pnToCore pn =
            | (x, s) <- ss
            , let uid     = jToName x
                  e       = Core.Var (initName x)
-                 theMeta = [ ("name", sName s) ]
+                 theMeta = [ ("name", sName s)
+                           , ("type", (Text.pack . show . sType) s)
+                           ]
            ]
 
   (rUID, coreEvs, eMeta) =

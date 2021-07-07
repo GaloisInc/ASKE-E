@@ -35,7 +35,7 @@ modelInterface Model{..} = ModelInterface
 
     toState x = Port
       { portName      = x
-      , portValueType = Real
+      , portValueType = maybe Real (read . Text.unpack . head) (meta x Map.!? "type")
       , portDefault   = Nothing
       , portMeta      = meta x
       }
