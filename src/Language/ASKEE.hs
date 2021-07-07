@@ -351,19 +351,14 @@ simulateModelAJ ::
   IO (DataSeries Double)
 simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
-      newParameters <- mapKeysM demangle parameters
+      let newParameters = Map.mapKeys demangle parameters
       AJ.simulate pnc start stop step newParameters
   where
     demangle t = 
       case (Text.stripSuffix "_init" t, Text.stripSuffix "_rate" t) of
-        (Nothing, Nothing) -> die (ParseError $ "couldn't demangle parameter "<>show t)
-        (Just t', _) -> pure t'
-        (_, Just t') -> pure t'
-
-    mapKeysM :: (Monad m, Ord k2) => (k1 -> m k2) -> Map k1 a -> m (Map k2 a)
-    mapKeysM f m = Map.fromList <$> mapM (\(x, y) -> x >>= pure . (,y)) (fold m)
-      where
-        fold = Map.foldrWithKey (\k x xs -> (f k, x) : xs) []
+        (Just t', _) -> t'
+        (_, Just t') -> t'
+        (Nothing, Nothing) -> t
 
 convertModelString ::
   ModelType -> DataSource -> ModelType -> IO (Either String String)
