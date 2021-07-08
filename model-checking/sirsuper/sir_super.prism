@@ -15,8 +15,9 @@ module SIRSUPER
     Rec : [0..N] init 0;
     
     // Transition rules
-    [Infect] (Sus > 0) & (Inf > 0) -> (beta * Sus * Inf /N) : (Sus' = Sus - 1) & (Inf' = Inf + 1);
-    [Remove] (Inf > 0) -> gamma * Inf : (Inf' = Inf - 1) & (Rec' = Rec + 1);
+    [Infect1] (Sus > 0) & (Inf > 0) -> (beta * Sus * Inf)/N : (Sus'= Sus - 1) & (Inf' = Inf - 1); 
+        [Infect2] (Sus > 0) & (Inf > 0) & (Inf < N-1) -> (beta * Sus * Inf)/N :  (Inf' = Inf + 2); 
+        [Remove] (Inf > 0) & (Rec < N) -> gamma * Inf : (Inf' = Inf - 1) & (Rec' = Rec + 1);
     [SuperSpread] (Sus > 100) -> beta_super * Sus * Inf : (Sus' = Sus - 100) & (Inf' = Inf + 100);
 
 endmodule
