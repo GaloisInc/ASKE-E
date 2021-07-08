@@ -14,7 +14,7 @@ data ValueType =
     Integer
   | Real
   | Boolean
-    deriving (Show,Read,Eq)
+    deriving (Show,Read,Eq,Ord)
 
 parseValueType :: Text -> Maybe ValueType
 parseValueType txt =
