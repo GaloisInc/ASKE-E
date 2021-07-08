@@ -1,6 +1,7 @@
 {
 module Language.ASKEE.Exposure.GenParser where
 
+import Data.Text (Text)
 import Language.ASKEE.Core.Syntax (Model(..))
 import Language.ASKEE.Model (parseModel, toCore)
 import Language.ASKEE.Model.Basics (ModelType(..))
@@ -18,32 +19,33 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 %monad       { Either String       }
 
 %token
-'='     { Located _ _ Lexer.Assign     }
-','     { Located _ _ Lexer.Comma      }
-'('     { Located _ _ Lexer.OpenP      }
-')'     { Located _ _ Lexer.CloseP     }
-REAL    { Located _ _ (Lexer.LitD $$)  }
-STRING  { Located _ _ (Lexer.LitS $$)  }
-IDENT   { Located _ _ (Lexer.Ident $$) }
-'+'     { Located _ _ Lexer.InfixAdd   }
-'-'     { Located _ _ Lexer.InfixSub   }
-'*'     { Located _ _ Lexer.InfixMul   }
-'/'     { Located _ _ Lexer.InfixDiv   }
-'>'     { Located _ _ Lexer.InfixGT    }
-'>='    { Located _ _ Lexer.InfixGTE   }
-'<'     { Located _ _ Lexer.InfixLT    }
-'<='    { Located _ _ Lexer.InfixLTE   }
-'=='    { Located _ _ Lexer.InfixEQ    }
-'!='    { Located _ _ Lexer.InfixNEQ   }
-'and'   { Located _ _ Lexer.InfixAnd   }
-'or'    { Located _ _ Lexer.InfixOr    }
-'not'   { Located _ _ Lexer.InfixNot   }
-'false' { Located _ _ Lexer.BoolFalse  }
-'true'  { Located _ _ Lexer.BoolTrue   }
-'.'     { Located _ _ Lexer.Dot        }
-'at'    { Located _ _ Lexer.At         }
-'define' { Located _ _ Lexer.Define }
-MODELDEF { Located _ _ (Lexer.DefModel $$) }
+'='      { Located _ _ Lexer.Assign     }
+','      { Located _ _ Lexer.Comma      }
+'('      { Located _ _ Lexer.OpenP      }
+')'      { Located _ _ Lexer.CloseP     }
+REAL     { Located _ _ (Lexer.LitD $$)  }
+STRING   { Located _ _ (Lexer.LitS $$)  }
+IDENT    { Located _ _ (Lexer.Ident $$) }
+'+'      { Located _ _ Lexer.InfixAdd   }
+'-'      { Located _ _ Lexer.InfixSub   }
+'*'      { Located _ _ Lexer.InfixMul   }
+'/'      { Located _ _ Lexer.InfixDiv   }
+'>'      { Located _ _ Lexer.InfixGT    }
+'>='     { Located _ _ Lexer.InfixGTE   }
+'<'      { Located _ _ Lexer.InfixLT    }
+'<='     { Located _ _ Lexer.InfixLTE   }
+'=='     { Located _ _ Lexer.InfixEQ    }
+'!='     { Located _ _ Lexer.InfixNEQ   }
+'and'    { Located _ _ Lexer.InfixAnd   }
+'or'     { Located _ _ Lexer.InfixOr    }
+'not'    { Located _ _ Lexer.InfixNot   }
+'false'  { Located _ _ Lexer.BoolFalse  }
+'true'   { Located _ _ Lexer.BoolTrue   }
+'.'      { Located _ _ Lexer.Dot        }
+'at'     { Located _ _ Lexer.At         }
+'define' { Located _ _ Lexer.Define     }
+'end'    { Located _ _ Lexer.End        }
+DCHR     { Located _ _ (Lexer.DefChar $$) }
 
 %nonassoc 'at'
 %left 'or'
@@ -65,10 +67,21 @@ rev_stmts : stmt       { [$1] }
 
 stmt :: { Stmt }
 stmt  : IDENT '=' expr         { StmtLet $1 $3  }
-      | 'define' MODELDEF      {% do { m <- toCore =<< parseModel EaselType $2
-                                     ; let e = EVal (VModel m)
-                                     ; pure (StmtLet (modelName m) e) }}
+      | modelDef               {% do { m <- toCore =<< parseModel RNetType (snd $1)
+                                     ; let nm = fst $1
+                                     ; let e = EVal (VModel m { modelName = nm })
+                                     ; pure (StmtLet nm e) }}
       | dispExpr               { StmtDisplay $1 }
+
+modelDef :: { (Text, Text) }
+modelDef : 'define' IDENT defContents 'end' { ($2, $3) }
+
+defContents :: { Text }
+defContents : rev_defContents { mconcat (reverse $1) }
+
+rev_defContents :: { [Text] }
+rev_defContents : DCHR { [$1] }
+                | rev_defContents DCHR { $2 : $1}
 
 expr :: { Expr }
 expr : IDENT                        { EVar $1 }

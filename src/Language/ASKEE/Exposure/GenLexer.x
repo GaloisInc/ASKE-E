@@ -13,7 +13,6 @@ $upper   = [A-Z]
 $lower   = [a-z]
 $digit   = [0-9]
 $graphic = $printable # $white
-$allText = [^\}]
 
 @string    = \" ($graphic # \")* \"
 @exp       = e [\+\-]? $digit+
@@ -21,39 +20,44 @@ $allText = [^\}]
 @identHead = [$upper $lower _]
 @identBody = [$upper $lower $digit _]
 @ident     = @identHead @identBody*
-@modelDef  = (\n $white $white .+)+
+@body      = (. | \n)*
+@def       = "define" @body "end" "define"
 
 tokens :-
 
-"="         { atomic Assign    }
-"("         { atomic OpenP     }
-")"         { atomic CloseP    }
-","         { atomic Comma     }
-"+"         { atomic InfixAdd  }
-"-"         { atomic InfixSub  }
-"*"         { atomic InfixMul  }
-"/"         { atomic InfixDiv  }
-"<="        { atomic InfixLTE  }
-">="        { atomic InfixGTE  }
-"<"         { atomic InfixLT   }
-">"         { atomic InfixGT   }
-"=="        { atomic InfixEQ   }
-"!="        { atomic InfixNEQ  }
-"."         { atomic Dot       }
-"and"       { atomic InfixAnd  }
-"or"        { atomic InfixOr   }
-"not"       { atomic InfixNot  }
-"false"     { atomic BoolFalse }
-"true"      { atomic BoolTrue  }
-"at"        { atomic At        }
-"define"    { atomic Define }
+<0> "="         { atomic Assign    }
+<0> "("         { atomic OpenP     }
+<0> ")"         { atomic CloseP    }
+<0> ","         { atomic Comma     }
+<0> "+"         { atomic InfixAdd  }
+<0> "-"         { atomic InfixSub  }
+<0> "*"         { atomic InfixMul  }
+<0> "/"         { atomic InfixDiv  }
+<0> "<="        { atomic InfixLTE  }
+<0> ">="        { atomic InfixGTE  }
+<0> "<"         { atomic InfixLT   }
+<0> ">"         { atomic InfixGT   }
+<0> "=="        { atomic InfixEQ   }
+<0> "!="        { atomic InfixNEQ  }
+<0> "."         { atomic Dot       }
+<0> "and"       { atomic InfixAnd  }
+<0> "or"        { atomic InfixOr   }
+<0> "not"       { atomic InfixNot  }
+<0> "false"     { atomic BoolFalse }
+<0> "true"      { atomic BoolTrue  }
+<0> "at"        { atomic At        }
 
-@string   { str   }
-@real     { real  }
-@ident    { ident }
-@modelDef { modelDef }
+<0> "define"   { defineModel }
+<defNm> @ident { modelIdent }
+<defSC> "end"  { endBody }
+<defSC> .      { defChar }
+<defSC> \n     { defChar }
 
-$white+	 ;
+<0> @string   { str   }
+<0> @real     { real  }
+<0> @ident    { ident }
+
+<0,defNm> $white+	 ;
 
 {
 type Action = AlexInput -> Int -> Alex Token
@@ -67,8 +71,23 @@ ident (_,_,_,s) len = (pure . Ident . T.pack . take len) s
 str :: Action
 str (_,_,_,s) len = (pure . LitS . T.pack . init . tail . take len) s
 
-modelDef :: Action
-modelDef (_,_,_,s) len = (pure . DefModel . T.pack . init . tail . take len) s
+defChar :: Action
+defChar (_,_,_,s) len = (pure . DefChar . T.pack . take len) s
+
+defineModel :: Action
+defineModel (_,_,_,s) len =
+  do alexSetStartCode defNm
+     pure Define
+
+modelIdent :: Action
+modelIdent inp len =
+  do alexSetStartCode defSC
+     ident inp len
+
+endBody :: Action
+endBody _ _ =
+  do alexSetStartCode 0
+     return End
 
 atomic :: Token -> Action
 atomic tok = \_ _ -> pure tok
