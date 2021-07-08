@@ -75,7 +75,7 @@ defChar :: Action
 defChar (_,_,_,s) len = (pure . DefChar . T.pack . take len) s
 
 defineModel :: Action
-defineModel (_,_,_,s) len =
+defineModel (_,_,_,_s) _len =
   do alexSetStartCode defNm
      pure Define
 
