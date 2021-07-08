@@ -5,13 +5,14 @@
 module Main (main) where
 
 import Control.Applicative ((<**>))
-import Control.Monad (when)
+import Control.Monad (replicateM_, when)
 import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Data.Foldable
 import qualified Data.List.Extra as L
+import Data.Maybe
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq)
 import qualified Data.Text.IO as T
@@ -39,7 +40,7 @@ main = do
      <> Opt.progDesc spiel
      <> Opt.header spiel )
 
-    spiel = "A simple REPL"
+    spiel = "A simple Exposure REPL"
 
 champ :: Options -> IO ()
 champ opts = do
@@ -72,12 +73,17 @@ data Input
 data ChampState = ChampState
   { champEnv          :: Exposure.Env
   , champBatchedStmts :: Seq Exposure.Stmt
+  , champMultiline    :: Maybe (Seq String)
+    -- ^ 'Nothing' means multiline mode is not active.
+    -- @'Just' lines@ means multiline mode is active, with @lines@ being the
+    -- lines of code that have been entered thus far.
   }
 
 initialState :: ChampState
 initialState = ChampState
   { champEnv          = Exposure.initialEnv
   , champBatchedStmts = Seq.empty
+  , champMultiline    = Nothing
   }
 
 putEnv :: Exposure.Env -> ChampM ()
@@ -89,6 +95,29 @@ batchStmt stmt = modify $ \s -> s{champBatchedStmts = champBatchedStmts s Seq.|>
 clearBatchedStmts :: ChampM ()
 clearBatchedStmts = modify $ \s -> s{champBatchedStmts = Seq.empty}
 
+appendLine :: String -> ChampM ()
+appendLine line = modify $ \s ->
+  s{ champMultiline =
+       case champMultiline s of
+         Nothing    -> fail "INVARIANT VIOLATED: Appending line without being in multiline mode!"
+         Just linez -> Just $ linez Seq.|> line
+   }
+
+startMultiline :: ChampM ()
+startMultiline = modify $ \s -> s{champMultiline = Just Seq.empty}
+
+stopMultiline :: ChampM ()
+stopMultiline = do
+  linez <- gets $ \s ->
+    case champMultiline s of
+      Nothing    -> error "INVARIANT VIOLATED: Appending line without being in multiline mode!"
+      Just linez -> L.intercalate " " $ toList linez
+  modify $ \s ->
+    s{ champBatchedStmts = Seq.empty
+     , champMultiline    = Nothing
+     }
+  batchExposureStmtNoMultiline linez
+
 newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState)
 
@@ -97,7 +126,9 @@ evalChampT st c = evalStateT (unChampM c) st
 
 loop :: InputT ChampM ()
 loop = do
-  mbInput <- handleInterrupt handleCtrlC (toInput <$> getInputLine "champ> ")
+  multiline <- lift $ gets champMultiline
+  let prompt = if isJust multiline then "  ...> " else "champ> "
+  mbInput <- handleInterrupt handleCtrlC (toInput <$> getInputLine prompt)
   case mbInput of
     FailedInput -> pure ()
     CaughtCtrlC -> loop
@@ -158,6 +189,12 @@ builtins =
   , Command ["e", "exec"]
             "Execute the batched statements."
             (keepGoing executeBatchedStmts)
+  , Command ["{", "startmulti"]
+            "Start multiline mode."
+            (keepGoing startMultiline)
+  , Command ["}", "stopmulti"]
+            "Stop multiline mode."
+            (keepGoing stopMultiline)
   ]
   where
     keepGoing :: ChampM () -> ChampM Bool
@@ -175,14 +212,21 @@ helpCmd = traverse_ (liftIO . showHelp) builtins
       putStr $ L.intercalate ", "
              $ map (':':)
              $ commandNames command
-      putStr "\t"
+      replicateM_ (20 - sum (map length (commandNames command))) $ putStr " "
       putStrLn $ commandHelp command
 
 quitCmd :: ChampM ()
 quitCmd = pure ()
 
 batchExposureStmt :: String -> ChampM ()
-batchExposureStmt code =
+batchExposureStmt code = do
+  multiline <- gets champMultiline
+  if isJust multiline
+    then appendLine code
+    else batchExposureStmtNoMultiline code
+
+batchExposureStmtNoMultiline :: String -> ChampM ()
+batchExposureStmtNoMultiline code =
   case lexExposure code >>= parseExposureStmt of
     Left err   -> liftIO $ putStrLn err
     Right stmt -> batchStmt stmt
