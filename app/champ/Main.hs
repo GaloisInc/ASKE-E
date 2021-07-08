@@ -83,6 +83,9 @@ putEnv env = modify $ \s -> s{champEnv = env}
 batchStmt :: Exposure.Stmt -> ChampM ()
 batchStmt stmt = modify $ \s -> s{champBatchedStmts = champBatchedStmts s Seq.|> stmt}
 
+clearBatchedStmts :: ChampM ()
+clearBatchedStmts = modify $ \s -> s{champBatchedStmts = Seq.empty}
+
 newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState)
 
@@ -188,5 +191,6 @@ executeBatchedStmts = do
     Right (Right (env', dvs, _)) -> do
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
       putEnv env'
+      clearBatchedStmts
   where
     failure = liftIO . putStrLn
