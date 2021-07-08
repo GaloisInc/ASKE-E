@@ -5,9 +5,8 @@
 module Main (main) where
 
 import Control.Applicative ((<**>))
-import Control.Exception
 import Control.Monad (when)
-import Control.Monad.Catch (MonadThrow, MonadCatch, MonadMask)
+import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
@@ -15,7 +14,7 @@ import Data.Foldable
 import qualified Data.List.Extra as L
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq)
-import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import qualified Options.Applicative as Opt
 import System.Console.Haskeline
 
@@ -99,8 +98,12 @@ loop = do
     FailedInput -> pure ()
     CaughtCtrlC -> loop
     SuccessfulInput input -> do
-      keepGoing <- lift $ runCommand $ L.trim input
-      when keepGoing loop
+      res <- lift $ try $ runCommand $ L.trim input
+      case res of
+        Left (exc :: SomeException) -> do
+          liftIO $ putStrLn (show exc)
+          loop
+        Right keepGoing -> when keepGoing loop
   where
     handleCtrlC :: InputT ChampM Input
     handleCtrlC = liftIO $ do
@@ -184,13 +187,12 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env   <- gets champEnv
   stmts <- gets champBatchedStmts
-  res   <- liftIO $ try $ Exposure.evalLoop env (toList stmts)
+  res   <- liftIO $ Exposure.evalLoop env (toList stmts)
   case res of
-    Left (exc :: SomeException)  -> failure (show exc)
-    Right (Left err)             -> failure $ T.unpack err
-    Right (Right (env', dvs, _)) -> do
+    Left err             -> do
+      liftIO $ T.putStrLn err
+      clearBatchedStmts
+    Right (env', dvs, _) -> do
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
       putEnv env'
       clearBatchedStmts
-  where
-    failure = liftIO . putStrLn

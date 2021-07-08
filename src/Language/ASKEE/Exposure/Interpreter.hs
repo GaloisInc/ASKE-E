@@ -14,6 +14,7 @@ import Data.Maybe(isJust)
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
+import Language.ASKEE.DataSeries
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import Language.ASKEE.Exposure.Syntax
@@ -224,6 +225,21 @@ interpretCall fun args =
                 Left err -> throw (Text.pack err)
                 Right m -> pure m
         _ -> typeError
+
+    FLoadCSV ->
+      case args of
+        [VString path] ->
+          do ds <- liftIO $ parseDataSeriesFromFile $ Text.unpack path
+             pure $ VModelExpr $ EVal $ VDataSeries ds
+        _ -> typeError
+
+    FMean ->
+      case args of
+        [VModelExpr (EMember (EVal (VDataSeries (DataSeries{values = vs}))) lab)] ->
+          case Map.lookup lab vs of
+            Just ds -> pure $ VDouble $ mean ds
+            Nothing -> throw $ "no label named: " <> lab
+        _ -> typeError
   where
     typeError = throw "type error"
 
@@ -259,4 +275,5 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
-
+    mean :: [Double] -> Double
+    mean xs = sum xs / fromIntegral (length xs)
