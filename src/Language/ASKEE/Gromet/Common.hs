@@ -25,10 +25,10 @@ newtype JunctionUid = JunctionUid Uid
   deriving (Show, Eq, Ord)
 
 data ValueType =
-    Bool
+    Boolean
   | Real
   | Integer
-    deriving (Show,Eq)
+    deriving (Show, Eq)
 
 data Literal =
     LitReal    Double
@@ -81,7 +81,7 @@ instance JSON.ToJSON ValueType where
   toJSON ty =
     case ty of
       Real    -> "Real"
-      Bool    -> "Boolean"
+      Boolean -> "Boolean"
       Integer -> "Integer"
 
 -- We are being permissive here
@@ -92,8 +92,8 @@ instance JSON.FromJSON ValueType where
       "Float"     -> pure Real
       "T:Real"    -> pure Real
       "T:Float"   -> pure Real
-      "Boolean"   -> pure Bool
-      "T:Boolean" -> pure Bool
+      "Boolean"   -> pure Boolean
+      "T:Boolean" -> pure Boolean
       "Integer"   -> pure Integer
       "T:Integer" -> pure Integer
       _           -> fail ("Unknown VALUE_TYPE: " <> Text.unpack txt)
@@ -104,7 +104,7 @@ instance JSON.ToJSON Literal where
     case l of
       LitReal dbl   -> lit Real    (jsShow dbl)
       LitInteger i  -> lit Integer (jsShow i)
-      LitBool b     -> lit Bool    (jsShow b)
+      LitBool b     -> lit Boolean (jsShow b)
 
     where
     lit ty val = JSON.object [ "type"     .= ty
@@ -142,7 +142,7 @@ instance JSON.FromJSON Literal where
                Just n -> pure (LitInteger n)
                Nothing -> fail ("Invalid INTEGER_LITERAL: " <> Text.unpack txt)
 
-         Bool
+         Boolean
            | JSON.Bool b <- va -> pure (LitBool b)
            | JSON.String txt <- va ->
              if      Text.toLower txt == "true" then pure (LitBool True)
