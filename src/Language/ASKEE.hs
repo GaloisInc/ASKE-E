@@ -354,10 +354,14 @@ simulateModelAJ ::
   IO (DataSeries Double)
 simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
-      let parameters' = Map.mapKeys demangle parameters
-      AJ.simulate pnc start stop step parameters'
+      let newParameters = Map.mapKeys demangle parameters
+      AJ.simulate pnc start stop step newParameters
   where
-    demangle t = head $ Text.split (== '_') t
+    demangle t = 
+      case (Text.stripSuffix "_init" t, Text.stripSuffix "_rate" t) of
+        (Just t', _) -> t'
+        (_, Just t') -> t'
+        (Nothing, Nothing) -> t
 
 convertModelString ::
   ModelType -> DataSource -> ModelType -> IO (Either String String)
