@@ -1,16 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Language.ASKEE.Exposure.Pretty where
+module Language.ASKEE.Exposure.Print where
 
+import Language.ASKEE.Core.Print (ppModel)
 import Language.ASKEE.Exposure.Syntax
 import Prettyprinter
 
-ppValue :: Value -> Doc a
+ppValue :: Value -> Doc ()
 ppValue v = case v of
   VDouble d    -> pretty d
   VBool b      -> if b then "true" else "false"
   VString s    -> viaShow s
+  VModel m     -> ppModel m
   VInt         -> notImplemented "VInt"
-  VModel{}     -> notImplemented "VModel"
   VModelExpr{} -> notImplemented "VModelExpr"
   VDFold{}     -> notImplemented "VDFold"
   VSFold{}     -> notImplemented "VSFold"

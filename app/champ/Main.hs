@@ -22,7 +22,7 @@ import System.Console.Haskeline
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
-import qualified Language.ASKEE.Exposure.Pretty as Exposure
+import qualified Language.ASKEE.Exposure.Print as Exposure
 import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 import Logo (displayLogo)
