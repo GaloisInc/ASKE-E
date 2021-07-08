@@ -17,6 +17,8 @@ import Data.Sequence (Seq)
 import qualified Data.Text.IO as T
 import qualified Options.Applicative as Opt
 import System.Console.Haskeline
+import System.Directory
+import System.FilePath
 
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
@@ -42,8 +44,10 @@ main = do
 champ :: Options -> IO ()
 champ opts = do
   displayLogo (optColor opts) (optUnicode opts)
+  champConfigDir <- getXdgDirectory XdgConfig "champ"
+  createDirectoryIfMissing True champConfigDir
   evalChampT initialState
-    $ runInputT defaultSettings
+    $ runInputT defaultSettings{historyFile = Just $ champConfigDir </> "history" }
     $ withInterrupt loop
 
 data Options = Options

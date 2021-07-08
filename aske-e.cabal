@@ -161,8 +161,10 @@ executable champ
                       , ansi-terminal
                       , aske-e
                       , containers
+                      , directory
                       , exceptions
                       , extra
+                      , filepath
                       , haskeline
                       , mtl
                       , optparse-applicative
