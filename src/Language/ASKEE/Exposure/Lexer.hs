@@ -7,7 +7,8 @@ data Token
   | LitD Double
   | LitS Text
   | Define
-  | DefModel Text
+  | End
+  | DefChar Text
   | Assign
   | Comma
   | OpenP
