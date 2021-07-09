@@ -6,6 +6,7 @@ import re
 import json
 from typing import Dict
 import traceback
+import tabulate
 import requests
 from ipykernel.kernelbase import Kernel
 
@@ -13,6 +14,7 @@ from ipykernel.kernelbase import Kernel
 # Config
 #------------------------------------------------------------------------------
 DONU_ADDRESS = "http://localhost:8000"
+vega_lite_schema = "https://vega.github.io/schema/vega-lite/v3.json"
 
 # -----------------------------------------------------------------------------
 # Donu client
@@ -62,9 +64,46 @@ def parse_code(code:str):
 
 def format_resp_value(v):
     if isinstance(v, str):
-        return v
+        return { 'text/plain': v }
+    elif isinstance(v, dict):
+        if v['type'] == 'data-series':
+            timeTab = ["time"] + v['time']
+            valTabs = [ [k] + v['values'][k] for k in v['values'] ]
+            txt = tabulate.tabulate([timeTab] + valTabs)
+
+            vals = []
+            for i in range(len(v['time'])):
+                for k in v['values']:
+                    vals.append({'time': v['time'][i],
+                                 'series': k,
+                                 'y': v['values'][k][i]})
+
+            layers = [
+                { "mark": "line",
+                  "encoding": {
+                      "x": {"field": "time", "type": "quantitative"},
+                      "y": {"field": "y", "type":"quantitative"},
+                      "color": {"field": "series", "type": "nominal" }
+                      }
+                }
+                ]
+
+
+            out = { 'application/vnd.vegalite.v3+json': {
+                '$schema': vega_lite_schema,
+                'description':'',
+                'data': { "values": vals},
+                'mark': 'point',
+                'layer': layers
+                },
+                    'text/plain': txt
+                }
+            return out
+
+        else:
+            pass
     else:
-        return json.dumps(v)
+        return { 'text/plain': json.dumps(v) }
 
 
 class ASKEEKernel(Kernel):
@@ -94,11 +133,13 @@ class ASKEEKernel(Kernel):
             parsed = parse_code(code)
             resp   = self.execute_donu_cmd(parsed)
             # Resp should be a list of things to display
-            lines = "\n".join([format_resp_value(r) for r in resp])
-            output = { 'text/plain': lines }
+            # lines = "\n".join([format_resp_value(r) for r in resp])
+            lines = [format_resp_value(r) for r in resp]
+            # output = { 'text/plain': lines }
 
             if not silent:
-                self.send_response(self.iopub_socket, "display_data", {"data": output, "metadata": {}})
+                for output in lines:
+                    self.send_response(self.iopub_socket, "display_data", {"data": output, "metadata": {}})
 
             return {
                 'status': 'ok',
