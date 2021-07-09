@@ -13,8 +13,10 @@ import           Language.ASKEE.DEQ.Syntax        ( DiffEqs(..) )
 -------------------------------------------------------------------------------
 -- DiffEqs
 
-asDiffEqs :: Model -> DiffEqs
-asDiffEqs mdl =
+data ToDiffEqMethod = WithGuards | NoGuards
+
+asDiffEqs :: ToDiffEqMethod -> Model -> DiffEqs
+asDiffEqs how mdl =
   DiffEqs { deqParams  = modelParams mdl
           , deqInitial = modelInitState mdl
           , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
@@ -23,15 +25,16 @@ asDiffEqs mdl =
   where
   stateEq sv _ = simplifyExpr
                $ foldr (:+:) (NumLit 0)
-               $ mapMaybe (eventTerm sv)
+               $ mapMaybe (eventTerm how sv)
                $ modelEvents mdl
 
 -- Eventually we may want to consider approaches to try to make guard
 -- continues (e.g., sigmoid?)
-eventTerm :: Core.Ident -> Event -> Maybe Expr
-eventTerm sv event =
+eventTerm :: ToDiffEqMethod -> Core.Ident -> Event -> Maybe Expr
+eventTerm how sv event =
   do stExp <- Map.lookup sv (eventEffect event)
-     pure (If (eventWhen event)
-              (eventRate event :*: (stExp :-: Var sv))
-              (NumLit 0))
+     let e = eventRate event :*: (stExp :-: Var sv)
+     pure case how of
+            WithGuards -> If (eventWhen event) e (NumLit 0)
+            NoGuards   -> e
 

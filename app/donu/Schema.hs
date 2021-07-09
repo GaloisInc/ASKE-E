@@ -29,6 +29,7 @@ data Input =
     SimulateDiscrete SimulateDiscreteCommand
   | SimulateGSL SimulateGSLCommand
   | SimulateAJ SimulateAJCommand
+  | Simulate SimulateCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
@@ -287,6 +288,44 @@ instance HasSpec SimulateAJCommand where
                        "Use these values for model parameters"
 
        pure SimulateAJCommand { .. }
+
+
+--
+
+data SimulateCommand = SimulateCommand
+  { simModel              :: ModelDef
+  , simStart              :: Double
+  , simStep               :: Double
+  , simEnd                :: Double
+  , simDomainParam        :: Maybe Text
+  , simParameterValues    :: Map Text Double
+  , simOutputs            :: [Text]
+  } deriving Show
+
+
+instance HasSpec SimulateCommand where
+  anySpec =
+    sectionsSpec "simulate-command"
+    do reqSection' "command" (jsAtom "simulate-gsl") "Run a simulation"
+       simModel   <- reqSection' "definition" modelDef
+                       "Specification of the model to simulate"
+
+       simStart   <- reqSection "start" "Start time of simulation"
+       simStep    <- fromMaybe 1 <$> optSection "step"
+                       "Time step (defaults to 1)"
+       simEnd       <- reqSection "end"
+                       "End time of simulation"
+       simDomainParam <- optSection "domain-parameter"
+                           "domain parameter (for function network gromets"
+
+       simParameterValues <- maybe Map.empty Map.fromList <$>
+                       optSection' "parameters" (assocSpec anySpec)
+                       "Use these values for model parameters"
+
+       simOutputs <- fromMaybe [] <$> optSection "outputs"
+                          "which values to output from the simulation"
+
+       pure SimulateCommand { .. }
 
 --------------------------------------------------------------------------------
 -- Stratify
