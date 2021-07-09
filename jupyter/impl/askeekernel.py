@@ -60,6 +60,13 @@ def parse_code(code:str):
 
     return cmd
 
+def format_resp_value(v):
+    if isinstance(v, str):
+        return v
+    else:
+        return json.dumps(v)
+
+
 class ASKEEKernel(Kernel):
     """
     The kernel class
@@ -86,7 +93,9 @@ class ASKEEKernel(Kernel):
         try:
             parsed = parse_code(code)
             resp   = self.execute_donu_cmd(parsed)
-            output = { 'text/plain': resp }
+            # Resp should be a list of things to display
+            lines = "\n".join([format_resp_value(r) for r in resp])
+            output = { 'text/plain': lines }
 
             if not silent:
                 self.send_response(self.iopub_socket, "display_data", {"data": output, "metadata": {}})
@@ -118,7 +127,7 @@ class ASKEEKernel(Kernel):
             if resp['status'] == 'success':
                 return resp['result']
             if resp['status'] == 'error':
-                return ("Error: %s" % resp['error'])
+                return ["Error: %s" % resp['error']]
             raise Exception("Unexpected response status %s" % resp['status'])
         return None
 
