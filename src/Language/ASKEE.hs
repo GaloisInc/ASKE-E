@@ -23,7 +23,7 @@ module Language.ASKEE
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
-  , simulateDefault
+  , simulateModel
   
   , stratifyModel
   , fitModelToData
@@ -50,6 +50,7 @@ module Language.ASKEE
   , MetaAnn(..)
   , ModelDef(..)
   , ModelType(..)
+  , SimulationType(..)
   , Stratify.StratificationInfo(..)
   , Stratify.StratificationType(..)
 
@@ -67,7 +68,6 @@ import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Set                   ( Set )
-import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -323,6 +323,32 @@ fitModelToData format fitData fitParams fitScale source =
 -------------------------------------------------------------------------------
 -- Simulation
 
+data SimulationType = 
+    AJ 
+  | Discrete 
+  | GSL 
+  deriving (Show)
+
+simulateModel :: 
+  SimulationType -> 
+  ModelType -> 
+  DataSource ->
+  Double {- ^ start -} ->
+  Double {- ^ end -} -> 
+  Double {- ^ step -} ->
+  Map Text Double {- ^ parameterization -} -> 
+  Set Text {- ^ variables to measure (empty to measure all) -} -> 
+  Maybe Int {- ^ seed (for discrete event simulation) -} -> 
+  Maybe Text {- ^ domain parameter (for function networks) -} -> 
+  IO (DataSeries Double)
+simulateModel sim format source start end step parameters outputs seed dp =
+  case sim of
+    GSL -> simulateModelGSL format source start end step parameters outputs
+    Discrete -> filterDS <$> simulateModelDiscrete format source start end step seed
+    AJ -> filterDS <$> simulateModelAJ format source start end step parameters
+  where
+    filterDS ds = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+
 simulateModelGSL :: 
   ModelType -> 
   DataSource -> 
@@ -368,28 +394,6 @@ simulateModelAJ format source start stop step parameters =
         (Just t', _) -> t'
         (_, Just t') -> t'
         (Nothing, Nothing) -> t
-
-simulateDefault ::
-  ModelType ->
-  DataSource ->
-  Double {- ^ start -} ->
-  Double {- ^ stop -} ->
-  Double {- ^ step -} ->
-  Map Text Double {-^ parameters -} ->
-  Maybe Text {-^ domain parameter -} ->
-  [Text] {- ^ outputs -} ->
-  IO (DataSeries Double)
-
--- TODO: add fnet gromet
-simulateDefault ty src start stop step params dp outputs =
-  case ty of
-    GrometPncType -> filterDS <$> simulateModelAJ ty src start stop step params
-    EaselType -> simulateModelGSL ty src start stop step params outSet
-    _ -> die (NotImplementedError "simulation not implemented for this model type")
-
-  where
-    outSet = Set.fromList outputs
-    filterDS ds = ds { DS.values = Map.restrictKeys (DS.values ds) outSet }
 
 -------------------------------------------------------------------------------
 
