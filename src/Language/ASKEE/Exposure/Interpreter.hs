@@ -206,15 +206,15 @@ interpretCall fun args =
     FProb        ->
       case args of
         [VDFold df e, VDouble d] -> execSim (SFProbability d) df e >>= interpretExpr
-        _ -> typeError
+        _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
         [VDFold df e, VDouble d] -> execSim (SFSample d) df e >>= interpretExpr
-        _ -> typeError
+        _ -> typeError "sample expects a fold and a double as its arguments"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
-        _ -> typeError
+        _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
       case args of
@@ -227,14 +227,14 @@ interpretCall fun args =
               case eitherVal of
                 Left err -> throw (Text.pack err)
                 Right m -> pure m
-        _ -> typeError
+        _ -> typeError "loadESL expects a single string argument"
 
     FLoadCSV ->
       case args of
         [VString path] ->
           do ds <- liftIO $ DS.parseDataSeriesFromFile $ Text.unpack path
              pure $ VModelExpr $ EVal $ VDataSeries ds
-        _ -> typeError
+        _ -> typeError "loadCSV expects a single string argument"
 
     FMean ->
       case args of
@@ -242,9 +242,13 @@ interpretCall fun args =
           case Map.lookup lab vs of
             Just ds -> pure $ VDouble $ mean ds
             Nothing -> throw $ "no label named: " <> lab
-        _ -> typeError
+        _ -> typeError "mean"
   where
-    typeError = throw "type error"
+    typeError msg = throw $ Text.unlines
+      [ "type error: " <> msg
+      {- Uncomment the line below if you want a _lot_ of debugging output -}
+      -- , "arguments: " <> Text.pack (show args)
+      ]
 
     getMexpr (VModelExpr e) = Just e
     getMexpr _ = Nothing
@@ -256,22 +260,22 @@ interpretCall fun args =
     bincmpDouble f =
       case args of
         [VDouble n1, VDouble n2] -> pure $ VBool (f n1 n2)
-        _ -> throw "Cannot compare these values"
+        _ -> typeError "Cannot compare these (non-double) values"
 
     bincmpBool f =
       case args of
         [VBool b1, VBool b2] -> pure $ VBool (f b1 b2)
-        _ -> throw "Cannot compare these values"
+        _ -> typeError "Cannot compare these (non-boolean) values"
 
     binarith f =
       case args of
         [VDouble n1, VDouble n2] -> pure $ VDouble (f n1 n2)
-        _ -> throw "Cannot do arithmetic on these values"
+        _ -> typeError "Cannot do arithmetic on these values"
 
     unaryBool f =
       case args of
         [VBool b] -> pure $ VBool (f b)
-        _ -> throw "Expected a single boolean argument"
+        _ -> typeError "Expected a single boolean argument"
 
     compilable orElse =
       if any isMexpr args
