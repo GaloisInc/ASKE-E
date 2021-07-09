@@ -14,10 +14,10 @@ ppValue v = case v of
   VBool b              -> if b then "true" else "false"
   VString s            -> viaShow s
   VModel m             -> ppModel m
+  VArray vs            -> align $ list $ map ppValue vs
+  VTimed v' t          -> ppValue v' <> "@time" <> pretty t
   VDataSeries ds       -> pretty $ TL.decodeUtf8 $ dataSeriesAsCSV ds
   VModelExpr e         -> ppModelExpr e
-  VTimed _ _           -> notImplemented "VTimed"
-  VArray _             -> notImplemented "VArray"
   VPoint _             -> notImplemented "VPoint"
   VDFold{}             -> notImplemented "VDFold"
   VSFold{}             -> notImplemented "VSFold"
