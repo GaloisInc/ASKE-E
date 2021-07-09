@@ -254,7 +254,7 @@ printModel Model{..} = vcat [decl, indent 2 body]
            ]
     printDecl (Parameter name e) =
       case e of
-        Just v -> hsep [ "parameter", pretty (unpack name), "=", pretty v ]
+        Just v -> hsep [ "parameter", pretty (unpack name), "=", printExpr v ]
         Nothing -> hsep [ "parameter", pretty (unpack name) ]
 
 text :: String -> Doc

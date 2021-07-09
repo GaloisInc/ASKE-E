@@ -35,7 +35,19 @@ main =
 
         SimulateODE start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
-              res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts)
+              res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts) (measures opts)
+              let bs = A.dataSeriesAsCSV res
+                  out = outFile opts
+              if null out
+                then LBS.putStrLn bs
+                else LBS.writeFile out bs
+              when (gnuplot opts && not (null out)) $
+                writeFile (replaceExtension out "gnuplot") $
+                  A.gnuPlotScript res out
+
+        SimulateCPP start step stop ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              res <- A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (seed opts)
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out

@@ -62,14 +62,14 @@ asCore = tryConvs [ unCore
                   , asEasel >=> easelToCore
                   , notExist MT.CoreType ]
   where
-    easelToCore e = fromEither (ESL.modelAsCore e)
+    easelToCore e = pure (ESL.modelAsCore e)
     pncToCore x = fromEither (GPNC.pnToCore <$> GPNC.pnFromGromet x)
     rnetToCore x = pure (RNet.rnetToCore x)
 
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
   where
-    coreToDeqs c = pure $ Core.asDiffEqs c
+    coreToDeqs c = pure $ Core.asDiffEqs Core.NoGuards c
 
 asGrometPrt :: Model -> ConversionResult GPRT.Gromet
 asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPncType ]

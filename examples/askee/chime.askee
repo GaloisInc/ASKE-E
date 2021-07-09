@@ -10,7 +10,8 @@ model CHIME_GTRI_IR:
   let gamma = 1.0 / 14.0
   let policy_days0 = 37.0
   let policy_days1 = 77.0
-  let contact_rate = 0.05
+  parameter contact_rate = 0.05
+  parameter contact_multiplier = 1 - contact_rate
 
   let total_pop = Susceptible + Infected + Recovered
   let beta =
@@ -33,7 +34,7 @@ model CHIME_GTRI_IR:
       Susceptible > 0.0 and Infected > 0.0
 
     rate: 
-      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+      beta * contact_multiplier * Susceptible * Infected / total_pop
 
     effect:
       Susceptible = Susceptible - 1.0

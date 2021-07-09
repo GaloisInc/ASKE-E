@@ -30,7 +30,7 @@ data Model = Model { modelName :: Text
 
 data Decl = Let   Text Expr
           | State Text Expr
-          | Parameter Text (Maybe Double)
+          | Parameter Text (Maybe Expr)
           | Assert Expr
   deriving (Show, Eq)   
 
@@ -61,10 +61,10 @@ varDecls ds = ds >>= vd
     vd (State n v) = [(n, v)]
     vd _ = []
 
-parameterDecls :: [MetaAnn Decl] -> [(Text, Maybe Double)]
+parameterDecls :: [MetaAnn Decl] -> [(Text, Maybe Expr)]
 parameterDecls ds = [(n,v) | Parameter n v <- map metaValue ds ]
 
-parameterMap :: Model -> Map.Map Text Double
+parameterMap :: Model -> Map.Map Text Expr
 parameterMap mdl = Map.fromList [(n, v) | (n, Just v) <- parameterDecls (modelDecls mdl)]
 
     

@@ -14,7 +14,7 @@ import Language.ASKEE.Model.Basics
 data ModelInterface = ModelInterface
   { modelInputs   :: [ Port ]
   , modelOutputs  :: [ Port ]
-  } deriving Show
+  } deriving (Show, Eq, Ord)
 
 emptyModelInterface :: ModelInterface
 emptyModelInterface = ModelInterface { modelInputs = [], modelOutputs = [] }
@@ -25,7 +25,7 @@ data Port = Port
   , portValueType :: ValueType           -- ^ Type of values for this port
   , portDefault   :: Maybe Value         -- ^ Only for input ports
   , portMeta      :: Map Text [Text]     -- ^ Extra information
-  } deriving Show
+  } deriving (Show, Eq, Ord)
 
 --------------------------------------------------------------------------------
 

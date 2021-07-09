@@ -42,6 +42,7 @@ data PetriNet = PetriNet
 data StateVar = StateVar
   { sName    :: Text
   , sInitial :: Maybe Double
+  , sType    :: ValueType
   } deriving Show
 
 data Event = Event
@@ -49,6 +50,7 @@ data Event = Event
   , evName   :: Text
   , evRemove :: Map JunctionUid Integer
   , evAdd    :: Map JunctionUid Integer
+  , evTy     :: ValueType
   } deriving Show
 
 ppPetriNet :: PetriNet -> Doc
@@ -90,14 +92,14 @@ pnFromGromet pnc =
   where
   emptyPN = PetriNet { pnName = pncName pnc
                      , pnStates = mempty, pnTransitions = mempty }
-  addS uid nm mb pn =
-    pn { pnStates = Map.insert uid (emptyS nm mb) (pnStates pn) }
+  addS uid nm ty mb pn =
+    pn { pnStates = Map.insert uid (emptyS nm mb ty) (pnStates pn) }
   setT uid ev pn = pn { pnTransitions = Map.insert uid ev (pnTransitions pn) }
-  addEv uid nm mb = setT uid (emptyEv nm mb)
-  emptyEv n mb =
-    Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty }
-  emptyS n mb =
-    StateVar { sName = n, sInitial = mb }
+  addEv uid nm ty mb = setT uid (emptyEv nm mb ty)
+  emptyEv n mb ty =
+    Event { evRate = mb, evName = n, evRemove = mempty, evAdd = mempty, evTy = ty }
+  emptyS n mb ty =
+    StateVar { sName = n, sInitial = mb, sType = ty}
 
   toDouble l = case l of
                  LitInteger i -> Right (fromIntegral i)
@@ -113,10 +115,10 @@ pnFromGromet pnc =
        case jType j of
          State ->
            do mb <- traverse toDouble (jValue j)
-              pure (addS (jUID j) (jName j) mb p)
+              pure (addS (jUID j) (jName j) (jValueType j) mb p)
          Transition ->
            do mb <- traverse toDouble (jValue j)
-              pure (addEv (jUID j) (jName j) mb p)
+              pure (addEv (jUID j) (jName j) (jValueType j) mb p)
 
   addW :: Wire -> Either String PetriNet -> Either String PetriNet
   addW w pn =
@@ -134,12 +136,10 @@ pnToCore :: PetriNet -> Core.Model
 pnToCore pn =
   Core.Model
     { modelName      = pnName pn
-    , modelParams    = sParams ++ rParams
+    , modelParams    = Map.fromList (sParams ++ rParams)
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
-    , modelLets      = Map.fromList
-                     $ [ (x,y) | (x, Just y) <- zip sParamLets sLets ] ++
-                       [ (x,y) | (x, Just y) <- zip rParamLets rLets ]
+    , modelLets      = mempty
     , modelMeta      = Map.fromList
                      $ zipWith mkMeta sParamLets spMeta ++
                        zipWith mkMeta rParamLets rpMeta ++
@@ -155,8 +155,9 @@ pnToCore pn =
   rateName (JunctionUid x) = x <> "_rate"
   jToName  (JunctionUid x) = x
 
-  sParams = [ x | (x,Nothing) <- zip sParamLets sLets ]
-  rParams = [ x | (x,Nothing) <- zip rParamLets rLets ]
+  sParams = zip sParamLets sLets
+  rParams = zip rParamLets rLets 
+  -- would need to remove any state-dependent rates from `rParams`, if we allowed them
 
   (sParamLets,sLets,spMeta) =
     unzip3 [ (uid, def,theMeta)
@@ -165,6 +166,7 @@ pnToCore pn =
                  def     = Core.NumLit <$> sInitial s
                  theMeta = [ ("group", "Initial State")
                            , ("name",   sName s)
+                           , ("type", (Text.pack . show . sType) s)
                            ]
            ]
 
@@ -175,6 +177,7 @@ pnToCore pn =
                  def     = Core.NumLit <$> evRate t
                  theMeta = [ ("group", "Rate")
                            , ("name",  evName t)
+                           , ("type", (Text.pack . show . evTy) t)
                            ]
            ]
 
@@ -184,7 +187,9 @@ pnToCore pn =
            | (x, s) <- ss
            , let uid     = jToName x
                  e       = Core.Var (initName x)
-                 theMeta = [ ("name", sName s) ]
+                 theMeta = [ ("name", sName s)
+                           , ("type", (Text.pack . show . sType) s)
+                           ]
            ]
 
   (rUID, coreEvs, eMeta) =
@@ -338,7 +343,5 @@ instance FromJSON PetriNetClassic where
        pncJunctions <- o .: "junctions"
        pncWires     <- o .: "wires"
        pure PetriNetClassic { .. }
-
-
 
 

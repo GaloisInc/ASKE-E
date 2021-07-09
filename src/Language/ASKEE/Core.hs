@@ -1,5 +1,5 @@
 module Language.ASKEE.Core 
-  ( asDiffEqs
+  ( asDiffEqs, ToDiffEqMethod(..)
   , asSchematicGraph
   , applyParams
 
@@ -9,7 +9,7 @@ module Language.ASKEE.Core
   , ppModel
   ) where
 
-import Language.ASKEE.Core.Convert       ( asDiffEqs )
+import Language.ASKEE.Core.Convert       ( asDiffEqs, ToDiffEqMethod(..) )
 import Language.ASKEE.Core.Syntax        ( Model, applyParams )
 import Language.ASKEE.Core.Visualization ( asSchematicGraph )
 import Language.ASKEE.Core.Interface     ( modelInterface )
