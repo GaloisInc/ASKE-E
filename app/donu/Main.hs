@@ -18,10 +18,11 @@ import qualified Snap
 import           Language.ASKEE
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 import           Language.ASKEE.Exposure.GenLexer (lexExposure)
-import           Language.ASKEE.Exposure.GenParser (parseExposureStmt)
+import           Language.ASKEE.Exposure.GenParser (parseExposureStmts)
 
 import           Schema
 import           ExposureSession
+import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 -- Snaplet Definition ---------------------------------------------------------
 
@@ -183,20 +184,11 @@ handleRequest r =
       succeed <$> liftIO (queryModels queryParameters)
 
     ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
-      case lexExposure (Text.unpack code) >>= parseExposureStmt of
-        Left err   ->
+      case lexExposure (Text.unpack code) >>= parseExposureStmts of
+        Left err ->
           pure $ FailureResult $ Text.pack err
-        Right stmt ->
-          do env <- Snap.with exposureSessions $
-               fromMaybe Exposure.initialEnv <$> getExposureSessionState
-             res <- liftIO $ Exposure.evalStmts [stmt] env
-             case res of
-               Left err ->
-                 pure $ FailureResult err
-               Right (env', displays, effs) ->
-                 do Snap.with exposureSessions $
-                      putExposureSessionState env'
-                    succeed' (length displays, length effs) -- TODO: Fill this in once `evalStmt` returns more stuff
+        Right stmts ->
+          stepExposureSession stmts
 
     ResetExposureState _ ->
       do Snap.with exposureSessions $
@@ -208,3 +200,20 @@ handleRequest r =
 
     succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Handler x x Result
     succeed' = pure . succeed
+
+-- Driving Exposure -----------------------------------------------------------
+
+-- | Run the given exposure statements in the current session and return the
+-- resulting DisplayValues as a (JSON) list (or any error messages)
+stepExposureSession :: [Exposure.Stmt] -> Snap.Handler DonuApp DonuApp Result
+stepExposureSession stmts =
+  do env <- Snap.with exposureSessions $
+       fromMaybe Exposure.initialEnv <$> getExposureSessionState
+     res <- liftIO $ Exposure.evalStmts stmts env
+     case res of
+       Left err ->
+         pure $ FailureResult err
+       Right (env', displays, _effs) -> -- TODO: Do we want to do anything with _effs?
+         do Snap.with exposureSessions $
+              putExposureSessionState env'
+            return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays
