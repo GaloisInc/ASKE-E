@@ -72,6 +72,7 @@ library
                         Language.ASKEE.Exposure.GenParser
                         Language.ASKEE.Exposure.Interpreter
                         Language.ASKEE.Exposure.Lexer
+                        Language.ASKEE.Exposure.Print
                         Language.ASKEE.Exposure.Syntax
 
                         Language.ASKEE.Gromet
@@ -159,9 +160,16 @@ executable champ
   build-depends:        base
                       , ansi-terminal
                       , aske-e
+                      , containers
+                      , directory
+                      , exceptions
                       , extra
-                      , haskeline
+                      , filepath
+                      , haskeline >= 0.8
+                      , mtl
                       , optparse-applicative
+                      , text
+                      , transformers
   default-language:     Haskell2010
   ghc-options:          -Wall
 

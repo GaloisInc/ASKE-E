@@ -41,8 +41,6 @@ evalStmts stmts env = evalLoop env stmts
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-data DisplayValue
-
 evalLoop :: Env -> [Stmt] -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
 evalLoop env stmts = go Map.empty
   where
@@ -94,6 +92,10 @@ setEnv = RWS.put
 writeStmtEff :: StmtEff -> Eval ()
 writeStmtEff e =
   RWS.tell (EvalWrite Set.empty [] [e])
+
+displayValue :: Value -> Eval ()
+displayValue v =
+  RWS.tell (EvalWrite Set.empty [DisplayValue v] [])
 
 suspend :: Value -> Eval Value
 suspend v
@@ -157,7 +159,7 @@ interpretStmt stmt =
           writeStmtEff (StmtEffBind var eval)
           bindVar var eval
 
-    StmtDisplay dispExpr -> undefined
+    StmtDisplay dispExpr -> interpretDisplayExpr dispExpr
 
 interpretExpr :: Expr -> Eval Value
 interpretExpr e0 =
@@ -180,7 +182,9 @@ interpretExpr e0 =
             _ -> mem v lab
 
 interpretDisplayExpr :: DisplayExpr -> Eval ()
-interpretDisplayExpr (DisplayScalar scalar) = notImplemented "display"
+interpretDisplayExpr (DisplayScalar scalar) = do
+  v <- interpretExpr scalar
+  displayValue v
 
 
 interpretCall :: FunctionName -> [Value] -> Eval Value
@@ -223,6 +227,21 @@ interpretCall fun args =
               case eitherVal of
                 Left err -> throw (Text.pack err)
                 Right m -> pure m
+        _ -> typeError
+
+    FLoadCSV ->
+      case args of
+        [VString path] ->
+          do ds <- liftIO $ DS.parseDataSeriesFromFile $ Text.unpack path
+             pure $ VModelExpr $ EVal $ VDataSeries ds
+        _ -> typeError
+
+    FMean ->
+      case args of
+        [VModelExpr (EMember (EVal (VDataSeries DS.DataSeries{DS.values = vs})) lab)] ->
+          case Map.lookup lab vs of
+            Just ds -> pure $ VDouble $ mean ds
+            Nothing -> throw $ "no label named: " <> lab
         _ -> typeError
   where
     typeError = throw "type error"
@@ -345,3 +364,6 @@ mem v0 l = liftPrim getMem v0
             Nothing -> throw ("cannot find member '" <> l <> "' in point")
             Just v' -> pure v'
         _ -> throw "type does not support membership"
+
+mean :: [Double] -> Double
+mean xs = sum xs / fromIntegral (length xs)

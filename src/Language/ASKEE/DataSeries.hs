@@ -49,7 +49,7 @@ data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
   }
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 instance Functor DataSeries where
   fmap f ds = ds { values = fmap f <$> values ds }

@@ -4,6 +4,8 @@ module Language.ASKEE.Exposure.Syntax where
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Map(Map)
+
+import Language.ASKEE.DataSeries (DataSeries)
 import qualified Language.ASKEE.Core.Syntax as Core
 
 type Ident  = Text
@@ -15,6 +17,10 @@ data Stmt
 -- TODO: Labels?
 newtype DisplayExpr
   = DisplayScalar Expr
+  deriving (Eq, Show)
+
+newtype DisplayValue
+  = DisplayValue { unDisplayValue :: Value }
   deriving (Eq, Show)
 
 data Expr
@@ -29,6 +35,7 @@ data Value
   | VInt Int
   | VBool Bool
   | VString Text
+  | VDataSeries (DataSeries Double)
   | VModel Core.Model
 
   | VTimed Value Double
@@ -63,6 +70,8 @@ data FunctionName
   | FSample
   | FAt
   | FLoadEasel
+  | FLoadCSV
+  | FMean
   deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
@@ -82,5 +91,7 @@ prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
   case T.unpack ident of
     "loadESL" -> Right FLoadEasel
+    "loadCSV" -> Right FLoadCSV
     "P"       -> Right FProb
+    "mean"    -> Right FMean
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
