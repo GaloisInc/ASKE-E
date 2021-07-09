@@ -91,6 +91,19 @@ handleRequest r =
               simParameterValuesAJ
           succeed' res
 
+    Simulate SimulateCommand{..} ->
+      do  res <-
+            simulateDefault
+              (modelDefType simModel)
+              (modelDefSource simModel)
+              simStart
+              simEnd
+              simStep
+              simParameterValues
+              simDomainParam
+              simOutputs
+          succeed' res
+
     CheckModel CheckModelCommand{..} ->
       do  model <- loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
           checkResult <- checkModel' (modelDefType checkModelModel) model

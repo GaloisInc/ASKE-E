@@ -23,6 +23,7 @@ module Language.ASKEE
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
+  , simulateDefault
   
   , stratifyModel
   , fitModelToData
@@ -66,6 +67,7 @@ import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Set                   ( Set )
+import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -83,6 +85,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeries
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
+import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
@@ -317,6 +320,9 @@ fitModelToData format fitData fitParams fitScale source =
       pure $ DEQ.fitModel eqs dataSeries fitScale
            $ Map.fromList (zip fitParams (repeat 0))
 
+-------------------------------------------------------------------------------
+-- Simulation
+
 simulateModelGSL :: 
   ModelType -> 
   DataSource -> 
@@ -362,6 +368,30 @@ simulateModelAJ format source start stop step parameters =
         (Just t', _) -> t'
         (_, Just t') -> t'
         (Nothing, Nothing) -> t
+
+simulateDefault ::
+  ModelType ->
+  DataSource ->
+  Double {- ^ start -} ->
+  Double {- ^ stop -} ->
+  Double {- ^ step -} ->
+  Map Text Double {-^ parameters -} ->
+  Maybe Text {-^ domain parameter -} ->
+  [Text] {- ^ outputs -} ->
+  IO (DataSeries Double)
+
+-- TODO: add fnet gromet
+simulateDefault ty src start stop step params dp outputs =
+  case ty of
+    GrometPncType -> filterDS <$> simulateModelAJ ty src start stop step params
+    EaselType -> simulateModelGSL ty src start stop step params outSet
+    _ -> die (NotImplementedError "simulation not implemented for this model type")
+
+  where
+    outSet = Set.fromList outputs
+    filterDS ds = ds { DS.values = Map.restrictKeys (DS.values ds) outSet }
+
+-------------------------------------------------------------------------------
 
 convertModelString ::
   ModelType -> DataSource -> ModelType -> IO (Either String String)
