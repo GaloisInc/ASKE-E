@@ -23,6 +23,9 @@ module Language.ASKEE.DataSeries
   , foldDataSeries
   , foldDataSeriesWithTime
   , dsLookup
+    -- * Data points
+  , DataPoint(..)
+  , toDataPoints
   ) where
 
 import Data.Text(Text)

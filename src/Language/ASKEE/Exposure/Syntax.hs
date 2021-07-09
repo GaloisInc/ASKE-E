@@ -3,6 +3,7 @@ module Language.ASKEE.Exposure.Syntax where
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Map(Map)
 import qualified Language.ASKEE.Core.Syntax as Core
 
 type Ident  = Text
@@ -25,10 +26,15 @@ data Expr
 
 data Value
   = VDouble Double
-  | VInt
+  | VInt Int
   | VBool Bool
   | VString Text
   | VModel Core.Model
+
+  | VTimed Value Double
+  | VPoint (Map Text Value)
+  | VArray [Value]
+
   | VModelExpr Expr
   | VDFold DynamicalFold Expr
   | VSFold SampleFold DynamicalFold Expr

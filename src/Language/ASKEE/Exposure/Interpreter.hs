@@ -14,11 +14,15 @@ import Data.Maybe(isJust)
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
-import qualified Language.ASKEE.Model as Model
-import qualified Language.ASKEE.Model.Basics as MB
-import Language.ASKEE.Exposure.Syntax
 import Data.Set(Set)
 import qualified Data.Set as Set
+import Language.ASKEE.Exposure.Syntax
+
+import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.Model.Basics as MB
+import qualified Language.ASKEE.DataSeries as DS
+import qualified Language.ASKEE.CPP as CPP
 
 
 data ExposureInfo = ExposureInfo
@@ -56,13 +60,13 @@ evalLoop env stmts = go Map.empty
                           Left e -> pure $ Left e
                           Right vs -> go (m `Map.union` vs)
 
+-------------------------------------------------------------------------------
+
+
 simulate :: Set Value -> IO (Either Text (Map Value Value))
 simulate vs =
   pure $ Left (Text.unlines $ "simulation is not implemented:":
                               (Text.pack . show <$> Set.toList vs))
-
--------------------------------------------------------------------------------
-
 
 -------------------------------------------------------------------------------
 -- eval monad
@@ -173,7 +177,7 @@ interpretExpr e0 =
           case v of
             -- TODO: typecheck model expr
             VModelExpr m -> pure $ VModelExpr (EMember m lab)
-            _ -> throw "type error"
+            _ -> mem v lab
 
 interpretDisplayExpr :: DisplayExpr -> Eval ()
 interpretDisplayExpr (DisplayScalar scalar) = notImplemented "display"
@@ -197,11 +201,11 @@ interpretCall fun args =
     FOr          -> compilable (bincmpBool (||))
     FProb        ->
       case args of
-        [VDFold df e, VDouble d] -> suspend $ VSFold (SFProbability d) df e
+        [VDFold df e, VDouble d] -> execSim (SFProbability d) df e >>= interpretExpr
         _ -> typeError
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> suspend $ VSFold (SFSample d) df e
+        [VDFold df e, VDouble d] -> execSim (SFSample d) df e >>= interpretExpr
         _ -> typeError
     FAt          ->
       case args of
@@ -256,3 +260,88 @@ interpretCall fun args =
         else orElse
 
 
+-- run a single simulation - emitting a new (evaulable expr)
+execSim :: SampleFold -> DynamicalFold -> Expr -> Eval Expr
+execSim sf df = runSimExpr sampleCount expLength
+  where
+    expLength =
+      case df of
+        DFAt d -> d
+
+    sampleCount =
+      case sf of
+        SFProbability d -> floor d
+        SFSample d -> floor d
+
+-- TODO: generalized traversal?
+runSimExpr :: Int -> Double -> Expr -> Eval Expr
+runSimExpr n t e0 =
+  case e0 of
+    EVal (VModel m) -> EVal <$> runSim n t m
+    EVal _ -> pure e0
+    EVar _ -> pure e0
+    ECall fname args -> ECall fname <$> runSimExpr n t `traverse` args
+    EMember e lab -> EMember <$> runSimExpr n t e <*> pure lab
+
+runSim :: Int -> Double -> Core.Model -> Eval Value
+runSim n t mdl =
+  do  series <- liftIO mkSeries
+      pure $ VArray (seriesAsPoints <$> series)
+  where
+    -- TODO: we should just get the raw simulation data?
+    mkSeries = CPP.simulate mdl 0 t (t/100) `traverse` (Just <$> [0..n])
+
+seriesAsPoints :: DS.DataSeries Double -> Value
+seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
+  where
+    pointToValue p =
+      let vals = VPoint (VDouble <$> DS.ptValues p)
+      in VTimed vals (DS.ptTime p)
+
+
+getArrayContents :: Value -> Eval [Value]
+getArrayContents v =
+  case v of
+    VArray arr -> pure arr
+    _ -> throw "Cannot use non-array value as array"
+
+getTimedValue :: Value -> Eval (Value, Double)
+getTimedValue v =
+  case v of
+    VTimed v' t -> pure (v',t)
+    _ -> throw "Value is not timed"
+
+-- this presumes quite a few things
+atPoint :: [Value] -> Double -> Eval Value
+atPoint vs t =
+  case vs of
+    [] -> throw "cannot 'at' on an empty sequence"
+    e:r -> go r e
+  where
+    go vs' v =
+      case vs' of
+        [] -> pure v
+        v':r ->
+          do (val, t') <- getTimedValue v'
+             if t' > t
+               then pure v
+               else go r val
+
+
+liftPrim :: (Value -> Eval Value) -> Value -> Eval Value
+liftPrim f v =
+  case v of
+    VTimed v' t -> VTimed <$> liftPrim f v' <*> pure t
+    VArray vs -> VArray <$> (liftPrim f `traverse` vs)
+    _ -> f v
+
+mem :: Value -> Ident -> Eval Value
+mem v0 l = liftPrim getMem v0
+  where
+    getMem v =
+      case v of
+        VPoint p ->
+          case Map.lookup l p of
+            Nothing -> throw ("cannot find member '" <> l <> "' in point")
+            Just v' -> pure v'
+        _ -> throw "type does not support membership"
