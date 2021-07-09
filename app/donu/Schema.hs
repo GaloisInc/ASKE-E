@@ -510,15 +510,25 @@ newtype DonuValue =
 instance JS.ToJSON DonuValue where
   toJSON (DonuValue dv) =
     case dv of
-      VInt          -> unimplVal "<int>"
-      VBool b       -> JS.toJSON b
-      VDouble dbl   -> JS.toJSON dbl
-      VString str   -> JS.toJSON str
-      VModel mdl    -> JS.toJSON $ "<model " <> Core.modelName mdl <> ">"
-      VModelExpr {} -> unimplVal "<modelexpr>"
-      VDFold {}     -> unimplVal "<dynfold>"
-      VSFold {}     -> unimplVal "<sfold>"
-      VSuspended    -> unimplVal "<suspended>"
+      VInt i         -> JS.toJSON i
+      VBool b        -> JS.toJSON b
+      VDouble dbl    -> JS.toJSON dbl
+      VString str    -> JS.toJSON str
+
+      VDataSeries ds ->
+        JS.object [ "type"   .= JS.toJSON ("data-series" :: Text)
+                  , "time"   .= JS.toJSON (times ds)
+                  , "values" .= JS.toJSON (values ds)
+                  ]
+
+      VModel mdl     -> JS.toJSON $ "<model " <> Core.modelName mdl <> ">"
+      VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
+      VModelExpr {}  -> unimplVal "<modelexpr>"
+      VDFold {}      -> unimplVal "<dynfold>"
+      VSFold {}      -> unimplVal "<sfold>"
+      VSuspended     -> unimplVal "<suspended>"
+
+      _ -> error "TBD"
 
     where
       unimplVal :: String -> JS.Value
