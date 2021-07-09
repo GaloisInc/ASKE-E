@@ -1,3 +1,4 @@
+{-# Language BangPatterns #-}
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.Exposure.Interpreter where
 
@@ -206,6 +207,9 @@ interpretCall fun args =
     FProb        ->
       case args of
         [VDFold df e, VDouble d] -> execSim (SFProbability d) df e >>= interpretExpr
+        [VArray vs, VDouble _] -> do
+          vs' <- traverse getBoolValue vs
+          pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
@@ -214,6 +218,11 @@ interpretCall fun args =
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
+        [VArray vs, VDouble d] -> do
+          -- TODO: Using getArrayContents here is gross. We should consider
+          -- restructuring things to avoid assuming the level of VArray nesting.
+          vs' <- traverse getArrayContents vs
+          VArray <$> traverse (\v -> atPoint v d) vs'
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -260,6 +269,8 @@ interpretCall fun args =
     bincmpDouble f =
       case args of
         [VDouble n1, VDouble n2] -> pure $ VBool (f n1 n2)
+        [VArray vs, d@VDouble{}] -> VArray <$> traverse (\v -> interpretCall fun [v, d]) vs
+        [VTimed v t, d@VDouble{}] -> VTimed <$> interpretCall fun [v, d] <*> pure t
         _ -> typeError "Cannot compare these (non-double) values"
 
     bincmpBool f =
@@ -285,7 +296,7 @@ interpretCall fun args =
 
 -- run a single simulation - emitting a new (evaulable expr)
 execSim :: SampleFold -> DynamicalFold -> Expr -> Eval Expr
-execSim sf df = runSimExpr sampleCount expLength
+execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
   where
     expLength =
       case df of
@@ -295,6 +306,14 @@ execSim sf df = runSimExpr sampleCount expLength
       case sf of
         SFProbability d -> floor d
         SFSample d -> floor d
+
+    unfoldD e1 =
+      case df of
+        DFAt d -> ECall FAt [e1, EVal $ VDouble d]
+    unfoldS e1 =
+      case sf of
+        SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
+        SFSample n -> ECall FSample [e1, EVal $ VDouble n]
 
 -- TODO: generalized traversal?
 runSimExpr :: Int -> Double -> Expr -> Eval Expr
@@ -334,6 +353,12 @@ getTimedValue v =
     VTimed v' t -> pure (v',t)
     _ -> throw "Value is not timed"
 
+getBoolValue :: Value -> Eval Bool
+getBoolValue v =
+  case v of
+    VBool b -> pure b
+    _ -> throw "Value is a not a boolean"
+
 -- this presumes quite a few things
 atPoint :: [Value] -> Double -> Eval Value
 atPoint vs t =
@@ -371,3 +396,10 @@ mem v0 l = liftPrim getMem v0
 
 mean :: [Double] -> Double
 mean xs = sum xs / fromIntegral (length xs)
+
+-- Count the number of times a predicate is true
+count :: (a -> Bool) -> [a] -> Int
+count p = go 0
+  where go !n [] = n
+        go !n (x:xs) | p x       = go (n+1) xs
+                     | otherwise = go n xs
