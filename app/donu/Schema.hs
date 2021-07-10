@@ -261,7 +261,7 @@ instance HasSpec SimulateCommand where
             "Simulation engine to use (defaults to GSL)"
 
         simSeed <- optSection
-          "sim-seed"
+          "seed"
           "Seed for simulation (meaningful only for discrete event simulation)"
 
         pure SimulateCommand { .. }
