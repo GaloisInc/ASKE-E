@@ -413,7 +413,10 @@ atPoint :: [Value] -> Double -> Eval Value
 atPoint vs t =
   case vs of
     [] -> throw "cannot 'at' on an empty sequence"
-    e:r -> go r e
+    e:r ->
+      do tv <- getTimedValue e -- TODO: I think the assumption is that the first
+                               -- value is at 0 or something similar?
+         go r (fst tv)
   where
     go vs' v =
       case vs' of
