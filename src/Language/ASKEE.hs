@@ -347,7 +347,9 @@ simulateModel sim format source start end step parameters outputs seed dp =
     Discrete -> filterDS <$> simulateModelDiscrete format source start end step seed
     AJ -> filterDS <$> simulateModelAJ format source start end step parameters
   where
-    filterDS ds = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+    filterDS ds 
+      | null outputs = ds
+      | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
 
 simulateModelGSL :: 
   ModelType -> 
