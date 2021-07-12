@@ -28,29 +28,6 @@ void add_dep(item it, int i)
 	it->deps[it->n_deps++] = i;
 }
  
-int parse_input(item *ret)
-{
-	int n_items = 0;
-	int i, parent, idx;
-	item list = 0;
- 
-	char *s, *e, *word, *we;
-	for (s = input; ; s = 0) {
-		if (!(s = strtok_r(s, "\n", &e))) break;
- 
-		for (i = 0, word = s; ; i++, word = 0) {
-			if (!(word = strtok_r(word, " \t", &we))) break;
-			idx = get_item(&list, &n_items, word);
- 
-			if (!i) parent = idx;
-			else    add_dep(list + parent, idx);
-		}
-	}
- 
-	*ret = list;
-	return n_items;
-}
- 
 int get_depth(item list, int idx, int bad)
 {
 	int max, i, t;
@@ -69,4 +46,19 @@ int get_depth(item list, int idx, int bad)
 		if (max < t + 1) max = t + 1;
 	}
 	return list[idx].depth = max;
+}
+
+int toposort(item items)
+{
+	int i, j, n, bad = -1, max, min;
+ 
+	for (i = 0; i < n; i++)
+		if (!items[i].depth && get_depth(items, i, bad) < 0) bad--;
+ 
+	for (i = 0, max = min = 0; i < n; i++) {
+		if (items[i].depth > max) max = items[i].depth;
+		if (items[i].depth < min) min = items[i].depth;
+	}
+ 
+	return 0;
 }

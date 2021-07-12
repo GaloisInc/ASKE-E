@@ -1,5 +1,3 @@
-MODULE mod_acker
-
   RECURSIVE FUNCTION Ackermann(m, n) RESULT(ack)
     INTEGER :: ack, m, n
  
@@ -11,5 +9,3 @@ MODULE mod_acker
       ack = Ackermann(m - 1, Ackermann(m, n - 1))
     END IF
   END FUNCTION Ackermann
-
-END MODULE mod_acker
