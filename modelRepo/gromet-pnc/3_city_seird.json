@@ -1,7 +1,7 @@
 {
   "junctions": [
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "S_1",
       "uid": "J:S_1",
       "metadata": null,
@@ -10,7 +10,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "E_1",
       "uid": "J:E_1",
       "metadata": null,
@@ -19,7 +19,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "I_1",
       "uid": "J:I_1",
       "metadata": null,
@@ -28,7 +28,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "R_1",
       "uid": "J:R_1",
       "metadata": null,
@@ -37,7 +37,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "D_1",
       "uid": "J:D_1",
       "metadata": null,
@@ -46,7 +46,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "S_2",
       "uid": "J:S_2",
       "metadata": null,
@@ -55,7 +55,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "E_2",
       "uid": "J:E_2",
       "metadata": null,
@@ -64,7 +64,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "I_2",
       "uid": "J:I_2",
       "metadata": null,
@@ -73,7 +73,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "R_2",
       "uid": "J:R_2",
       "metadata": null,
@@ -82,7 +82,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "D_2",
       "uid": "J:D_2",
       "metadata": null,
@@ -91,7 +91,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "S_3",
       "uid": "J:S_3",
       "metadata": null,
@@ -100,7 +100,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "E_3",
       "uid": "J:E_3",
       "metadata": null,
@@ -109,7 +109,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "I_3",
       "uid": "J:I_3",
       "metadata": null,
@@ -118,7 +118,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "R_3",
       "uid": "J:R_3",
       "metadata": null,
@@ -127,7 +127,7 @@
       "syntax": "Junction"
     },
     {
-      "value_type": "Integer",
+      "value_type": "Float",
       "name": "D_3",
       "uid": "J:D_3",
       "metadata": null,
@@ -1199,7 +1199,109 @@
     }
   ],
   "ports": null,
-  "metadata": null,
+  "metadata": [
+    {
+      "provenance": {
+        "method": "FromPNC_baas@gt",
+        "timestamp": "2021-07-08T16:16:576130_UTC-0000",
+        "metadata_type": "Provenance"
+      },
+      "variables": [
+        "J:S_1",
+        "J:E_1",
+        "J:I_1",
+        "J:R_1",
+        "J:D_1",
+        "J:S_2",
+        "J:E_2",
+        "J:I_2",
+        "J:R_2",
+        "J:D_2",
+        "J:S_3",
+        "J:E_3",
+        "J:I_3",
+        "J:R_3",
+        "J:D_3",
+        "J:inf_1",
+        "J:rec_1",
+        "J:exp_1",
+        "J:death_1",
+        "J:inf_2",
+        "J:rec_2",
+        "J:exp_2",
+        "J:death_2",
+        "J:inf_3",
+        "J:rec_3",
+        "J:exp_3",
+        "J:death_3",
+        "J:diff_S_1_2",
+        "J:diff_E_1_2",
+        "J:diff_I_1_2",
+        "J:diff_R_1_2",
+        "J:diff_S_2_1",
+        "J:diff_E_2_1",
+        "J:diff_I_2_1",
+        "J:diff_R_2_1",
+        "J:diff_S_2_3",
+        "J:diff_E_2_3",
+        "J:diff_I_2_3",
+        "J:diff_R_2_3",
+        "J:diff_S_3_2",
+        "J:diff_E_3_2",
+        "J:diff_I_3_2",
+        "J:diff_R_3_2"
+      ],
+      "parameters": [
+        "J:inf_1",
+        "J:rec_1",
+        "J:exp_1",
+        "J:death_1",
+        "J:inf_2",
+        "J:rec_2",
+        "J:exp_2",
+        "J:death_2",
+        "J:inf_3",
+        "J:rec_3",
+        "J:exp_3",
+        "J:death_3",
+        "J:diff_S_1_2",
+        "J:diff_E_1_2",
+        "J:diff_I_1_2",
+        "J:diff_R_1_2",
+        "J:diff_S_2_1",
+        "J:diff_E_2_1",
+        "J:diff_I_2_1",
+        "J:diff_R_2_1",
+        "J:diff_S_2_3",
+        "J:diff_E_2_3",
+        "J:diff_I_2_3",
+        "J:diff_R_2_3",
+        "J:diff_S_3_2",
+        "J:diff_E_3_2",
+        "J:diff_I_3_2",
+        "J:diff_R_3_2"
+      ],
+      "uid": "SimpleSpatialSIRD_PNC_model_interface",
+      "metadata_type": "ModelInterface",
+      "initial_conditions": [
+        "J:S_1",
+        "J:E_1",
+        "J:I_1",
+        "J:R_1",
+        "J:D_1",
+        "J:S_2",
+        "J:E_2",
+        "J:I_2",
+        "J:R_2",
+        "J:D_2",
+        "J:S_3",
+        "J:E_3",
+        "J:I_3",
+        "J:R_3",
+        "J:D_3"
+      ]
+    }
+  ],
   "type": "PetriNetClassic",
   "syntax": "Gromet"
 }
