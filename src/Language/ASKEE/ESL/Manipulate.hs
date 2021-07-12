@@ -2,6 +2,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ESL.Manipulate where
 
+import Control.Monad.Identity       ( runIdentity )
+
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import           Data.Set  ( Set )
@@ -9,13 +11,30 @@ import qualified Data.Set  as Set
 import           Data.Text ( Text )
 import qualified Data.Text as Text
 
-import Language.ASKEE.ESL.Syntax
-import Language.ASKEE.Expr
-import Language.ASKEE.ExprTransform
-import Control.Monad.Identity
+import Language.ASKEE.ESL.Syntax    ( letDecls
+                                    , parameterDecls
+                                    , stateDecls
+                                    , Decl(..)
+                                    , Event(..)
+                                    , Model(..) )
+import Language.ASKEE.Expr          ( Expr(..) )
+import Language.ASKEE.ExprTransform ( transformExpr )
 
-composeSerial :: Map Text Text -> Model -> Model -> Expr -> Expr -> Model
-composeSerial stateShare m1 m2 stop1 start2 = unionWith stateShare m1' m2'
+
+-- | Serial composition of two models.
+--
+-- We expose state sharing here to ease the case where, when composing two 
+-- models that manipulate similar state, the second model may more easily "pick 
+-- up where the first left off" - that is, work with the modifications the 
+-- first made to the state they both seek to represent.
+compose :: 
+  Map Text Text {- ^ Share these states between the models -} -> 
+  Model -> 
+  Model -> 
+  Expr {- ^ Execute the first model while this expression is false -} -> 
+  Expr {- ^ Execute the second model while this expression is true -} -> 
+  Model
+compose stateShare m1 m2 stop1 start2 = join stateShare m1' m2'
   where
     m1' = m1 { modelEvents = map (doWhen (Not stop1)) (modelEvents m1) }
     m2' = m2 { modelEvents = map (doWhen start2) (modelEvents m2) }
@@ -42,16 +61,16 @@ composeSerial stateShare m1 m2 stop1 start2 = unionWith stateShare m1' m2'
 -- > else:
 -- >     no change
 --
--- These rewriting rules imply that `unionWith (singleton s1 s2) m m` will 
--- differ from `unionWith (singleton s2 s1) m m` when `s1 /= s2`, even for the 
+-- These rewriting rules imply that `join (singleton s1 s2) m m` will 
+-- differ from `join (singleton s2 s1) m m` when `s1 /= s2`, even for the 
 -- same `m`. When `s1` is supplanted by `s2` in the former case, it tells the 
 -- resultant model to treat (add to/subtract from) it like it originally 
 -- treated any other occurrence of `s2`. In the latter case, naturally, this is 
 -- flipped. Since a model is very likely to treat different state variables 
 -- differently, it follows that the unions will differ depending on which 
 -- variable of a pair is overwritten.
-unionWith :: Map Text Text -> Model -> Model -> Model
-unionWith renaming model1 model2 = 
+join :: Map Text Text -> Model -> Model -> Model
+join renaming model1 model2 = 
   Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents
   -- TODO propagate metadata somehow?
   where
@@ -92,7 +111,7 @@ unionWith renaming model1 model2 =
 
     m1vars = modelVars model1
 
-
+-- | All variables in a model
 modelVars :: Model -> Set Text
 modelVars Model{..} = Set.fromList $
   map fst (stateDecls modelDecls) ++
@@ -100,6 +119,7 @@ modelVars Model{..} = Set.fromList $
   map fst (parameterDecls modelDecls) ++
   map eventName modelEvents
 
+-- | Rename variables in an expression via the provided function
 renameExprVarsWith :: (Text -> Text) -> Expr -> Expr
 renameExprVarsWith r e = runIdentity $ transformExpr go e
   where
@@ -108,6 +128,7 @@ renameExprVarsWith r e = runIdentity $ transformExpr go e
         Var v -> pure $ Var (r v)
         _ -> pure ex
 
+-- | Rename variables in an event via the provided function
 renameEventVarsWith :: (Text -> Text) -> Event -> Event
 renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
   where
