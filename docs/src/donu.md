@@ -100,18 +100,18 @@ Example:
 
 **Request:**
 
-| Field            | Type                     | Description                                                                           |
-|------------------|--------------------------|---------------------------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate"`                       |
-| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"` (default `"gsl"`) |
-| definition       | model-def                | Definition of the model                                                               |
-| start            | number                   | Start time of the simulation                                                          |
-| end              | number                   | End time of the simulation                                                            |
-| step             | number                   | Simulation time step size                                                             |
-| seed             | integer                  | (optional) Use this seed for random number generation/event selection                 |
-| domain-parameter | string                   | (optional, Not yet supported) for function networks                                   |
-| parameters       | dict                     | Parameter values/initial conditions for the simulation                                |
-| outputs          | list                     | Restrict model output to these values - leave empty for no restriction                |
+| Field            | Type                     | Description                                                         | Stipulations
+|------------------|--------------------------|---------------------------------------------------------------------|----------------
+| command          | string                   | The literal `"simulate"`                                            |
+| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"` | Defaults to `gsl`
+| definition       | model-def                | Definition of the model                                             | 
+| start            | number                   | Start time of the simulation                                        | 
+| end              | number                   | End time of the simulation                                          | 
+| step             | number                   | Simulation time step size                                           | 
+| seed             | integer                  | (optional) Seed for random number generation/event selection        | Only valid when `sim-type` is `discrete`
+| domain-parameter | string                   | (optional) Independent variable over which start/step/end varies    | Not yet supported, and only valid when simulating function networks
+| parameters       | dict                     | (optional) Parameter values/initial conditions for the simulation   | When `sim-type` is `aj`, parameters specified neither here nor in the model will default to 0
+| outputs          | list                     | Restrict model output to these values                               | Leave empty to output all variables
 
 Example:
 
