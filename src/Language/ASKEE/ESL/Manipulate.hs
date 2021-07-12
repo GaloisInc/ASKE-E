@@ -25,12 +25,35 @@ composeSerial stateShare m1 m2 stop1 start2 = unionWith stateShare m1' m2'
         Nothing -> Event { eventWhen = Just e, .. }
         Just w -> Event { eventWhen = Just (e `And` w), .. }
 
--- TODO propagate metadata somehow
--- Map values are state variables in model1
--- Map keys are state variables in model2
+-- | To declare states `s1` of the first argument to this function (`model1`) 
+-- and `s2` of the second (`model2`) shared, include in this function's `Map` 
+-- (`renaming`) the entry `(s2, s1)`.
+--
+-- All variable declarations and references from `model1` are propagated with
+-- no changes. Variable declarations and references from `model2` are
+-- propagated according to some rules:
+--
+-- > if 'v' is a state variable in 'model2':
+-- >     if 'v' is in 'renaming':
+-- >         replace it with its corresponding value
+-- > else if 'v' is any variable in 'model2':
+-- >     if 'v' is also any variable in 'model1':
+-- >         replace it with a freshened version of its original name
+-- > else:
+-- >     no change
+--
+-- These rewriting rules imply that `unionWith (singleton s1 s2) m m` will 
+-- differ from `unionWith (singleton s2 s1) m m` when `s1 /= s2`, even for the 
+-- same `m`. When `s1` is supplanted by `s2` in the former case, it tells the 
+-- resultant model to treat (add to/subtract from) it like it originally 
+-- treated any other occurrence of `s2`. In the latter case, naturally, this is 
+-- flipped. Since a model is very likely to treat different state variables 
+-- differently, it follows that the unions will differ depending on which 
+-- variable of a pair is overwritten.
 unionWith :: Map Text Text -> Model -> Model -> Model
 unionWith renaming model1 model2 = 
-  Model "foo" newDecls newEvents
+  Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents
+  -- TODO propagate metadata somehow?
   where
     newDecls =
       modelDecls model1 ++
