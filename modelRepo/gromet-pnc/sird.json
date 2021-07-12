@@ -5,7 +5,15 @@
       "name": "S",
       "uid": "J:S",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "997.0"
+        },
+        "metadata": null
+      },
       "type": "State",
       "syntax": "Junction"
     },
@@ -14,7 +22,15 @@
       "name": "I",
       "uid": "J:I",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "3.0"
+        },
+        "metadata": null
+      },
       "type": "State",
       "syntax": "Junction"
     },
@@ -23,7 +39,15 @@
       "name": "R",
       "uid": "J:R",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "0.0"
+        },
+        "metadata": null
+      },
       "type": "State",
       "syntax": "Junction"
     },
@@ -32,7 +56,15 @@
       "name": "D",
       "uid": "J:D",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "0.0"
+        },
+        "metadata": null
+      },
       "type": "State",
       "syntax": "Junction"
     },
@@ -41,7 +73,15 @@
       "name": "inf",
       "uid": "J:inf",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "0.0004"
+        },
+        "metadata": null
+      },
       "type": "Rate",
       "syntax": "Junction"
     },
@@ -50,7 +90,15 @@
       "name": "rec",
       "uid": "J:rec",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "0.04"
+        },
+        "metadata": null
+      },
       "type": "Rate",
       "syntax": "Junction"
     },
@@ -59,7 +107,15 @@
       "name": "death",
       "uid": "J:death",
       "metadata": null,
-      "value": null,
+      "value": {
+        "type": "Float",
+        "syntax": "Literal",
+        "value": {
+          "syntax": "Val",
+          "val": "0.02"
+        },
+        "metadata": null
+      },
       "type": "Rate",
       "syntax": "Junction"
     }
