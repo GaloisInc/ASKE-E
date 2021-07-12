@@ -102,5 +102,11 @@ tests =
             case modelVal of
               VModelExpr (EMember _ "S") -> pure ()
               _                          -> assertFailure "Not an EMember"
+      , testCase "Basic simulation" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            ] "P(sir.I > 30.0 at 5.0, 1)" $ \actualVal ->
+            actualVal @?= VDouble 0.5
       ]
     ]
