@@ -102,6 +102,44 @@ inlineLets' lets m = runIdentity (transformModelExprs go m)
             Nothing -> pure e
         _ -> pure e
 
+-- | Rename variables in an expression via the provided function
+renameExprVarsWith :: (Text -> Text) -> Expr.Expr -> Expr.Expr
+renameExprVarsWith r e = runIdentity $ transformExpr go e
+  where
+    go ex =
+      case ex of
+        Expr.Var v -> pure $ Expr.Var (r v)
+        _          -> pure ex
+
+-- | Rename variables in an event via the provided function
+--
+-- Note: this will also rename variables that appear on event effect LHSs
+renameEventVarsWith :: (Text -> Text) -> Syntax.Event -> Syntax.Event
+renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
+  where
+    modifyEventVars varT evt =
+      do  when'   <- expr `traverse` Syntax.eventWhen evt
+          rate'   <- expr (Syntax.eventRate evt)
+          effect' <- transformStmt `traverse` Syntax.eventEffect evt
+          name' <- varT (Syntax.eventName evt)
+          pure $ evt  { Syntax.eventWhen = when'
+                      , Syntax.eventRate = rate'
+                      , Syntax.eventEffect = effect'
+                      , Syntax.eventName = name'
+                      }
+      where
+        exprT e =
+          case e of
+            Expr.Var v -> Expr.Var <$> varT v
+            _     -> pure e
+
+        transformStmt (n, v) = 
+          do  n' <- varT n
+              v' <- expr v
+              pure (n', v')
+
+        expr = transformExpr exprT
+
 canonicalLets :: Syntax.Model -> (Map Text Expr.Expr, Set Text)
 canonicalLets Syntax.Model{..} = (lets, intermediates)
   where

@@ -2,8 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ESL.Manipulate where
 
-import Control.Monad.Identity       ( runIdentity )
-
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import           Data.Set  ( Set )
@@ -18,7 +16,8 @@ import Language.ASKEE.ESL.Syntax    ( letDecls
                                     , Event(..)
                                     , Model(..) )
 import Language.ASKEE.Expr          ( Expr(..) )
-import Language.ASKEE.ExprTransform ( transformExpr )
+import Language.ASKEE.ExprTransform ( renameEventVarsWith
+                                    , renameExprVarsWith )
 
 
 -- | Serial composition of two models.
@@ -118,39 +117,3 @@ modelVars Model{..} = Set.fromList $
   map fst (letDecls modelDecls) ++
   map fst (parameterDecls modelDecls) ++
   map eventName modelEvents
-
--- | Rename variables in an expression via the provided function
-renameExprVarsWith :: (Text -> Text) -> Expr -> Expr
-renameExprVarsWith r e = runIdentity $ transformExpr go e
-  where
-    go ex =
-      case ex of
-        Var v -> pure $ Var (r v)
-        _ -> pure ex
-
--- | Rename variables in an event via the provided function
-renameEventVarsWith :: (Text -> Text) -> Event -> Event
-renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
-  where
-    modifyEventVars varT evt =
-      do  when'   <- expr `traverse` eventWhen evt
-          rate'   <- expr (eventRate evt)
-          effect' <- transformStmt `traverse` eventEffect evt
-          name' <- varT (eventName evt)
-          pure $ evt  { eventWhen = when'
-                      , eventRate = rate'
-                      , eventEffect = effect'
-                      , eventName = name'
-                      }
-      where
-        exprT e =
-          case e of
-            Var v -> Var <$> varT v
-            _     -> pure e
-
-        transformStmt (n, v) = 
-          do  n' <- varT n
-              v' <- expr v
-              pure (n', v')
-
-        expr = transformExpr exprT
