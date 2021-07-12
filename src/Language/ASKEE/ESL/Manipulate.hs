@@ -61,11 +61,13 @@ unionWith renaming model1 model2 =
     renameMaybe t =
       case renaming Map.!? t of
         Just t' -> t'
-        Nothing
-          | t `elem` m2vars -> t `Text.append` "_prime"
-          | otherwise -> t
+        Nothing -> freshenMaybe t
+      
+    freshenMaybe t
+      | t `elem` m1vars = freshenMaybe (t `Text.append` "_prime")
+      | otherwise = t
 
-    m2vars = modelVars model2
+    m1vars = modelVars model1
 
 
 modelVars :: Model -> Set Text
