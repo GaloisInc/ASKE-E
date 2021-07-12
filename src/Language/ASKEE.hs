@@ -87,7 +87,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
+import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic)
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -116,13 +116,25 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModelText
                                                        , DataSource(..)
-                                                       , ModelDef(..) )
+                                                       , ModelDef(..)
+                                                       , doesModelExist
+                                                       )
 import qualified Language.ASKEE.Storage                as Storage
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
-  do modelString <- loadModelText format source
-     throwLeft ParseError (parseModel format modelString)
+  do yes <- doesModelExist format source
+     if yes
+       then doLoadModel format source
+
+       -- Special case for "virtual" PrtGromet
+       else case format of
+              GrometPrtType -> Easel <$> loadESL source
+              _ -> doLoadModel format source
+  where
+  doLoadModel fmt src =
+    do modelString <- loadModelText fmt src
+       throwLeft ParseError (parseModel fmt modelString)
 
 -------------------------------------------------------------------------------
 -- ESL

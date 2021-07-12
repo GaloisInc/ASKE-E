@@ -12,21 +12,11 @@ import Prelude hiding (LT, EQ, GT)
 data Model = Model { modelName :: Text
                    , modelDecls :: [MetaAnn Decl]
                    , modelEvents :: [Event]
+                   , modelMeta :: [(Text,Text)]
                    }
   deriving (Show, Eq)
 
 
--- data ModelMeta = ModelMeta
---   { modelMetaName :: Text
---   , modelMetaDecls :: [MetaAnn Decl]
---   , modelMetaEvents :: [Event]
---   }
---   deriving Show
-
--- stripMeta :: ModelMeta -> Model
--- stripMeta mm = Model (modelMetaName mm)
---                      (Meta.metaValue <$> modelMetaDecls mm)
---                      (modelMetaEvents mm)
 
 data Decl = Let   Text Expr
           | State Text Expr

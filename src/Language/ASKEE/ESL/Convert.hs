@@ -42,8 +42,9 @@ modelAsCore mdl =
 extractMeta :: Src.Model -> Map Ident (Map Text [Text])
 extractMeta model =
   Map.fromList
-    $ catMaybes $ map declMeta  (Src.modelDecls model) ++
-                  map eventMeta (Src.modelEvents model)
+    $ ("", meta (Src.modelMeta model))
+    : catMaybes ( map declMeta  (Src.modelDecls model) ++
+                  map eventMeta (Src.modelEvents model) )
   where
   meta xs = Map.fromListWith (++) [ (k,[v]) | (k,v) <- xs ]
 

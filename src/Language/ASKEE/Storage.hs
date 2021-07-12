@@ -4,6 +4,7 @@ module Language.ASKEE.Storage
   , loadModelText
   , storeModel
   , listAllModels
+  , doesModelExist
 
   , Storage.DataSource(..)
   , Storage.ModelDef(..)
@@ -20,6 +21,9 @@ initStorage = Storage.initStorage baseDirectory
 
 loadModelText :: ModelType -> Storage.DataSource -> IO Text
 loadModelText = Storage.loadModelText baseDirectory
+
+doesModelExist :: ModelType -> Storage.DataSource -> IO Bool
+doesModelExist = Storage.doesModelExist baseDirectory
 
 storeModel :: Storage.ModelName -> ModelType -> Text -> IO ()
 storeModel = Storage.storeModel baseDirectory

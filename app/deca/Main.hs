@@ -14,6 +14,7 @@ import Numeric(showGFloat)
 import qualified Data.Aeson as JSON
 
 import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
+import qualified Language.ASKEE.Gromet.See as Gromet
 import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.DEQ as DEQ
@@ -32,6 +33,8 @@ main =
         DumpCore -> mapM_ dumpCore (modelsProvided opts)
 
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
+
+        ShowGromet how -> mapM_ (showGromet how) (modelsProvided opts)
 
         SimulateODE start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
@@ -142,4 +145,9 @@ testDescirbeInterface (file,ty) =
   do m <- A.loadModel ty (A.FromFile file)
      LBS.putStrLn (JSON.encode (A.describeModelInterface m))
 
-
+showGromet :: ShowGromet -> (FilePath, A.ModelType) -> IO ()
+showGromet how (f,t) =
+  do m <- A.loadGrometPrtFrom t (A.FromFile f)
+     case how of
+       JSON -> LBS.putStrLn (JSON.encode m)
+       PP   -> print (Gromet.pp m)
