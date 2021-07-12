@@ -60,52 +60,18 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    SimulateDiscrete SimulateDiscreteCommand{..} ->
-      do  res <- 
-            simulateModelDiscrete
-              (modelDefType simModelDiscrete)
-              (modelDefSource simModelDiscrete)
-              simStartDiscrete
-              simEndDiscrete
-              simStepDiscrete
-              mempty
-              simSeedDiscrete
-          succeed' res
-
-    SimulateGSL SimulateGSLCommand{..} ->
-      do  res <- 
-            simulateModelGSL
-              (modelDefType simModelGSL)
-              (modelDefSource simModelGSL)
-              simStartGSL
-              simEndGSL
-              simStepGSL
-              simParameterValuesGSL
-              mempty -- XXX: get measures from request
-          succeed' res
-    
-    SimulateAJ SimulateAJCommand{..} ->
-      do  res <- 
-            simulateModelAJ
-              (modelDefType simModelAJ)
-              (modelDefSource simModelAJ)
-              simStartAJ
-              simEndAJ
-              simStepAJ
-              simParameterValuesAJ
-          succeed' res
-
-    Simulate SimulateCommand{..} ->
-      do  res <-
-            simulateDefault
-              (modelDefType simModel)
-              (modelDefSource simModel)
-              simStart
-              simEnd
-              simStep
-              simParameterValues
-              simDomainParam
-              simOutputs
+    Simulate SimulateCommand{..} -> 
+      do  res <- simulateModel 
+            simType 
+            (modelDefType simModel) 
+            (modelDefSource simModel) 
+            simStart 
+            simEnd 
+            simStep
+            simParameterValues
+            mempty
+            simSeed
+            Nothing
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
