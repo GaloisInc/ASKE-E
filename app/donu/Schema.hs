@@ -19,8 +19,10 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE
-import Language.ASKEE.ESL.Print (printModel)
+import           Language.ASKEE
+import           Language.ASKEE.ESL.Print (printModel)
+import           Language.ASKEE.Exposure.Syntax
+import qualified Language.ASKEE.Core.Syntax as Core
 
 -------------------------------------------------------------------------------
 -- Input
@@ -478,7 +480,7 @@ instance HasSpec QueryModelsCommand where
 -- TODO RGS: Document all of this
 
 newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
-  { executeExposureCode :: Text
+  { executeExposureCode :: Text -- ^ The exposure program to parse and execute
   }
   deriving Show
 
@@ -498,3 +500,36 @@ instance HasSpec ResetExposureStateCommand where
     sectionsSpec "clear-exposure" $
       do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
          pure $ ResetExposureStateCommand ()
+
+-- | Wrapper for Value to control precisely how these are passed
+-- to clients of Donu
+newtype DonuValue =
+  DonuValue { unDonuDisplay :: Value }
+  deriving Show
+
+instance JS.ToJSON DonuValue where
+  toJSON (DonuValue dv) =
+    case dv of
+      VInt i         -> JS.toJSON i
+      VBool b        -> JS.toJSON b
+      VDouble dbl    -> JS.toJSON dbl
+      VString str    -> JS.toJSON str
+
+      VDataSeries ds ->
+        JS.object [ "type"   .= JS.toJSON ("data-series" :: Text)
+                  , "time"   .= JS.toJSON (times ds)
+                  , "values" .= JS.toJSON (values ds)
+                  ]
+
+      VModel mdl     -> JS.toJSON $ "<model " <> Core.modelName mdl <> ">"
+      VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
+      VModelExpr {}  -> unimplVal "<modelexpr>"
+      VDFold {}      -> unimplVal "<dynfold>"
+      VSFold {}      -> unimplVal "<sfold>"
+      VSuspended     -> unimplVal "<suspended>"
+
+      _ -> error "TBD"
+
+    where
+      unimplVal :: String -> JS.Value
+      unimplVal str = JS.toJSON str
