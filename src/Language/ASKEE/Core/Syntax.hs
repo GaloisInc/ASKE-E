@@ -120,35 +120,37 @@ addParams parameters = addParams' parameters'
 -- identifiers, and also record the mapping of new names to old
 -- TODO rename things in metadata as well?
 legalize :: Model -> (Model, Map Text Ident)
-legalize m@Model{..} = (m', Map.unions (map flipMap [svs', pvs', lvs', ens']))
+legalize m@Model{..} = 
+  ( m'
+  , Map.unions $ 
+    map flipMap 
+    [stateRenaming, paramRenaming, letRenaming, eventRenaming]
+  )
   where
     m' = subst $ m 
-      { modelEvents    = es'
-      , modelParams    = ps'
-      , modelLets      = ls'
-      , modelInitState = ss' }
+      { modelEvents    = freshEventDecls
+      , modelParams    = freshParamDecls
+      , modelLets      = freshLetDecls
+      , modelInitState = freshStateDecls }
 
-    subst = mapExprs (substExpr (Map.unions [svs'', pvs'', lvs'']))
+    subst = 
+      mapExprs $
+      substExpr $
+      Map.map Var (Map.unions [stateRenaming, paramRenaming, letRenaming])
 
-    ens' = Map.fromList (zip (map eventName modelEvents) (map ("e"<>) freshening))
-    pvs' = Map.fromList (zip (Map.keys modelParams)      (map ("p"<>) freshening))
-    svs' = Map.fromList (zip (modelStateVars m)          (map ("s"<>) freshening))
-    lvs' = Map.fromList (zip (Map.keys modelLets)        (map ("l"<>) freshening))
-  
-    pvs'' = Map.map Var pvs'
-    svs'' = Map.map Var svs'
-    lvs'' = Map.map Var lvs'
+    eventRenaming = Map.fromList (zip (map eventName modelEvents) (map ("e"<>) freshening))
+    paramRenaming = Map.fromList (zip (Map.keys modelParams)      (map ("p"<>) freshening))
+    stateRenaming = Map.fromList (zip (modelStateVars m)          (map ("s"<>) freshening))
+    letRenaming   = Map.fromList (zip (Map.keys modelLets)        (map ("l"<>) freshening))
 
-    es' = map modifyEvent modelEvents
-    ps' = (Map.fromList . map (modifyVia pvs') . Map.toList) modelParams
-    ss' = (Map.fromList . map (modifyVia svs') . Map.toList) modelInitState
-    ls' = (Map.fromList . map (modifyVia lvs') . Map.toList) modelLets
+    freshEventDecls = map modifyEvent modelEvents
+    freshLetDecls   = Map.mapKeys (letRenaming Map.!) modelLets
+    freshParamDecls = Map.mapKeys (paramRenaming Map.!) modelParams
+    freshStateDecls = Map.mapKeys (stateRenaming Map.!) modelInitState
 
     modifyEvent e@Event{..} = e
-      { eventName = ens' Map.! eventName
-      , eventEffect = (Map.fromList . map (modifyVia svs') . Map.toList) eventEffect }
-
-    modifyVia vs (v, e) = (vs Map.! v, e)
+      { eventName = eventRenaming Map.! eventName
+      , eventEffect = Map.mapKeys (stateRenaming Map.!) eventEffect }
 
     freshening = map (Text.pack . show) [1::Integer ..]
 
