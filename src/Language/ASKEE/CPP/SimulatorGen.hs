@@ -117,7 +117,8 @@ genNextStep evts =
   $ [ C.declareInit C.double (effRateName evt) (effRateExpr evt)
                                                           | evt <- evts ] ++
 
-    [ C.declareInit C.double "total_rate" (foldr1 (C.+) (effRateName <$> evts))
+    [ C.declareInit C.double "total_rate" (C.doubleLit 0)
+    , C.stmts (map (\e -> C.assign "total_rate" ("total_rate" C.+ effRateName e)) evts)
     , C.ifThen
       ("total_rate" C.== C.doubleLit 0)
       [ C.returnWith (C.boolLit False) ]

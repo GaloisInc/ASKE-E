@@ -68,6 +68,7 @@ handleRequest r =
               simStartDiscrete
               simEndDiscrete
               simStepDiscrete
+              mempty
               simSeedDiscrete
           succeed' res
 

@@ -84,7 +84,7 @@ testSimulateEslParameterized mdlSrc expected =
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =
-  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step (Just 123)
+  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step mempty (Just 123)
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
