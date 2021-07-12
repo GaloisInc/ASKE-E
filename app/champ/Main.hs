@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,7 +9,7 @@ import Control.Applicative ((<**>))
 import Control.Monad (replicateM_, when)
 import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
-import Control.Monad.State (MonadState(..), StateT(..), evalStateT, gets, modify)
+import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
 import Data.Foldable
 import qualified Data.List.Extra as L
@@ -119,7 +120,12 @@ stopMultiline = do
   batchExposureStmtNoMultiline linez
 
 newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState)
+  deriving newtype ( Functor, Applicative, Monad
+                   , MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState
+#if !(MIN_VERSION_haskeline(0,8,0))
+                   , MonadException
+#endif
+                   )
 
 evalChampT :: ChampState -> ChampM a -> IO a
 evalChampT st c = evalStateT (unChampM c) st

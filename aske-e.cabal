@@ -165,7 +165,7 @@ executable champ
                       , exceptions
                       , extra
                       , filepath
-                      , haskeline >= 0.8
+                      , haskeline >= 0.7
                       , mtl
                       , optparse-applicative
                       , text
