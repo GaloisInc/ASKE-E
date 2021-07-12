@@ -58,10 +58,6 @@ public:
     }
 };
  
-/*
- Example usage with text strings
- */
- 
 #include <fstream>
 #include <sstream>
 #include <iostream>

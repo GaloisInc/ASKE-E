@@ -3,19 +3,17 @@ MODULE qsort_mod
   IMPLICIT NONE
  
   TYPE group
-     INTEGER :: order    ! original order of unsorted data
-     REAL    :: VALUE    ! values to be sorted by
+     INTEGER :: order
+     REAL    :: VALUE
   END TYPE group
  
 CONTAINS
  
   RECURSIVE SUBROUTINE QSort(a,na)
  
-    ! DUMMY ARGUMENTS
     INTEGER, INTENT(in) :: nA
     TYPE (group), DIMENSION(nA), INTENT(in out) :: A
  
-    ! LOCAL VARIABLES
     INTEGER :: left, right
     REAL :: random
     REAL :: pivot
@@ -25,7 +23,7 @@ CONTAINS
     IF (nA > 1) THEN
  
        CALL random_NUMBER(random)
-       pivot = A(INT(random*REAL(nA-1))+1)%VALUE   ! Choice a random pivot (not best performance, but avoids worst-case)
+       pivot = A(INT(random*REAL(nA-1))+1)%VALUE
        left = 1
        right = nA
        ! Partition loop
@@ -61,7 +59,6 @@ CONTAINS
  
 END MODULE qsort_mod
  
-! Test Qsort Module
 PROGRAM qsort_test
   USE qsort_mod
   IMPLICIT NONE
@@ -72,12 +69,10 @@ PROGRAM qsort_test
   INTEGER :: i
   REAL :: random
   CHARACTER(LEN=80) :: fmt1, fmt2
-  ! Using the Fibonacci sequence to initialize seed:
   seed(1) = 1 ; seed(2) = 1
   DO i = 3,ns
      seed(i) = seed(i-1)+seed(i-2)
   END DO
-  ! Formats of the outputs
   WRITE(fmt1,'(A,I2,A)') '(', nc, '(I5,2X,F6.2))'
   WRITE(fmt2,'(A,I2,A)') '(3x', nc, '("Ord.  Num.",3x))' 
   PRINT *, "Unsorted Values:"

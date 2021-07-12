@@ -71,7 +71,6 @@ int parse_input(item *ret)
 	return n_items;
 }
  
-/* recursively resolve compile order; negative means loop */
 int get_depth(item list, int idx, int bad)
 {
 	int max, i, t;
