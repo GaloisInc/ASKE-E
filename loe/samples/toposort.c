@@ -1,26 +1,6 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
- 
-char input[] =
-	"des_system_lib   std synopsys std_cell_lib des_system_lib dw02 dw01 ramlib ieee\n"
-	"dw01             ieee dw01 dware gtech\n"
-	"dw02             ieee dw02 dware\n"
-	"dw03             std synopsys dware dw03 dw02 dw01 ieee gtech\n"
-	"dw04             dw04 ieee dw01 dware gtech\n"
-	"dw05             dw05 ieee dware\n"
-	"dw06             dw06 ieee dware\n"
-	"dw07             ieee dware\n"
-	"dware            ieee dware\n"
-	"gtech            ieee gtech\n"
-	"ramlib           std ieee\n"
-	"std_cell_lib     ieee std_cell_lib\n"
-	"synopsys\n"
-	"cycle_11	  cycle_12\n"
-	"cycle_12	  cycle_11\n"
-	"cycle_21	  dw01 cycle_22 dw02 dw03\n"
-	"cycle_22	  cycle_21 dw01 dw04";
  
 typedef struct item_t item_t, *item;
 struct item_t { const char *name; int *deps, n_deps, idx, depth; };
@@ -89,33 +69,4 @@ int get_depth(item list, int idx, int bad)
 		if (max < t + 1) max = t + 1;
 	}
 	return list[idx].depth = max;
-}
- 
-int main()
-{
-	int i, j, n, bad = -1, max, min;
-	item items;
-	n = parse_input(&items);
- 
-	for (i = 0; i < n; i++)
-		if (!items[i].depth && get_depth(items, i, bad) < 0) bad--;
- 
-	for (i = 0, max = min = 0; i < n; i++) {
-		if (items[i].depth > max) max = items[i].depth;
-		if (items[i].depth < min) min = items[i].depth;
-	}
- 
-	printf("Compile order:\n");
-	for (i = min; i <= max; i++) {
-		if (!i) continue;
- 
-		if (i < 0) printf("   [unorderable]");
-		else	   printf("%d:", i);
- 
-		for (j = 0; j < n || !putchar('\n'); j++)
-			if (items[j].depth == i)
-				printf(" %s", items[j].name);
-	}
- 
-	return 0;
 }
