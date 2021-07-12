@@ -5,11 +5,14 @@ module ASKEE ( tests ) where
 
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map       as Map
+import qualified Data.Set       as Set
 import           Data.Text      ( Text, pack )
+
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
 import qualified Language.ASKEE.Core.Expr          as CExp
 import qualified Language.ASKEE.Core.Visualization as Viz
+import           Language.ASKEE.Model.Basics ( ValueType(..), Value(VReal) )
 
 import qualified Test.Tasty       as Tasty
 import           Test.Tasty.HUnit ( Assertion
@@ -28,6 +31,8 @@ sirEquations = $(Embed.embedStringFile "modelRepo/deq/sir.deq")
 sirSansParameters :: Text
 sirSansParameters = $(Embed.embedStringFile "modelRepo/easel/sir-no-parameters.easel")
 
+seirPNC :: Text
+seirPNC = $(Embed.embedStringFile "modelRepo/gromet-pnc/seir.json")
 
 -- Generated via GSL simulation
 series1 :: DataSeries Double
@@ -68,18 +73,18 @@ series3 =
 testSimulateEsl :: DataSource -> DataSeries Double -> Assertion
 testSimulateEsl mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty
+      actual <- simulateModelGSL EaselType mdlSrc start stop step Map.empty mempty
       assertDataClose actual expected
 
 testSimulateEslParameterized :: DataSource -> DataSeries Double -> Assertion
 testSimulateEslParameterized mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
-      actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5)
+      actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5) mempty
       assertDataClose actual expected
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =
-  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step (Just 123)
+  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step mempty (Just 123)
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
@@ -208,6 +213,37 @@ testConvertESLToDEQ =
         Right r -> assertEqual "" sirEquations (pack r)
         Left err -> assertFailure err
 
+testDescribeInterface :: Assertion
+testDescribeInterface =
+  do  seir <- loadModel GrometPncType (Inline seirPNC)
+      let expected = 
+            ModelInterface 
+            { modelInputs = 
+              [ Port {portName = "J:E_init", portValueType = Real, portDefault = Just (VReal 3.0), portMeta = Map.fromList [("group",["Initial State"]),("name",["E"]),("type",["Real"])]}
+              , Port {portName = "J:I_init", portValueType = Real, portDefault = Just (VReal 0), portMeta = Map.fromList [("group",["Initial State"]),("name",["I"]),("type",["Real"])]}
+              , Port {portName = "J:R_init", portValueType = Real, portDefault = Just (VReal 0), portMeta = Map.fromList [("group",["Initial State"]),("name",["R"]),("type",["Real"])]}
+              , Port {portName = "J:S_init", portValueType = Real, portDefault = Just (VReal 997), portMeta = Map.fromList [("group",["Initial State"]),("name",["S"]),("type",["Real"])]}
+              , Port {portName = "J:exp_rate", portValueType = Real, portDefault = Just (VReal 0.0004), portMeta = Map.fromList [("group",["Rate"]),("name",["exp"]),("type",["Real"])]}
+              , Port {portName = "J:inf_rate", portValueType = Real, portDefault = Just (VReal 0.3), portMeta = Map.fromList [("group",["Rate"]),("name",["inf"]),("type",["Real"])]}
+              , Port {portName = "J:rec_rate", portValueType = Real, portDefault = Just (VReal 0.04), portMeta = Map.fromList [("group",["Rate"]),("name",["rec"]),("type",["Real"])]}
+              ]
+            , modelOutputs = 
+              [ Port {portName = "J:E", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["E"]),("type",["Real"])]}
+              , Port {portName = "J:I", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["I"]),("type",["Real"])]}
+              , Port {portName = "J:R", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["R"]),("type",["Real"])]}
+              , Port {portName = "J:S", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["S"]),("type",["Real"])]}]
+            }
+          expectedInputs = modelInputs expected
+          expectedOutputs = modelOutputs expected
+            
+          actual = describeModelInterface seir
+          actualInputs = modelInputs actual
+          actualOutputs = modelOutputs actual
+
+      assertEqual "Expected inputs match actuals" (Set.fromList expectedInputs) (Set.fromList actualInputs)
+      assertEqual "Expected outputs match actuals" (Set.fromList expectedOutputs) (Set.fromList actualOutputs)
+
+
 tests :: Tasty.TestTree
 tests =
   Tasty.testGroup "ASKEE API Tests"
@@ -221,4 +257,5 @@ tests =
     , testCase "No-flow schematic" $ testAsSchematicGraph n2n
     , testCase "State-to-state flow schematic, no dups" $ testAsSchematicGraph s2sd
     , testCase "Convert ESL to DEQ" testConvertESLToDEQ
+    , testCase "Describe SEIR interface" testDescribeInterface
     ]

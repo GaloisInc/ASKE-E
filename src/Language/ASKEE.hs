@@ -23,6 +23,7 @@ module Language.ASKEE
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
+  , simulateModel
   
   , stratifyModel
   , fitModelToData
@@ -49,6 +50,7 @@ module Language.ASKEE
   , MetaAnn(..)
   , ModelDef(..)
   , ModelType(..)
+  , SimulationType(..)
   , Stratify.StratificationInfo(..)
   , Stratify.StratificationType(..)
 
@@ -65,6 +67,7 @@ import Control.Monad     ( forM )
 import           Data.Aeson                 ( decode )
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import           Data.Set                   ( Set )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -82,6 +85,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeries
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
+import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
@@ -316,19 +320,51 @@ fitModelToData format fitData fitParams fitScale source =
       pure $ DEQ.fitModel eqs dataSeries fitScale
            $ Map.fromList (zip fitParams (repeat 0))
 
+-------------------------------------------------------------------------------
+-- Simulation
+
+data SimulationType = 
+    AJ 
+  | Discrete 
+  | GSL 
+  deriving (Show)
+
+simulateModel :: 
+  SimulationType -> 
+  ModelType -> 
+  DataSource ->
+  Double {- ^ start -} ->
+  Double {- ^ end -} -> 
+  Double {- ^ step -} ->
+  Map Text Double {- ^ parameterization -} -> 
+  Set Text {- ^ variables to measure (empty to measure all) -} -> 
+  Maybe Int {- ^ seed (for discrete event simulation) -} -> 
+  Maybe Text {- ^ domain parameter (for function networks) -} -> 
+  IO (DataSeries Double)
+simulateModel sim format source start end step parameters outputs seed dp =
+  case sim of
+    GSL -> simulateModelGSL format source start end step parameters outputs
+    Discrete -> filterDS <$> simulateModelDiscrete format source start end step parameters seed
+    AJ -> filterDS <$> simulateModelAJ format source start end step parameters
+  where
+    filterDS ds 
+      | null outputs = ds
+      | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+
 simulateModelGSL :: 
   ModelType -> 
   DataSource -> 
   Double {- ^ start -} ->
   Double {- ^ stop -} -> 
   Double {- ^ step -} -> 
-  Map Text Double ->
+  Map Text Double {- ^ parameters -} ->
+  Set Text {- ^ Variables to observe, empty for everything -} ->
   IO (DataSeries Double)
-simulateModelGSL format source start end step parameters =
+simulateModelGSL format source start end step parameters vars =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ DEQ.simulate equations parameters times'
+      pure $ DEQ.simulate equations parameters vars times'
 
 simulateModelDiscrete ::
   ModelType ->
@@ -336,11 +372,18 @@ simulateModelDiscrete ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Map Text Double ->
   Maybe Int {- ^ seed -} ->
   IO (DataSeries Double)
-simulateModelDiscrete format source start end step seed =
+simulateModelDiscrete format source start end step parameters seed =
   do  model <- loadCoreFrom format source
-      CPP.simulate model start end step seed
+      let parameterizedModel = Core.addParams parameters model
+          (withLegalNames, newNames) = Core.legalize parameterizedModel
+      DataSeries{..} <- CPP.simulate withLegalNames start end step seed
+      pure $ DataSeries { values = adjust newNames values, .. }
+
+  where
+    adjust vs = Map.fromList . map (\(v, e) -> (vs Map.! v, e)) . Map.toList
       
 simulateModelAJ ::
   ModelType -> 
@@ -352,10 +395,16 @@ simulateModelAJ ::
   IO (DataSeries Double)
 simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
-      let parameters' = Map.mapKeys demangle parameters
-      AJ.simulate pnc start stop step parameters'
+      let newParameters = Map.mapKeys demangle parameters
+      AJ.simulate pnc start stop step newParameters
   where
-    demangle t = head $ Text.split (== '_') t
+    demangle t = 
+      case (Text.stripSuffix "_init" t, Text.stripSuffix "_rate" t) of
+        (Just t', _) -> t'
+        (_, Just t') -> t'
+        (Nothing, Nothing) -> t
+
+-------------------------------------------------------------------------------
 
 convertModelString ::
   ModelType -> DataSource -> ModelType -> IO (Either String String)

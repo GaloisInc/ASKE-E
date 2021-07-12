@@ -26,9 +26,7 @@ import Language.ASKEE.ESL.Print (printModel)
 -- Input
 
 data Input =
-    SimulateDiscrete SimulateDiscreteCommand
-  | SimulateGSL SimulateGSLCommand
-  | SimulateAJ SimulateAJCommand
+    Simulate SimulateCommand
   | Fit FitCommand
   | CheckModel CheckModelCommand
   | ConvertModel ConvertModelCommand
@@ -43,9 +41,7 @@ data Input =
     deriving Show
 
 instance HasSpec Input where
-  anySpec =  (SimulateDiscrete <$> anySpec)
-         <!> (SimulateGSL <$> anySpec)
-         <!> (SimulateAJ <$> anySpec)
+  anySpec =  (Simulate <$> anySpec)
          <!> (CheckModel <$> anySpec)
          <!> (ConvertModel <$> anySpec)
          <!> (Fit <$> anySpec)
@@ -201,92 +197,74 @@ instance HasSpec FitCommand where
 --------------------------------------------------------------------------------
 -- Simulate
 
-data SimulateDiscreteCommand = SimulateDiscreteCommand
-  { simModelDiscrete           :: ModelDef
-  , simStartDiscrete           :: Double
-  , simStepDiscrete            :: Double
-  , simEndDiscrete             :: Double
-  , simSeedDiscrete            :: Maybe Int
-  } deriving Show
+simTypeSpec :: ValueSpec SimulationType
+simTypeSpec =
+  (jsAtom "aj" $> AJ) <!>
+  (jsAtom "discrete" $> Discrete) <!>
+  (jsAtom "gsl" $> GSL)
 
-instance HasSpec SimulateDiscreteCommand where
-  anySpec =
-    sectionsSpec "simulate-discrete-command"
-    do reqSection' "command" (jsAtom "simulate-discrete") "Run a simulation using a discrete event simulator"
-       simModelDiscrete   <- reqSection' "definition" modelDef
-                       "Specification of the model to simulate"
-
-       simStartDiscrete     <- reqSection "start"
-                       "Start time of simulation"
-       simStepDiscrete      <- fromMaybe 1 <$>
-                       optSection "step"
-                       "Time step (defaults to 1)"
-       simEndDiscrete       <- reqSection "end"
-                       "End time of simulation"
-        
-       simSeedDiscrete <- optSection "seed" "Seed for simulation"
-
-       pure SimulateDiscreteCommand { .. }
-data SimulateGSLCommand = SimulateGSLCommand
-  { simModelGSL           :: ModelDef
-  , simStartGSL           :: Double
-  , simStepGSL            :: Double
-  , simEndGSL             :: Double
-  , simParameterValuesGSL :: Map Text Double
+data SimulateCommand = SimulateCommand
+  { simModel              :: ModelDef
+  , simStart              :: Double
+  , simStep               :: Double
+  , simEnd                :: Double
+  , simDomainParam        :: Maybe Text
+  , simParameterValues    :: Map Text Double
+  , simOutputs            :: [Text]
+  , simType               :: SimulationType
+  , simSeed               :: Maybe Int
   } deriving Show
 
 
-instance HasSpec SimulateGSLCommand where
-  anySpec =
-    sectionsSpec "simulate-gsl-command"
-    do reqSection' "command" (jsAtom "simulate-gsl") "Run a simulation"
-       simModelGSL   <- reqSection' "definition" modelDef
-                       "Specification of the model to simulate"
+instance HasSpec SimulateCommand where
+  anySpec = sectionsSpec 
+    "simulate-command"
+    do  reqSection' "command" (jsAtom "simulate") "Run a simulation"
+        simModel <- reqSection'
+          "definition" 
+          modelDef
+          "Specification of the model to simulate"
 
-       simStartGSL     <- reqSection "start"
-                       "Start time of simulation"
-       simStepGSL      <- fromMaybe 1 <$>
-                       optSection "step"
-                       "Time step (defaults to 1)"
-       simEndGSL       <- reqSection "end"
-                       "End time of simulation"
+        simStart <- reqSection 
+          "start" 
+          "Start time of simulation"
+       
+        simStep <- fromMaybe 1 <$> 
+          optSection 
+            "step" 
+            "Time step (defaults to 1)"
+       
+        simEnd <- reqSection 
+          "end" 
+          "End time of simulation"
+       
+        simDomainParam <- 
+          optSection 
+            "domain-parameter"
+            "Domain parameter (for function network gromets, not yet supported)"
 
-       simParameterValuesGSL <- maybe Map.empty Map.fromList <$>
-                       optSection' "parameters" (assocSpec anySpec)
-                       "Use these values for model parameters"
+        simParameterValues <- maybe Map.empty Map.fromList <$>
+          optSection' 
+            "parameters" 
+            (assocSpec anySpec)
+            "Use these values for model parameters"
 
-       pure SimulateGSLCommand { .. }
+        simOutputs <- fromMaybe [] <$> 
+          optSection 
+            "outputs"
+            "Which values to output from the simulation"
 
+        simType <- fromMaybe GSL <$>
+          optSection' 
+            "sim-type" 
+            simTypeSpec
+            "Simulation engine to use (defaults to GSL)"
 
-data SimulateAJCommand = SimulateAJCommand
-  { simModelAJ           :: ModelDef
-  , simStartAJ           :: Double
-  , simStepAJ            :: Double
-  , simEndAJ             :: Double
-  , simParameterValuesAJ :: Map Text Double
-  } deriving Show
+        simSeed <- optSection
+          "seed"
+          "Seed for simulation (meaningful only for discrete event simulation)"
 
-
-instance HasSpec SimulateAJCommand where
-  anySpec =
-    sectionsSpec "simulate-aj-command"
-    do reqSection' "command" (jsAtom "simulate-aj") "Run a simulation"
-       simModelAJ   <- reqSection' "definition" modelDef
-                       "Specification of the model to simulate"
-
-       simStartAJ     <- reqSection "start"
-                       "Start time of simulation"
-       simStepAJ      <- fromMaybe 1 <$>
-                       optSection "step"
-                       "Time step (defaults to 1)"
-       simEndAJ       <- reqSection "end"
-                       "End time of simulation"
-
-       simParameterValuesAJ <- maybe Map.empty Map.fromList <$>
-                       optSection' "parameters" (assocSpec anySpec)
-                       "Use these values for model parameters"
-
-       pure SimulateAJCommand { .. }
+        pure SimulateCommand { .. }
 
 --------------------------------------------------------------------------------
 -- Stratify
