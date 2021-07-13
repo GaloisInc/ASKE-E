@@ -18,9 +18,9 @@ Kolmogorov complexity (and our computable proxy: compressibility) considers the 
 Alpha-conversion
 ----------------
 
-When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion.
+When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion. Keyword argument names are considered an essential part of function invocation and are not subjected to alpha-conversion.
 
-The following table illustrates the significant effect of identifier length upon compressibility and the relative insignificance of the order of appearance of functions in the program text.
+The following table illustrates the significant effect of identifier length upon compressibility and the relative insignificance of the order of appearance of functions in the program text. All of these programs contain the same set of forward declarations of their functions, allowing the functions to be reordered without otherwise changing the program.
 
 ```
 Minimal-length alpha-converted identifiers
