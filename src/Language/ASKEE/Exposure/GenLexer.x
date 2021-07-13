@@ -28,6 +28,9 @@ tokens :-
 <0> "="         { atomic Assign    }
 <0> "("         { atomic OpenP     }
 <0> ")"         { atomic CloseP    }
+<0> "["         { atomic OpenB     }
+<0> "]"         { atomic CloseB    }
+<0> ".."        { atomic DotDot    }
 <0> ","         { atomic Comma     }
 <0> "+"         { atomic InfixAdd  }
 <0> "-"         { atomic InfixSub  }
@@ -46,6 +49,7 @@ tokens :-
 <0> "false"     { atomic BoolFalse }
 <0> "true"      { atomic BoolTrue  }
 <0> "at"        { atomic At        }
+<0> "by"        { atomic By        }
 
 <0> "define"   { defineModel }
 <defNm> @ident { modelIdent }

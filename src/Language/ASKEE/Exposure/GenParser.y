@@ -23,6 +23,9 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 ','      { Located _ _ Lexer.Comma      }
 '('      { Located _ _ Lexer.OpenP      }
 ')'      { Located _ _ Lexer.CloseP     }
+'['      { Located _ _ Lexer.OpenB      }
+']'      { Located _ _ Lexer.CloseB     }
+'..'     { Located _ _ Lexer.DotDot     }
 REAL     { Located _ _ (Lexer.LitD $$)  }
 STRING   { Located _ _ (Lexer.LitS $$)  }
 IDENT    { Located _ _ (Lexer.Ident $$) }
@@ -43,6 +46,7 @@ IDENT    { Located _ _ (Lexer.Ident $$) }
 'true'   { Located _ _ Lexer.BoolTrue   }
 '.'      { Located _ _ Lexer.Dot        }
 'at'     { Located _ _ Lexer.At         }
+'by'     { Located _ _ Lexer.By         }
 'define' { Located _ _ Lexer.Define     }
 'end'    { Located _ _ Lexer.End        }
 DCHR     { Located _ _ (Lexer.DefChar $$) }
@@ -84,13 +88,15 @@ rev_defContents : DCHR { [$1] }
                 | rev_defContents DCHR { $2 : $1}
 
 expr :: { Expr }
-expr : IDENT                        { EVar $1 }
-     | lit                          { EVal $1 }
-     | bool                         { EVal $1 }
-     | IDENT '(' commaSepExprs0 ')' {% do { funName <- prefixFunctionName $1
-                                          ; pure (ECall funName $3) }}
-     | infixExpr                    { $1 }
-     | expr '.' IDENT               { EMember $1 $3 }
+expr : IDENT                            { EVar $1 }
+     | lit                              { EVal $1 }
+     | bool                             { EVal $1 }
+     | IDENT '(' commaSepExprs0 ')'     {% do { funName <- prefixFunctionName $1
+                                              ; pure (ECall funName $3) }}
+     | infixExpr                        { $1 }
+     | expr '.' IDENT                   { EMember $1 $3 }
+     | '[' commaSepExprs0 ']'           { EList $2 }
+     | '[' expr '..' expr 'by' expr ']' { EListRange $2 $4 $6 }
 
 infixExpr :: { Expr }
 infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
@@ -109,7 +115,7 @@ infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
           | expr 'at' expr  { ECall FAt  [$1, $3] }
 
 dispExpr :: { DisplayExpr }
-disExpr : expr { DisplayScalar $1 }
+dispExpr : expr { DisplayScalar $1 }
 
 lit :: { Value }
 lit : REAL   { VDouble $1 }

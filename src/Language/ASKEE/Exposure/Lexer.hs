@@ -13,6 +13,9 @@ data Token
   | Comma
   | OpenP
   | CloseP
+  | OpenB
+  | CloseB
+  | DotDot
   | Ident Text
   | InfixAdd
   | InfixSub
@@ -31,4 +34,5 @@ data Token
   | BoolTrue
   | Dot
   | At
+  | By
   deriving Show

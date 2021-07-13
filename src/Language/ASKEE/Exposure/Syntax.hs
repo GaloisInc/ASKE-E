@@ -28,6 +28,8 @@ data Expr
   | EVal Value
   | ECall FunctionName [Expr]
   | EMember Expr Ident
+  | EList [Expr]
+  | EListRange Expr Expr Expr
   deriving (Show, Eq, Ord)
 
 data Value
@@ -72,6 +74,7 @@ data FunctionName
   | FLoadEasel
   | FLoadCSV
   | FMean
+  | FInterpolate
   deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
@@ -90,8 +93,9 @@ data SampleFold =
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
   case T.unpack ident of
-    "loadESL" -> Right FLoadEasel
-    "loadCSV" -> Right FLoadCSV
-    "P"       -> Right FProb
-    "mean"    -> Right FMean
+    "loadESL"     -> Right FLoadEasel
+    "loadCSV"     -> Right FLoadCSV
+    "P"           -> Right FProb
+    "mean"        -> Right FMean
+    "interpolate" -> Right FInterpolate
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

@@ -17,6 +17,9 @@ import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import Data.Set(Set)
 import qualified Data.Set as Set
+import qualified Data.Vector.Storable as VS
+import qualified Numeric.GSL.Interpolation as Interpolation
+
 import Language.ASKEE.Exposure.Syntax
 
 import qualified Language.ASKEE.Core as Core
@@ -182,6 +185,19 @@ interpretExpr e0 =
             VModelExpr m -> pure $ VModelExpr (EMember m lab)
             _ -> mem v lab
 
+    EList es ->
+      do  vs <- interpretExpr `traverse` es
+          pure $ VArray vs
+
+    EListRange start stop step ->
+      do  start' <- interpretExpr start
+          stop'  <- interpretExpr stop
+          step'  <- interpretExpr step
+          case (start', stop', step') of
+            (VDouble startD, VDouble stopD, VDouble stepD) ->
+              pure $ VArray $ map VDouble [startD, startD + stepD .. stopD]
+            _ -> typeErrorArgs [start', stop', step'] "all values in a range should be doubles"
+
 interpretDisplayExpr :: DisplayExpr -> Eval ()
 interpretDisplayExpr (DisplayScalar scalar) = do
   v <- interpretExpr scalar
@@ -252,12 +268,13 @@ interpretCall fun args =
             Just ds -> pure $ VDouble $ mean ds
             Nothing -> throw $ "no label named: " <> lab
         _ -> typeError "mean"
+
+    FInterpolate ->
+      case args of
+        [arg1, arg2] -> interpretInterpolate arg1 arg2
+        _            -> typeError "interpolate expects exactly two arguments"
   where
-    typeError msg = throw $ Text.unlines
-      [ "type error: " <> msg
-      {- Uncomment the line below if you want a _lot_ of debugging output -}
-      -- , "arguments: " <> Text.pack (show args)
-      ]
+    typeError = typeErrorArgs args
 
     getMexpr (VModelExpr e) = Just e
     getMexpr _ = Nothing
@@ -293,6 +310,30 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
+interpretInterpolate :: Value -> Value -> Eval Value
+interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
+  interpretInterpolate arg1 arg2
+interpretInterpolate (VDataSeries (DS.DataSeries{DS.times = oldTimes, DS.values = oldValueMap}))
+                     (VArray points) =
+  do pointDs <- getDoubleValue `traverse` points
+     pure $ VDataSeries $ DS.DataSeries
+       { DS.times = pointDs
+       , DS.values = Map.map (\oldValues ->
+                               map (Interpolation.evaluateV Interpolation.Linear
+                                                            (VS.fromList oldTimes)
+                                                            (VS.fromList oldValues))
+                                   pointDs)
+                             oldValueMap
+       }
+interpretInterpolate arg1 arg2 =
+  typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
+
+typeErrorArgs :: [Value] -> Text -> Eval a
+typeErrorArgs _args msg = throw $ Text.unlines
+  [ "type error: " <> msg
+  {- Uncomment the line below if you want a _lot_ of debugging output -}
+  -- , "arguments: " <> Text.pack (show _args)
+  ]
 
 -- run a single simulation - emitting a new (evaulable expr)
 execSim :: SampleFold -> DynamicalFold -> Expr -> Eval Expr
@@ -324,6 +365,8 @@ runSimExpr n t e0 =
     EVar _ -> pure e0
     ECall fname args -> ECall fname <$> runSimExpr n t `traverse` args
     EMember e lab -> EMember <$> runSimExpr n t e <*> pure lab
+    EList es -> EList <$> runSimExpr n t `traverse` es
+    EListRange start stop step -> EListRange <$> runSimExpr n t start <*> runSimExpr n t stop <*> runSimExpr n t step
 
 runSim :: Int -> Double -> Core.Model -> Eval Value
 runSim n t mdl =
@@ -358,6 +401,12 @@ getBoolValue v =
   case v of
     VBool b -> pure b
     _ -> throw "Value is a not a boolean"
+
+getDoubleValue :: Value -> Eval Double
+getDoubleValue v =
+  case v of
+    VDouble d -> pure d
+    _ -> throw "Value is not a double"
 
 -- this presumes quite a few things
 atPoint :: [Value] -> Double -> Eval Value
