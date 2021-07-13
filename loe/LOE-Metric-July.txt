@@ -16,6 +16,34 @@ Alpha-conversion
 
 When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion.
 
+The following table illustrates the significant effect of identifier length upon compressibility and the relative insignficance of the order of appearance of functions in the program text.
+
+Minimal-length alpha-converted identifiers
+1143	toposort-orig.c
+1135	toposort-shuf-1.c
+1142	toposort-shuf-2.c
+1140	toposort-shuf-3.c
+Suffix xy appended to alpha-converted identifiers
+1252	toposort-orig.c
+1245	toposort-shuf-1.c
+1250	toposort-shuf-2.c
+1256	toposort-shuf-3.c
+Suffix xyz appended to alpha-converted identifiers
+1285	toposort-orig.c
+1289	toposort-shuf-1.c
+1290	toposort-shuf-2.c
+1292	toposort-shuf-3.c
+Suffix xyzzy appended to alpha-converted identifiers
+1351	toposort-orig.c
+1352	toposort-shuf-1.c
+1348	toposort-shuf-2.c
+1345	toposort-shuf-3.c
+Suffix xyzzy0987654321 appended to alpha-converted identifiers
+1608	toposort-orig.c
+1600	toposort-shuf-1.c
+1619	toposort-shuf-2.c
+1591	toposort-shuf-3.c
+
 Other Considerations
 
 The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm. Additionally, some compression methods are known to emit multiple dictionaries; this can happen when the compressor encounters new text in the input stream and that text is not adequately compressible using the active dictionary[5]. It's not clear how or whether this will affect the compressibility measurement.
