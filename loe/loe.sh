@@ -34,13 +34,11 @@ PGM=$(basename "$0")
 SRCFILE=$(basename "$1")
 SRCPATH=$(dirname "$1")
 
-COUNTS=$(cat "$SRCPATH/$SRCFILE"|wc -lc)
-
-KOFS=$($HERE/bounds/alpha.sh "$SRCPATH/$SRCFILE" "$HERE/samples/symbols/$SRCFILE.symbols")
+K_OF_S=$($HERE/bounds/alpha.sh "$SRCPATH/$SRCFILE" "$HERE/samples/symbols/$SRCFILE.symbols")
 
 SRC_USYM=$(cat "$SRCPATH/$SRCFILE"|tr -cs [a-zA-Z0-9_.] '\n'|sort|uniq|wc -w)
 
-printf "; %15s %15s %15s %15s %15s\n" \
-	"Source text" "wc -lc  " "K(s) estimate" "Unique symbols" "K(s)/U(s)"
-printf "= %15s %15s %15d %15d %15s\n" \
-	$SRCFILE "$COUNTS" $KOFS $SRC_USYM `echo "scale=2; $KOFS/$SRC_USYM"|bc`
+printf "; %15s %12s %12s %10s\n" \
+	"Source text" "proxy K(s)" "Unique syms" "K(s)/U(s)"
+printf "= %15s %12d %12d %10s\n" \
+	$SRCFILE $K_OF_S $SRC_USYM `echo "scale=2; $K_OF_S/$SRC_USYM"|bc`

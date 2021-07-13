@@ -62,47 +62,46 @@ Results
 
 We collected from the Rosetta Code website[10] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[11] and Python[12]. Comments have been removed from all source texts.
 
-
 The following table shows the analysis of the sample source codes.
 
-    Source text        wc -lc     K(s) estimate  Unique symbols       K(s)/U(s)
-        hello.c       5      52              55               6            9.16
-      hello.cpp       7      86              83              10            8.30
-      hello.f90       4      69              69               7            9.85
-       hello.hs       1      25              29               3            9.66
-    quicksort.c      20     346             213              21           10.14
-  quicksort.cpp      22     673             293              23           12.73
-  quicksort.f90      59    1166             585              38           15.39
-   quicksort.hs       2      94              77               8            9.62
-     toposort.c      64    1338             731              52           14.05
-   toposort.cpp      59    2037             739              57           12.96
-   toposort.f90      37     666             409              30           13.63
-    toposort.hs      23     757             515              56            9.19
-    ackermann.c       6     160             101               7           14.42
-  ackermann.cpp       9     197             131               9           14.55
-  ackermann.f90      11     268             173              14           12.35
-   ackermann.hs       4     107              88               8           11.00
-      ode-1.txt       1      48              55               8            6.87
-       ode-1.jl      11     235             204              25            8.16
-     ode-1_1.py      15     358             267              35            7.62
-     ode-1_2.py      16     444             311              32            9.71
-     ode-1_3.py      14     303             231              28            8.25
-     ode-1_4.py      14     313             243              29            8.37
-     ode-1_5.py      27     801             569              63            9.03
-      ode-2.txt       5      85              78              12            6.50
-       ode-2.jl      20     407             314              44            7.13
-     ode-2_1.py      23     471             320              47            6.80
-     ode-2_2.py      22     481             353              42            8.40
-     ode-2_3.py      21     434             300              42            7.14
-     ode-2_4.py      23     449             333              44            7.56
-     ode-2_5.py      41     979             663              73            9.08
-      ode-3.txt       3      47              50               8            6.25
-       ode-3.jl      15     308             248              33            7.51
-     ode-3_1.py      21     438             301              44            6.84
-     ode-3_2.py      21     478             350              41            8.53
-     ode-3_3.py      19     446             293              41            7.14
-     ode-3_4.py      22     437             311              43            7.23
-     ode-3_5.py      27     801             569              63            9.03
+    Source text   proxy K(s)  Unique syms  K(s)/U(s)
+        hello.c           55            6       9.16
+      hello.cpp           83           10       8.30
+      hello.f90           69            7       9.85
+       hello.hs           29            3       9.66
+    quicksort.c          213           21      10.14
+  quicksort.cpp          293           23      12.73
+  quicksort.f90          585           38      15.39
+   quicksort.hs           77            8       9.62
+     toposort.c          731           52      14.05
+   toposort.cpp          739           57      12.96
+   toposort.f90          409           30      13.63
+    toposort.hs          515           56       9.19
+    ackermann.c          101            7      14.42
+  ackermann.cpp          131            9      14.55
+  ackermann.f90          173           14      12.35
+   ackermann.hs           88            8      11.00
+      ode-1.txt           55            8       6.87
+       ode-1.jl          204           25       8.16
+     ode-1_1.py          267           35       7.62
+     ode-1_2.py          311           32       9.71
+     ode-1_3.py          231           28       8.25
+     ode-1_4.py          243           29       8.37
+     ode-1_5.py          569           63       9.03
+      ode-2.txt           78           12       6.50
+       ode-2.jl          314           44       7.13
+     ode-2_1.py          320           47       6.80
+     ode-2_2.py          353           42       8.40
+     ode-2_3.py          300           42       7.14
+     ode-2_4.py          333           44       7.56
+     ode-2_5.py          663           73       9.08
+      ode-3.txt           50            8       6.25
+       ode-3.jl          248           33       7.51
+     ode-3_1.py          301           44       6.84
+     ode-3_2.py          350           41       8.53
+     ode-3_3.py          293           41       7.14
+     ode-3_4.py          311           43       7.23
+     ode-3_5.py          569           63       9.03
 
 References
 
