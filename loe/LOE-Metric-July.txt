@@ -8,7 +8,7 @@ The Initial Proposal
 
 We propose that LOE is related to program complexity, which in turn is related primarily to the size of the program. To a first approximation, a longer program takes longer to write. The challenge then becomes finding a way to quantify the length of a program in a way that is somewhat predictable despite variations in programmer style and preference, for example the presence or absence of comments and whitespace and use of short versus long identifier names.
 
-The Kolmogorov complexity[1] metric suggests a solution which is independent of choice of representation: find the shortest program which emits the text of the program to be measured. While Kolmogorov complexity is not computable[2], compressibility of the program text serves as an approximate upper bound on the vale expected of the the text's Kolmogorov complexity[3,4].
+The Kolmogorov complexity[1] metric suggests a solution which is independent of choice of representation: find the shortest program which emits the text of the program to be measured. While Kolmogorov complexity is not computable[2], compressibility of the program text serves as an approximate upper bound on the value expected of the the text's Kolmogorov complexity[3,4].
 
 Caveats
 -------
