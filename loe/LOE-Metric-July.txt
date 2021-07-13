@@ -18,6 +18,7 @@ When using compressibility as a proxy for Kolmogorov complexity, the resulting m
 
 The following table illustrates the significant effect of identifier length upon compressibility and the relative insignficance of the order of appearance of functions in the program text.
 
+```
 Minimal-length alpha-converted identifiers
 1143	toposort-orig.c
 1135	toposort-shuf-1.c
@@ -43,6 +44,7 @@ Suffix xyzzy0987654321 appended to alpha-converted identifiers
 1600	toposort-shuf-1.c
 1619	toposort-shuf-2.c
 1591	toposort-shuf-3.c
+``
 
 Other Considerations
 
@@ -64,6 +66,7 @@ We collected from the Rosetta Code website[10] a number of sample programs writt
 
 The following table shows the analysis of the sample source codes.
 
+```
     Source text   proxy K(s)  Unique syms  K(s)/U(s)
         hello.c           55            6       9.16
       hello.cpp           83           10       8.30
@@ -102,9 +105,11 @@ The following table shows the analysis of the sample source codes.
      ode-3_3.py          293           41       7.14
      ode-3_4.py          311           43       7.23
      ode-3_5.py          569           63       9.03
+```
 
 References
 
+```
 [1] https://en.wikipedia.org/wiki/Kolmogorov_complexity
 [2] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Uncomputability_of_Kolmogorov_complexity
 [3] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Compression
@@ -117,12 +122,13 @@ References
 [10] https://rosettacode.org/
 [11] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
 [12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
+```
 
 Appendix
 
 This is all of the sample code:
 
-
+```
                        samples/ackermann.c
 
 
@@ -1035,3 +1041,4 @@ toposort xs
       filter ((> 1) . length) $
       (\[(a, as), (b, bs)] -> (a `intersect` bs) ++ (b `intersect` as)) <$>
       combs 2 dB
+```
