@@ -38,14 +38,17 @@ main =
                                 _ -> (200, "OK")
                         Snap.modifyResponse (Snap.setResponseStatus code msg)
                         Snap.writeLBS (JS.encode out)
-                  Left err ->
-                    do  Snap.modifyResponse
-                                  (Snap.setResponseStatus 400 "Bad request")
-                        Snap.writeText $ Text.pack $ show (err :: SomeException)
-          Left err ->
-            do  Snap.writeText $ Text.pack err
-                Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-                -- showHelp
+                  Left err -> errorWith 500 (show (err :: SomeException))
+          Left err -> errorWith 400 ("Didn't recognize request: "<>err)
+
+errorWith :: Int -> String -> Snap.Snap ()
+errorWith code err =
+  do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
+      let response = JS.object 
+            [ "status" JS..= ("error" :: String)
+            , "error" JS..= err
+            ]
+      Snap.writeLBS (JS.encode response)
 
 showHelp :: Snap.Snap ()
 showHelp = Snap.writeLBS helpHTML
@@ -57,51 +60,18 @@ handleRequest :: Input -> IO Result
 handleRequest r =
   print r >>
   case r of
-    SimulateDiscrete SimulateDiscreteCommand{..} ->
-      do  res <- 
-            simulateModelDiscrete
-              (modelDefType simModelDiscrete)
-              (modelDefSource simModelDiscrete)
-              simStartDiscrete
-              simEndDiscrete
-              simStepDiscrete
-              simSeedDiscrete
-          succeed' res
-
-    SimulateGSL SimulateGSLCommand{..} ->
-      do  res <- 
-            simulateModelGSL
-              (modelDefType simModelGSL)
-              (modelDefSource simModelGSL)
-              simStartGSL
-              simEndGSL
-              simStepGSL
-              simParameterValuesGSL
-              mempty -- XXX: get measures from request
-          succeed' res
-    
-    SimulateAJ SimulateAJCommand{..} ->
-      do  res <- 
-            simulateModelAJ
-              (modelDefType simModelAJ)
-              (modelDefSource simModelAJ)
-              simStartAJ
-              simEndAJ
-              simStepAJ
-              simParameterValuesAJ
-          succeed' res
-
-    Simulate SimulateCommand{..} ->
-      do  res <-
-            simulateDefault
-              (modelDefType simModel)
-              (modelDefSource simModel)
-              simStart
-              simEnd
-              simStep
-              simParameterValues
-              simDomainParam
-              simOutputs
+    Simulate SimulateCommand{..} -> 
+      do  res <- simulateModel 
+            simType 
+            (modelDefType simModel) 
+            (modelDefSource simModel) 
+            simStart 
+            simEnd 
+            simStep
+            simParameterValues
+            mempty
+            simSeed
+            Nothing
           succeed' res
 
     CheckModel CheckModelCommand{..} ->

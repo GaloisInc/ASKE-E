@@ -1,6 +1,6 @@
 #include <iterator>
-#include <algorithm> // for std::partition
-#include <functional> // for std::less
+#include <algorithm>
+#include <functional>
  
 template<typename RandomAccessIterator,
          typename Order>

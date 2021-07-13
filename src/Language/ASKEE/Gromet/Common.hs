@@ -80,7 +80,7 @@ instance JSON.FromJSON JunctionUid where
 instance JSON.ToJSON ValueType where
   toJSON ty =
     case ty of
-      Real    -> "Real"
+      Real    -> "Float"
       Boolean -> "Boolean"
       Integer -> "Integer"
 

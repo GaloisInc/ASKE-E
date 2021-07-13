@@ -12,7 +12,7 @@ import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
 import qualified Language.ASKEE.Core.Expr          as CExp
 import qualified Language.ASKEE.Core.Visualization as Viz
-import           Language.ASKEE.Model.Basics ( ValueType(..) )
+import           Language.ASKEE.Model.Basics ( ValueType(..), Value(VReal) )
 
 import qualified Test.Tasty       as Tasty
 import           Test.Tasty.HUnit ( Assertion
@@ -84,7 +84,7 @@ testSimulateEslParameterized mdlSrc expected =
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =
-  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step (Just 123)
+  do  actual <- simulateModelDiscrete EaselType mdlSrc start stop step mempty (Just 123)
       assertDataClose actual expected
 
 asRange :: [Double] -> IO (Double, Double, Double)
@@ -219,19 +219,19 @@ testDescribeInterface =
       let expected = 
             ModelInterface 
             { modelInputs = 
-              [ Port {portName = "J:E_init", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("group",["Initial State"]),("name",["E"]),("type",["Integer"])]}
-              , Port {portName = "J:I_init", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("group",["Initial State"]),("name",["I"]),("type",["Integer"])]}
-              , Port {portName = "J:R_init", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("group",["Initial State"]),("name",["R"]),("type",["Integer"])]}
-              , Port {portName = "J:S_init", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("group",["Initial State"]),("name",["S"]),("type",["Integer"])]}
-              , Port {portName = "J:exp_rate", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("group",["Rate"]),("name",["exp"]),("type",["Real"])]}
-              , Port {portName = "J:inf_rate", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("group",["Rate"]),("name",["inf"]),("type",["Real"])]}
-              , Port {portName = "J:rec_rate", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("group",["Rate"]),("name",["rec"]),("type",["Real"])]}
+              [ Port {portName = "J:E_init", portValueType = Real, portDefault = Just (VReal 3.0), portMeta = Map.fromList [("group",["Initial State"]),("name",["E"]),("type",["Real"])]}
+              , Port {portName = "J:I_init", portValueType = Real, portDefault = Just (VReal 0), portMeta = Map.fromList [("group",["Initial State"]),("name",["I"]),("type",["Real"])]}
+              , Port {portName = "J:R_init", portValueType = Real, portDefault = Just (VReal 0), portMeta = Map.fromList [("group",["Initial State"]),("name",["R"]),("type",["Real"])]}
+              , Port {portName = "J:S_init", portValueType = Real, portDefault = Just (VReal 997), portMeta = Map.fromList [("group",["Initial State"]),("name",["S"]),("type",["Real"])]}
+              , Port {portName = "J:exp_rate", portValueType = Real, portDefault = Just (VReal 0.0004), portMeta = Map.fromList [("group",["Rate"]),("name",["exp"]),("type",["Real"])]}
+              , Port {portName = "J:inf_rate", portValueType = Real, portDefault = Just (VReal 0.3), portMeta = Map.fromList [("group",["Rate"]),("name",["inf"]),("type",["Real"])]}
+              , Port {portName = "J:rec_rate", portValueType = Real, portDefault = Just (VReal 0.04), portMeta = Map.fromList [("group",["Rate"]),("name",["rec"]),("type",["Real"])]}
               ]
             , modelOutputs = 
-              [ Port {portName = "J:E", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("name",["E"]),("type",["Integer"])]}
-              , Port {portName = "J:I", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("name",["I"]),("type",["Integer"])]}
-              , Port {portName = "J:R", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("name",["R"]),("type",["Integer"])]}
-              , Port {portName = "J:S", portValueType = Integer, portDefault = Nothing, portMeta = Map.fromList [("name",["S"]),("type",["Integer"])]}]
+              [ Port {portName = "J:E", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["E"]),("type",["Real"])]}
+              , Port {portName = "J:I", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["I"]),("type",["Real"])]}
+              , Port {portName = "J:R", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["R"]),("type",["Real"])]}
+              , Port {portName = "J:S", portValueType = Real, portDefault = Nothing, portMeta = Map.fromList [("name",["S"]),("type",["Real"])]}]
             }
           expectedInputs = modelInputs expected
           expectedOutputs = modelOutputs expected
