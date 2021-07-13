@@ -12,6 +12,10 @@ Caveats
 
 Kolmogorov complexity (and our computable proxy: compressibility) considers the entire program text, including comments (which are informative to the reader, but do not contribute to the behavior of the program) and translation directives of various kinds (e.g. compiler directives, pragmas and makefiles). We should always strip comments. It's less clear what to do about translation directives; we will attend to this question after discussions about whether our proposal satisifies the desire for an LOE metric.
 
+Alpha-conversion
+
+When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion.
+
 Other Considerations
 
 The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm. Additionally, some compression methods are known to emit multiple dictionaries; this can happen when the compressor encounters new text in the input stream and that text is not adequately compressible using the active dictionary[5]. It's not clear how or whether this will affect the compressibility measurement.
@@ -28,57 +32,49 @@ As an adjunct to compressibility, we also count the number of unique tokens (exc
 
 Results
 
-We collected from the Rosetta Code website[10] a number of sample programs written in C, C++, FORTRAN and Haskell. Each of these programs is compiled to its corresponding assembler-code text. The assembler program is likely not representative of what an experienced programmer would write from scratch. This is intentional. By comparing the LOE of the source text to that of the assembler-code text targeting the same execution model and runtime libraries, we form a notion of the difference in LOE due to the different representations of the same program.
+We collected from the Rosetta Code website[10] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[11] and Python[12]. Comments have been removed from all source texts.
 
-The following table shows the LOE analysis of both the source-language text and its corresponding assembler code.
 
-    Source text       Compressed Size         Unique Symbols      Product
-                   src    asm     ratio    src    asm     ratio     ratio
-        hello.c     90    373      4.14     11     53      4.81     19.91
-      hello.cpp    118   1340     11.35     15     91      6.06     68.78
-      hello.f90     69    944     13.68      7     87     12.42    169.91
-       hello.hs     32   1594     49.81      3     97     32.33   1610.36
+The following table shows the analysis of the sample source codes.
 
-    Source text       Compressed Size         Unique Symbols      Product
-                   src    asm     ratio    src    asm     ratio     ratio
-    quicksort.c    456   1443      3.16     40    109      2.72      8.60
-  quicksort.cpp    443    320      0.72     25     24      0.96      0.69
-  quicksort.f90   1333   4864      3.64    108    258      2.38      8.66
-   quicksort.hs    110   3599     32.71     14    200     14.28    467.10
-
-    Source text       Compressed Size         Unique Symbols      Product
-                   src    asm     ratio    src    asm     ratio     ratio
-     toposort.c   1497   3436      2.29     95    208      2.18      4.99
-   toposort.cpp   2122  77823     36.67    142   1943     13.68    501.65
-   toposort.f90    386   1652      4.27     30    127      4.23     18.06
-    toposort.hs    831  22900     27.55     75   1017     13.56    373.58
-
-    Source text       Compressed Size         Unique Symbols      Product
-                   src    asm     ratio    src    asm     ratio     ratio
-    ackermann.c    257    910      3.54     19     82      4.31     15.26
-  ackermann.cpp    293   2036      6.94     20    117      5.85     40.60
-  ackermann.f90    323   1811      5.60     28    126      4.50     25.20
-   ackermann.hs    141   3073     21.79     17    167      9.82    213.98
-
-Note that the number of source lines for the sample programs ranges over a couple orders of magnitude. This metric should be considered when evaluating the predictive value of LOE for a given source language.
-
-   18 samples/ackermann.c
-   19 samples/ackermann.cpp
-   27 samples/ackermann.f90
-    7 samples/ackermann.hs
-    5 samples/hello.c
-    6 samples/hello.cpp
-    4 samples/hello.f90
-    1 samples/hello.hs
-   44 samples/quicksort.c
-   22 samples/quicksort.cpp
-  100 samples/quicksort.f90
-    6 samples/quicksort.hs
-  122 samples/toposort.c
-  137 samples/toposort.cpp
-   37 samples/toposort.f90
-   44 samples/toposort.hs
-  599 total
+    Source text        wc -lc     K(s) estimate  Unique symbols       K(s)/U(s)
+        hello.c       5      52              55               6            9.16
+      hello.cpp       7      86              83              10            8.30
+      hello.f90       4      69              69               7            9.85
+       hello.hs       1      25              29               3            9.66
+    quicksort.c      20     346             213              21           10.14
+  quicksort.cpp      22     673             293              23           12.73
+  quicksort.f90      59    1166             585              38           15.39
+   quicksort.hs       2      94              77               8            9.62
+     toposort.c      64    1338             731              52           14.05
+   toposort.cpp      59    2037             739              57           12.96
+   toposort.f90      37     666             409              30           13.63
+    toposort.hs      23     757             515              56            9.19
+    ackermann.c       6     160             101               7           14.42
+  ackermann.cpp       9     197             131               9           14.55
+  ackermann.f90      11     268             173              14           12.35
+   ackermann.hs       4     107              88               8           11.00
+      ode-1.txt       1      48              55               8            6.87
+       ode-1.jl      11     235             204              25            8.16
+     ode-1_1.py      15     358             267              35            7.62
+     ode-1_2.py      16     444             311              32            9.71
+     ode-1_3.py      14     303             231              28            8.25
+     ode-1_4.py      14     313             243              29            8.37
+     ode-1_5.py      27     801             569              63            9.03
+      ode-2.txt       5      85              78              12            6.50
+       ode-2.jl      20     407             314              44            7.13
+     ode-2_1.py      23     471             320              47            6.80
+     ode-2_2.py      22     481             353              42            8.40
+     ode-2_3.py      21     434             300              42            7.14
+     ode-2_4.py      23     449             333              44            7.56
+     ode-2_5.py      41     979             663              73            9.08
+      ode-3.txt       3      47              50               8            6.25
+       ode-3.jl      15     308             248              33            7.51
+     ode-3_1.py      21     438             301              44            6.84
+     ode-3_2.py      21     478             350              41            8.53
+     ode-3_3.py      19     446             293              41            7.14
+     ode-3_4.py      22     437             311              43            7.23
+     ode-3_5.py      27     801             569              63            9.03
 
 References
 
@@ -92,3 +88,5 @@ References
 [8] https://en.wikipedia.org/wiki/Edit_distance
 [9] https://en.wikipedia.org/wiki/Levenshtein_distance
 [10] https://rosettacode.org/
+[11] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
+[12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
