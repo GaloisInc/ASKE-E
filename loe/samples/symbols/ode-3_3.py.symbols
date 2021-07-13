@@ -1,0 +1,15 @@
+np
+odeint
+ode_sys
+t
+X
+x
+dx_dt
+d2x_dt2
+t_begin
+t_end
+t_nsamples
+t_space
+x_init
+dxdt_init
+num_sol
