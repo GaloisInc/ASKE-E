@@ -75,6 +75,7 @@ library
                         Language.ASKEE.Gromet.Syntax
                         Language.ASKEE.Gromet.PetriNetClassic
                         Language.ASKEE.Gromet.Common
+                        Language.ASKEE.Gromet.FunctionNetwork
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
@@ -96,6 +97,7 @@ library
                         Language.ASKEE.RNet.Reaction
                         Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
+
 
                         -- General
                         Language.ASKEE.Convert

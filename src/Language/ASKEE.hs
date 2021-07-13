@@ -111,6 +111,7 @@ import           Language.ASKEE.Panic                  ( panic )
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
+import qualified Language.ASKEE.Gromet.FunctionNetwork  as FNet
 import qualified Language.ASKEE.CPP                     as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
@@ -454,10 +455,18 @@ queryModels query =
 --------------------------------------------------------------------------------
 
 describeModelInterface :: Model -> ModelInterface
-describeModelInterface model =
-  case toCore model of
-    Right core -> Core.modelInterface core
-    Left {} -> emptyModelInterface -- XXX: FN
+describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterface)
+  where
+    eitherToMaybe (Left _) = Nothing
+    eitherToMaybe (Right a) = Just a
 
+    orElse (Just a) _ = a
+    orElse Nothing b = b
+
+    asCore = Core.modelInterface <$> eitherToMaybe (toCore model)
+    asFnet =
+      case model of
+        GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
+        _ -> Nothing
 
 

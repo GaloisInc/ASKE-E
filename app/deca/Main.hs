@@ -114,7 +114,8 @@ modelsProvided opts =
   map (, A.DeqType) (deqFiles opts) ++
   map (, A.EaselType) (modelFiles opts) ++
   map (, A.GrometPncType) (pncFiles opts) ++
-  map (, A.RNetType) (rnetFiles opts)
+  map (, A.RNetType) (rnetFiles opts) ++
+  map (, A.GrometFnetType) (fnetFiles opts)
 
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =

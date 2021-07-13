@@ -45,6 +45,7 @@ data Options = Options
   , deqFiles :: [FilePath]
   , rnetFiles :: [FilePath]
   , pncFiles :: [FilePath]
+  , fnetFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
@@ -64,6 +65,7 @@ options = OptSpec
         , deqFiles = []
         , pncFiles = []
         , rnetFiles = []
+        , fnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
         , measures = Set.empty
@@ -188,6 +190,10 @@ options = OptSpec
       , Option [] ["pnc"]
         "Use this Petri Net Classic"
         $ ReqArg "FILE" \a s -> Right s { pncFiles = a : pncFiles s}
+
+      , Option [] ["fnet"]
+        "Use this function network"
+        $ ReqArg "FILE" \a s -> Right s { fnetFiles = a : fnetFiles s }
 
 
 
