@@ -13,14 +13,14 @@ The Kolmogorov complexity[1] metric suggests a solution which is independent of 
 Caveats
 -------
 
-Kolmogorov complexity (and our computable proxy: compressibility) considers the entire program text, including comments (which are informative to the reader, but do not contribute to the behavior of the program) and translation directives of various kinds (e.g. compiler directives, pragmas and makefiles). We should always strip comments. It's less clear what to do about translation directives; we will attend to this question after discussions about whether our proposal satisifies the desire for an LOE metric.
+Kolmogorov complexity (and our computable proxy: compressibility) considers the entire program text, including comments (which are informative to the reader, but do not contribute to the behavior of the program) and translation directives of various kinds (e.g. compiler directives, pragmas and makefiles). We should always strip comments. It's less clear what to do about translation directives; we will attend to this question after discussions about whether our proposal satisfies the desire for an LOE metric.
 
 Alpha-conversion
 ----------------
 
 When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion.
 
-The following table illustrates the significant effect of identifier length upon compressibility and the relative insignficance of the order of appearance of functions in the program text.
+The following table illustrates the significant effect of identifier length upon compressibility and the relative insignificance of the order of appearance of functions in the program text.
 
 ```
 Minimal-length alpha-converted identifiers
@@ -62,7 +62,7 @@ Other Approaches
 
 We attempted to apply Latent Semantic Indexing[7] as a measure of document similarity. We thought of this not as LOE for a specific program text, but rather as a measure of the effort required to transform one text into a larger, more complex text (e.g. ODE to RNET or RNET to a discrete event simulation written in a general-purpose programming language). We quickly discovered that the method is not useful when scaled down to using a single document as a corpus.
 
-We considered and rejected the use of edit distance[8] (e.g. Levenshtein distance[9]) to measure document similiarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical. 
+We considered and rejected the use of edit distance[8] (e.g. Levenshtein distance[9]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical. 
 
 As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
 
