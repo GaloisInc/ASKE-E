@@ -1,3 +1,3 @@
 #! /usr/bin/env sh
 
-pr -D '' -F samples/*.*|tr -d "\f"|sed 's/ \+Page .*$//'
+pr -D '' -F -l 999 bounds/toposort-*.c samples/*.*|tr -d "\f"|sed 's/ \+Page .*$//'
