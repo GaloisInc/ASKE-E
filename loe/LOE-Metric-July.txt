@@ -44,7 +44,7 @@ Suffix xyzzy0987654321 appended to alpha-converted identifiers
 1600	toposort-shuf-1.c
 1619	toposort-shuf-2.c
 1591	toposort-shuf-3.c
-``
+```
 
 Other Considerations
 
