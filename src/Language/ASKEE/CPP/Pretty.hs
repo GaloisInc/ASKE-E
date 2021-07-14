@@ -124,6 +124,9 @@ member obj x = obj <> "." <> x
 deref :: Doc -> Doc
 deref obj = "*" <> obj
 
+nullptr :: Doc
+nullptr = "NULL"
+
 -- XXX: escape bad charcarcters and avoid keywords, etc.
 ident :: Text -> Doc
 ident = pretty

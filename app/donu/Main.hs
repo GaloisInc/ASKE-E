@@ -72,6 +72,7 @@ handleRequest r =
             mempty
             simSeed
             Nothing
+            1
           succeed' res
 
     CheckModel CheckModelCommand{..} ->

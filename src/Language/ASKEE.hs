@@ -341,12 +341,13 @@ simulateModel ::
   Set Text {- ^ variables to measure (empty to measure all) -} -> 
   Maybe Int {- ^ seed (for discrete event simulation) -} -> 
   Maybe Text {- ^ domain parameter (for function networks) -} -> 
-  IO (DataSeries Double)
-simulateModel sim format source start end step parameters outputs seed dp =
+  Int ->
+  IO [DataSeries Double]
+simulateModel sim format source start end step parameters outputs seed dp iterations =
   case sim of
-    GSL -> simulateModelGSL format source start end step parameters outputs
-    Discrete -> filterDS <$> simulateModelDiscrete format source start end step parameters seed
-    AJ -> filterDS <$> simulateModelAJ format source start end step parameters
+    GSL -> (:[]) <$> simulateModelGSL format source start end step parameters outputs
+    Discrete -> map filterDS <$> simulateModelDiscrete format source start end step parameters seed iterations
+    AJ -> (:[]) . filterDS <$> simulateModelAJ format source start end step parameters
   where
     filterDS ds 
       | null outputs = ds
@@ -375,13 +376,14 @@ simulateModelDiscrete ::
   Double {- ^ time step -} -> 
   Map Text Double ->
   Maybe Int {- ^ seed -} ->
-  IO (DataSeries Double)
-simulateModelDiscrete format source start end step parameters seed =
+  Int {- ^ number of iterations -}->
+  IO [DataSeries Double]
+simulateModelDiscrete format source start end step parameters seed iterations =
   do  model <- loadCoreFrom format source
       let parameterizedModel = Core.addParams parameters model
           (withLegalNames, newNames) = Core.legalize parameterizedModel
-      DataSeries{..} <- CPP.simulate withLegalNames start end step seed
-      pure $ DataSeries { values = adjust newNames values, .. }
+      dss <- CPP.simulate withLegalNames start end step seed iterations
+      mapM (\DataSeries{..} -> pure DataSeries { values = adjust newNames values, ..}) dss
 
   where
     adjust vs = Map.fromList . map (\(v, e) -> (vs Map.! v, e)) . Map.toList

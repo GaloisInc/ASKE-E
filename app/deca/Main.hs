@@ -47,7 +47,7 @@ main =
 
         SimulateCPP start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
-              res <- A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (overwrite opts) (seed opts)
+              res <- head <$> A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (overwrite opts) (seed opts) 1
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out

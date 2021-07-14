@@ -134,12 +134,12 @@ Example:
 
 **Response:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| times            | list of number           | series of times used in simulation                                |
-| values           | result series object     | values of state varaibles                                         |
+| Field            | Type                             | Description                                                       |
+|------------------|----------------------------------|-------------------------------------------------------------------|
+| times            | list of number                   | series of times used in simulation                                |
+| values           | list of result series object     | values of state varaibles                                         |
 
-The object in `values` is such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
 Example:
 
