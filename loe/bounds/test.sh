@@ -1,7 +1,8 @@
 #! /usr/bin/env sh
 
+HERE=$(cd `dirname $0`; pwd)
 function report () {
-	printf "%s\t%s\n" `./alpha.sh $1 $2 toposort.symbols` $2
+	printf "%s\t%s\n" `$HERE/alpha.sh $1 $HERE/$2 $HERE/toposort.symbols` $2
 }
 
 echo Minimal-length alpha-converted identifiers

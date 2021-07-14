@@ -24,30 +24,30 @@ The following table illustrates the significant effect of identifier length upon
 
 ```
 Minimal-length alpha-converted identifiers
-1143	toposort-orig.c
-1135	toposort-shuf-1.c
-1142	toposort-shuf-2.c
-1140	toposort-shuf-3.c
+799	toposort-orig.c
+795	toposort-shuf-1.c
+795	toposort-shuf-2.c
+798	toposort-shuf-3.c
 Suffix xy appended to alpha-converted identifiers
-1252	toposort-orig.c
-1245	toposort-shuf-1.c
-1250	toposort-shuf-2.c
-1256	toposort-shuf-3.c
+832	toposort-orig.c
+820	toposort-shuf-1.c
+828	toposort-shuf-2.c
+822	toposort-shuf-3.c
 Suffix xyz appended to alpha-converted identifiers
-1285	toposort-orig.c
-1289	toposort-shuf-1.c
-1290	toposort-shuf-2.c
-1292	toposort-shuf-3.c
+843	toposort-orig.c
+830	toposort-shuf-1.c
+838	toposort-shuf-2.c
+832	toposort-shuf-3.c
 Suffix xyzzy appended to alpha-converted identifiers
-1351	toposort-orig.c
-1352	toposort-shuf-1.c
-1348	toposort-shuf-2.c
-1345	toposort-shuf-3.c
+864	toposort-orig.c
+853	toposort-shuf-1.c
+858	toposort-shuf-2.c
+854	toposort-shuf-3.c
 Suffix xyzzy0987654321 appended to alpha-converted identifiers
-1608	toposort-orig.c
-1600	toposort-shuf-1.c
-1619	toposort-shuf-2.c
-1591	toposort-shuf-3.c
+940	toposort-orig.c
+929	toposort-shuf-1.c
+931	toposort-shuf-2.c
+929	toposort-shuf-3.c
 ```
 
 Other Considerations
@@ -75,43 +75,43 @@ The following table shows the analysis of the sample source codes.
 
 ```
     Source text   proxy K(s)  Unique syms  K(s)/U(s)
-        hello.c           55            6       9.16
-      hello.cpp           83           10       8.30
-      hello.f90           69            7       9.85
-       hello.hs           29            3       9.66
-    quicksort.c          213           21      10.14
-  quicksort.cpp          293           23      12.73
-  quicksort.f90          585           38      15.39
-   quicksort.hs           77            8       9.62
-     toposort.c          731           52      14.05
-   toposort.cpp          739           57      12.96
-   toposort.f90          409           30      13.63
-    toposort.hs          515           56       9.19
-    ackermann.c          101            7      14.42
-  ackermann.cpp          131            9      14.55
-  ackermann.f90          173           14      12.35
-   ackermann.hs           88            8      11.00
+        hello.c           51            6       8.50
+      hello.cpp           84           10       8.40
+      hello.f90           63            7       9.00
+       hello.hs           27            3       9.00
+    quicksort.c          196           21       9.33
+  quicksort.cpp          244           23      10.60
+  quicksort.f90          451           38      11.86
+   quicksort.hs           71            8       8.87
+     toposort.c          552           52      10.61
+   toposort.cpp          498           57       8.73
+   toposort.f90          310           30      10.33
+    toposort.hs          440           56       7.85
+    ackermann.c           83            7      11.85
+  ackermann.cpp           98            9      10.88
+  ackermann.f90          149           14      10.64
+   ackermann.hs           77            8       9.62
       ode-1.txt           55            8       6.87
-       ode-1.jl          204           25       8.16
-     ode-1_1.py          267           35       7.62
-     ode-1_2.py          311           32       9.71
-     ode-1_3.py          231           28       8.25
-     ode-1_4.py          243           29       8.37
-     ode-1_5.py          569           63       9.03
-      ode-2.txt           78           12       6.50
-       ode-2.jl          314           44       7.13
-     ode-2_1.py          320           47       6.80
-     ode-2_2.py          353           42       8.40
-     ode-2_3.py          300           42       7.14
-     ode-2_4.py          333           44       7.56
-     ode-2_5.py          663           73       9.08
+       ode-1.jl          187           25       7.48
+     ode-1_1.py          239           35       6.82
+     ode-1_2.py          254           32       7.93
+     ode-1_3.py          203           28       7.25
+     ode-1_4.py          213           29       7.34
+     ode-1_5.py          448           63       7.11
+      ode-2.txt           77           12       6.41
+       ode-2.jl          275           44       6.25
+     ode-2_1.py          280           47       5.95
+     ode-2_2.py          286           42       6.80
+     ode-2_3.py          248           42       5.90
+     ode-2_4.py          287           44       6.52
+     ode-2_5.py          523           73       7.16
       ode-3.txt           50            8       6.25
-       ode-3.jl          248           33       7.51
-     ode-3_1.py          301           44       6.84
-     ode-3_2.py          350           41       8.53
-     ode-3_3.py          293           41       7.14
-     ode-3_4.py          311           43       7.23
-     ode-3_5.py          569           63       9.03
+       ode-3.jl          230           33       6.96
+     ode-3_1.py          268           44       6.09
+     ode-3_2.py          287           41       7.00
+     ode-3_3.py          244           41       5.95
+     ode-3_4.py          276           43       6.41
+     ode-3_5.py          448           63       7.11
 ```
 
 References

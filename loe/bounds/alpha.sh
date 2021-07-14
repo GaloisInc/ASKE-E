@@ -58,6 +58,9 @@ tmp=`mktemp`
 cat $edits | awk '{ print length(), $0|"sort -nr"}' | cut -d' ' -f2- > $tmp
 mv $tmp $edits
 
-sed -f $edits $source|compress -c|wc -c
+# The xz compressor with a fixed method produces slightly smaller files than does compress.
+# It does so by omitting the header data to specify the decompression method.
+##sed -f $edits $source|compress -c|wc -c
+sed -f $edits $source|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
 
 rm -f $edits
