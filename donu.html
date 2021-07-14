@@ -238,9 +238,9 @@ for the ASKE-E program.</p>
 <p><strong>Response:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td>times</td><td>list of number</td><td>series of times used in simulation</td></tr>
-<tr><td>values</td><td>result series object</td><td>values of state varaibles</td></tr>
+<tr><td>values</td><td>list of result series object</td><td>values of state varaibles</td></tr>
 </tbody></table>
-<p>The object in <code>values</code> is such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
+<p>Each object in <code>result</code> is structured such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
