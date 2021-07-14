@@ -378,16 +378,10 @@ simulateModelDiscrete ::
   Maybe Int {- ^ seed -} ->
   Int {- ^ number of iterations -}->
   IO [DataSeries Double]
--- simulateModelDiscrete format source start end step seed iterations =
-  -- do  model <- loadCoreFrom format source
-      -- CPP.simulate model start end step seed iterations
-  -- IO (DataSeries Double)
 simulateModelDiscrete format source start end step parameters seed iterations =
   do  model <- loadCoreFrom format source
       let parameterizedModel = Core.addParams parameters model
           (withLegalNames, newNames) = Core.legalize parameterizedModel
-      -- DataSeries{..} <- CPP.simulate withLegalNames start end step seed
-      -- pure $ DataSeries { values = adjust newNames values, .. }
       dss <- CPP.simulate withLegalNames start end step seed iterations
       mapM (\DataSeries{..} -> pure DataSeries { values = adjust newNames values, ..}) dss
 

@@ -284,11 +284,16 @@ genDriver ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
-  -- Maybe Int {- ^ seed -} -> 
   C.Doc
 genDriver model start stop step = C.main
   [ C.declare (modelClassName model) cModel
   , C.declare "uint32_t" cSeed
+  -- Seed is provided as an integer argument to the executable at runtime.
+  -- In the absence of a seed, seed with current epoch time, in seconds.
+  -- Code that arranges execution of this driver is encouraged to
+  -- make arrangements to provide unique seeds to each invocation, since
+  -- many simultaneous invocations without a seed may well end up receiving
+  -- identical times as seeds.
   , C.ifThenElse ("argc" C.> C.intLit 1) 
     [C.assign cSeed (C.call "strtoul" [C.subscript "argv" (C.intLit 1), C.nullptr, C.intLit 10])]
     [C.assign cSeed (C.call "time" [C.nullptr])]
