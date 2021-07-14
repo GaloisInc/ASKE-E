@@ -47,6 +47,21 @@ simulate model start end step seed iters =
             (point:_) ->
               let stateVars = List.delete "time" (Map.keys point)
               in  pure $ buildDataSeries stateVars points
+--   IO (DataSeries Double)
+-- simulate model start end step seed =
+--   do  let modelCPP = genModel model
+--           modelDriver = genDriver model start end step seed
+--           program = modelCPP <+> modelDriver
+--       res <- compileAndRun GCC [("model.cpp", program)]
+--       points <-
+--         case eitherDecode @[Map Text Double] (B.pack res) of
+--           Left err -> panic "simulateCPP" ["Couldn't decode C++-produced JSON", err, res]
+--           Right points' -> pure points'
+--       case points of
+--         [] -> pure $ emptyDataSeries []
+--         (point:_) ->
+--           let stateVars = List.delete "time" (Map.keys point)
+--           in  pure $ buildDataSeries stateVars points
 
 buildDataSeries :: [Text] -> [Map Text Double] -> DataSeries Double
 buildDataSeries stateVars json =

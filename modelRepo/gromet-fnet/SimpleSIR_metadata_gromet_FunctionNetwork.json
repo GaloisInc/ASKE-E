@@ -1,0 +1,1491 @@
+{
+  "syntax": "Gromet",
+  "type": "FunctionNetwork",
+  "name": "SimpleSIR_metadata",
+  "metadata": [
+    {
+      "metadata_type": "ModelInterface",
+      "uid": "simple_sir_model_interface",
+      "provenance": {
+        "metadata_type": "Provenance",
+        "method": "Manual_claytonm@az",
+        "timestamp": "2021-06-23T09:38:34:684303_MST-0700"
+      },
+      "variables": [
+        "S",
+        "I",
+        "R",
+        "S_2",
+        "I_2",
+        "R_2",
+        "beta",
+        "gamma",
+        "dt",
+        "infected",
+        "recovered"
+      ],
+      "parameters": [
+        "beta",
+        "gamma",
+        "dt"
+      ],
+      "initial_conditions": [
+        "S",
+        "I",
+        "R"
+      ]
+    },
+    {
+      "metadata_type": "CodeCollectionReference",
+      "uid": "simple_sir_code_collection_ref",
+      "provenance": {
+        "metadata_type": "Provenance",
+        "method": "Manual_claytonm@az",
+        "timestamp": "2021-06-23T09:38:34:684350_MST-0700"
+      },
+      "global_reference_id": {
+        "type": "aske_id",
+        "id": "fa2a6b75-2dfd-4124-99b3-e6a8587a7f55"
+      },
+      "file_ids": [
+        {
+          "uid": "simple_sir_code",
+          "name": "Simple_SIR",
+          "path": "SIR-simple.py"
+        }
+      ]
+    },
+    {
+      "metadata_type": "TextualDocumentReferenceSet",
+      "uid": "simple_sir_textual_document_ref_set",
+      "provenance": {
+        "metadata_type": "Provenance",
+        "method": "Manual_claytonm@az",
+        "timestamp": "2021-06-23T09:38:34:684411_MST-0700"
+      },
+      "documents": [
+        {
+          "uid": "text_doc_simple_sir_wiki",
+          "global_reference_id": {
+            "type": "aske_id",
+            "id": "4b429087-7e7c-4623-80fd-64fb934a8be6"
+          },
+          "cosmos_id": "COSMOS",
+          "cosmos_version_number": "3.0",
+          "automates_id": "AutoMATES-TR",
+          "automates_version_number": "2.0",
+          "bibjson": {
+            "title": "The SIR Model Without Vital Dynamics - Wikipedia",
+            "author": [
+              {
+                "name": "Wikimedia Foundation"
+              }
+            ],
+            "type": "wikipedia",
+            "website": {
+              "url": "https://en.wikipedia.org/wiki/Compartmental_models_in_epidemiology#The_SIR_model_without_vital_dynamics"
+            },
+            "timestamp": "2021-01-21T20:13",
+            "file": "ideal_sir_model_without_vital_dynamics.pdf",
+            "file_url": "https://drive.google.com/file/d/1lexWCycLLTZq6FtQZ4AtBw30Bjeo5hRD/view?usp=sharing",
+            "identifier": [
+              {
+                "type": "aske_id",
+                "id": "4b429087-7e7c-4623-80fd-64fb934a8be6"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "uid": "SimpleSIR_FN",
+  "root": "B:sir",
+  "types": null,
+  "literals": null,
+  "junctions": null,
+  "ports": [
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "S",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_s_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683555_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 9,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.S",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "I",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_i_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683689_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 19,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.I",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "R",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_r_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683780_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 29,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.R",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "beta",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_beta_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683864_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 39,
+          "col_end": 42
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.beta",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "gamma",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_gamma_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683903_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 52,
+          "col_end": 56
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.gamma",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "dt",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_gamma_in",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683943_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": null,
+          "col_begin": 66,
+          "col_end": 67
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.in.dt",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "S",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_s_out",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683638_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 53,
+          "line_end": null,
+          "col_begin": 13,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.out.S",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "I",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_i_out",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683734_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 53,
+          "line_end": null,
+          "col_begin": 16,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.out.I",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "R",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_r_out",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683823_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 53,
+          "line_end": null,
+          "col_begin": 19,
+          "col_end": null
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:sir.out.R",
+      "box": "B:sir"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "S",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.in.S",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "I",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.in.I",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "R",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.in.R",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "beta",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.in.beta",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "dt",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.in.dt",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "infected",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_infected_id",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:683983_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 46,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 12
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:infected_exp.out.infected",
+      "box": "B:infected_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "I",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:recovered_exp.in.I",
+      "box": "B:recovered_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "gamma",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:recovered_exp.in.gamma",
+      "box": "B:recovered_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "dt",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:recovered_exp.in.dt",
+      "box": "B:recovered_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "recovered",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_infected_id",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684022_MST-0700"
+          },
+          "code_type": "IDENTIFIER",
+          "file_id": "simple_sir_code",
+          "line_begin": 47,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 13
+        }
+      ],
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:recovered_exp.out.recovered",
+      "box": "B:recovered_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "S",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:S_update_exp.in.S",
+      "box": "B:S_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "infected",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:S_update_exp.in.infected",
+      "box": "B:S_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "S",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:S_update_exp.out.S",
+      "box": "B:S_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "I",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:I_update_exp.in.I",
+      "box": "B:I_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "infected",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:I_update_exp.in.infected",
+      "box": "B:I_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "recovered",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:I_update_exp.in.recovered",
+      "box": "B:I_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "I",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:I_update_exp.out.I",
+      "box": "B:I_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "R",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:R_update_exp.in.R",
+      "box": "B:R_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortInput",
+      "name": "recovered",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:R_update_exp.in.recovered",
+      "box": "B:R_update_exp"
+    },
+    {
+      "syntax": "Port",
+      "type": "PortOutput",
+      "name": "R",
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "P:R_update_exp.out.R",
+      "box": "B:R_update_exp"
+    }
+  ],
+  "wires": [
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:S1.1",
+      "src": "P:sir.in.S",
+      "tgt": "P:infected_exp.in.S"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:S1.2",
+      "src": "P:sir.in.S",
+      "tgt": "P:S_update_exp.in.S"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:I1.1",
+      "src": "P:sir.in.I",
+      "tgt": "P:infected_exp.in.I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:I1.2",
+      "src": "P:sir.in.I",
+      "tgt": "P:recovered_exp.in.I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:I1.3",
+      "src": "P:sir.in.I",
+      "tgt": "P:I_update_exp.in.I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:R1.1",
+      "src": "P:sir.in.R",
+      "tgt": "P:infected_exp.in.R"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:R1.2",
+      "src": "P:sir.in.R",
+      "tgt": "P:R_update_exp.in.R"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:beta",
+      "src": "P:sir.in.beta",
+      "tgt": "P:infected_exp.in.beta"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:gamma",
+      "src": "P:sir.in.gamma",
+      "tgt": "P:recovered_exp.in.gamma"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:dt.1",
+      "src": "P:sir.in.dt",
+      "tgt": "P:infected_exp.in.dt"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:dt.2",
+      "src": "P:sir.in.dt",
+      "tgt": "P:recovered_exp.in.dt"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:infected.1",
+      "src": "P:infected_exp.out.infected",
+      "tgt": "P:S_update_exp.in.infected"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:infected.2",
+      "src": "P:infected_exp.out.infected",
+      "tgt": "P:I_update_exp.in.infected"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:recovered.1",
+      "src": "P:recovered_exp.out.recovered",
+      "tgt": "P:I_update_exp.in.recovered"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:recovered.2",
+      "src": "P:recovered_exp.out.recovered",
+      "tgt": "P:R_update_exp.in.recovered"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:S2",
+      "src": "P:S_update_exp.out.S",
+      "tgt": "P:sir.out.S"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:I2",
+      "src": "P:I_update_exp.out.I",
+      "tgt": "P:sir.out.I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": "Float",
+      "uid": "W:R2",
+      "src": "P:R_update_exp.out.R",
+      "tgt": "P:sir.out.R"
+    }
+  ],
+  "boxes": [
+    {
+      "wires": [
+        "W:S1.1",
+        "W:S1.2",
+        "W:I1.1",
+        "W:I1.2",
+        "W:I1.3",
+        "W:R1.1",
+        "W:R1.2",
+        "W:beta",
+        "W:gamma",
+        "W:dt.1",
+        "W:dt.2",
+        "W:infected.1",
+        "W:infected.2",
+        "W:recovered.1",
+        "W:recovered.2",
+        "W:S2",
+        "W:I2",
+        "W:R2"
+      ],
+      "boxes": [
+        "B:infected_exp",
+        "B:recovered_exp",
+        "B:S_update_exp",
+        "B:I_update_exp",
+        "B:R_update_exp"
+      ],
+      "junctions": null,
+      "syntax": "Function",
+      "type": null,
+      "name": "sir",
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_sir_fn",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684263_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 31,
+          "line_end": 53,
+          "col_begin": null,
+          "col_end": null
+        }
+      ],
+      "uid": "B:sir",
+      "ports": [
+        "P:sir.in.S",
+        "P:sir.in.I",
+        "P:sir.in.R",
+        "P:sir.in.beta",
+        "P:sir.in.gamma",
+        "P:sir.in.dt",
+        "P:sir.out.S",
+        "P:sir.out.I",
+        "P:sir.out.R"
+      ]
+    },
+    {
+      "syntax": "Expression",
+      "type": null,
+      "name": null,
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_infected_exp",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684063_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 46,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 50
+        }
+      ],
+      "uid": "B:infected_exp",
+      "ports": [
+        "P:infected_exp.in.S",
+        "P:infected_exp.in.I",
+        "P:infected_exp.in.R",
+        "P:infected_exp.in.beta",
+        "P:infected_exp.in.dt",
+        "P:infected_exp.out.infected"
+      ],
+      "tree": {
+        "syntax": "Expr",
+        "call": {
+          "syntax": "RefOp",
+          "name": "*"
+        },
+        "args": [
+          {
+            "syntax": "Expr",
+            "call": {
+              "syntax": "RefOp",
+              "name": "/"
+            },
+            "args": [
+              {
+                "syntax": "Expr",
+                "call": {
+                  "syntax": "RefOp",
+                  "name": "*"
+                },
+                "args": [
+                  "P:infected_exp.in.beta",
+                  "P:infected_exp.in.S",
+                  "P:infected_exp.in.I"
+                ]
+              },
+              {
+                "syntax": "Expr",
+                "call": {
+                  "syntax": "RefOp",
+                  "name": "+"
+                },
+                "args": [
+                  "P:infected_exp.in.S",
+                  "P:infected_exp.in.I",
+                  "P:infected_exp.in.R"
+                ]
+              }
+            ]
+          },
+          "P:infected_exp.in.dt"
+        ]
+      }
+    },
+    {
+      "syntax": "Expression",
+      "type": null,
+      "name": null,
+      "metadata": [
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_recovered_exp",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684103_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 47,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 32
+        }
+      ],
+      "uid": "B:recovered_exp",
+      "ports": [
+        "P:recovered_exp.in.I",
+        "P:recovered_exp.in.gamma",
+        "P:recovered_exp.in.dt",
+        "P:recovered_exp.out.recovered"
+      ],
+      "tree": {
+        "syntax": "Expr",
+        "call": {
+          "syntax": "RefOp",
+          "name": "*"
+        },
+        "args": [
+          {
+            "syntax": "Expr",
+            "call": {
+              "syntax": "RefOp",
+              "name": "*"
+            },
+            "args": [
+              "P:recovered_exp.in.gamma",
+              "P:recovered_exp.in.I"
+            ]
+          },
+          "P:recovered_exp.in.dt"
+        ]
+      }
+    },
+    {
+      "syntax": "Expression",
+      "type": null,
+      "name": null,
+      "metadata": [
+        {
+          "metadata_type": "EquationDefinition",
+          "uid": "s_diff_equation_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684795_MST-0700"
+          },
+          "equation_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "equation_number": 0,
+            "equation_source_latex": "\frac{dS}{dt} = - \frac{\beta I S}{N}",
+            "equation_source_mml": "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?> <math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\" title=\"\frac{dS}{dt} = - \frac{\beta I S}{N} \"> <mrow> <mfrac> <mrow> <mi>d</mi> <mi>S</mi> </mrow> <mrow> <mi>d</mi> <mi>t</mi> </mrow> </mfrac> <mo>=</mo> <mo>-</mo> <mfrac> <mrow> <mi>\u03b2</mi> <mi>I</mi> <mi>S</mi> </mrow> <mrow> <mi>N</mi> </mrow> </mfrac> </mrow> </math>"
+          }
+        },
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_s_update_exp",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684143_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 49,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 21
+        }
+      ],
+      "uid": "B:S_update_exp",
+      "ports": [
+        "P:S_update_exp.in.S",
+        "P:S_update_exp.in.infected",
+        "P:S_update_exp.out.S"
+      ],
+      "tree": {
+        "syntax": "Expr",
+        "call": {
+          "syntax": "RefOp",
+          "name": "-"
+        },
+        "args": [
+          "P:S_update_exp.in.S",
+          "P:S_update_exp.in.infected"
+        ]
+      }
+    },
+    {
+      "syntax": "Expression",
+      "type": null,
+      "name": null,
+      "metadata": [
+        {
+          "metadata_type": "EquationDefinition",
+          "uid": "i_diff_equation_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684836_MST-0700"
+          },
+          "equation_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "equation_number": 1,
+            "equation_source_latex": "\frac{dI}{dt} = \frac{\beta I S}{N} - \\gamma I",
+            "equation_source_mml": "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?> <math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\" title=\"\frac{dI}{dt} = \frac{\beta I S}{N} - \\gamma I \"> <mrow> <mfrac> <mrow> <mi>d</mi> <mi>I</mi> </mrow> <mrow> <mi>d</mi> <mi>t</mi> </mrow> </mfrac> <mo>=</mo> <mfrac> <mrow> <mi>\u03b2</mi> <mi>I</mi> <mi>S</mi> </mrow> <mrow> <mi>N</mi> </mrow> </mfrac> <mo>-</mo> <mi>\u03b3</mi> <mi>I</mi> </mrow> </math>"
+          }
+        },
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_i_update_exp",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684183_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 50,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 33
+        }
+      ],
+      "uid": "B:I_update_exp",
+      "ports": [
+        "P:I_update_exp.in.I",
+        "P:I_update_exp.in.infected",
+        "P:I_update_exp.in.recovered",
+        "P:I_update_exp.out.I"
+      ],
+      "tree": {
+        "syntax": "Expr",
+        "call": {
+          "syntax": "RefOp",
+          "name": "-"
+        },
+        "args": [
+          {
+            "syntax": "Expr",
+            "call": {
+              "syntax": "RefOp",
+              "name": "+"
+            },
+            "args": [
+              "P:I_update_exp.in.I",
+              "P:I_update_exp.in.infected"
+            ]
+          },
+          "P:I_update_exp.in.recovered"
+        ]
+      }
+    },
+    {
+      "syntax": "Expression",
+      "type": null,
+      "name": null,
+      "metadata": [
+        {
+          "metadata_type": "EquationDefinition",
+          "uid": "r_diff_equation_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684876_MST-0700"
+          },
+          "equation_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "equation_number": 2,
+            "equation_source_latex": "\frac{dR}{dt} = \\gamma I",
+            "equation_source_mml": "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?> <math xmlns=\"http://www.w3.org/1998/Math/MathML\" display=\"block\" title=\"\frac{dR}{dt} = \\gamma I \"> <mrow> <mfrac> <mrow> <mi>d</mi> <mi>R</mi> </mrow> <mrow> <mi>d</mi> <mi>t</mi> </mrow> </mfrac> <mo>=</mo> <mi>\u03b3</mi> <mi>I</mi> </mrow> </math>"
+          }
+        },
+        {
+          "metadata_type": "CodeSpanReference",
+          "uid": "code_r_update_exp",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684223_MST-0700"
+          },
+          "code_type": "CODE_BLOCK",
+          "file_id": "simple_sir_code",
+          "line_begin": 51,
+          "line_end": null,
+          "col_begin": 5,
+          "col_end": 22
+        }
+      ],
+      "uid": "B:R_update_exp",
+      "ports": [
+        "P:R_update_exp.in.R",
+        "P:R_update_exp.in.recovered",
+        "P:R_update_exp.out.R"
+      ],
+      "tree": {
+        "syntax": "Expr",
+        "call": {
+          "syntax": "RefOp",
+          "name": "+"
+        },
+        "args": [
+          "P:R_update_exp.in.R",
+          "P:R_update_exp.in.recovered"
+        ]
+      }
+    }
+  ],
+  "variables": [
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "S",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "S_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684484_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 1,
+            "char_end": 7
+          },
+          "variable_identifier": "S",
+          "variable_definition": "the stock of susceptible population"
+        }
+      ],
+      "uid": "S",
+      "proxy_state": "P:sir.in.S",
+      "states": [
+        "P:sir.in.S",
+        "W:S1.1",
+        "W:S1.2",
+        "P:infected_exp.in.S",
+        "P:S_update_exp.in.S"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "I",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "I_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684548_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 8,
+            "char_end": 13
+          },
+          "variable_identifier": "I",
+          "variable_definition": "stock of infected"
+        }
+      ],
+      "uid": "I",
+      "proxy_state": "P:sir.in.I",
+      "states": [
+        "P:sir.in.I",
+        "W:I1.1",
+        "W:I1.2",
+        "W:I1.3",
+        "P:infected_exp.in.I",
+        "P:recovered_exp.in.I",
+        "P:I_update_exp.in.I"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "R",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "R_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684590_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 15,
+            "char_end": 21
+          },
+          "variable_identifier": "R",
+          "variable_definition": "the stock of recovered population"
+        }
+      ],
+      "uid": "R",
+      "proxy_state": "P:sir.in.R",
+      "states": [
+        "P:sir.in.R",
+        "W:R1.1",
+        "W:R1.2",
+        "P:infected_exp.in.R",
+        "P:R_update_exp.in.R"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "S",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "S_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684484_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 1,
+            "char_end": 7
+          },
+          "variable_identifier": "S",
+          "variable_definition": "the stock of susceptible population"
+        }
+      ],
+      "uid": "S_2",
+      "proxy_state": "P:sir.out.S",
+      "states": [
+        "P:sir.out.S",
+        "W:S1.1",
+        "W:S1.2",
+        "W:S2",
+        "P:S_update_exp.out.S"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "I",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "I_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684548_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 8,
+            "char_end": 13
+          },
+          "variable_identifier": "I",
+          "variable_definition": "stock of infected"
+        }
+      ],
+      "uid": "I_2",
+      "proxy_state": "P:sir.out.I",
+      "states": [
+        "P:sir.out.I",
+        "W:I1.1",
+        "W:I1.2",
+        "W:I1.3",
+        "W:I2",
+        "P:I_update_exp.out.I"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "R",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "R_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684590_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 1,
+            "char_begin": 15,
+            "char_end": 21
+          },
+          "variable_identifier": "R",
+          "variable_definition": "the stock of recovered population"
+        }
+      ],
+      "uid": "R_2",
+      "proxy_state": "P:sir.out.R",
+      "states": [
+        "P:sir.out.R",
+        "W:R1.1",
+        "W:R1.2",
+        "W:R2",
+        "P:R_update_exp.out.R"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "beta",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "beta_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684630_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 2,
+            "char_begin": 32,
+            "char_end": 45
+          },
+          "variable_identifier": "\u03b2",
+          "variable_definition": "Rate of transmission via contact"
+        },
+        {
+          "metadata_type": "TextParameter",
+          "uid": "example_beta_text_parameter",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684751_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 5,
+            "char_begin": 67,
+            "char_end": 79
+          },
+          "variable_identifier": "\u03b2",
+          "value": "0.0000001019"
+        }
+      ],
+      "uid": "beta",
+      "proxy_state": "P:sir.in.beta",
+      "states": [
+        "P:sir.in.beta",
+        "W:beta",
+        "P:infected_exp.in.beta"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "gamma",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "gamma_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684671_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 0,
+            "block": 2,
+            "char_begin": 52,
+            "char_end": 65
+          },
+          "variable_identifier": "\u03b3",
+          "variable_definition": "Rate of recovery from infection"
+        }
+      ],
+      "uid": "gamma",
+      "proxy_state": "P:sir.in.gamma",
+      "states": [
+        "P:sir.in.gamma",
+        "W:gamma",
+        "P:recovered_exp.in.gamma"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "dt",
+      "metadata": [
+        {
+          "metadata_type": "TextDefinition",
+          "uid": "dt_text_definition",
+          "provenance": {
+            "metadata_type": "Provenance",
+            "method": "Manual_claytonm@az",
+            "timestamp": "2021-06-23T09:38:34:684711_MST-0700"
+          },
+          "text_extraction": {
+            "document_reference_uid": "text_doc_simple_sir_wiki",
+            "page": 1,
+            "block": 4,
+            "char_begin": 22,
+            "char_end": 32
+          },
+          "variable_identifier": "dt",
+          "variable_definition": "Next inter-event time"
+        }
+      ],
+      "uid": "dt",
+      "proxy_state": "P:sir.in.dt",
+      "states": [
+        "P:sir.in.dt",
+        "W:dt.1",
+        "W:dt.2",
+        "P:infected_exp.in.dt",
+        "P:recovered_exp.in.dt"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "infected",
+      "metadata": null,
+      "uid": "infected",
+      "proxy_state": "P:infected_exp.out.infected",
+      "states": [
+        "P:infected_exp.out.infected",
+        "W:infected.1",
+        "W:infected.2",
+        "P:S_update_exp.in.infected",
+        "P:I_update_exp.in.infected"
+      ]
+    },
+    {
+      "syntax": "Variable",
+      "type": "Float",
+      "name": "recovered",
+      "metadata": null,
+      "uid": "recovered",
+      "proxy_state": "P:recovered_exp.out.recovered",
+      "states": [
+        "P:recovered_exp.out.recovered",
+        "W:recovered.1",
+        "W:recovered.2",
+        "P:I_update_exp.in.recovered",
+        "P:R_update_exp.in.recovered"
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 module Language.ASKEE.Core.Convert where
 
 import qualified Data.Map      as Map
-import           Data.Maybe    ( mapMaybe, isNothing, fromJust )
+import           Data.Maybe    ( mapMaybe )
 
 import           Language.ASKEE.Core.Expr
 import qualified Language.ASKEE.Core.Expr         as Core
@@ -13,27 +13,28 @@ import           Language.ASKEE.DEQ.Syntax        ( DiffEqs(..) )
 -------------------------------------------------------------------------------
 -- DiffEqs
 
-asDiffEqs :: Model -> DiffEqs
-asDiffEqs mdl =
-  DiffEqs { deqParams  = Map.keys woInitCond
+data ToDiffEqMethod = WithGuards | NoGuards
+
+asDiffEqs :: ToDiffEqMethod -> Model -> DiffEqs
+asDiffEqs how mdl =
+  DiffEqs { deqParams  = modelParams mdl
           , deqInitial = modelInitState mdl
           , deqRates   = Map.mapWithKey stateEq (modelInitState mdl)
-          , deqLets    = modelLets mdl `Map.union` Map.map fromJust wInitCond
+          , deqLets    = modelLets mdl
           }
   where
   stateEq sv _ = simplifyExpr
                $ foldr (:+:) (NumLit 0)
-               $ mapMaybe (eventTerm sv)
+               $ mapMaybe (eventTerm how sv)
                $ modelEvents mdl
-
-  (woInitCond, wInitCond) = Map.partition isNothing (modelParams mdl)
 
 -- Eventually we may want to consider approaches to try to make guard
 -- continues (e.g., sigmoid?)
-eventTerm :: Core.Ident -> Event -> Maybe Expr
-eventTerm sv event =
+eventTerm :: ToDiffEqMethod -> Core.Ident -> Event -> Maybe Expr
+eventTerm how sv event =
   do stExp <- Map.lookup sv (eventEffect event)
-     pure (If (eventWhen event)
-              (eventRate event :*: (stExp :-: Var sv))
-              (NumLit 0))
+     let e = eventRate event :*: (stExp :-: Var sv)
+     pure case how of
+            WithGuards -> If (eventWhen event) e (NumLit 0)
+            NoGuards   -> e
 

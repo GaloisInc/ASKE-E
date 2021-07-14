@@ -2,6 +2,7 @@
 
 - [EASEL](./easel.md)
   - [`model`](./model.md)
+  - [`parameter`-Declared Variables](./parameter-variable.md)
   - [`let`-Declared Variables](./let-variable.md)
   - [`state`-Declared Variables](./state-variable.md)
   - [`event`s](./event.md)

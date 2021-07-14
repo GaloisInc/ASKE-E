@@ -1,9 +1,11 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 module Language.ASKEE.Core.Interface where
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text as Text
 import Data.List(foldl')
 
 import Language.ASKEE.Model.Basics
@@ -26,14 +28,14 @@ modelInterface Model{..} = ModelInterface
 
     toParam (x,mb) = Port
       { portName      = x
-      , portValueType = Real
+      , portValueType = maybe Real (read . Text.unpack . head) (meta x Map.!? "type")
       , portDefault   = VReal <$> mb
       , portMeta      = meta x
       }
 
     toState x = Port
       { portName      = x
-      , portValueType = Real
+      , portValueType = maybe Real (read . Text.unpack . head) (meta x Map.!? "type")
       , portDefault   = Nothing
       , portMeta      = meta x
       }

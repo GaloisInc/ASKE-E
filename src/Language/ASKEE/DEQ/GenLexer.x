@@ -29,6 +29,7 @@ $digit = [0-9]
 tokens :-
 
 "let"    { atomic Let }
+"parameter" { atomic Parameter }
 -- "var"    { atomic Var }
 "d/dt"   { atomic DDt }
 "+"      { atomic Plus }

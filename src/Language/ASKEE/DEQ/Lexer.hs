@@ -13,15 +13,16 @@ data Token = EOF
   | OpenP
   | CloseP
   | Let
+  | Parameter
   | DDt
   | If
   | Then
   | Else
-  | GT 
+  | GT
   | GTE
-  | EQ 
+  | EQ
   | LTE
-  | LT 
+  | LT
   | Not
   | And
   | Or

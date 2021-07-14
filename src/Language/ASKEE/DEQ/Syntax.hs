@@ -20,7 +20,7 @@ import qualified Language.ASKEE.Core.Expr as CoreExpr
 
 -- | A system of differential equations.
 data DiffEqs = DiffEqs
-  { deqParams  :: [Ident]
+  { deqParams  :: Map Ident (Maybe Expr)
   , deqInitial :: Map Ident Expr
   , deqRates   :: Map Ident Expr      -- ^ These are the diff. eqns.
   , deqLets    :: Map Ident Expr
@@ -44,9 +44,9 @@ applyParams parameters = applyParams' parameters'
 applyParams' :: Map Ident Expr -> DiffEqs -> DiffEqs
 applyParams' su = dropParams . mapExprs (substExpr su)
   where
-  dropParams m = m { deqParams = [ x | x <- deqParams m
-                                     , not (x `Set.member` pSet) ] }
+  dropParams m = m { deqParams = Map.filterWithKey (\x _ -> not (x `Set.member` pSet))
+                                                   (deqParams m) }
   pSet = Map.keysSet su
 
-addParams :: [Ident] -> DiffEqs -> DiffEqs
+addParams :: Map Ident (Maybe Expr) -> DiffEqs -> DiffEqs
 addParams ps eqs = eqs { deqParams = ps }

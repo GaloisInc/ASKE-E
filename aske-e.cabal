@@ -10,6 +10,7 @@ extra-source-files:  README.md
                    , modelRepo/easel/sir.easel
                    , modelRepo/easel/sir-no-parameters.easel
                    , modelRepo/deq/sir.deq
+                   , modelRepo/gromet-pnc/seir.json
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
@@ -74,6 +75,7 @@ library
                         Language.ASKEE.Gromet.Syntax
                         Language.ASKEE.Gromet.PetriNetClassic
                         Language.ASKEE.Gromet.Common
+                        Language.ASKEE.Gromet.FunctionNetwork
 
                         Language.ASKEE.Latex.GenLexer
                         Language.ASKEE.Latex.GenParser
@@ -95,6 +97,7 @@ library
                         Language.ASKEE.RNet.Reaction
                         Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
+
 
                         -- General
                         Language.ASKEE.Convert

@@ -1,0 +1,5 @@
+function ode_fn(du,u,p,t)
+    x, y = u
+    du[1] = y - x
+    du[2] = 4.0 * x - y
+end
