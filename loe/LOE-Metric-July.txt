@@ -77,41 +77,41 @@ The following table shows the analysis of the sample source codes.
     Source text   proxy K(s)  Unique syms  K(s)/U(s)
         hello.c           51            6       8.50
       hello.cpp           84           10       8.40
-      hello.f90           63            7       9.00
-       hello.hs           27            3       9.00
+      hello.f90           61            7       8.71
+       hello.hs           25            3       8.33
     quicksort.c          196           21       9.33
   quicksort.cpp          244           23      10.60
-  quicksort.f90          451           38      11.86
-   quicksort.hs           71            8       8.87
-     toposort.c          552           52      10.61
-   toposort.cpp          498           57       8.73
-   toposort.f90          310           30      10.33
-    toposort.hs          440           56       7.85
+  quicksort.f90          395           38      10.39
+   quicksort.hs           66            8       8.25
+     toposort.c          548           52      10.53
+   toposort.cpp          489           57       8.57
+   toposort.f90          296           30       9.86
+    toposort.hs          421           56       7.51
     ackermann.c           83            7      11.85
   ackermann.cpp           98            9      10.88
-  ackermann.f90          149           14      10.64
-   ackermann.hs           77            8       9.62
-      ode-1.txt           55            8       6.87
-       ode-1.jl          187           25       7.48
-     ode-1_1.py          239           35       6.82
-     ode-1_2.py          254           32       7.93
-     ode-1_3.py          203           28       7.25
-     ode-1_4.py          213           29       7.34
-     ode-1_5.py          448           63       7.11
-      ode-2.txt           77           12       6.41
-       ode-2.jl          275           44       6.25
-     ode-2_1.py          280           47       5.95
-     ode-2_2.py          286           42       6.80
-     ode-2_3.py          248           42       5.90
-     ode-2_4.py          287           44       6.52
-     ode-2_5.py          523           73       7.16
-      ode-3.txt           50            8       6.25
-       ode-3.jl          230           33       6.96
-     ode-3_1.py          268           44       6.09
-     ode-3_2.py          287           41       7.00
-     ode-3_3.py          244           41       5.95
-     ode-3_4.py          276           43       6.41
-     ode-3_5.py          448           63       7.11
+  ackermann.f90          138           14       9.85
+   ackermann.hs           72            8       9.00
+      ode-1.txt           52            8       6.50
+       ode-1.jl          164           25       6.56
+     ode-1_1.py          211           35       6.02
+     ode-1_2.py          229           32       7.15
+     ode-1_3.py          175           28       6.25
+     ode-1_4.py          184           29       6.34
+     ode-1_5.py          415           63       6.58
+      ode-2.txt           78           12       6.50
+       ode-2.jl          257           44       5.84
+     ode-2_1.py          245           47       5.21
+     ode-2_2.py          256           42       6.09
+     ode-2_3.py          221           42       5.26
+     ode-2_4.py          258           44       5.86
+     ode-2_5.py          478           73       6.54
+      ode-3.txt           51            8       6.37
+       ode-3.jl          209           33       6.33
+     ode-3_1.py          234           44       5.31
+     ode-3_2.py          259           41       6.31
+     ode-3_3.py          213           41       5.19
+     ode-3_4.py          246           43       5.72
+     ode-3_5.py          415           63       6.58
 ```
 
 References
