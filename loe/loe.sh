@@ -38,7 +38,7 @@ K_OF_S=$($HERE/bounds/alpha.sh "$SRCPATH/$SRCFILE" "$HERE/samples/symbols/$SRCFI
 
 SRC_USYM=$(cat "$SRCPATH/$SRCFILE"|tr -cs [a-zA-Z0-9_.] '\n'|sort|uniq|wc -w)
 
-printf "; %15s %12s %12s %10s\n" \
-	"Source text" "proxy K(s)" "Unique syms" "K(s)/U(s)"
-printf "= %15s %12d %12d %10s\n" \
-	$SRCFILE $K_OF_S $SRC_USYM `echo "scale=2; $K_OF_S/$SRC_USYM"|bc`
+printf "; %15s %12s %12s\n" \
+	"Source text" "proxy K(s)" "Unique syms"
+printf "= %15s %12d %12d\n" \
+	$SRCFILE $K_OF_S $SRC_USYM

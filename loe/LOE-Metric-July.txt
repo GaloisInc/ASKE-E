@@ -74,44 +74,44 @@ We collected from the Rosetta Code website[10] a number of sample programs writt
 The following table shows the analysis of the sample source codes.
 
 ```
-    Source text   proxy K(s)  Unique syms  K(s)/U(s)
-        hello.c           51            6       8.50
-      hello.cpp           84           10       8.40
-      hello.f90           61            7       8.71
-       hello.hs           25            3       8.33
-    quicksort.c          196           21       9.33
-  quicksort.cpp          244           23      10.60
-  quicksort.f90          395           38      10.39
-   quicksort.hs           66            8       8.25
-     toposort.c          548           52      10.53
-   toposort.cpp          489           57       8.57
-   toposort.f90          296           30       9.86
-    toposort.hs          421           56       7.51
-    ackermann.c           83            7      11.85
-  ackermann.cpp           98            9      10.88
-  ackermann.f90          138           14       9.85
-   ackermann.hs           72            8       9.00
-      ode-1.txt           52            8       6.50
-       ode-1.jl          164           25       6.56
-     ode-1_1.py          211           35       6.02
-     ode-1_2.py          229           32       7.15
-     ode-1_3.py          175           28       6.25
-     ode-1_4.py          184           29       6.34
-     ode-1_5.py          415           63       6.58
-      ode-2.txt           78           12       6.50
-       ode-2.jl          257           44       5.84
-     ode-2_1.py          245           47       5.21
-     ode-2_2.py          256           42       6.09
-     ode-2_3.py          221           42       5.26
-     ode-2_4.py          258           44       5.86
-     ode-2_5.py          478           73       6.54
-      ode-3.txt           51            8       6.37
-       ode-3.jl          209           33       6.33
-     ode-3_1.py          234           44       5.31
-     ode-3_2.py          259           41       6.31
-     ode-3_3.py          213           41       5.19
-     ode-3_4.py          246           43       5.72
-     ode-3_5.py          415           63       6.58
+    Source text   proxy K(s)  Unique syms
+        hello.c           51            6
+      hello.cpp           84           10
+      hello.f90           61            7
+       hello.hs           25            3
+    quicksort.c          196           21
+  quicksort.cpp          244           23
+  quicksort.f90          395           38
+   quicksort.hs           66            8
+     toposort.c          548           52
+   toposort.cpp          489           57
+   toposort.f90          296           30
+    toposort.hs          421           56
+    ackermann.c           83            7
+  ackermann.cpp           98            9
+  ackermann.f90          138           14
+   ackermann.hs           72            8
+      ode-1.txt           52            8
+       ode-1.jl          164           25
+     ode-1_1.py          211           35
+     ode-1_2.py          229           32
+     ode-1_3.py          175           28
+     ode-1_4.py          184           29
+     ode-1_5.py          415           63
+      ode-2.txt           78           12
+       ode-2.jl          257           44
+     ode-2_1.py          245           47
+     ode-2_2.py          256           42
+     ode-2_3.py          221           42
+     ode-2_4.py          258           44
+     ode-2_5.py          478           73
+      ode-3.txt           51            8
+       ode-3.jl          209           33
+     ode-3_1.py          234           44
+     ode-3_2.py          259           41
+     ode-3_3.py          213           41
+     ode-3_4.py          246           43
+     ode-3_5.py          415           63
 ```
 
 References
