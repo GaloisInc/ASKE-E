@@ -508,21 +508,24 @@ newtype DonuValue =
   deriving Show
 
 instance JS.ToJSON DonuValue where
+  -- N.B. review any changes/additions here to see if they should
+  -- make their way to Language.ASKEE.Exposure.Print
   toJSON (DonuValue dv) =
     case dv of
-      VInt i         -> JS.toJSON i
-      VBool b        -> JS.toJSON b
-      VDouble dbl    -> JS.toJSON dbl
-      VString str    -> JS.toJSON str
+      VInt i         -> typedPrim "int" i
+      VBool b        -> typedPrim "bool" b
+      VDouble dbl    -> typedPrim "double" dbl
+      VString str    -> typedPrim "string" str
 
       VDataSeries ds ->
-        JS.object [ "type"   .= JS.toJSON ("data-series" :: Text)
-                  , "time"   .= JS.toJSON (times ds)
-                  , "values" .= JS.toJSON (values ds)
-                  ]
+        typed "data-series" $
+          JS.object [ "time"   .= JS.toJSON (times ds)
+                    , "values" .= JS.toJSON (values ds)
+                    ]
 
-      VModel mdl     -> JS.toJSON $ "<model " <> Core.modelName mdl <> ">"
+      VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
       VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
+
       VModelExpr {}  -> unimplVal "<modelexpr>"
       VDFold {}      -> unimplVal "<dynfold>"
       VSFold {}      -> unimplVal "<sfold>"
@@ -531,5 +534,13 @@ instance JS.ToJSON DonuValue where
       _ -> error "TBD"
 
     where
+      typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
+      typedPrim ty v = typed ty (JS.toJSON v)
+
+      typed :: Text -> JS.Value -> JS.Value
+      typed ty v = JS.object [ "type"  .= JS.toJSON ty
+                             , "value" .= JS.toJSON v
+                             ]
+
       unimplVal :: String -> JS.Value
-      unimplVal str = JS.toJSON str
+      unimplVal str = typedPrim "string" str

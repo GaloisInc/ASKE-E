@@ -62,48 +62,58 @@ def parse_code(code:str):
 
     return cmd
 
+def format_data_series(time, values):
+    """
+    Returns a vega light chart + a textual representation
+    """
+    timeTab = ["time"] + time
+    valTabs = [ [k] + values[k] for k in values ]
+    txt = tabulate.tabulate([timeTab] + valTabs)
+
+    vals = []
+    for (i, t) in enumerate(time):
+        for k in values:
+            vals.append({'time': t,
+                         'series': k,
+                         'y': values[k][i]})
+
+    layers = [ { "mark": "line",
+          "encoding": {
+              "x": {"field": "time", "type": "quantitative"},
+              "y": {"field": "y", "type":"quantitative"},
+              "color": {"field": "series", "type": "nominal" }
+              }
+        } ]
+
+
+    out = {
+        'application/vnd.vegalite.v3+json': {
+            '$schema': vega_lite_schema,
+            'description':'',
+            'data': { "values": vals},
+            'mark': 'point',
+            'layer': layers
+        },
+
+        'text/plain': txt
+    }
+    return out
+
+
 def format_resp_value(v):
-    if isinstance(v, str):
-        return { 'text/plain': v }
-    elif isinstance(v, dict):
-        if v['type'] == 'data-series':
-            timeTab = ["time"] + v['time']
-            valTabs = [ [k] + v['values'][k] for k in v['values'] ]
-            txt = tabulate.tabulate([timeTab] + valTabs)
+    ty = v['type']
+    val = v['value']
 
-            vals = []
-            for i in range(len(v['time'])):
-                for k in v['values']:
-                    vals.append({'time': v['time'][i],
-                                 'series': k,
-                                 'y': v['values'][k][i]})
+    if ty == 'string':
+        return { 'text/plain': val }
 
-            layers = [
-                { "mark": "line",
-                  "encoding": {
-                      "x": {"field": "time", "type": "quantitative"},
-                      "y": {"field": "y", "type":"quantitative"},
-                      "color": {"field": "series", "type": "nominal" }
-                      }
-                }
-                ]
+    if ty == 'double':
+        return { 'text/plain': val }
 
+    if ty == 'data-series':
+        return format_data_series(val['time'], val['values'])
 
-            out = { 'application/vnd.vegalite.v3+json': {
-                '$schema': vega_lite_schema,
-                'description':'',
-                'data': { "values": vals},
-                'mark': 'point',
-                'layer': layers
-                },
-                    'text/plain': txt
-                }
-            return out
-
-        else:
-            pass
-    else:
-        return { 'text/plain': json.dumps(v) }
+    return { 'text/plain': json.dumps(val) }
 
 
 class ASKEEKernel(Kernel):
