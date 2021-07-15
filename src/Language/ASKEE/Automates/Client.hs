@@ -19,7 +19,7 @@ import qualified Language.ASKEE.Model.Basics as MB
 
 
 automatesUrl :: String
-automatesUrl = "https://hopper.sista.arizona.edu/api/v1"
+automatesUrl = "http://hopper.sista.arizona.edu/api/v1"
 
 apiKey :: String
 apiKey = "kojzLVi21XrcHVJ4f7M82L0g"
