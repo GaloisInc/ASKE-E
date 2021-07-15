@@ -33,6 +33,8 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
+import Data.List (partition)
+import GHC.Float.RealFracMethods (floorDoubleInt)
 
 import Language.ASKEE.Exposure.Syntax
 
@@ -301,6 +303,12 @@ interpretCall fun args =
       case args of
         [arg1, arg2] -> interpretInterpolate arg1 arg2
         _            -> typeError "interpolate expects exactly two arguments"
+
+    FHistogram ->
+      case args of
+        [series, nbins] -> interpretHistogram series nbins
+        _               -> typeError "histogram expects exactly two arguments"
+
   where
     doubleArraySummarize f v =
       do  v' <- array double v
@@ -385,11 +393,46 @@ interpretInterpolate (VDataSeries (DS.DataSeries{DS.times = oldTimes, DS.values 
 interpretInterpolate arg1 arg2 =
   typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
 
+interpretHistogram :: Value -> Value -> Eval Value
+interpretHistogram (VModelExpr e) nBuckets =
+  do v <- interpretExpr e
+     interpretHistogram v nBuckets
+interpretHistogram (VDataSeries ds) nBuckets =
+  interpretHistogram (seriesAsPoints ds) nBuckets
+interpretHistogram (VArray vs) n =
+  do ds <- traverse asDouble vs
+     nBuckets <- case n of
+                   VInt i    -> pure i
+                   VDouble d -> pure $ floorDoubleInt d
+                   _ -> typeErrorArgs [n] "second argument of histogram must be a positive integer"
+     let maxVal   = maximum ds
+         minVal   = minimum ds
+         size     = (maxVal - minVal) / fromIntegral nBuckets
+         bucket i = (size*fromIntegral i) + minVal
+         rs       = bucket <$> [1..nBuckets-1]
+
+         h = buildHist ds rs
+     return (VHistogram minVal maxVal size h)
+  where
+    asDouble (VDouble d) = pure d
+    asDouble (VInt i) = pure $ fromIntegral i
+    asDouble (VTimed v _) = asDouble v
+    asDouble _ = throw "histogram expects an array of numeric values"
+    -- Let's do the obvious thing for now
+
+    buildHist vals (r:rs) =
+      let (this, that) = partition (<= r) vals
+      in length this : buildHist that rs
+    buildHist vals [] = [length vals]
+interpretHistogram vs n =
+  typeErrorArgs [vs, n] "interpretHistogram"
+
+
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
   [ "type error: " <> msg
   {- Uncomment the line below if you want a _lot_ of debugging output -}
-  -- , "arguments: " <> Text.pack (show _args)
+  , "arguments: " <> Text.pack (show _args)
   ]
 
 -- run a single simulation - emitting a new (evaulable expr)

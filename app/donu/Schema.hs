@@ -502,6 +502,16 @@ instance JS.ToJSON DonuValue where
                     , "values" .= JS.toJSON (values ds)
                     ]
 
+      VHistogram low hi sz buckets ->
+        typed "histogram" $
+          JS.object [ "min" .= JS.toJSON low
+                    , "max" .= JS.toJSON hi
+                    , "size" .= JS.toJSON sz
+                    , "buckets" .= JS.toJSON buckets
+                    ]
+
+      VArray vs -> typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
+
       VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
       VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
 

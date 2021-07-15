@@ -48,6 +48,8 @@ data Value
   | VDFold DynamicalFold Expr
   | VSFold SampleFold DynamicalFold Expr
   | VSuspended
+
+  | VHistogram Double Double Double [Int] -- ^ min max size buckets
   deriving (Show, Eq, Ord)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
@@ -77,6 +79,7 @@ data FunctionName
   | FLoadCSV
   | FMean
   | FInterpolate
+  | FHistogram
   deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
@@ -104,4 +107,5 @@ prefixFunctionName ident =
     "sample"      -> Right FSample
     "min"         -> Right FMin
     "max"         -> Right FMax
+    "histogram"   -> Right FHistogram
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

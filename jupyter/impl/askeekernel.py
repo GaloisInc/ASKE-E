@@ -101,19 +101,40 @@ def format_data_series(time, values):
 
 
 def format_resp_value(v):
-    ty = v['type']
-    val = v['value']
+    if isinstance(v, dict):
+      ty = v['type']
+      val = v['value']
 
-    if ty == 'string':
-        return { 'text/plain': val }
+      if ty == 'string':
+          return { 'text/plain': val }
 
-    if ty == 'double':
-        return { 'text/plain': val }
+      if ty == 'double':
+          return { 'text/plain': val }
 
-    if ty == 'data-series':
-        return format_data_series(val['time'], val['values'])
+      if ty == 'data-series':
+          return format_data_series(val['time'], val['values'])
 
-    return { 'text/plain': json.dumps(val) }
+      if ty == 'histogram':
+          lo     = val['min']
+          sz     = val['size']
+          counts = val['buckets']
+          values = [ {'lo': lo+i*sz, 'hi':lo+(i+1)*sz, 'count': int(e) } for (i,e) in enumerate(counts)]
+          return {
+              'application/vnd.vegalite.v3+json': {
+                  'data' : {
+                      'values' : json.dumps(values)
+                  },
+                  'mark' : 'bar',
+                  'encoding': {
+                      'x': { 'field': 'lo', 'bin': { 'binned': 'true', "step": sz } },
+                      'x2': {'field': 'hi'},
+                      'y': {'field': 'count', 'type':'quantitative'}
+                  }
+              },
+              'text/plain' : json.dumps(values)
+          }
+
+    return { 'text/plain': json.dumps(v) }
 
 
 class ASKEEKernel(Kernel):
