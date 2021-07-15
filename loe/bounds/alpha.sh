@@ -8,9 +8,20 @@
 # Report the compressed length of the alpha-converted text; this establishes a lower
 # bound on the proxy metric for the source text's Kolmogorov complexity.
 
+check=false
+
+while getopts "x:c" opt; do
+	case $opt in
+	x) suffix=$OPTARG ;;
+	c) check=true ;;
+	*) exit 1 ;;
+	esac
+done
+shift $(($OPTIND-1))
+
 [ $# -lt 2 ] && {
 	cat <<EOD
-usage: `basename $0` [-s SUFFIX] SOURCE_TEXT SYMBOLS
+usage: `basename $0` [-s SUFFIX] [-c] SOURCE_TEXT SYMBOLS
 
 Estimate the Kolmogorov complexity of the source text.
 
@@ -23,21 +34,16 @@ Strings in the program are converted uniformly to 'txt' or "txt".
 While the correct operation of the program depends upon the original
 string contents, the program's essential complexity does not.
 
-The suffix option specifies a string to be appended to the minimal-length
+The -s SUFFIX option specifies a string to be appended to the minimal-length
 alpha-converted identifiers. Use this to demonstrate that identifier
 length has a significant impact on the complexity as estimated by
 compression.
+
+The -c option suppresses the Kolmogorov estimate and shows the
+alpha-converted text.
 EOD
 	exit 1
 }
-
-while getopts "x:" opt; do
-	case $opt in
-	x) suffix=$OPTARG ;;
-	*) exit 1 ;;
-	esac
-done
-shift $(($OPTIND-1))
 
 source=$1
 srcsym=$2
@@ -58,9 +64,13 @@ tmp=`mktemp`
 cat $edits | awk '{ print length(), $0|"sort -nr"}' | cut -d' ' -f2- > $tmp
 mv $tmp $edits
 
-# The xz compressor with a fixed method produces slightly smaller files than does compress.
-# It does so by omitting the header data to specify the decompression method.
-##sed -f $edits $source|compress -c|wc -c
-sed -f $edits $source|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
+if $check; then
+	sed -f $edits $source
+else
+	# The xz compressor with a fixed method produces slightly smaller files than does compress.
+	# It does so by omitting the header data to specify the decompression method.
+	##sed -f $edits $source|compress -c|wc -c
+	sed -f $edits $source|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
+fi
 
 rm -f $edits
