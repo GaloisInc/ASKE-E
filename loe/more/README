@@ -1,9 +1,0 @@
-This directory contains three ODE problems along with numerical solvers
-using Python (five different toolkits) and Julia.
-
-Run ./report.sh to see compressibility (a stand-in for Kolmogorov complexity)
-and the number of unique symbols for each file.
-
-The ODEs and solver code are from:
-https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
-https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
