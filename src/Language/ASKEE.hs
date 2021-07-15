@@ -12,6 +12,8 @@ module Language.ASKEE
   , loadGrometPrtFrom
   , loadGrometPnc
   , loadGrometPncFrom
+  , loadGrometFnet
+  , loadGrometFnetFrom
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
@@ -65,6 +67,7 @@ import Control.Exception ( try, SomeException(..) )
 import Control.Monad     ( forM )
 
 import           Data.Aeson                 ( decode )
+import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Set                   ( Set )
@@ -119,6 +122,7 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 import qualified Language.ASKEE.Storage                as Storage
+import qualified Language.ASKEE.Automates.Client       as Automates
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
@@ -172,7 +176,7 @@ loadGrometPrtFrom format source =
       throwLeft ConversionError (toGrometPrt model)
 
 -------------------------------------------------------------------------------
--- Data
+-- PNC
 loadGrometPnc :: DataSource -> IO PetriNetClassic
 loadGrometPnc = loadGrometPncFrom GrometPncType 
 
@@ -180,6 +184,18 @@ loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
 loadGrometPncFrom format source =
   do  model <- loadModel format source
       throwLeft ConversionError (toGrometPnc model)
+
+
+-------------------------------------------------------------------------------
+-- FNET
+loadGrometFnet :: DataSource -> IO JSON.Value
+loadGrometFnet = loadGrometFnetFrom GrometFnetType
+
+loadGrometFnetFrom :: ModelType -> DataSource -> IO (FNet.FunctionNetwork)
+loadGrometFnetFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometFnet model)
+
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -328,10 +344,11 @@ data SimulationType =
     AJ 
   | Discrete 
   | GSL 
+  | AutomatesSvc
   deriving (Show)
 
 simulateModel :: 
-  SimulationType -> 
+  Maybe SimulationType ->
   ModelType -> 
   DataSource ->
   Double {- ^ start -} ->
@@ -342,16 +359,50 @@ simulateModel ::
   Maybe Int {- ^ seed (for discrete event simulation) -} -> 
   Maybe Text {- ^ domain parameter (for function networks) -} -> 
   Int ->
-  IO [DataSeries Double]
+  IO [DS.LabeledDataSeries Double]
 simulateModel sim format source start end step parameters outputs seed dp iterations =
-  case sim of
-    GSL -> (:[]) <$> simulateModelGSL format source start end step parameters outputs
-    Discrete -> map filterDS <$> simulateModelDiscrete format source start end step parameters seed iterations
-    AJ -> (:[]) . filterDS <$> simulateModelAJ format source start end step parameters
+  case simType of
+    GSL -> (:[]) . DS.ldsFromDs <$> simulateModelGSL format source start end step parameters outputs
+    Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
+    AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
+    AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
   where
+    simType = fromMaybe defaultSimulationType sim
+    defaultSimulationType =
+      case format of
+        EaselType -> GSL
+        GrometPncType -> AJ
+        GrometPrtType -> GSL
+        GrometFnetType -> AutomatesSvc
+        RNetType -> GSL
+        DeqType -> GSL
+        CoreType -> GSL
     filterDS ds 
       | null outputs = ds
       | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+
+simulateModelAutomates ::
+  ModelType ->
+  DataSource ->
+  Double ->
+  Double ->
+  Double ->
+  Maybe Text ->
+  Map Text Double ->
+  Set Text ->
+  IO (DS.LabeledDataSeries Double)
+simulateModelAutomates format source start end step domainParamMb params outVars =
+  do  fnet <- loadGrometFnetFrom format source
+      domainParam <-
+        throwLeft HttpCallException
+          case domainParamMb of
+            Nothing -> Left "Domain parameter was not specified"
+            Just p -> Right p
+
+      let simReq =
+            Automates.SimulationRequest fnet start end step domainParam params outVars
+
+      Automates.simulateFnet simReq
 
 simulateModelGSL :: 
   ModelType -> 

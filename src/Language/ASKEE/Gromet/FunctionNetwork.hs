@@ -10,6 +10,8 @@ import qualified Data.Map as Map
 import qualified Data.Vector as Vector
 import qualified Language.ASKEE.Model.Basics as MB
 
+type FunctionNetwork = JSON.Value
+
 fnetInterface :: JSON.Value -> Either Text MI.ModelInterface
 fnetInterface root =
   do  metas <- objLookup root "metadata" >>= arr

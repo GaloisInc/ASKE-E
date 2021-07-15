@@ -103,7 +103,7 @@ Example:
 | Field            | Type                     | Description                                                         | Stipulations
 |------------------|--------------------------|---------------------------------------------------------------------|----------------
 | command          | string                   | The literal `"simulate"`                                            |
-| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"` | Defaults to `gsl`
+| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"`, `"automates"` | Defaults to a model specific simulation type
 | definition       | model-def                | Definition of the model                                             | 
 | start            | number                   | Start time of the simulation                                        | 
 | end              | number                   | End time of the simulation                                          | 

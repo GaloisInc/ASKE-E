@@ -29,6 +29,7 @@ import qualified Language.ASKEE.ESL as ESL
 import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
 import qualified Language.ASKEE.Gromet.PetriNetClassic as GPNC
+import qualified Language.ASKEE.Gromet.FunctionNetwork as FNET
 
 data Model =
     Easel     ESL.Model
@@ -37,7 +38,7 @@ data Model =
   | RNet      RNet.ReactionNet
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
-  | GrometFnet JSON.Value
+  | GrometFnet FNET.FunctionNetwork
 
 modelTypeOf :: Model -> MT.ModelType
 modelTypeOf m =

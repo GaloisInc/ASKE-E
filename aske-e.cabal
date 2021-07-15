@@ -113,6 +113,8 @@ library
                         Language.ASKEE.Panic
                         Language.ASKEE.Storage
                         Language.ASKEE.Storage.Internal
+                        Language.ASKEE.HTTPClient
+                        Language.ASKEE.Automates.Client
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
@@ -141,6 +143,10 @@ library
                       , text
                       , unordered-containers
                       , vector
+                      , http-client
+                      , http-client-tls
+                      , utf8-string
+                      , case-insensitive
 
   build-tool-depends:   alex:alex, happy:happy
   hs-source-dirs:       src

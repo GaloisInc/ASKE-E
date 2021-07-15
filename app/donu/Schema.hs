@@ -201,7 +201,8 @@ simTypeSpec :: ValueSpec SimulationType
 simTypeSpec =
   (jsAtom "aj" $> AJ) <!>
   (jsAtom "discrete" $> Discrete) <!>
-  (jsAtom "gsl" $> GSL)
+  (jsAtom "gsl" $> GSL) <!>
+  (jsAtom "automates" $> AutomatesSvc)
 
 data SimulateCommand = SimulateCommand
   { simModel              :: ModelDef
@@ -211,7 +212,7 @@ data SimulateCommand = SimulateCommand
   , simDomainParam        :: Maybe Text
   , simParameterValues    :: Map Text Double
   , simOutputs            :: [Text]
-  , simType               :: SimulationType
+  , simType               :: Maybe SimulationType
   , simSeed               :: Maybe Int
   } deriving Show
 
@@ -254,11 +255,11 @@ instance HasSpec SimulateCommand where
             "outputs"
             "Which values to output from the simulation"
 
-        simType <- fromMaybe GSL <$>
+        simType <-
           optSection' 
             "sim-type" 
             simTypeSpec
-            "Simulation engine to use (defaults to GSL)"
+            "Simulation engine to use (defaults to model specific simulation)"
 
         simSeed <- optSection
           "seed"
