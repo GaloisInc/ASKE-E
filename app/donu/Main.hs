@@ -71,7 +71,7 @@ handleRequest r =
             simParameterValues
             mempty
             simSeed
-            Nothing
+            simDomainParam
             1
           succeed' res
 
