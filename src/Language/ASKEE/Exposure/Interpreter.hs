@@ -374,7 +374,8 @@ runSim n t mdl =
       pure $ VArray (seriesAsPoints <$> series)
   where
     -- TODO: we should just get the raw simulation data?
-    mkSeries = CPP.simulate mdl 0 t (t/100) `traverse` (Just <$> [0..n])
+    -- TODO: Remove the use of `head`
+    mkSeries = (\mbSeed -> head <$> CPP.simulate mdl 0 t (t/100) mbSeed 1) `traverse` (Just <$> [0..n])
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)

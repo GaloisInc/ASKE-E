@@ -58,11 +58,8 @@ initDonu =
         case JS.eitherDecode body of
           Right a ->
                runHandler a
-           <|> do Snap.modifyResponse
-                   (Snap.setResponseStatus 400 "Bad request")
-          Left err ->
-            do  Snap.writeText $ Text.pack err
-                Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
+           <|> errorWith 400 "Bad request"
+          Left err -> errorWith 400 ("Didn't recognize request: "<>err)
 
     runHandler r =
       do out <- handleRequest r
@@ -73,6 +70,15 @@ initDonu =
          Snap.modifyResponse (Snap.setResponseStatus code msg)
          Snap.writeLBS (JS.encode out)
 
+
+errorWith :: Int -> String -> Snap.Handler DonuApp DonuApp ()
+errorWith code err =
+  do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
+      let response = JS.object
+            [ "status" JS..= ("error" :: String)
+            , "error" JS..= err
+            ]
+      Snap.writeLBS (JS.encode response)
 
 main :: IO ()
 main =
@@ -90,37 +96,19 @@ handleRequest r =
   liftIO (print r) >>
   Snap.with exposureSessions cullOldSessions  >>
   case r of
-    SimulateDiscrete SimulateDiscreteCommand{..} ->
-      do  res <-
-            liftIO $ simulateModelDiscrete
-              (modelDefType simModelDiscrete)
-              (modelDefSource simModelDiscrete)
-              simStartDiscrete
-              simEndDiscrete
-              simStepDiscrete
-              simSeedDiscrete
-          succeed' res
-
-    SimulateGSL SimulateGSLCommand{..} ->
-      do  res <-
-            liftIO $ simulateModelGSL
-              (modelDefType simModelGSL)
-              (modelDefSource simModelGSL)
-              simStartGSL
-              simEndGSL
-              simStepGSL
-              simParameterValuesGSL
-          succeed' res
-
-    SimulateAJ SimulateAJCommand{..} ->
-      do  res <-
-            liftIO $ simulateModelAJ
-              (modelDefType simModelAJ)
-              (modelDefSource simModelAJ)
-              simStartAJ
-              simEndAJ
-              simStepAJ
-              simParameterValuesAJ
+    Simulate SimulateCommand{..} ->
+      do  res <- liftIO $ simulateModel
+            simType
+            (modelDefType simModel)
+            (modelDefSource simModel)
+            simStart
+            simEnd
+            simStep
+            simParameterValues
+            mempty
+            simSeed
+            simDomainParam
+            1
           succeed' res
 
     CheckModel CheckModelCommand{..} ->

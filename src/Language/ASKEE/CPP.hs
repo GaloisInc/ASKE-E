@@ -11,12 +11,13 @@ import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
 
 import Language.ASKEE.Core             ( Model )
-import Language.ASKEE.CPP.Compile      ( compileAndRun, Compiler(..) )
+import Language.ASKEE.CPP.Compile      ( compileAndRunN, Compiler(..) )
 import Language.ASKEE.CPP.SimulatorGen ( genModel, genDriver )
 import Language.ASKEE.DataSeries       ( DataSeries(..), emptyDataSeries )
 import Language.ASKEE.Panic            ( panic )
 
 import Prettyprinter ( (<+>) )
+import System.Random (randomIO)
 
 simulate ::
   Model ->
@@ -24,21 +25,28 @@ simulate ::
   Double {- ^ end time -} ->
   Double {- ^ time step -} ->
   Maybe Int {- ^ seed -} ->
-  IO (DataSeries Double)
-simulate model start end step seed =
-  do  let modelCPP = genModel model
-          modelDriver = genDriver model start end step seed
+  Int {- ^ Number of iterations -} ->
+  IO [DataSeries Double]
+simulate model start end step seed iters =
+  do  seed' <- maybe randomIO pure seed
+      let modelCPP = genModel model
+          modelDriver = genDriver model start end step
           program = modelCPP <+> modelDriver
-      res <- compileAndRun GCC [("model.cpp", program)]
-      points <-
-        case eitherDecode @[Map Text Double] (B.pack res) of
-          Left err -> panic "simulateCPP" ["Couldn't decode C++-produced JSON", err, res]
-          Right points' -> pure points'
-      case points of
-        [] -> pure $ emptyDataSeries []
-        (point:_) ->
-          let stateVars = List.delete "time" (Map.keys point)
-          in  pure $ buildDataSeries stateVars points
+          args = Right [[show i] | i <- take iters [seed' ..]]
+      results <- compileAndRunN GCC [("model.cpp", program)] args iters
+      mapM asDataSeries results
+
+  where
+    asDataSeries ds =
+      do  points <-
+            case eitherDecode @[Map Text Double] (B.pack ds) of
+              Left err -> panic "simulate" ["Couldn't decode C++-produced JSON", err, ds]
+              Right points' -> pure points'
+          case points of
+            [] -> pure $ emptyDataSeries []
+            (point:_) ->
+              let stateVars = List.delete "time" (Map.keys point)
+              in  pure $ buildDataSeries stateVars points
 
 buildDataSeries :: [Text] -> [Map Text Double] -> DataSeries Double
 buildDataSeries stateVars json =

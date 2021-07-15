@@ -2,12 +2,14 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.ASKEE.Core.Syntax where
 
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import qualified Data.Set  as Set
+import qualified Data.Text as Text
 import           Data.Text ( Text )
 
 import Language.ASKEE.Core.Expr
@@ -101,3 +103,55 @@ applyParams :: Map Text Double -> Model -> Model
 applyParams parameters = applyParams' parameters'
   where
     parameters' = Map.map NumLit parameters
+
+
+addParams' :: Map Ident Expr -> Model -> Model
+addParams' newParams m@Model{..} = m { modelParams = params' }
+  where
+    -- Map.union is left-biased, so this picks new parameters over existing
+    params' = Map.union (Map.map Just newParams) modelParams
+
+addParams :: Map Text Double -> Model -> Model
+addParams parameters = addParams' parameters'
+  where
+    parameters' = Map.map NumLit parameters
+
+-- Give a model's (let | parameter | state) variables and event names C++-legal
+-- identifiers, and also record the mapping of new names to old
+-- TODO rename things in metadata as well?
+legalize :: Model -> (Model, Map Text Ident)
+legalize m@Model{..} = 
+  ( m'
+  , Map.unions $ 
+    map flipMap 
+    [stateRenaming, paramRenaming, letRenaming, eventRenaming]
+  )
+  where
+    m' = subst $ m 
+      { modelEvents    = freshEventDecls
+      , modelParams    = freshParamDecls
+      , modelLets      = freshLetDecls
+      , modelInitState = freshStateDecls }
+
+    subst = 
+      mapExprs $
+      substExpr $
+      Map.map Var (Map.unions [stateRenaming, paramRenaming, letRenaming])
+
+    eventRenaming = Map.fromList (zip (map eventName modelEvents) (map ("e"<>) freshening))
+    paramRenaming = Map.fromList (zip (Map.keys modelParams)      (map ("p"<>) freshening))
+    stateRenaming = Map.fromList (zip (modelStateVars m)          (map ("s"<>) freshening))
+    letRenaming   = Map.fromList (zip (Map.keys modelLets)        (map ("l"<>) freshening))
+
+    freshEventDecls = map modifyEvent modelEvents
+    freshLetDecls   = Map.mapKeys (letRenaming Map.!) modelLets
+    freshParamDecls = Map.mapKeys (paramRenaming Map.!) modelParams
+    freshStateDecls = Map.mapKeys (stateRenaming Map.!) modelInitState
+
+    modifyEvent e@Event{..} = e
+      { eventName = eventRenaming Map.! eventName
+      , eventEffect = Map.mapKeys (stateRenaming Map.!) eventEffect }
+
+    freshening = map (Text.pack . show) [1::Integer ..]
+
+    flipMap = Map.fromList . map (\(a, b) -> (b, a)) . Map.toList

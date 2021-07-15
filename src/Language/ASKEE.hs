@@ -12,6 +12,8 @@ module Language.ASKEE
   , loadGrometPrtFrom
   , loadGrometPnc
   , loadGrometPncFrom
+  , loadGrometFnet
+  , loadGrometFnetFrom
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
@@ -23,6 +25,7 @@ module Language.ASKEE
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
+  , simulateModel
   
   , stratifyModel
   , fitModelToData
@@ -49,6 +52,7 @@ module Language.ASKEE
   , MetaAnn(..)
   , ModelDef(..)
   , ModelType(..)
+  , SimulationType(..)
   , Stratify.StratificationInfo(..)
   , Stratify.StratificationType(..)
 
@@ -63,8 +67,10 @@ import Control.Exception ( try, SomeException(..) )
 import Control.Monad     ( forM )
 
 import           Data.Aeson                 ( decode )
+import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import           Data.Set                   ( Set )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -82,6 +88,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , parseDataSeries
                                                        , parseDataSeriesFromFile
                                                        , DataSeries(..) )
+import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
 import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
 import           Language.ASKEE.Error                  ( ASKEEError(..)
@@ -103,9 +110,11 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
                                                        , Port(..)
                                                        , emptyModelInterface
                                                        )
+import           Language.ASKEE.Panic                  ( panic )
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
+import qualified Language.ASKEE.Gromet.FunctionNetwork  as FNet
 import qualified Language.ASKEE.CPP                     as CPP
 import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
@@ -113,6 +122,7 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , DataSource(..)
                                                        , ModelDef(..) )
 import qualified Language.ASKEE.Storage                as Storage
+import qualified Language.ASKEE.Automates.Client       as Automates
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
@@ -166,7 +176,7 @@ loadGrometPrtFrom format source =
       throwLeft ConversionError (toGrometPrt model)
 
 -------------------------------------------------------------------------------
--- Data
+-- PNC
 loadGrometPnc :: DataSource -> IO PetriNetClassic
 loadGrometPnc = loadGrometPncFrom GrometPncType 
 
@@ -174,6 +184,18 @@ loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
 loadGrometPncFrom format source =
   do  model <- loadModel format source
       throwLeft ConversionError (toGrometPnc model)
+
+
+-------------------------------------------------------------------------------
+-- FNET
+loadGrometFnet :: DataSource -> IO JSON.Value
+loadGrometFnet = loadGrometFnetFrom GrometFnetType
+
+loadGrometFnetFrom :: ModelType -> DataSource -> IO (FNet.FunctionNetwork)
+loadGrometFnetFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometFnet model)
+
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -309,10 +331,78 @@ fitModelToData format fitData fitParams fitScale source =
         case fitData of
           Inline s -> pure s
           FromFile f -> Text.readFile f
+          FromStore _ -> panic "fitModelToData" ["reading data from store is not yet supported"]
       let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
       dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
       pure $ DEQ.fitModel eqs dataSeries fitScale
            $ Map.fromList (zip fitParams (repeat 0))
+
+-------------------------------------------------------------------------------
+-- Simulation
+
+data SimulationType = 
+    AJ 
+  | Discrete 
+  | GSL 
+  | AutomatesSvc
+  deriving (Show)
+
+simulateModel :: 
+  Maybe SimulationType ->
+  ModelType -> 
+  DataSource ->
+  Double {- ^ start -} ->
+  Double {- ^ end -} -> 
+  Double {- ^ step -} ->
+  Map Text Double {- ^ parameterization -} -> 
+  Set Text {- ^ variables to measure (empty to measure all) -} -> 
+  Maybe Int {- ^ seed (for discrete event simulation) -} -> 
+  Maybe Text {- ^ domain parameter (for function networks) -} -> 
+  Int ->
+  IO [DS.LabeledDataSeries Double]
+simulateModel sim format source start end step parameters outputs seed dp iterations =
+  case simType of
+    GSL -> (:[]) . DS.ldsFromDs <$> simulateModelGSL format source start end step parameters outputs
+    Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
+    AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
+    AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
+  where
+    simType = fromMaybe defaultSimulationType sim
+    defaultSimulationType =
+      case format of
+        EaselType -> GSL
+        GrometPncType -> AJ
+        GrometPrtType -> GSL
+        GrometFnetType -> AutomatesSvc
+        RNetType -> GSL
+        DeqType -> GSL
+        CoreType -> GSL
+    filterDS ds 
+      | null outputs = ds
+      | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+
+simulateModelAutomates ::
+  ModelType ->
+  DataSource ->
+  Double ->
+  Double ->
+  Double ->
+  Maybe Text ->
+  Map Text Double ->
+  Set Text ->
+  IO (DS.LabeledDataSeries Double)
+simulateModelAutomates format source start end step domainParamMb params outVars =
+  do  fnet <- loadGrometFnetFrom format source
+      domainParam <-
+        throwLeft HttpCallException
+          case domainParamMb of
+            Nothing -> Left "Domain parameter was not specified"
+            Just p -> Right p
+
+      let simReq =
+            Automates.SimulationRequest fnet start end step domainParam params outVars
+
+      Automates.simulateFnet simReq
 
 simulateModelGSL :: 
   ModelType -> 
@@ -320,13 +410,14 @@ simulateModelGSL ::
   Double {- ^ start -} ->
   Double {- ^ stop -} -> 
   Double {- ^ step -} -> 
-  Map Text Double ->
+  Map Text Double {- ^ parameters -} ->
+  Set Text {- ^ Variables to observe, empty for everything -} ->
   IO (DataSeries Double)
-simulateModelGSL format source start end step parameters =
+simulateModelGSL format source start end step parameters vars =
   do  equations <- loadDiffEqsFrom format source
       let times' = takeWhile (<= end)
                  $ iterate (+ step) start
-      pure $ DEQ.simulate equations parameters times'
+      pure $ DEQ.simulate equations parameters vars times'
 
 simulateModelDiscrete ::
   ModelType ->
@@ -334,11 +425,19 @@ simulateModelDiscrete ::
   Double {- ^ start time -} ->
   Double {- ^ end time -} -> 
   Double {- ^ time step -} -> 
+  Map Text Double ->
   Maybe Int {- ^ seed -} ->
-  IO (DataSeries Double)
-simulateModelDiscrete format source start end step seed =
+  Int {- ^ number of iterations -}->
+  IO [DataSeries Double]
+simulateModelDiscrete format source start end step parameters seed iterations =
   do  model <- loadCoreFrom format source
-      CPP.simulate model start end step seed
+      let parameterizedModel = Core.addParams parameters model
+          (withLegalNames, newNames) = Core.legalize parameterizedModel
+      dss <- CPP.simulate withLegalNames start end step seed iterations
+      mapM (\DataSeries{..} -> pure DataSeries { values = adjust newNames values, ..}) dss
+
+  where
+    adjust vs = Map.fromList . map (\(v, e) -> (vs Map.! v, e)) . Map.toList
       
 simulateModelAJ ::
   ModelType -> 
@@ -350,10 +449,16 @@ simulateModelAJ ::
   IO (DataSeries Double)
 simulateModelAJ format source start stop step parameters =
   do  pnc <- loadGrometPncFrom format source
-      let parameters' = Map.mapKeys demangle parameters
-      AJ.simulate pnc start stop step parameters'
+      let newParameters = Map.mapKeys demangle parameters
+      AJ.simulate pnc start stop step newParameters
   where
-    demangle t = head $ Text.split (== '_') t
+    demangle t = 
+      case (Text.stripSuffix "_init" t, Text.stripSuffix "_rate" t) of
+        (Just t', _) -> t'
+        (_, Just t') -> t'
+        (Nothing, Nothing) -> t
+
+-------------------------------------------------------------------------------
 
 convertModelString ::
   ModelType -> DataSource -> ModelType -> IO (Either String String)
@@ -416,10 +521,18 @@ queryModels query =
 --------------------------------------------------------------------------------
 
 describeModelInterface :: Model -> ModelInterface
-describeModelInterface model =
-  case toCore model of
-    Right core -> Core.modelInterface core
-    Left {} -> emptyModelInterface -- XXX: FN
+describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterface)
+  where
+    eitherToMaybe (Left _) = Nothing
+    eitherToMaybe (Right a) = Just a
 
+    orElse (Just a) _ = a
+    orElse Nothing b = b
+
+    asCore = Core.modelInterface <$> eitherToMaybe (toCore model)
+    asFnet =
+      case model of
+        GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
+        _ -> Nothing
 
 
