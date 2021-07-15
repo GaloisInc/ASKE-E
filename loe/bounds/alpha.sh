@@ -58,6 +58,8 @@ while read symbol; do
 	gensym=`printf "g%.${symlen}d" $count`
 	count=$(($count+1))
 	echo "s/\([[:punct:][:space:]]\)$symbol\([[:punct:][:space:]]\)/\1$gensym$suffix\2/g"
+	echo "s/^$symbol\([[:punct:][:space:]]\)/$gensym$suffix\1/g"
+	echo "s/\([[:punct:][:space:]]\)$symbol$/\1$gensym$suffix/g"
 done < $srcsym >> $edits
 
 tmp=`mktemp`
