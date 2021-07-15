@@ -115,7 +115,8 @@ printExpr expr =
     (Or e1 e2)  -> lBinop e1 "or"  e2
     (Not e1) -> 
       hsep  [ text "not"
-            , pp e1]
+            , pp e1
+            ]
     If e1 e2 e3 -> 
       hsep  [ text "if"
             , pp e1

@@ -114,6 +114,9 @@ library
                         Language.ASKEE.Storage
                         Language.ASKEE.Storage.Internal
 
+                        -- convert as CTMC  
+                        Language.ASKEE.Core.CTMC
+
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
                       , scientific

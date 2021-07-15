@@ -1,0 +1,18 @@
+
+//1. What is the probability of infections become zero eventually?
+"infections_zero": P=?[F Inf=0];
+
+// 2. What is the probability of recovered individuals equal to the total population?
+"recover_full": P=?[F Rec=N];
+
+// 3. What is the probability of number of recovered individuals will be greater than the susceptible individuals?
+"recovers_gt_susceptibles": P=?[F Rec > Sus];
+
+//4. What is the probability of number of susceptible individuals will be the total population?
+"Susceptibles_total": P=?[F Sus=N-1];
+
+//5. What is the probability of total population infected within 10 time units?
+"infect_within_10tu": P=? [F<=10 Inf=N];
+
+//6. What is the expected time for eventually infection-free?
+"expected_time_inf_0": R =? [F Inf = 0]
