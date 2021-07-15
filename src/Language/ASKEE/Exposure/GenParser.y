@@ -73,7 +73,7 @@ stmt :: { Stmt }
 stmt  : IDENT '=' expr         { StmtLet $1 $3  }
       | modelDef               {% do { m <- toCore =<< parseModel RNetType (snd $1)
                                      ; let nm = fst $1
-                                     ; let e = EVal (VModel m { modelName = nm })
+                                     ; let e = EVal (VModelExpr (EVal (VModel m { modelName = nm })))
                                      ; pure (StmtLet nm e) }}
       | dispExpr               { StmtDisplay $1 }
 
