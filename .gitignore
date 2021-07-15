@@ -1,2 +1,4 @@
 dist-newstyle
 .vscode
+GenLexer.hs
+GenParser.hs

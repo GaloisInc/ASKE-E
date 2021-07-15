@@ -39,6 +39,7 @@ data Model =
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
   | GrometFnet FNET.FunctionNetwork
+  deriving Show
 
 modelTypeOf :: Model -> MT.ModelType
 modelTypeOf m =

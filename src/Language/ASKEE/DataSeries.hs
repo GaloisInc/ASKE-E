@@ -27,6 +27,9 @@ module Language.ASKEE.DataSeries
     -- * Labelled
   , LabeledDataSeries(..)
   , ldsFromDs
+    -- * Data points
+  , DataPoint(..)
+  , toDataPoints
   ) where
 
 import Data.Text(Text)
@@ -51,7 +54,7 @@ data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 instance Functor DataSeries where
   fmap f ds = ds { values = fmap f <$> values ds }

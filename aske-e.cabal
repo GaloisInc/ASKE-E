@@ -69,6 +69,13 @@ library
                         Language.ASKEE.Experiment.Typechecker
                         Language.ASKEE.Experiment.TypeOf
 
+                        Language.ASKEE.Exposure.GenLexer
+                        Language.ASKEE.Exposure.GenParser
+                        Language.ASKEE.Exposure.Interpreter
+                        Language.ASKEE.Exposure.Lexer
+                        Language.ASKEE.Exposure.Print
+                        Language.ASKEE.Exposure.Syntax
+
                         Language.ASKEE.Gromet
                         Language.ASKEE.Gromet.FromEasel
                         Language.ASKEE.Gromet.See
@@ -153,6 +160,28 @@ library
   default-language:     Haskell2010
   ghc-options:          -Wall
 
+executable champ
+  hs-source-dirs:       app/champ
+  main-is:              Main.hs
+  other-modules:        Logo
+                        Paths_aske_e
+  autogen-modules:      Paths_aske_e
+  build-depends:        base
+                      , ansi-terminal
+                      , aske-e
+                      , containers
+                      , directory
+                      , exceptions
+                      , extra
+                      , filepath
+                      , haskeline >= 0.7
+                      , mtl
+                      , optparse-applicative
+                      , text
+                      , transformers
+  default-language:     Haskell2010
+  ghc-options:          -Wall
+
 executable deca
   hs-source-dirs:       app/deca
   main-is:              Main.hs
@@ -171,7 +200,8 @@ executable deca
 executable donu
   hs-source-dirs:       app/donu
   main-is:              Main.hs
-  other-modules:        HTML
+  other-modules:        ExposureSession
+                        HTML
                         Schema
                         SchemaGeneric
                         SchemaJS
@@ -180,18 +210,24 @@ executable donu
                       , aeson
                       , aske-e
                       , bytestring
+                      , cereal
+                      , clientsession
                       , config-schema
                       , config-value
                       , containers
                       , directory
                       , filepath
+                      , lens
+                      , mtl
                       , pretty
                       , process
                       , scientific
                       , semigroupoids
                       , snap-core
                       , snap-server
+                      , snap
                       , text
+                      , time
                       , unordered-containers
                       , vector
 
@@ -203,14 +239,18 @@ test-suite tests
   hs-source-dirs:       test
   main-is:              Main.hs
   other-modules:        ASKEE
+                      , Exposure
                       , ModelCheck
                       , Storage
+                      , Paths_aske_e
+  autogen-modules:      Paths_aske_e
   build-depends:        base
                       , aske-e
                       , containers
                       , directory
                       , filepath
                       , file-embed
+                      , filepath
                       , mtl
                       , tasty
                       , tasty-hunit

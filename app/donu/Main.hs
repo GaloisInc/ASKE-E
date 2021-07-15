@@ -1,27 +1,55 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Main ( main ) where
 
-import Control.Monad.IO.Class ( liftIO )
-import Control.Exception      ( try, SomeException )
+import Control.Monad.State
+
+import           Control.Applicative ((<|>))
+import           Control.Lens.TH
+import qualified Web.ClientSession as ClientSession
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
+import           Data.Maybe (fromMaybe)
 
-import Language.ASKEE
+import qualified Snap
 
-import Schema
+import           Language.ASKEE
+import qualified Language.ASKEE.Exposure.Interpreter as Exposure
+import           Language.ASKEE.Exposure.GenLexer (lexExposure)
+import           Language.ASKEE.Exposure.GenParser (parseExposureStmts)
 
-import qualified Snap.Core as Snap
-import           Snap.Http.Server ( quickHttpServe )
+import           Schema
+import           ExposureSession
+import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
-main :: IO ()
-main = 
-  do  initStorage
-      quickHttpServe $
-        do  Snap.route [ ("/help", showHelp)
-                       , ("/", endpoint)
-                       ]
+-- Snaplet Definition ---------------------------------------------------------
+
+newtype Donu sim = Donu
+ { _exposureSessions :: Snap.Snaplet (ExposureSessionManager sim)
+   -- ^ Snaplet implementing Exposure REPL sessions
+ }
+
+makeLenses ''Donu
+
+-------------------------------------------------------------------------------
+
+type ExposureState = Exposure.Env
+type DonuApp = Donu ExposureState
+
+initDonu :: Snap.SnapletInit DonuApp DonuApp
+initDonu =
+  Snap.makeSnaplet "donu" "donu" Nothing $
+    do sess <- Snap.nestSnaplet "sessions" exposureSessions $
+                 initExposureSessionManager
+                   ClientSession.defaultKeyFile -- TODO: Do we care about this?
+                   "exposure-env-id"
+                   1800
+       Snap.addRoutes [ ("/help", showHelp)
+                      , ("/", endpoint)
+                      ]
+       return $ Donu sess
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -29,44 +57,52 @@ main =
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
           Right a ->
-            do  r <- liftIO $ try $ handleRequest a
-                case r of
-                  Right out ->
-                    do  let (code, msg) =
-                              case out of
-                                (FailureResult _) -> (400, "Error")
-                                _ -> (200, "OK")
-                        Snap.modifyResponse (Snap.setResponseStatus code msg)
-                        Snap.writeLBS (JS.encode out)
-                  Left err -> errorWith 500 (show (err :: SomeException))
+               runHandler a
+           <|> errorWith 400 "Bad request"
           Left err -> errorWith 400 ("Didn't recognize request: "<>err)
 
-errorWith :: Int -> String -> Snap.Snap ()
+    runHandler r =
+      do out <- handleRequest r
+         let (code, msg) =
+               case out of
+                 (FailureResult _) -> (400, "Error")
+                 _ -> (200, "OK")
+         Snap.modifyResponse (Snap.setResponseStatus code msg)
+         Snap.writeLBS (JS.encode out)
+
+
+errorWith :: Int -> String -> Snap.Handler DonuApp DonuApp ()
 errorWith code err =
   do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
-      let response = JS.object 
+      let response = JS.object
             [ "status" JS..= ("error" :: String)
             , "error" JS..= err
             ]
       Snap.writeLBS (JS.encode response)
 
-showHelp :: Snap.Snap ()
+main :: IO ()
+main =
+  do initStorage
+     Snap.serveSnaplet Snap.defaultConfig initDonu
+
+showHelp :: Snap.Handler (Donu sim) (Donu sim) ()
 showHelp = Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
 
 
-handleRequest :: Input -> IO Result
+handleRequest :: Input -> Snap.Handler DonuApp DonuApp Result
 handleRequest r =
-  print r >>
+  liftIO (print r) >>
+  Snap.with exposureSessions cullOldSessions  >>
   case r of
-    Simulate SimulateCommand{..} -> 
-      do  res <- simulateModel 
-            simType 
-            (modelDefType simModel) 
-            (modelDefSource simModel) 
-            simStart 
-            simEnd 
+    Simulate SimulateCommand{..} ->
+      do  res <- liftIO $ simulateModel
+            simType
+            (modelDefType simModel)
+            (modelDefSource simModel)
+            simStart
+            simEnd
             simStep
             simParameterValues
             mempty
@@ -76,22 +112,24 @@ handleRequest r =
           succeed' res
 
     CheckModel CheckModelCommand{..} ->
-      do  model <- loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
-          checkResult <- checkModel' (modelDefType checkModelModel) model
+      do  model <- liftIO $ loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- liftIO $ checkModel' (modelDefType checkModelModel) model
           case checkResult of
             Nothing  -> succeed' ()
             Just err -> pure (FailureResult (Text.pack err))
 
     ConvertModel ConvertModelCommand{..} ->
-      do  converted <- 
+      do  converted <-
+            liftIO $
             convertModelString
-              (modelDefType convertModelSource) 
-              (modelDefSource convertModelSource) 
+              (modelDefType convertModelSource)
+              (modelDefSource convertModelSource)
               convertModelDestType
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do  (res, _) <- 
+      do  (res, _) <-
+            liftIO $
             fitModelToData
               (modelDefType fitModel)
               fitData
@@ -101,41 +139,69 @@ handleRequest r =
           succeed' (FitResult res)
 
     GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
-      do  cpp <- loadCPPFrom modelDefType modelDefSource
+      do  cpp <- liftIO $ loadCPPFrom modelDefType modelDefSource
           succeed' (Text.pack $ show cpp)
 
     Stratify StratifyCommand{..} ->
-        do  res <- stratifyModel (modelDefType stratModel) (modelDefSource stratModel) stratConnections stratStates stratType
+        do  res <- liftIO $ stratifyModel (modelDefType stratModel) (modelDefSource stratModel) stratConnections stratStates stratType
             succeed' res
 
-    ListModels _ -> succeed <$> listAllModelsWithMetadata
+    ListModels _ -> succeed <$> liftIO listAllModelsWithMetadata
 
     ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
-      do  modelSource <- loadCoreFrom modelDefType modelDefSource
+      do  modelSource <- liftIO $ loadCoreFrom modelDefType modelDefSource
           case asSchematicGraph modelSource of
             Nothing -> pure (FailureResult "model cannot be rendered as a schematic")
             Just g -> succeed' g
 
     UploadModel UploadModelCommand{..} ->
-      do  mdef <- storeModel uploadModelType uploadModelName uploadModelSource
+      do  mdef <- liftIO $ storeModel uploadModelType uploadModelName uploadModelSource
           succeed' mdef
 
     GetModelSource GetModelSourceCommand{..} ->
-      do  modelString <- loadModelText (modelDefType getModelSource) (modelDefSource getModelSource)
+      do  modelString <- liftIO $ loadModelText (modelDefType getModelSource) (modelDefSource getModelSource)
           let result = getModelSource { modelDefSource = Inline modelString }
           succeed' result
 
-    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) -> 
-      do  model <- loadModel modelDefType modelDefSource
+    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) ->
+      do  model <- liftIO $ loadModel modelDefType modelDefSource
           let res = describeModelInterface model
           succeed' res
 
     QueryModels QueryModelsCommand {..} ->
-      succeed <$> queryModels queryParameters 
-  
+      succeed <$> liftIO (queryModels queryParameters)
+
+    ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
+      case lexExposure (Text.unpack code) >>= parseExposureStmts of
+        Left err ->
+          pure $ FailureResult $ Text.pack err
+        Right stmts ->
+          stepExposureSession stmts
+
+    ResetExposureState _ ->
+      do Snap.with exposureSessions $
+           putExposureSessionState Exposure.initialEnv
+         succeed' ()
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
 
-    succeed' :: (JS.ToJSON a, Show a) => a -> IO Result
+    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Handler x x Result
     succeed' = pure . succeed
+
+-- Driving Exposure -----------------------------------------------------------
+
+-- | Run the given exposure statements in the current session and return the
+-- resulting DisplayValues as a (JSON) list (or any error messages)
+stepExposureSession :: [Exposure.Stmt] -> Snap.Handler DonuApp DonuApp Result
+stepExposureSession stmts =
+  do env <- Snap.with exposureSessions $
+       fromMaybe Exposure.initialEnv <$> getExposureSessionState
+     res <- liftIO $ Exposure.evalStmts stmts env
+     case res of
+       Left err ->
+         pure $ FailureResult err
+       Right (env', displays, _effs) -> -- TODO: Do we want to do anything with _effs?
+         do Snap.with exposureSessions $
+              putExposureSessionState env'
+            return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays
