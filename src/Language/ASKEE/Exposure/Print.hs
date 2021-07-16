@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Exposure.Print where
 
+import qualified Data.Map as Map
 import qualified Data.Text.Lazy.Encoding as TL (decodeUtf8)
 import Language.ASKEE.Core.Print (ppModel)
 import Language.ASKEE.DataSeries (dataSeriesAsCSV)
@@ -18,7 +19,8 @@ ppValue v = case v of
   VTimed v' t          -> ppValue v' <> "@time" <> pretty t
   VDataSeries ds       -> pretty $ TL.decodeUtf8 $ dataSeriesAsCSV ds
   VModelExpr e         -> ppModelExpr e
-  VPoint _             -> notImplemented "VPoint"
+  VPoint m             -> group $ encloseSep (flatAlt "{ " "{") (flatAlt " }" "}") ", " $
+                          map (\(key, val) -> tupled [viaShow key, ppValue val]) $ Map.toList m
   VDFold{}             -> notImplemented "VDFold"
   VSFold{}             -> notImplemented "VSFold"
   VSuspended           -> notImplemented "VSuspended"
