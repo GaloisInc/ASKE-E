@@ -106,7 +106,8 @@ tests =
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertionWithStmts
             [ "sir = " <> loadSirEaselExpr
-            ] "P(sir.I > 30.0 at 5.0, 1)" $ \actualVal ->
-            actualVal @?= VDouble 0.5
+            , "evt = sample(sir.I > 15 at 125.0, 5)"
+            ] "P(evt) + P(not evt)" $ \actualVal ->
+            actualVal @?= VDouble 1
       ]
     ]
