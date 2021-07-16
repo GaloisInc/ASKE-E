@@ -13,6 +13,7 @@ data ASKEEError =
   | DataSeriesError String
   | NotImplementedError String
   | AlgebraicJuliaError String
+  | HttpCallException String
   deriving (Show)
 
 instance Exception ASKEEError

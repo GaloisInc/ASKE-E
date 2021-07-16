@@ -103,7 +103,7 @@ Example:
 | Field            | Type                     | Description                                                         | Stipulations
 |------------------|--------------------------|---------------------------------------------------------------------|----------------
 | command          | string                   | The literal `"simulate"`                                            |
-| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"` | Defaults to `gsl`
+| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"`, `"automates"` | Defaults to a model specific simulation type
 | definition       | model-def                | Definition of the model                                             | 
 | start            | number                   | Start time of the simulation                                        | 
 | end              | number                   | End time of the simulation                                          | 
@@ -134,12 +134,12 @@ Example:
 
 **Response:**
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| times            | list of number           | series of times used in simulation                                |
-| values           | result series object     | values of state varaibles                                         |
+| Field            | Type                             | Description                                                       |
+|------------------|----------------------------------|-------------------------------------------------------------------|
+| times            | list of number                   | series of times used in simulation                                |
+| values           | list of result series object     | values of state varaibles                                         |
 
-The object in `values` is such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
 Example:
 

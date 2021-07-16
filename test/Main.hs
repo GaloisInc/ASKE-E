@@ -1,6 +1,7 @@
 module Main where
 
 import qualified ASKEE
+import qualified Exposure as Exposure
 import qualified ModelCheck
 import qualified Storage
 
@@ -13,4 +14,5 @@ main =
       [ ModelCheck.tests
       , ASKEE.tests
       , Storage.tests
+      , Exposure.tests
       ]

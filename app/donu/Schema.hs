@@ -19,8 +19,10 @@ import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
 import SchemaJS
 
-import Language.ASKEE
-import Language.ASKEE.ESL.Print (printModel)
+import           Language.ASKEE
+import           Language.ASKEE.ESL.Print (printModel)
+import           Language.ASKEE.Exposure.Syntax
+import qualified Language.ASKEE.Core.Syntax as Core
 
 -------------------------------------------------------------------------------
 -- Input
@@ -38,6 +40,8 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | QueryModels QueryModelsCommand
+  | ExecuteExposureCode ExecuteExposureCodeCommand
+  | ResetExposureState ResetExposureStateCommand
     deriving Show
 
 instance HasSpec Input where
@@ -53,6 +57,8 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (QueryModels <$> anySpec)
+         <!> (ExecuteExposureCode <$> anySpec)
+         <!> (ResetExposureState <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -63,12 +69,12 @@ instance JS.FromJSON Input where
 -------------------------------------------------------------------------------
 -- Output
 
-newtype FitResult = FitResult (Map Text (Double, Double)) 
+newtype FitResult = FitResult (Map Text (Double, Double))
   deriving Show
 
 instance JS.ToJSON FitResult where
   toJSON (FitResult ps) = JS.object
-    [ point .= JS.object ["value" .= value, "error" .= err] 
+    [ point .= JS.object ["value" .= value, "error" .= err]
     | (point, (value, err)) <- Map.toList ps]
 
 instance JS.ToJSON StratificationInfo where
@@ -120,7 +126,7 @@ instance JS.ToJSON ModelDef where
 -- ToJSON ModelDef and ToJSON (MetaAnn ModelDef) probably ought to be merged somehow
 
 instance JS.ToJSON (MetaAnn ModelDef) where
-  toJSON MetaAnn{..} = 
+  toJSON MetaAnn{..} =
     let name = maybeToList $ ("name" .=) <$> lookup "name" metaData
         desc = maybeToList $ ("description" .=) <$> lookup "description" metaData
     in  JS.object $
@@ -201,7 +207,8 @@ simTypeSpec :: ValueSpec SimulationType
 simTypeSpec =
   (jsAtom "aj" $> AJ) <!>
   (jsAtom "discrete" $> Discrete) <!>
-  (jsAtom "gsl" $> GSL)
+  (jsAtom "gsl" $> GSL) <!>
+  (jsAtom "automates" $> AutomatesSvc)
 
 data SimulateCommand = SimulateCommand
   { simModel              :: ModelDef
@@ -211,54 +218,54 @@ data SimulateCommand = SimulateCommand
   , simDomainParam        :: Maybe Text
   , simParameterValues    :: Map Text Double
   , simOutputs            :: [Text]
-  , simType               :: SimulationType
+  , simType               :: Maybe SimulationType
   , simSeed               :: Maybe Int
   } deriving Show
 
 
 instance HasSpec SimulateCommand where
-  anySpec = sectionsSpec 
+  anySpec = sectionsSpec
     "simulate-command"
     do  reqSection' "command" (jsAtom "simulate") "Run a simulation"
         simModel <- reqSection'
-          "definition" 
+          "definition"
           modelDef
           "Specification of the model to simulate"
 
-        simStart <- reqSection 
-          "start" 
+        simStart <- reqSection
+          "start"
           "Start time of simulation"
-       
-        simStep <- fromMaybe 1 <$> 
-          optSection 
-            "step" 
+
+        simStep <- fromMaybe 1 <$>
+          optSection
+            "step"
             "Time step (defaults to 1)"
-       
-        simEnd <- reqSection 
-          "end" 
+
+        simEnd <- reqSection
+          "end"
           "End time of simulation"
-       
-        simDomainParam <- 
-          optSection 
-            "domain-parameter"
+
+        simDomainParam <-
+          optSection
+            "domain_parameter"
             "Domain parameter (for function network gromets, not yet supported)"
 
         simParameterValues <- maybe Map.empty Map.fromList <$>
-          optSection' 
-            "parameters" 
+          optSection'
+            "parameters"
             (assocSpec anySpec)
             "Use these values for model parameters"
 
-        simOutputs <- fromMaybe [] <$> 
-          optSection 
+        simOutputs <- fromMaybe [] <$>
+          optSection
             "outputs"
             "Which values to output from the simulation"
 
-        simType <- fromMaybe GSL <$>
-          optSection' 
-            "sim-type" 
+        simType <-
+          optSection'
+            "sim-type"
             simTypeSpec
-            "Simulation engine to use (defaults to GSL)"
+            "Simulation engine to use (defaults to model specific simulation)"
 
         simSeed <- optSection
           "seed"
@@ -290,12 +297,12 @@ instance HasSpec StratifyCommand where
         stratStates      <- optSection' "state-metadata" stringSpec
                             "JSON metadata describing infectious states" -- XXX document desired format somewhere
 
-        stratType        <- reqSection' "stratification-type" stratTypeSpec 
+        stratType        <- reqSection' "stratification-type" stratTypeSpec
                             "type of stratification to perform"
         pure StratifyCommand {..}
 
 
-stratTypeSpec :: ValueSpec StratificationType 
+stratTypeSpec :: ValueSpec StratificationType
 stratTypeSpec =  (jsAtom "spatial"     $> Spatial)
              <!> (jsAtom "demographic" $> Demographic)
 
@@ -410,7 +417,7 @@ data UploadModelCommand = UploadModelCommand
 instance HasSpec UploadModelCommand where
   anySpec =
     sectionsSpec "upload-model"
-    do  reqSection' "command" (jsAtom "upload-model") 
+    do  reqSection' "command" (jsAtom "upload-model")
                     "Upload new named model"
         uploadModelName <- reqSection' "name" textSpec "Name of the model"
         uploadModelType <- reqSection "type" "Format of the model"
@@ -444,6 +451,75 @@ instance HasSpec QueryModelsCommand where
   anySpec =
     sectionsSpec "query-models"
     do  reqSection' "command" (jsAtom "query-models") "Query available models"
-        queryParameters <- reqSection' "query" (assocSpec anySpec) 
+        queryParameters <- reqSection' "query" (assocSpec anySpec)
                            "Query parameters expressed a set of key-value pairs"
         pure QueryModelsCommand { .. }
+
+-------------------------------------------------------------------------------
+-- TODO RGS: Document all of this
+
+newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
+  { executeExposureCode :: Text -- ^ The exposure program to parse and execute
+  }
+  deriving Show
+
+instance HasSpec ExecuteExposureCodeCommand where
+  anySpec =
+    sectionsSpec "execute-exposure-code"
+    do  reqSection' "command" (jsAtom "execute-exposure-code")
+                    "Execute an Exposure command"
+        executeExposureCode <- reqSection' "code" textSpec "The code to execute"
+        pure ExecuteExposureCodeCommand{..}
+
+newtype ResetExposureStateCommand = ResetExposureStateCommand ()
+  deriving Show
+
+instance HasSpec ResetExposureStateCommand where
+  anySpec =
+    sectionsSpec "clear-exposure" $
+      do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
+         pure $ ResetExposureStateCommand ()
+
+-- | Wrapper for Value to control precisely how these are passed
+-- to clients of Donu
+newtype DonuValue =
+  DonuValue { unDonuDisplay :: Value }
+  deriving Show
+
+instance JS.ToJSON DonuValue where
+  -- N.B. review any changes/additions here to see if they should
+  -- make their way to Language.ASKEE.Exposure.Print
+  toJSON (DonuValue dv) =
+    case dv of
+      VInt i         -> typedPrim "int" i
+      VBool b        -> typedPrim "bool" b
+      VDouble dbl    -> typedPrim "double" dbl
+      VString str    -> typedPrim "string" str
+
+      VDataSeries ds ->
+        typed "data-series" $
+          JS.object [ "time"   .= JS.toJSON (times ds)
+                    , "values" .= JS.toJSON (values ds)
+                    ]
+
+      VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
+      VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
+
+      VModelExpr {}  -> unimplVal "<modelexpr>"
+      VDFold {}      -> unimplVal "<dynfold>"
+      VSFold {}      -> unimplVal "<sfold>"
+      VSuspended     -> unimplVal "<suspended>"
+
+      _ -> error "TBD"
+
+    where
+      typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
+      typedPrim ty v = typed ty (JS.toJSON v)
+
+      typed :: Text -> JS.Value -> JS.Value
+      typed ty v = JS.object [ "type"  .= JS.toJSON ty
+                             , "value" .= JS.toJSON v
+                             ]
+
+      unimplVal :: String -> JS.Value
+      unimplVal str = typedPrim "string" str

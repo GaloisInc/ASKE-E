@@ -47,7 +47,7 @@ main =
 
         SimulateCPP start step stop ->
           do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
-              res <- A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (overwrite opts) (seed opts)
+              res <- head <$> A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (overwrite opts) (seed opts) 1
               let bs = A.dataSeriesAsCSV res
                   out = outFile opts
               if null out
@@ -114,7 +114,8 @@ modelsProvided opts =
   map (, A.DeqType) (deqFiles opts) ++
   map (, A.EaselType) (modelFiles opts) ++
   map (, A.GrometPncType) (pncFiles opts) ++
-  map (, A.RNetType) (rnetFiles opts)
+  map (, A.RNetType) (rnetFiles opts) ++
+  map (, A.GrometFnetType) (fnetFiles opts)
 
 dumpPNC :: FilePath -> IO ()
 dumpPNC file =

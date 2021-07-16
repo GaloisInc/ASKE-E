@@ -29,7 +29,7 @@ data Model =
           -- ^ Optional metadata (key/value pairs) for named things
           -- (parameters, lets, states, events)
         }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 data Event =
@@ -38,7 +38,7 @@ data Event =
         , eventWhen   :: Expr
         , eventEffect :: Map Ident Expr
         }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 
 

@@ -15,7 +15,7 @@ t_space = np.linspace(t_begin, t_end, t_nsamples)
 x_init = 1.
 dxdt_init = 0.
 
-method = 'RK45' #available methods: 'RK45', 'RK23', 'DOP853', 'Radau', 'BDF', 'LSODA'
+method = 'RK45'
 num_sol = solve_ivp(ode_sys, [t_begin, t_end], [x_init, dxdt_init], method=method, dense_output=True)
 X_num_sol = num_sol.sol(t_space)
 x_num_sol = X_num_sol[0].T

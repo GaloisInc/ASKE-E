@@ -1,5 +1,6 @@
 {-# Language OverloadedStrings, ParallelListComp, BlockArguments #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
 module Language.ASKEE.DataSeries
   ( -- * Basics
     DataSeries(..)
@@ -23,6 +24,12 @@ module Language.ASKEE.DataSeries
   , foldDataSeries
   , foldDataSeriesWithTime
   , dsLookup
+    -- * Labelled
+  , LabeledDataSeries(..)
+  , ldsFromDs
+    -- * Data points
+  , DataPoint(..)
+  , toDataPoints
   ) where
 
 import Data.Text(Text)
@@ -34,10 +41,11 @@ import Data.List(sortBy,transpose,foldl')
 import Data.Function(on)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.ByteString.Lazy as LBS
-
 import qualified Data.Csv as CSV
 import Language.ASKEE.Panic(panic)
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as AT
+import Data.Aeson((.=))
 import Language.ASKEE.Error (ASKEEError(DataSeriesError), throwLeft)
 
 -- XXX: We could use a representation that allows for easier access to
@@ -46,7 +54,7 @@ data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
   }
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 instance Functor DataSeries where
   fmap f ds = ds { values = fmap f <$> values ds }
@@ -163,12 +171,16 @@ dataSeriesAsCSV xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
 -- XXX: how do we document this?
 dataSeriesAsJSON :: DataSeries Double -> Aeson.Value
 dataSeriesAsJSON ds = Aeson.object
-  [ "times"  Aeson..= times ds
-  , "values" Aeson..= Aeson.object [ x Aeson..= ys | (x,ys) <- Map.toList (values ds) ]
+  [ "times" .= times ds
+  , "values" .= Aeson.object [ x Aeson..= ys | (x,ys) <- Map.toList (values ds) ]
   ]
 
 instance Aeson.ToJSON (DataSeries Double) where
   toJSON = dataSeriesAsJSON
+
+
+
+
 
 saveDataSeries :: FilePath -> DataSeries Double -> IO ()
 saveDataSeries file xs = LBS.writeFile file (dataSeriesAsCSV xs)
@@ -205,3 +217,44 @@ instance CSV.ToNamedRecord DataPoint where
       $ CSV.namedField "time" (ptTime a)
       : [ CSV.namedField (encodeUtf8 l) d | (l,d) <- Map.toList (ptValues a) ]
 
+-------------------------------------------------------------------------------
+-- Labelled data source (for donu)
+
+-- DataSource labelled with name of the x-axis
+data LabeledDataSeries a = LabeledDataSeries
+  { ldsData  :: DataSeries a
+  , ldsLabel :: Text
+  }
+  deriving Show
+
+ldsFromDs :: DataSeries a -> LabeledDataSeries a
+ldsFromDs ds = LabeledDataSeries ds "times"
+
+instance Aeson.ToJSON (LabeledDataSeries Double) where
+  toJSON lds =
+    Aeson.object [ "values" .= (values . ldsData $ lds)
+                 , ldsLabel lds .= (times . ldsData $ lds)
+                 ]
+
+instance Aeson.FromJSON (LabeledDataSeries Double) where
+  parseJSON = Aeson.withObject "root" parseRoot
+    where
+      nonValuesKeys o = filter (\(n, _) -> n /= "values") (HashMap.toList o)
+
+      parseLabel o =
+        case nonValuesKeys o of
+          [(nm,val)] -> (nm,) <$> Aeson.parseJSON val
+          _ -> AT.parseFail "DataSeries does not have unique domain parameter"
+
+      parseValues o =
+        case HashMap.lookup "values" o of
+          Just v -> Aeson.parseJSON v
+          Nothing -> AT.parseFail "DataSeries does not have values"
+
+      parseRoot o =
+        do  (dpName, dpValue) <- parseLabel o
+            vals <- parseValues o
+            pure $ LabeledDataSeries
+                    { ldsData = DataSeries vals dpValue
+                    , ldsLabel = dpName
+                    }
