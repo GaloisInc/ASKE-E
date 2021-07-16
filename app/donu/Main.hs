@@ -197,11 +197,13 @@ stepExposureSession :: [Exposure.Stmt] -> Snap.Handler DonuApp DonuApp Result
 stepExposureSession stmts =
   do env <- Snap.with exposureSessions $
        fromMaybe Exposure.initialEnv <$> getExposureSessionState
-     res <- liftIO $ Exposure.evalStmts stmts env
+     (res, env') <- liftIO $ Exposure.evalStmts stmts env
      case res of
        Left err ->
-         pure $ FailureResult err
-       Right (env', displays, _effs) -> -- TODO: Do we want to do anything with _effs?
+         do Snap.with exposureSessions $
+              putExposureSessionState env'
+            pure $ FailureResult err
+       Right (displays, _effs) -> -- TODO: Do we want to do anything with _effs?
          do Snap.with exposureSessions $
               putExposureSessionState env'
             return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays

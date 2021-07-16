@@ -14,6 +14,10 @@ import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 import Paths_aske_e (getDataDir)
 
+assertLeft :: Either a b -> IO ()
+assertLeft (Left _)  = pure ()
+assertLeft (Right _) = assertFailure "Expected Left"
+
 assertRightStr :: Either String b -> IO b
 assertRightStr (Right b)  = pure b
 assertRightStr (Left err) = assertFailure err
@@ -41,12 +45,22 @@ exprAssertion = exprAssertionWithStmts []
 
 exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithStmts stmtStrs actualExprStr k = do
-  stmts          <- assertRightStr $ traverse lexAndParseStmt stmtStrs
-  actualExpr     <- assertRightStr $ lexAndParseExpr actualExprStr
-  errOrEnv       <- evalStmts stmts initialEnv
-  (env,_,_)      <- assertRightText errOrEnv
-  errOrActualVal <- runEval env $ interpretExpr actualExpr
-  (actualVal, _,_) <- assertRightText errOrActualVal
+  stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
+  (lr, env)              <- evalStmts stmts initialEnv
+  (_, _)                 <- assertRightText lr
+  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  actualVal              <- assertRightText errOrActualVal
+  k actualVal
+
+exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
+  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
+  (lr, env)  <- evalStmts stmts initialEnv
+  assertLeft lr
+  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  actualVal              <- assertRightText errOrActualVal
   k actualVal
 
 getLoadSirEaselExpr :: IO String
@@ -109,5 +123,11 @@ tests =
             , "evt = sample(sir.I > 15 at 125.0, 5)"
             ] "P(evt) + P(not evt)" $ \actualVal ->
             actualVal @?= VDouble 1
+      , testCase "environment should update even upon failure" $
+          exprAssertionWithFailingStmts
+            [ "x = 42"
+            , "notDefined"
+            ] "x" $ \actualVal ->
+            actualVal @?= VDouble 42
       ]
     ]

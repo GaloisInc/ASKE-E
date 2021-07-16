@@ -241,12 +241,12 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env   <- gets champEnv
   stmts <- gets champBatchedStmts
-  res   <- liftIO $ Exposure.evalLoop env (toList stmts)
+  (res, env') <- liftIO $ Exposure.evalLoop env (toList stmts)
   case res of
     Left err             -> do
       liftIO $ T.putStrLn err
       clearBatchedStmts
-    Right (env', dvs, _) -> do
+    Right (dvs, _) -> do
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
-      putEnv env'
-      clearBatchedStmts
+  putEnv env'
+  clearBatchedStmts

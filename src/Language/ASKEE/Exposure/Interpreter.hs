@@ -36,35 +36,34 @@ import qualified Language.ASKEE.CPP as CPP
 data ExposureInfo = ExposureInfo
   deriving Show
 
-runEval :: Env -> Eval a -> IO (Either Text (a, Env, EvalWrite))
-runEval env ev = Except.runExceptT $ RWS.runRWST (unEval ev) (EvalRead Map.empty) env
+runEval :: EvalRead -> Env -> Eval a -> IO (Either Text a, Env, EvalWrite)
+runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
 
 
-evalStmts :: [Stmt] -> Env -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
+evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalStmts stmts env = evalLoop env stmts
 
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-evalLoop :: Env -> [Stmt] -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
-evalLoop env stmts = go Map.empty
+evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
+evalLoop env stmts = go emptyEvalRead
   where
     go m =
-      let except = RWS.execRWST (unEval (interpretStmt `traverse_` stmts)) (EvalRead m) env
-      in do lr <- Except.runExceptT except
+         do (lr, env', w) <- runEval m env $ interpretStmt `traverse_` stmts
             case lr of
-              Left e -> pure $ Left e
-              Right (env', w)
+              Left e -> pure (Left e, env')
+              Right _
                 | ewDeps w == Set.empty ->
-                    pure $ Right (env', ewDisplay w, ewStmtEff w)
+                    pure (Right (ewDisplay w, ewStmtEff w), env')
                 | otherwise ->
                     do  evs <- simulate (ewDeps w)
                         case evs of
-                          Left e -> pure $ Left e
-                          Right vs -> go (m `Map.union` vs)
+                          Left e -> pure (Left e, env')
+                          Right vs -> go (m <> EvalRead vs)
 
 -------------------------------------------------------------------------------
 
@@ -123,10 +122,16 @@ data EvalRead = EvalRead
 emptyEvalRead :: EvalRead
 emptyEvalRead = EvalRead Map.empty
 
+instance Semigroup EvalRead where
+  a <> b = EvalRead (erPrecomputed a <> erPrecomputed b)
+
+instance Monoid EvalRead where
+  mempty = EvalRead mempty
+
 data StmtEff =
   StmtEffBind Ident Value
 
-newtype Eval a = Eval { unEval :: RWS.RWST EvalRead EvalWrite Env (Except.ExceptT Text IO) a }
+newtype Eval a = Eval { unEval :: Except.ExceptT Text (RWS.RWST EvalRead EvalWrite Env IO) a }
   deriving newtype ( Functor, Applicative, Monad, MonadIO
                    , RWS.MonadReader EvalRead
                    , Except.MonadError Text
