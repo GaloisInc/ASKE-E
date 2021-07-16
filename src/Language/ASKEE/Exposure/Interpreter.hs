@@ -224,8 +224,7 @@ interpretCall fun args =
     FOr          -> compilable (bincmpBool (||))
     FProb        ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (SFProbability d) df e >>= interpretExpr
-        [VArray vs, VDouble _] -> do
+        [VArray vs] -> do
           vs' <- traverse getBoolValue vs
           pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
         _ -> typeError "P expects a fold and a double as its arguments"
