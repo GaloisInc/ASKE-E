@@ -1,16 +1,18 @@
 {-# Language BangPatterns #-}
+{-# Language DerivingStrategies #-}
+{-# Language GeneralizedNewtypeDeriving #-}
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
+import Control.Monad.IO.Class
 import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
 import Control.Applicative((<|>))
 import Data.Foldable(traverse_)
-import Control.Monad.Trans(lift)
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(isJust)
@@ -35,7 +37,7 @@ data ExposureInfo = ExposureInfo
   deriving Show
 
 runEval :: Env -> Eval a -> IO (Either Text (a, Env, EvalWrite))
-runEval env ev = Except.runExceptT $ RWS.runRWST ev (EvalRead Map.empty) env
+runEval env ev = Except.runExceptT $ RWS.runRWST (unEval ev) (EvalRead Map.empty) env
 
 -------------------------------------------------------------------------------
 
@@ -51,7 +53,7 @@ evalLoop :: Env -> [Stmt] -> IO (Either Text (Env, [DisplayValue], [StmtEff]))
 evalLoop env stmts = go Map.empty
   where
     go m =
-      let except = RWS.execRWST (interpretStmt `traverse_` stmts) (EvalRead m) env
+      let except = RWS.execRWST (unEval (interpretStmt `traverse_` stmts)) (EvalRead m) env
       in do lr <- Except.runExceptT except
             case lr of
               Left e -> pure $ Left e
@@ -124,11 +126,17 @@ emptyEvalRead = EvalRead Map.empty
 data StmtEff =
   StmtEffBind Ident Value
 
-type Eval a = RWS.RWST EvalRead EvalWrite Env (Except.ExceptT Text IO) a
+newtype Eval a = Eval { unEval :: RWS.RWST EvalRead EvalWrite Env (Except.ExceptT Text IO) a }
+  deriving newtype ( Functor, Applicative, Monad, MonadIO
+                   , RWS.MonadReader EvalRead
+                   , Except.MonadError Text
+                   , RWS.MonadState Env
+                   , RWS.MonadWriter EvalWrite
+                   )
 
 -- TODO: catch exceptions
-liftIO :: IO a -> Eval a
-liftIO = lift . lift
+io :: IO a -> Eval a
+io = liftIO
 
 throw :: Text -> Eval a
 throw = Except.throwError
@@ -246,7 +254,7 @@ interpretCall fun args =
       case args of
         [VString path] ->
           do  eitherVal <-
-                liftIO $
+                io $
                   do  src <- Text.readFile (Text.unpack path)
                       let m = Model.parseModel MB.EaselType src >>= Model.toCore
                       pure (VModelExpr . EVal . VModel <$> m)
@@ -258,7 +266,7 @@ interpretCall fun args =
     FLoadCSV ->
       case args of
         [VString path] ->
-          do ds <- liftIO $ DS.parseDataSeriesFromFile $ Text.unpack path
+          do ds <- io $ DS.parseDataSeriesFromFile $ Text.unpack path
              pure $ VModelExpr $ EVal $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
 
@@ -396,7 +404,7 @@ runSimExpr n t e0 =
 
 runSim :: Int -> Double -> Core.Model -> Eval Value
 runSim n t mdl =
-  do  series <- liftIO mkSeries
+  do  series <- io mkSeries
       pure $ VArray (seriesAsPoints <$> series)
   where
     -- TODO: we should just get the raw simulation data?
