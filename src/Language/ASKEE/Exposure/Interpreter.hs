@@ -24,11 +24,14 @@ import qualified Numeric.GSL.Interpolation as Interpolation
 
 import Language.ASKEE.Exposure.Syntax
 
-import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax as Core
+import           Language.ASKEE.Core.Convert ( coreAsModel )
+import qualified Language.ASKEE.CPP as CPP
+import qualified Language.ASKEE.DataSeries as DS
+import           Language.ASKEE.ESL.Convert ( modelAsCore )
+import           Language.ASKEE.ESL.Manipulate (join)
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
-import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.CPP as CPP
 
 
 data ExposureInfo = ExposureInfo
@@ -262,6 +265,25 @@ interpretCall fun args =
           do ds <- liftIO $ DS.parseDataSeriesFromFile $ Text.unpack path
              pure $ VModelExpr $ EVal $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
+
+    FJoin ->
+      case args of
+        [VModelExpr (EVal (VModel m1)), VModelExpr (EVal (VModel m2)), VArray vs]
+          | all good vs -> 
+            pure $
+            VModel $
+            modelAsCore (join (mapify vs) (coreAsModel m1) (coreAsModel m2) )
+          | otherwise -> typeError "all variable joins must be two-element arrays of strings"
+        _ -> typeError $ "join expects two models and a list of variables to join" <> Text.pack (show args)
+      where
+        good (VArray [VString _, VString _]) = True
+        good _ = False
+
+        mapify vs = 
+          Map.fromList 
+            [ (v1, v2) 
+            | VArray [VString v1, VString v2] <- vs
+            ]
 
     FMean ->
       case args of
