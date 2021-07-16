@@ -17,7 +17,38 @@ import Language.ASKEE.ESL.Syntax    ( letDecls
                                     , Model(..) )
 import Language.ASKEE.Expr          ( Expr(..) )
 import Language.ASKEE.ExprTransform ( renameEventVarsWith
-                                    , renameExprVarsWith )
+                                    , renameExprVarsWith
+                                    , renameModelVarsWith )
+
+ensemble :: [(Model, Double)] -> Model
+ensemble models = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] ++ modelDecls megaModel }
+  where
+    megaModel = foldr1 (join mempty) (map (\(model,_,_) -> model) freshModels)
+
+    freshModels = flatten $ zipWith (\i (m, d) -> (freshenModel i m, d)) [1::Integer ..] models
+
+    freshenModel i m =
+      let varMap = Map.fromList [ (n, freshenVar i n) | n <- Set.toList (modelVars m) ]
+      in  (renameModelVarsWith (varMap Map.!) m, varMap)
+
+    freshenVar i n = n<>"_"<>Text.pack (show i)
+
+    newLets = map (\v -> (v, mkLet v)) (Set.toList sharedState)
+
+    mkLet v =
+      let vs = map (\(_, newVars, scaling) -> Var (newVars Map.! v) `Mul` LitD scaling) freshModels
+      in  foldr1 Add vs
+
+    sharedState = foldr Set.intersection allVars [ modelVars' m | (m, _) <- models ]
+
+    allVars = Set.unions (map (modelVars' . fst) models)
+
+    flatten = map (\((x,y),z) -> (x,y,z))
+
+    modelVars' m = 
+      modelVars m 
+      `Set.difference` 
+      Set.fromList [ eventName | Event{..} <- modelEvents m ]
 
 
 -- | Serial composition of two models.

@@ -140,6 +140,25 @@ renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
 
         expr = transformExpr exprT
 
+
+renameModelVarsWith :: (Text -> Text) -> Syntax.Model -> Syntax.Model
+renameModelVarsWith r = runIdentity . modifyModelVars
+  where
+    modifyModelVars mdl =
+      do  let decls' = map transformDecl (Syntax.modelDecls mdl)
+          let events' = map (renameEventVarsWith r) (Syntax.modelEvents mdl)
+          pure mdl 
+            { Syntax.modelDecls = decls'
+            , Syntax.modelEvents = events' }
+
+    transformDecl (MetaAnn m d) =
+      case d of
+        Syntax.Let n v -> MetaAnn m $ Syntax.Let (r n) $ renameExprVarsWith r v
+        Syntax.State n v -> MetaAnn m $ Syntax.State (r n) $ renameExprVarsWith r v
+        Syntax.Parameter n v -> MetaAnn m $ Syntax.Parameter (r n) $ renameExprVarsWith r <$> v
+        Syntax.Assert e -> MetaAnn m $ Syntax.Assert $ renameExprVarsWith r e
+        
+
 canonicalLets :: Syntax.Model -> (Map Text Expr.Expr, Set Text)
 canonicalLets Syntax.Model{..} = (lets, intermediates)
   where
