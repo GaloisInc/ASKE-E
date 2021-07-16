@@ -1,5 +1,6 @@
 {-# Language BangPatterns #-}
 {-# Language OverloadedStrings #-}
+{-# Language LambdaCase #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
@@ -7,6 +8,7 @@ import qualified Data.Aeson as JSON
 import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
+import Control.Applicative((<|>))
 import Data.Foldable(traverse_)
 import Control.Monad.Trans(lift)
 import qualified Data.Map as Map
@@ -283,27 +285,52 @@ interpretCall fun args =
     asMexprArg (VModelExpr e) = e
     asMexprArg v = EVal v
 
-    bincmpDouble f =
+    liftLeftBin f =
       case args of
-        [VDouble n1, VDouble n2] -> pure $ VBool (f n1 n2)
-        [VArray vs, d@VDouble{}] -> VArray <$> traverse (\v -> interpretCall fun [v, d]) vs
-        [VTimed v t, d@VDouble{}] -> VTimed <$> interpretCall fun [v, d] <*> pure t
-        _ -> typeError "Cannot compare these (non-double) values"
+        [l, r] -> liftPrim' (\l' -> f l' r) l
+        _ -> pure Nothing
 
-    bincmpBool f =
+    liftRightBin f =
       case args of
-        [VBool b1, VBool b2] -> pure $ VBool (f b1 b2)
-        _ -> typeError "Cannot compare these (non-boolean) values"
+        [l, r] -> liftPrim' (\r' -> f l r') r
+        _ -> pure Nothing
 
-    binarith f =
-      case args of
-        [VDouble n1, VDouble n2] -> pure $ VDouble (f n1 n2)
-        _ -> typeError "Cannot do arithmetic on these values"
+    liftBin g err =
+      do  l1 <- liftLeftBin g
+          l2 <- liftRightBin g
+          case l1 <|> l2 of
+            Just v -> pure v
+            _      -> throw err
+
+    bincmpDoubleMb f v1 v2 =
+      case (v1, v2) of
+        (VDouble d1, VDouble d2) -> pure . Just $ VBool (f d1 d2)
+        _ -> pure Nothing
+
+    bincmpDouble f = liftBin (bincmpDoubleMb f) "Cannot compare these (non-boolean) values"
+
+    bincmpBoolMb f v1 v2 =
+      case (v1, v2) of
+        (VBool b1, VBool b2) -> pure . Just $ VBool (f b1 b2)
+        _ -> pure Nothing
+
+    bincmpBool f = liftBin (bincmpBoolMb f) "Cannot compare these (non-boolean) values"
+
+    binarithMb f v1 v2 =
+      case (v1, v2) of
+        (VDouble d1, VDouble d2) -> pure . Just $ VDouble (f d1 d2)
+        _ -> pure Nothing
+
+    binarith f = liftBin (binarithMb f) "Cannot do arithmetic on these values"
 
     unaryBool f =
       case args of
-        [VBool b] -> pure $ VBool (f b)
+        [v] ->
+          v `liftInto` \case
+            VBool b -> pure $ VBool (f b)
+            _ -> typeError "Expected a single boolean argument"
         _ -> typeError "Expected a single boolean argument"
+
 
     compilable orElse =
       if any isMexpr args
@@ -427,6 +454,8 @@ atPoint vs t =
                then pure v
                else go r val
 
+liftInto :: Value -> (Value -> Eval Value) -> Eval Value
+liftInto = flip liftPrim
 
 liftPrim :: (Value -> Eval Value) -> Value -> Eval Value
 liftPrim f v =
@@ -434,6 +463,18 @@ liftPrim f v =
     VTimed v' t -> VTimed <$> liftPrim f v' <*> pure t
     VArray vs -> VArray <$> (liftPrim f `traverse` vs)
     _ -> f v
+
+liftPrim' :: Applicative f => (Value -> Eval (f Value)) -> Value -> Eval (f Value)
+liftPrim' f v =
+  case v of
+    VTimed v' t ->
+      do  v'' <- liftPrim' f v'
+          pure (VTimed <$> v'' <*> pure t)
+    VArray vs ->
+      do  vs' <- liftPrim' f `traverse` vs
+          pure $ VArray <$> sequenceA vs'
+    _ -> f v
+
 
 mem :: Value -> Ident -> Eval Value
 mem v0 l = liftPrim getMem v0
