@@ -98,4 +98,5 @@ prefixFunctionName ident =
     "P"           -> Right FProb
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
+    "sample"      -> Right FSample
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

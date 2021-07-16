@@ -381,7 +381,7 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
     unfoldS e1 =
       case sf of
         SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
-        SFSample n -> ECall FSample [e1, EVal $ VDouble n]
+        SFSample _ -> e1
 
 -- TODO: generalized traversal?
 runSimExpr :: Int -> Double -> Expr -> Eval Expr
