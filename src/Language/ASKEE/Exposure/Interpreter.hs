@@ -24,6 +24,7 @@ import Data.Set(Set)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
+import Data.Maybe(catMaybes)
 
 
 
@@ -249,14 +250,15 @@ interpretCall fun args =
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
+        [VModelExpr e, times@(VArray _)] ->
+          do  times <- array double times
+              pure $ VDFold (DFAtMany times) e
         [VArray vs, VDouble d] -> do
           -- TODO: Using getArrayContents here is gross. We should consider
           -- restructuring things to avoid assuming the level of VArray nesting.
           vs' <- traverse getArrayContents vs
           VArray <$> traverse (\v -> atPoint v d) vs'
-
-
-
+        [v1, times@(VArray _)] -> atPoints v1 times
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -397,6 +399,7 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
     expLength =
       case df of
         DFAt d -> d
+        DFAtMany d -> maximum d
 
     sampleCount =
       case sf of
@@ -406,6 +409,7 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
+        DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
     unfoldS e1 =
       case sf of
         SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
@@ -464,6 +468,21 @@ getDoubleValue v =
     _ -> throw "Value is not a double"
 
 -- this presumes quite a few things
+atPoints :: Value -> Value -> Eval Value
+atPoints vals times =
+  do  pts <- array (array (timed value)) vals
+      times' <- array double times
+      pure $ VArray (atArrs pts <$> times')
+  where
+    atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
+
+atSimple :: [(a, Double)] -> Double -> Maybe a
+atSimple lst t =
+  case lst of
+    []     -> Nothing
+    (e, t'):_ | t <= t' -> Just e
+    _:lst' -> atSimple lst' t
+
 atPoint :: [Value] -> Double -> Eval Value
 atPoint vs t =
   case vs of
@@ -545,6 +564,9 @@ modelExpr v0 =
   case v0 of
     VModelExpr e -> pure e
     _ -> throw "Expecting model"
+
+value :: Value -> Eval Value
+value = pure
 
 
 -------------------------------------------------------------------------------

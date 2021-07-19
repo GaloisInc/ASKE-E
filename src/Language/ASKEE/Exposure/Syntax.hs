@@ -84,7 +84,8 @@ data FunctionName
 
 -- P(S.I + 10.0 > 30.0 at 10.0)
 data DynamicalFold =
-  DFAt Double
+    DFAt Double
+  | DFAtMany [Double]
   deriving (Show, Eq, Ord)
 
 data SampleFold =
