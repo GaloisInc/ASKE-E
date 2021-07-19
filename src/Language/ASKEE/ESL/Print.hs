@@ -150,7 +150,7 @@ printExpr expr =
         LitD _ -> 10
         LitB _ -> 10
         Neg _ -> 1
-        Not _ -> 1
+        Not _ -> 4
         Exp _ -> 1
         Log _ -> 1
         Add _ _ -> 6
