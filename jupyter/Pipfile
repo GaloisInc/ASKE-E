@@ -11,6 +11,7 @@ metakernel = "*"
 requests = "*"
 pylint = "*"
 antlr4-python3-runtime = "*"
+tabulate = "*"
 
 [dev-packages]
 
