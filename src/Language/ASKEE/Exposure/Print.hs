@@ -24,6 +24,12 @@ ppValue v = case v of
   VDFold{}             -> notImplemented "VDFold"
   VSFold{}             -> notImplemented "VSFold"
   VSuspended           -> notImplemented "VSuspended"
+  VHistogram lo _hi sz bins ->
+    vsep [ pretty x <+> "-" <+> pretty y <> ": " <> pretty count
+         | (bin, count) <- Map.toList bins
+         , let x = (sz * fromIntegral bin) + lo :: Double
+         , let y = x + sz :: Double
+         ]
   where
     notImplemented :: String -> a
     notImplemented what = error ("ppValue: not implemented: " <> what)
