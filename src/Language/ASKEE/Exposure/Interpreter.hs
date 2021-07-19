@@ -9,6 +9,7 @@ module Language.ASKEE.Exposure.Interpreter where
 import qualified Data.Aeson as JSON
 
 import Control.Monad.IO.Class
+import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
@@ -33,8 +34,6 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
-import Data.List (partition)
-import GHC.Float.RealFracMethods (floorDoubleInt)
 
 import Language.ASKEE.Exposure.Syntax
 
@@ -394,36 +393,42 @@ interpretInterpolate arg1 arg2 =
   typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
 
 interpretHistogram :: Value -> Value -> Eval Value
-interpretHistogram (VModelExpr e) nBuckets =
+interpretHistogram (VModelExpr e) nBins =
   do v <- interpretExpr e
-     interpretHistogram v nBuckets
-interpretHistogram (VDataSeries ds) nBuckets =
-  interpretHistogram (seriesAsPoints ds) nBuckets
+     interpretHistogram v nBins
+interpretHistogram (VDataSeries ds) nBins =
+  interpretHistogram (seriesAsPoints ds) nBins
 interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
-     nBuckets <- case n of
+     nBins <- case n of
                    VInt i    -> pure i
                    VDouble d -> pure $ floorDoubleInt d
                    _ -> typeErrorArgs [n] "second argument of histogram must be a positive integer"
      let maxVal   = maximum ds
          minVal   = minimum ds
-         size     = (maxVal - minVal) / fromIntegral nBuckets
-         bucket i = (size*fromIntegral i) + minVal
-         rs       = bucket <$> [1..nBuckets-1]
+         size     = (maxVal - minVal) / fromIntegral nBins
+         -- min catches values on the boundary
+         toBin v  = min (floorDoubleInt ((v - minVal) / size)) (nBins-1)
+         binned   = toBin <$> ds
 
-         h = buildHist ds rs
-     return (VHistogram minVal maxVal size h)
+     if size == 0 then
+       -- degenerate case when everything fits into one bin
+       let (lo, hi) = if maxVal >= 0 then (0, maxVal) else (maxVal, 0)
+       in return (VHistogram lo hi (abs maxVal) (Map.singleton 0 (length vs)))
+      else
+       return (VHistogram minVal maxVal size (buildHist binned))
+
   where
     asDouble (VDouble d) = pure d
     asDouble (VInt i) = pure $ fromIntegral i
     asDouble (VTimed v _) = asDouble v
     asDouble _ = throw "histogram expects an array of numeric values"
     -- Let's do the obvious thing for now
+    buildHist :: [Int] -> Map Int Int
+    buildHist = foldr (Map.alter incBin) mempty
 
-    buildHist vals (r:rs) =
-      let (this, that) = partition (<= r) vals
-      in length this : buildHist that rs
-    buildHist vals [] = [length vals]
+    incBin Nothing  = Just 1
+    incBin (Just c) = Just (c + 1)
 interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
 
