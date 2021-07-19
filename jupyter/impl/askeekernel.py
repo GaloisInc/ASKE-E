@@ -14,7 +14,7 @@ from ipykernel.kernelbase import Kernel
 # Config
 #------------------------------------------------------------------------------
 DONU_ADDRESS = "http://localhost:8000"
-vega_lite_schema = "https://vega.github.io/schema/vega-lite/v3.json"
+vega_lite_schema = "https://vega.github.io/schema/vega-lite/v4.json"
 
 # -----------------------------------------------------------------------------
 # Donu client
@@ -87,7 +87,7 @@ def format_data_series(time, values):
 
 
     out = {
-        'application/vnd.vegalite.v3+json': {
+        'application/vnd.vegalite.v4+json': {
             '$schema': vega_lite_schema,
             'description':'',
             'data': { "values": vals},
@@ -99,40 +99,56 @@ def format_data_series(time, values):
     }
     return out
 
+def format_histogram(lo, _hi, sz, bins):
+    """
+    Returns a vega lite bar graph + textual representation as json
+    """
+    def mk_bin(b):
+        count = bins[b]
+        b = int(b)
+        return {'lo': lo+(b*sz), 'hi':lo+((b+1)*sz), 'count': int(count) }
+
+    values = [ mk_bin(b) for b in bins ]
+    out = {
+        'application/vnd.vegalite.v4+json': {
+            '$schema': vega_lite_schema,
+            'data' : {
+                'values' : values
+            },
+            'mark' : 'bar',
+            'encoding': {
+                'x': { 'field': 'lo', 'bin': { 'binned': 'true', "step": sz } },
+                'x2': {'field': 'hi'},
+                'y': {'field': 'count', 'type':'quantitative'}
+            }
+        }
+        ,
+        'text/plain' : json.dumps(values)
+    }
+
+    return out
+
+
 
 def format_resp_value(v):
     if isinstance(v, dict):
-      ty = v['type']
-      val = v['value']
+        ty = v['type']
+        val = v['value']
 
-      if ty == 'string':
-          return { 'text/plain': val }
+        if ty == 'string':
+            return { 'text/plain': val }
 
-      if ty == 'double':
-          return { 'text/plain': val }
+        if ty == 'double':
+            return { 'text/plain': val }
 
-      if ty == 'data-series':
-          return format_data_series(val['time'], val['values'])
+        if ty == 'data-series':
+            return format_data_series(val['time'], val['values'])
 
-      if ty == 'histogram':
-          lo     = val['min']
-          sz     = val['size']
-          counts = val['buckets']
-          values = [ {'lo': lo+i*sz, 'hi':lo+(i+1)*sz, 'count': int(e) } for (i,e) in enumerate(counts)]
-          return {
-              'application/vnd.vegalite.v3+json': {
-                  'data' : {
-                      'values' : json.dumps(values)
-                  },
-                  'mark' : 'bar',
-                  'encoding': {
-                      'x': { 'field': 'lo', 'bin': { 'binned': 'true', "step": sz } },
-                      'x2': {'field': 'hi'},
-                      'y': {'field': 'count', 'type':'quantitative'}
-                  }
-              },
-              'text/plain' : json.dumps(values)
-          }
+        if ty == 'histogram':
+            return format_histogram(float(val['min']),
+                                    float(val['max']),
+                                    float(val['size']),
+                                    val['bins'])
 
     return { 'text/plain': json.dumps(v) }
 
