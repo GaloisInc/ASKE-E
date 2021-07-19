@@ -219,6 +219,6 @@ class ASKEEKernel(Kernel):
             raise Exception("Unexpected response status %s" % resp['status'])
         return None
 
-if __name__ == '__main__':
-    from ipykernel.kernelapp import IPKernelApp
-    IPKernelApp.launch_instance(kernel_class=ASKEEKernel)
+    def run_as_main():
+        from ipykernel.kernelapp import IPKernelApp
+        IPKernelApp.launch_instance(kernel_class=ASKEEKernel)
