@@ -20,8 +20,10 @@ import Language.ASKEE.ExprTransform ( renameEventVarsWith
                                     , renameExprVarsWith
                                     , renameModelVarsWith )
 
-ensemble :: [(Model, Double)] -> Model
-ensemble models = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] ++ modelDecls megaModel }
+data CombinationStrategy = Sum | Average
+
+ensemble :: [(Model, Double)] -> CombinationStrategy -> Model
+ensemble models combo = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] ++ modelDecls megaModel }
   where
     megaModel = foldr1 (join mempty) (map (\(model,_,_) -> model) freshModels)
 
@@ -37,7 +39,9 @@ ensemble models = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] 
 
     mkLet v =
       let vs = map (\(_, newVars, scaling) -> Var (newVars Map.! v) `Mul` LitD scaling) freshModels
-      in  foldr1 Add vs
+      in  case combo of
+            Sum -> foldr1 Add vs
+            Average -> foldr1 Add vs `Div` LitD (fromIntegral $ length vs)
 
     sharedState = foldr Set.intersection allVars [ modelVars' m | (m, _) <- models ]
 
@@ -48,7 +52,7 @@ ensemble models = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] 
     modelVars' m = 
       modelVars m 
       `Set.difference` 
-      Set.fromList [ eventName | Event{..} <- modelEvents m ]
+      Set.fromList ([ eventName | Event{..} <- modelEvents m ] ++ [ v | (v,_) <- letDecls (modelDecls m) ])
 
 
 -- | Serial composition of two models.
