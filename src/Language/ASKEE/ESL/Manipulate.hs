@@ -41,7 +41,7 @@ ensemble models combo = megaModel { modelDecls = [pure (Let v e) | (v, e) <- new
       let vs = map (\(_, newVars, scaling) -> Var (newVars Map.! v) `Mul` LitD scaling) freshModels
       in  case combo of
             Sum -> foldr1 Add vs
-            Average -> foldr1 Add vs `Div` LitD (fromIntegral $ length vs)
+            Average -> foldr1 Add vs `Div` LitD (sum $ map (\(_,_,scaling) -> scaling) freshModels)
 
     sharedState = foldr Set.intersection allVars [ modelVars' m | (m, _) <- models ]
 
