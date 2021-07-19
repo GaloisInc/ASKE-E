@@ -3,6 +3,7 @@
 {-# Language GeneralizedNewtypeDeriving #-}
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
+{-# Language TupleSections #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
@@ -11,7 +12,7 @@ import Control.Monad.IO.Class
 import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
-import Control.Applicative((<|>))
+import Control.Applicative((<|>), Alternative(..))
 import Data.Foldable(traverse_)
 import qualified Data.Map as Map
 import Data.Map(Map)
@@ -24,7 +25,7 @@ import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
 
-import Language.ASKEE.Exposure.Syntax
+
 
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.Model as Model
@@ -32,6 +33,7 @@ import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
 
+import Language.ASKEE.Exposure.Syntax
 
 data ExposureInfo = ExposureInfo
   deriving Show
@@ -40,8 +42,6 @@ runEval :: EvalRead -> Env -> Eval a -> IO (Either Text a, Env, EvalWrite)
 runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
-
-
 
 evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalStmts stmts env = evalLoop env stmts
@@ -137,6 +137,7 @@ newtype Eval a = Eval { unEval :: Except.ExceptT Text (RWS.RWST EvalRead EvalWri
                    , Except.MonadError Text
                    , RWS.MonadState Env
                    , RWS.MonadWriter EvalWrite
+                   , Alternative
                    )
 
 -- TODO: catch exceptions
@@ -253,6 +254,9 @@ interpretCall fun args =
           -- restructuring things to avoid assuming the level of VArray nesting.
           vs' <- traverse getArrayContents vs
           VArray <$> traverse (\v -> atPoint v d) vs'
+
+
+
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -277,17 +281,29 @@ interpretCall fun args =
 
     FMean ->
       case args of
-        [VModelExpr (EMember (EVal (VDataSeries DS.DataSeries{DS.values = vs})) lab)] ->
-          case Map.lookup lab vs of
-            Just ds -> pure $ VDouble $ mean ds
-            Nothing -> throw $ "no label named: " <> lab
+        [v] -> chooseLift (doubleArraySummarize mean) (typeError "mean") v
         _ -> typeError "mean"
+
+    FMin ->
+      case args of
+        [v] -> chooseLift (doubleArraySummarize minimum) (typeError "min") v
+        _ -> typeError "min"
+
+    FMax ->
+      case args of
+        [v] -> chooseLift (doubleArraySummarize maximum) (typeError "max") v
+        _ -> typeError "max"
+
 
     FInterpolate ->
       case args of
         [arg1, arg2] -> interpretInterpolate arg1 arg2
         _            -> typeError "interpolate expects exactly two arguments"
   where
+    doubleArraySummarize f v =
+      do  v' <- array double v
+          pure $ VDouble (f v')
+
     typeError = typeErrorArgs args
 
     getMexpr (VModelExpr e) = Just e
@@ -466,6 +482,85 @@ atPoint vs t =
                then pure v
                else go r val
 
+mem :: Value -> Ident -> Eval Value
+mem v0 l = liftPrim getMem v0
+  where
+    getMem v =
+      case v of
+        VPoint p ->
+          case Map.lookup l p of
+            Nothing -> throw ("cannot find member '" <> l <> "' in point")
+            Just v' -> pure v'
+        VTimed _ t | l == "time" -> pure $ VDouble t
+        _ -> throw "type does not support membership"
+
+mean :: [Double] -> Double
+mean xs = sum xs / fromIntegral (length xs)
+
+-- Count the number of times a predicate is true
+count :: (a -> Bool) -> [a] -> Int
+count p = go 0
+  where go !n [] = n
+        go !n (x:xs) | p x       = go (n+1) xs
+                     | otherwise = go n xs
+
+
+-------------------------------------------------------------------------------
+-- typing
+
+chooseOr :: [Eval a] -> Eval a -> Eval a
+chooseOr e r = foldr (<|>) r e
+
+array :: (Value -> Eval a) -> Value ->  Eval [a]
+array f v0 =
+  case v0 of
+    VArray vs -> f `traverse` vs
+    _ -> throw "Expecting array"
+
+parallelArrays :: (Value -> Eval a) -> Value -> Value ->  Eval [(a,a)]
+parallelArrays f v1 v2 =
+  do  es1 <- array f v1
+      es2 <- array f v2
+      if length es1 == length es2
+        then pure (es1 `zip` es2)
+        else throw "Expecting arrays of same length"
+
+
+double :: Value -> Eval Double
+double v0 =
+  case v0 of
+    VDouble d -> pure d
+    _ -> throw "Expecting number"
+
+timed :: (Value -> Eval a) -> Value ->  Eval (a, Double)
+timed f v0 =
+  case v0 of
+    VTimed a d ->
+      do  a' <- f a
+          pure (a', d)
+    _ -> throw "Expecting timed value"
+
+modelExpr :: Value -> Eval Expr
+modelExpr v0 =
+  case v0 of
+    VModelExpr e -> pure e
+    _ -> throw "Expecting model"
+
+
+-------------------------------------------------------------------------------
+-- lifts
+
+chooseLiftInto :: Value -> (Value -> Eval Value) -> Eval Value -> Eval Value
+chooseLiftInto v0 f orElse = chooseLift f orElse v0
+
+chooseLift :: (Value -> Eval Value) -> Eval Value -> Value -> Eval Value
+chooseLift f orElse v0 =
+  f v0 <|>
+  case v0 of
+    VTimed v' t -> VTimed <$> chooseLift f orElse v' <*> pure t
+    VArray vs -> VArray <$> (chooseLift f orElse `traverse` vs)
+    _ -> orElse
+
 liftInto :: Value -> (Value -> Eval Value) -> Eval Value
 liftInto = flip liftPrim
 
@@ -486,25 +581,3 @@ liftPrim' f v =
       do  vs' <- liftPrim' f `traverse` vs
           pure $ VArray <$> sequenceA vs'
     _ -> f v
-
-
-mem :: Value -> Ident -> Eval Value
-mem v0 l = liftPrim getMem v0
-  where
-    getMem v =
-      case v of
-        VPoint p ->
-          case Map.lookup l p of
-            Nothing -> throw ("cannot find member '" <> l <> "' in point")
-            Just v' -> pure v'
-        _ -> throw "type does not support membership"
-
-mean :: [Double] -> Double
-mean xs = sum xs / fromIntegral (length xs)
-
--- Count the number of times a predicate is true
-count :: (a -> Bool) -> [a] -> Int
-count p = go 0
-  where go !n [] = n
-        go !n (x:xs) | p x       = go (n+1) xs
-                     | otherwise = go n xs

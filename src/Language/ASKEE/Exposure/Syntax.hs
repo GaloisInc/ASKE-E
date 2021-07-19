@@ -70,6 +70,8 @@ data FunctionName
   | FOr
   | FProb
   | FSample
+  | FMin
+  | FMax
   | FAt
   | FLoadEasel
   | FLoadCSV
@@ -99,4 +101,6 @@ prefixFunctionName ident =
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
     "sample"      -> Right FSample
+    "min"         -> Right FMin
+    "max"         -> Right FMax
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
