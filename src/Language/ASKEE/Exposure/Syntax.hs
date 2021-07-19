@@ -49,7 +49,7 @@ data Value
   | VSFold SampleFold DynamicalFold Expr
   | VSuspended
 
-  | VHistogram Double Double Double [Int] -- ^ min max size buckets
+  | VHistogram Double Double Double !(Map Int Int) -- ^ min max size bins
   deriving (Show, Eq, Ord)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
