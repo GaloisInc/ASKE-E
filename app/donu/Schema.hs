@@ -502,12 +502,12 @@ instance JS.ToJSON DonuValue where
                     , "values" .= JS.toJSON (values ds)
                     ]
 
-      VHistogram low hi sz buckets ->
+      VHistogram low hi sz bins ->
         typed "histogram" $
           JS.object [ "min" .= JS.toJSON low
                     , "max" .= JS.toJSON hi
                     , "size" .= JS.toJSON sz
-                    , "buckets" .= JS.toJSON buckets
+                    , "bins" .= JS.toJSON bins
                     ]
 
       VArray vs -> typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
