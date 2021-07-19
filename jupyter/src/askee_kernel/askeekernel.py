@@ -139,7 +139,7 @@ def format_resp_value(v):
             return { 'text/plain': val }
 
         if ty == 'double':
-            return { 'text/plain': val }
+            return { 'text/plain': json.dumps(val) }
 
         if ty == 'data-series':
             return format_data_series(val['time'], val['values'])
