@@ -26,13 +26,13 @@ assertRightText :: Either Text b -> IO b
 assertRightText = assertRightStr . first Text.unpack
 
 lexAndParseExpr :: String -> Either String Expr
-lexAndParseExpr str = do
-  lexed <- lexExposure str
+lexAndParseExpr s = do
+  lexed <- lexExposure s
   parseExposureExpr lexed
 
 lexAndParseStmt :: String -> Either String Stmt
-lexAndParseStmt str = do
-  lexed <- lexExposure str
+lexAndParseStmt s = do
+  lexed <- lexExposure s
   parseExposureStmt lexed
 
 exprShouldEvalTo :: String -> Value -> Assertion

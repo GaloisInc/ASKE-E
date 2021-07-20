@@ -10,6 +10,7 @@ import qualified Data.Aeson as JSON
 
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
+import qualified Control.Monad.Reader as Reader
 import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
@@ -50,11 +51,12 @@ evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalStmts stmts env = evalLoop env stmts
 
 initialEnv :: Env
-initialEnv = Env Map.empty Map.empty
+initialEnv = Env Map.empty
 
 evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalLoop env stmts = go emptyEvalRead
   where
+    go :: EvalRead -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
     go m =
          do (lr, env', w) <- runEval m env $ interpretStmt `traverse_` stmts
             case lr of
@@ -66,7 +68,7 @@ evalLoop env stmts = go emptyEvalRead
                     do  evs <- simulate (ewDeps w)
                         case evs of
                           Left e -> pure (Left e, env')
-                          Right vs -> go (m <> EvalRead vs)
+                          Right vs -> go (m { erPrecomputed = erPrecomputed m <> vs })
 
 -------------------------------------------------------------------------------
 
@@ -78,9 +80,8 @@ simulate vs =
 
 -------------------------------------------------------------------------------
 -- eval monad
-data Env = Env
+newtype Env = Env
   { envTopLevelVars :: Map Ident Value
-  , envLocalVars    :: Map Ident Value
   }
 data EvalWrite = EvalWrite
   { ewDeps :: Set Value
@@ -121,16 +122,11 @@ suspend v
 
 data EvalRead = EvalRead
   { erPrecomputed :: Map Value Value
+  , erLocalVars   :: Map Ident Value
   }
 
 emptyEvalRead :: EvalRead
-emptyEvalRead = EvalRead Map.empty
-
-instance Semigroup EvalRead where
-  a <> b = EvalRead (erPrecomputed a <> erPrecomputed b)
-
-instance Monoid EvalRead where
-  mempty = EvalRead mempty
+emptyEvalRead = EvalRead Map.empty Map.empty
 
 data StmtEff =
   StmtEffBind Ident Value
@@ -156,8 +152,9 @@ notImplemented what = throw ("not implemented: " <> what)
 
 getVarValue :: Ident -> Eval Value
 getVarValue i =
-  do  mbV <- State.gets $ \env -> Map.lookup i (envLocalVars env) <|> Map.lookup i (envTopLevelVars env)
-      case mbV of
+  do  localEnv    <- Reader.asks erLocalVars
+      topLevelEnv <- State.gets envTopLevelVars
+      case Map.lookup i localEnv <|> Map.lookup i topLevelEnv of
         Nothing -> throw ("variable " <> i <> " is not defined")
         Just v -> pure v
 
@@ -172,13 +169,10 @@ bindTopLevelVar i v =
 
 withLocalVar :: Ident -> Value -> Eval a -> Eval a
 withLocalVar i v thing =
-  do  mbV <- State.gets $ \env -> Map.lookup i (envLocalVars env) <|> Map.lookup i (envTopLevelVars env)
-      case mbV of
-        Nothing ->
-          do  State.modify $ \env -> env { envLocalVars = Map.insert i v (envLocalVars env) }
-              thingInside <- thing
-              State.modify $ \env -> env { envLocalVars = Map.delete i (envLocalVars env) }
-              pure thingInside
+  do  localEnv    <- Reader.asks erLocalVars
+      topLevelEnv <- State.gets envTopLevelVars
+      case Map.lookup i localEnv <|> Map.lookup i topLevelEnv of
+        Nothing -> Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) }) thing
         Just _ ->
           throw ("variable " <> i <> " is already bound here")
 
