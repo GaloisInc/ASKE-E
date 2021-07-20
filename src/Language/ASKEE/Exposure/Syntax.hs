@@ -80,6 +80,8 @@ data FunctionName
   | FMean
   | FInterpolate
   | FHistogram
+  | FTimedTime
+  | FTimedValue
   deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
@@ -108,4 +110,6 @@ prefixFunctionName ident =
     "min"         -> Right FMin
     "max"         -> Right FMax
     "histogram"   -> Right FHistogram
+    "time"        -> Right FTimedTime
+    "value"       -> Right FTimedValue
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

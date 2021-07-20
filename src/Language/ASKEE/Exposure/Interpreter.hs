@@ -308,7 +308,21 @@ interpretCall fun args =
         [series, nbins] -> interpretHistogram series nbins
         _               -> typeError "histogram expects exactly two arguments"
 
+    FTimedTime ->
+      case args of
+        [VTimed _ t] -> pure $ VDouble t
+        [v@(VArray _)] ->
+          (VArray . fmap (VDouble . snd) <$> array (timed value) v) <|> typeError "time"
+        _ -> typeError "time"
+
+    FTimedValue ->
+      case args of
+        [VTimed a _] -> pure a
+        [v@(VArray _)] ->
+          (VArray . fmap fst <$> array (timed value) v) <|> typeError "time"
+        _ -> typeError "time"
   where
+
     doubleArraySummarize f v =
       do  v' <- array double v
           pure $ VDouble (f v')
@@ -616,6 +630,15 @@ modelExpr v0 =
 value :: Value -> Eval Value
 value = pure
 
+timedLift :: (Value -> Eval Value) -> Value -> Eval (Value, Value -> Value)
+timedLift f v =
+  case v of
+    VTimed a t ->
+      do  a' <- f a
+          pure (a', (`VTimed` t))
+    e ->
+      do  e' <- f e
+          pure (e', id)
 
 -------------------------------------------------------------------------------
 -- lifts
