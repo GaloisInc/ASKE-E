@@ -25,14 +25,21 @@ usage: `basename $0` [-s SUFFIX] [-c] SOURCE_TEXT SYMBOLS
 
 Estimate the Kolmogorov complexity of the source text.
 
-The source text must name a C program. The text should not have comments.
+The source text must not have comments.
 
 The symbols file is a list of identifiers to be alpha-converted; this
 list must match the symbols present in the C program.
 
+Identifiers not present in the symbols file are assumed language
+keywords and directives; these are converted to symbols of a uniform
+length in order to normalize differences due to the language designer's
+choice of keyword spellings.
+
 Strings in the program are converted uniformly to 'txt' or "txt".
 While the correct operation of the program depends upon the original
 string contents, the program's essential complexity does not.
+
+Punctuation is unaffected by the conversion process.
 
 The -s SUFFIX option specifies a string to be appended to the minimal-length
 alpha-converted identifiers. Use this to demonstrate that identifier
@@ -65,14 +72,16 @@ done < $srcsym >> $edits
 tmp=`mktemp`
 cat $edits | awk '{ print length(), $0|"sort -nr"}' | cut -d' ' -f2- > $tmp
 mv $tmp $edits
+alpha=`mktemp`
+sed -f $edits $source > $alpha
 
 if $check; then
-	sed -f $edits $source
+	cat $alpha
 else
 	# The xz compressor with a fixed method produces slightly smaller files than does compress.
 	# It does so by omitting the header data to specify the decompression method.
-	##sed -f $edits $source|compress -c|wc -c
-	sed -f $edits $source|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
+	##cat $alpha|compress -c|wc -c
+	cat $alpha|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
 fi
 
-rm -f $edits
+rm -f $edits $alpha
