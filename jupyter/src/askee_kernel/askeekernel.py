@@ -128,7 +128,69 @@ def format_histogram(lo, _hi, sz, bins):
 
     return out
 
+def format_plot(xlab, ylabs, xs, yss):
+    """
+    Returns a vega light chart + a textual representation
+    """
+    vals = []
+    for (t, ys) in enumerate(yss):
+        for (yi,ylab) in enumerate(ylabs):
+            vals.append({ xlab: xs[t], ylab: ys[yi], "series": ylab })
 
+    layers = [ { "mark": "line",
+                 "encoding": {
+                     "x": {"field": xlab, "type": "quantitative"},
+                     "y": {"field": ylab, "type": "quantitative"},
+                     "color": {"field": "series", "type": "nominal"}
+                 }
+                } for ylab in ylabs ]
+
+    out = {
+        'application/vnd.vegalite.v4+json': {
+            '$schema': vega_lite_schema,
+            'description':'',
+            'data': { "values": vals},
+            'mark': 'point',
+            'layer': layers
+        },
+    }
+
+    #     'text/plain': txt
+    # }
+    return out
+
+
+def format_scatter(xlab, ylabs, xs, ysss):
+    """
+    Returns a vega light chart + a textual representation
+    """
+    vals = []
+    for (si,ys) in enumerate(ysss):
+        for (i, x) in enumerate(xs):
+            for ysamp in ys[i]:
+                vals.append({ xlab: x, ylabs[si]: ysamp, "series": ylabs[si] })
+
+    layers = [ { "mark": "point",
+                 "encoding": {
+                     "x": {"field": xlab, "type": "quantitative"},
+                     "y": {"field": ylab, "type": "quantitative"},
+                     "color": {"field": "series", "type": "nominal"}
+                 }
+                } for ylab in ylabs ]
+
+    out = {
+        'application/vnd.vegalite.v4+json': {
+            '$schema': vega_lite_schema,
+            'description':'',
+            'data': { "values": vals},
+            'mark': 'point',
+            'layer': layers
+        },
+    }
+
+    #     'text/plain': txt
+    # }
+    return out
 
 def format_resp_value(v):
     if isinstance(v, dict):
@@ -140,6 +202,12 @@ def format_resp_value(v):
 
         if ty == 'double':
             return { 'text/plain': json.dumps(val) }
+
+        if ty == 'plot':
+            return format_plot(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+
+        if ty == 'scatter':
+            return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
 
         if ty == 'data-series':
             return format_data_series(val['time'], val['values'])

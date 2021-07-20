@@ -496,6 +496,12 @@ instance JS.ToJSON DonuValue where
       VDouble dbl    -> typedPrim "double" dbl
       VString str    -> typedPrim "string" str
 
+      VTimed v t ->
+        typed "timed" $
+          JS.object [ "time"  .= JS.toJSON t
+                    , "value" .= JS.toJSON (DonuValue v)
+                    ]
+
       VDataSeries ds ->
         typed "data-series" $
           JS.object [ "time"   .= JS.toJSON (times ds)
@@ -510,7 +516,23 @@ instance JS.ToJSON DonuValue where
                     , "bins" .= JS.toJSON bins
                     ]
 
-      VArray vs -> typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
+      VPlot xlab ylabs xs yss ->
+        typed "plot" $
+          JS.object [ "xlabel"  .= JS.toJSON xlab
+                    , "ylabels" .= JS.toJSON ylabs
+                    , "xs"      .= JS.toJSON xs
+                    , "yss"      .= JS.toJSON yss
+                    ]
+      VScatter xlab ylabs xs yss ->
+        typed "scatter" $
+          JS.object [ "xlabel"  .= JS.toJSON xlab
+                    , "ylabels" .= JS.toJSON ylabs
+                    , "xs"      .= JS.toJSON xs
+                    , "yss"     .= JS.toJSON yss
+                    ]
+
+      VArray vs ->
+        typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
 
       VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
       VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
