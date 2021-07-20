@@ -84,6 +84,7 @@ SYM             { Located _ _ (Lexer.Sym $$) }
 Model                                 :: { Model }
   : 'model' SYM ':'
       BOPEN ModelDecls BCLOSE            { mkModel $2 $5 }
+  | meta Model                           { $2 { modelMeta = $1 : modelMeta $2 }}
 
 ModelDecls                            :: { [Either (Meta.MetaAnn Decl) Event] }
   :                                      { [] }
@@ -198,6 +199,7 @@ mkModel :: Text -> [ Either (Meta.MetaAnn Decl) Event ] -> Model
 mkModel nm ps = Model { modelName = nm
                       , modelDecls = ds
                       , modelEvents = es
+                      , modelMeta = []
                       }
   where (ds,es) = partitionEithers ps
 }

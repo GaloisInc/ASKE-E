@@ -16,6 +16,7 @@ module Language.ASKEE.Model
   ) where
 
 import Data.Text(Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Control.Monad ( (>=>) )
 import qualified Data.Aeson as JSON
@@ -205,7 +206,7 @@ printModel m =
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core c -> Right $ show $ Core.ppModel c
     RNet _ -> Left "XXX: no printer for RNet yet"
-    GrometPrt g -> Right $ GPRT.grometString g
+    GrometPrt g -> Right $ Text.unpack $ GPRT.grometText g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v
   where
