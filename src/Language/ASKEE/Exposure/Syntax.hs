@@ -27,6 +27,7 @@ data Expr
   = EVar Text
   | EVal Value
   | ECall FunctionName [Expr]
+  | ECallWithLambda FunctionWithLambdaName [Expr] Ident Expr
   | EMember Expr Ident
   | EList [Expr]
   | EListRange Expr Expr Expr
@@ -85,6 +86,10 @@ data FunctionName
   | FIn
   deriving (Show, Eq, Ord)
 
+data FunctionWithLambdaName
+  = FFilter
+  deriving (Show, Eq, Ord)
+
 -------------------------------------------------------------------------------
 -- compilable expr
 
@@ -116,3 +121,9 @@ prefixFunctionName ident =
     "value"       -> Right FTimedValue
     "in"          -> Right FIn
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
+
+functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName
+functionWithLambdaName ident =
+  case T.unpack ident of
+    "filter" -> Right FFilter
+    strIdent -> Left $ "Unsupported function-with-lambda name: " ++ strIdent

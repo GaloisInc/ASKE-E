@@ -26,7 +26,7 @@ import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
 import Data.Maybe(catMaybes)
-
+import Witherable (Witherable(..))
 
 
 import qualified Language.ASKEE.Core as Core
@@ -49,7 +49,7 @@ evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalStmts stmts env = evalLoop env stmts
 
 initialEnv :: Env
-initialEnv = Env Map.empty
+initialEnv = Env Map.empty Map.empty
 
 evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
 evalLoop env stmts = go emptyEvalRead
@@ -78,7 +78,8 @@ simulate vs =
 -------------------------------------------------------------------------------
 -- eval monad
 data Env = Env
-  { envVars :: Map Ident Value
+  { envTopLevelVars :: Map Ident Value
+  , envLocalVars    :: Map Ident Value
   }
 data EvalWrite = EvalWrite
   { ewDeps :: Set Value
@@ -154,17 +155,29 @@ notImplemented what = throw ("not implemented: " <> what)
 
 getVarValue :: Ident -> Eval Value
 getVarValue i =
-  do  mbV <- State.gets (Map.lookup i . envVars)
+  do  mbV <- State.gets $ \env -> Map.lookup i (envLocalVars env) <|> Map.lookup i (envTopLevelVars env)
       case mbV of
         Nothing -> throw ("variable " <> i <> " is not defined")
         Just v -> pure v
 
-bindVar :: Ident -> Value -> Eval ()
-bindVar i v =
-  do  mbV <- State.gets (Map.lookup i . envVars)
+bindTopLevelVar :: Ident -> Value -> Eval ()
+bindTopLevelVar i v =
+  do  mbV <- State.gets (Map.lookup i . envTopLevelVars)
       case mbV of
         Nothing ->
-          State.modify (\env -> env { envVars = Map.insert i v (envVars env) })
+          State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
+        Just _ ->
+          throw ("variable " <> i <> " is already bound here")
+
+withLocalVar :: Ident -> Value -> Eval a -> Eval a
+withLocalVar i v thing =
+  do  mbV <- State.gets $ \env -> Map.lookup i (envLocalVars env) <|> Map.lookup i (envTopLevelVars env)
+      case mbV of
+        Nothing ->
+          do  State.modify $ \env -> env { envLocalVars = Map.insert i v (envLocalVars env) }
+              thingInside <- thing
+              State.modify $ \env -> env { envLocalVars = Map.delete i (envLocalVars env) }
+              pure thingInside
         Just _ ->
           throw ("variable " <> i <> " is already bound here")
 
@@ -179,7 +192,7 @@ interpretStmt stmt =
     StmtLet var expr     ->
       do  eval <- interpretExpr expr
           writeStmtEff (StmtEffBind var eval)
-          bindVar var eval
+          bindTopLevelVar var eval
 
     StmtDisplay dispExpr -> interpretDisplayExpr dispExpr
 
@@ -194,6 +207,10 @@ interpretExpr e0 =
           if VSuspended `elem` args'
             then pure VSuspended
             else interpretCall fun args'
+
+    ECallWithLambda fun args lambdaVar lambdaExpr ->
+      do args' <- interpretExpr `traverse` args
+         interpretCallWithLambda fun args' lambdaVar lambdaExpr
 
     -- TODO: will we also need suspend for this?
     EMember e lab ->
@@ -461,6 +478,22 @@ interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
 
 
+interpretCallWithLambda :: FunctionWithLambdaName -> [Value] -> Ident -> Expr -> Eval Value
+interpretCallWithLambda fun args lambdaVar lambdaExpr =
+  case fun of
+    FFilter ->
+      case args of
+        [VArray vs] -> VArray <$> wither filterAction vs
+        _           -> typeError "filter"
+  where
+    typeError = typeErrorArgs args
+
+    filterAction :: Value -> Eval (Maybe Value)
+    filterAction arrayVal = withLocalVar lambdaVar arrayVal $
+      do  lambdaVal <- interpretExpr lambdaExpr
+          b <- getBoolValue lambdaVal
+          pure $ if b then Just arrayVal else Nothing
+
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
   [ "type error: " <> msg
@@ -501,6 +534,10 @@ runSimExpr n t e0 =
     EVal _ -> pure e0
     EVar _ -> pure e0
     ECall fname args -> ECall fname <$> runSimExpr n t `traverse` args
+    ECallWithLambda fname args lambdaVar lambdaExpr ->
+      ECallWithLambda fname <$> (runSimExpr n t `traverse` args)
+                            <*> pure lambdaVar
+                            <*> (runSimExpr n t lambdaExpr)
     EMember e lab -> EMember <$> runSimExpr n t e <*> pure lab
     EList es -> EList <$> runSimExpr n t `traverse` es
     EListRange start stop step -> EListRange <$> runSimExpr n t start <*> runSimExpr n t stop <*> runSimExpr n t step

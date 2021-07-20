@@ -150,6 +150,7 @@ library
                       , text
                       , unordered-containers
                       , vector
+                      , witherable >= 0.4
                       , http-client
                       , http-client-tls
                       , utf8-string

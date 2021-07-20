@@ -129,5 +129,7 @@ tests =
             , "notDefined"
             ] "x" $ \actualVal ->
             actualVal @?= VDouble 42
+      , testCase "filter" $
+          "filter([1 .. 10 by 1]) { x => x > 8 }" `exprShouldEvalTo` VArray [VDouble 9, VDouble 10]
       ]
     ]
