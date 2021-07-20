@@ -36,6 +36,7 @@ import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
 
 import Language.ASKEE.Exposure.Syntax
+import Data.List (transpose)
 
 data ExposureInfo = ExposureInfo
   deriving Show
@@ -352,6 +353,16 @@ interpretCall fun args =
           <|> typeError "invalid array argument to 'in'"
         _ -> typeError "in"
 
+    FPlot ->
+      case args of
+        v1:v2:v3:rest -> interpretPlot v1 v2 v3 rest
+        _   -> typeError "plot expects an array of points"
+
+    FScatter ->
+      case args of
+        v1:v2:v3:rest -> interpretScatter v1 v2 v3 rest
+        _   -> typeError "plot expects an array of points"
+
   where
 
     doubleArraySummarize f v =
@@ -476,6 +487,29 @@ interpretHistogram (VArray vs) n =
     incBin (Just c) = Just (c + 1)
 interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
+
+interpretPlot :: Value -> Value -> Value -> [Value] -> Eval Value
+interpretPlot xs yss xlab optLabels =
+  do labels <- traverse str optLabels
+     xlab'  <- str xlab
+     xs'    <- array double xs
+     yss'   <- array (array double) yss
+
+     let rest   = take needed ["y" <> Text.pack (show i) | i <- [length yss'..]]
+         needed = length yss'  - length labels
+
+     return $ VPlot xlab' (labels ++ rest) xs' (transpose yss')
+
+
+interpretScatter :: Value -> Value -> Value -> [Value] -> Eval Value
+interpretScatter xs ysss xlab optLabels =
+  do labels <- traverse str optLabels
+     xlab'  <- str xlab
+     xs'    <- array double xs
+     yss'   <- array (array (array double)) ysss
+     let rest   = take needed ["y" <> Text.pack (show i) | i <- [length yss'..]]
+         needed = length yss'  - length labels
+     return $ VScatter xlab'  (labels ++ rest) xs' yss'
 
 
 interpretCallWithLambda :: FunctionWithLambdaName -> [Value] -> Ident -> Expr -> Eval Value
@@ -664,6 +698,12 @@ double :: Value -> Eval Double
 double v0 =
   case v0 of
     VDouble d -> pure d
+    _ -> throw "Expecting number"
+
+str :: Value -> Eval Text
+str v0 =
+  case v0 of
+    VString t -> pure t
     _ -> throw "Expecting number"
 
 timed :: (Value -> Eval a) -> Value ->  Eval (a, Double)

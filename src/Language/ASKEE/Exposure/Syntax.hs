@@ -51,6 +51,9 @@ data Value
   | VSuspended
 
   | VHistogram Double Double Double !(Map Int Int) -- ^ min max size bins
+  | VPlot Text [Text] [Double] [[Double]]
+  | VScatter Text [Text] [Double] [[[Double]]]
+    -- ^ last list is indexed by series, then time, then sample
   deriving (Show, Eq, Ord)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
@@ -84,6 +87,8 @@ data FunctionName
   | FTimedTime
   | FTimedValue
   | FIn
+  | FPlot
+  | FScatter
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -120,6 +125,8 @@ prefixFunctionName ident =
     "time"        -> Right FTimedTime
     "value"       -> Right FTimedValue
     "in"          -> Right FIn
+    "plot"        -> Right FPlot
+    "scatter"     -> Right FScatter
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName
