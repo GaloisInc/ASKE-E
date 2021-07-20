@@ -82,6 +82,7 @@ data FunctionName
   | FHistogram
   | FTimedTime
   | FTimedValue
+  | FIn
   deriving (Show, Eq, Ord)
 
 -------------------------------------------------------------------------------
@@ -91,6 +92,7 @@ data FunctionName
 data DynamicalFold =
     DFAt Double
   | DFAtMany [Double]
+  | DFIn Double Double
   deriving (Show, Eq, Ord)
 
 data SampleFold =
@@ -112,4 +114,5 @@ prefixFunctionName ident =
     "histogram"   -> Right FHistogram
     "time"        -> Right FTimedTime
     "value"       -> Right FTimedValue
+    "in"          -> Right FIn
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent

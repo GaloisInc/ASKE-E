@@ -252,8 +252,8 @@ interpretCall fun args =
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
         [VModelExpr e, times@(VArray _)] ->
-          do  times <- array double times
-              pure $ VDFold (DFAtMany times) e
+          do  times' <- array double times
+              pure $ VDFold (DFAtMany times') e
         [VArray vs, VDouble d] -> do
           -- TODO: Using getArrayContents here is gross. We should consider
           -- restructuring things to avoid assuming the level of VArray nesting.
@@ -321,6 +321,20 @@ interpretCall fun args =
         [v@(VArray _)] ->
           (VArray . fmap fst <$> array (timed value) v) <|> typeError "time"
         _ -> typeError "time"
+
+    FIn ->
+      case args of
+        [VModelExpr e, VDouble start, VDouble end]
+          | start < end -> pure $ VDFold (DFIn start end) e
+          | otherwise   -> typeError "in 'in' - start time is before end time"
+        [va@(VArray _), VDouble start, VDouble end] ->
+          tryLiftArrayInto va $
+            \v -> do  vs <- array (timed value) v
+                      let vs' = filter (\(_, t) -> start <= t && t <= end) vs
+                      pure $ VArray $ uncurry VTimed <$> vs'
+          <|> typeError "invalid array argument to 'in'"
+        _ -> typeError "in"
+
   where
 
     doubleArraySummarize f v =
@@ -462,6 +476,7 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
       case df of
         DFAt d -> d
         DFAtMany d -> maximum d
+        DFIn _ end -> end
 
     sampleCount =
       case sf of
@@ -472,6 +487,7 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
+        DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
       case sf of
         SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
@@ -674,3 +690,12 @@ liftPrim' f v =
       do  vs' <- liftPrim' f `traverse` vs
           pure $ VArray <$> sequenceA vs'
     _ -> f v
+
+tryLiftArray :: (Value -> Eval Value) -> Value -> Eval Value
+tryLiftArray f v0 =
+  case v0 of
+    VArray v -> (VArray <$> f `traverse` v) <|> f v0
+    _ -> f v0
+
+tryLiftArrayInto :: Value -> (Value -> Eval Value) -> Eval Value
+tryLiftArrayInto = flip tryLiftArray
