@@ -28,9 +28,9 @@ The set of reserved words and directives varies according to programming languag
 Other Considerations
 --------------------
 
-The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm. Additionally, some compression methods are known to emit multiple dictionaries; this can happen when the compressor encounters new text in the input stream and that text is not adequately compressible using the active dictionary[5]. It's not clear how or whether this will affect the compressibility measurement.
+The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm.
 
-Implementations of a given compression method may differ in their encodings while still being considered to be the same method[6]; we don't know how significant these differences may be as regards a compressibility measure.
+Implementations of a given compression method may differ in their encodings while still being considered to be the same method[5]; we don't know how significant these differences may be as regards a compressibility measure.
 
 Validation of Approach
 ----------------------
@@ -44,16 +44,16 @@ Our tests also illustrate the need for alpha-conversion in order to impose a con
 Other Approaches
 ----------------
 
-We attempted to apply Latent Semantic Indexing[7] as a measure of document similarity. We thought of this not as LOE for a specific program text, but rather as a measure of the effort required to transform one text into a larger, more complex text (e.g. ODE to RNET or RNET to a discrete event simulation written in a general-purpose programming language). We quickly discovered that the method is not useful when scaled down to using a single document as a corpus.
+We attempted to apply Latent Semantic Indexing[6] as a measure of document similarity. We thought of this not as LOE for a specific program text, but rather as a measure of the effort required to transform one text into a larger, more complex text (e.g. ODE to RNET or RNET to a discrete event simulation written in a general-purpose programming language). We quickly discovered that the method is not useful when scaled down to using a single document as a corpus.
 
-We considered and rejected the use of edit distance[8] (e.g. Levenshtein distance[9]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical. 
+We considered and rejected the use of edit distance[7] (e.g. Levenshtein distance[8]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical.
 
 As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
 
 Results
 -------
 
-We collected from the Rosetta Code website[10] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[11] and Python[12]. Comments have been removed from all source texts.
+We collected from the Rosetta Code website[9] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[10] and Python[11]. Comments have been removed from all source texts.
 
 The following table shows the analysis of the sample source codes.
 
@@ -106,14 +106,13 @@ References
 [2] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Uncomputability_of_Kolmogorov_complexity
 [3] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Compression
 [4] https://en.wikipedia.org/wiki/Lempel-Ziv_complexity
-[5] ? - streaming compression dictionary update
-[6] https://en.wikipedia.org/wiki/LZ77_and_LZ78
-[7] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
-[8] https://en.wikipedia.org/wiki/Edit_distance
-[9] https://en.wikipedia.org/wiki/Levenshtein_distance
-[10] https://rosettacode.org/
-[11] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
-[12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
+[5] https://en.wikipedia.org/wiki/LZ77_and_LZ78
+[6] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
+[7] https://en.wikipedia.org/wiki/Edit_distance
+[8] https://en.wikipedia.org/wiki/Levenshtein_distance
+[9] https://rosettacode.org/
+[10] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
+[11] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
 ```
 
 Appendix
