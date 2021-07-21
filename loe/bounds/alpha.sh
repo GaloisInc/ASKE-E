@@ -1,9 +1,11 @@
 #! /usr/bin/env sh
 
 # Do an alpha conversion on the given source text and list of symbols to be converted.
-#
 # Symbols are converted to the form `g#` where # is a decimal number having just
 # enough digits so that each converted symbol has its own short name.
+# The same process is applied to remaining symbols, which are language keywords and
+# directives; these are converted to the form `K#` where # is a decimal number
+# having two digits for consistency across languages.
 #
 # Report the compressed length of the alpha-converted text; this establishes a lower
 # bound on the proxy metric for the source text's Kolmogorov complexity.
@@ -75,13 +77,33 @@ mv $tmp $edits
 alpha=`mktemp`
 sed -f $edits $source > $alpha
 
+keywords=`mktemp`
+cat $alpha|tr '[[:space:][:punct:]]' '\n'|grep -v -e '^$' -e 'g[0-9]\+' -e '[0-9]\+'|sort -u > $keywords
+##symlen=`cat $keywords|wc -l|tr -d "\n"|wc -c`
+symlen=2
+: > $edits
+count=0
+while read keyword; do
+	gensym=`printf "K%.${symlen}d" $count`
+	count=$(($count+1))
+	echo "s/\([[:punct:][:space:]]\)$keyword\([[:punct:][:space:]]\)/\1$gensym$suffix\2/g"
+	echo "s/^$keyword\([[:punct:][:space:]]\)/$gensym$suffix\1/g"
+	echo "s/\([[:punct:][:space:]]\)$keyword$/\1$gensym$suffix/g"
+done < $keywords >> $edits
+
+tmp=`mktemp`
+cat $edits | awk '{ print length(), $0|"sort -nr"}' | cut -d' ' -f2- > $tmp
+mv $tmp $edits
+norm=`mktemp`
+sed -f $edits $alpha > $norm
+
 if $check; then
-	cat $alpha
+	cat $norm
 else
 	# The xz compressor with a fixed method produces slightly smaller files than does compress.
 	# It does so by omitting the header data to specify the decompression method.
 	##cat $alpha|compress -c|wc -c
-	cat $alpha|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
+	cat $norm|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
 fi
 
-rm -f $edits $alpha
+rm -f $edits $alpha $keywords $norm
