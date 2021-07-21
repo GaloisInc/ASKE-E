@@ -9,6 +9,7 @@
 #
 # Report the compressed length of the alpha-converted text; this establishes a lower
 # bound on the proxy metric for the source text's Kolmogorov complexity.
+# Length is reported as bits.
 
 check=false
 
@@ -25,7 +26,7 @@ shift $(($OPTIND-1))
 	cat <<EOD
 usage: `basename $0` [-s SUFFIX] [-c] SOURCE_TEXT SYMBOLS
 
-Estimate the Kolmogorov complexity of the source text.
+Estimate the Kolmogorov complexity (in bits) of the source text.
 
 The source text must not have comments.
 
@@ -103,7 +104,7 @@ else
 	# The xz compressor with a fixed method produces slightly smaller files than does compress.
 	# It does so by omitting the header data to specify the decompression method.
 	##cat $alpha|compress -c|wc -c
-	cat $norm|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c
+	echo $(cat $norm|xz -Fraw --lzma2=pb=0,lc=0 --stdout|wc -c)*8|bc
 fi
 
 rm -f $edits $alpha $keywords $norm
