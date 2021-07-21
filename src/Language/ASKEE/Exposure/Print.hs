@@ -3,7 +3,7 @@ module Language.ASKEE.Exposure.Print where
 
 import qualified Data.Map as Map
 import qualified Data.Text.Lazy.Encoding as TL (decodeUtf8)
-import Language.ASKEE.Core.Print (ppModel)
+import Language.ASKEE.Core.Print (ppModel, text)
 import Language.ASKEE.DataSeries (dataSeriesAsCSV)
 import Language.ASKEE.Exposure.Syntax
 import Prettyprinter
@@ -21,6 +21,8 @@ ppValue v = case v of
   VModelExpr e         -> ppModelExpr e
   VPoint m             -> group $ encloseSep (flatAlt "{ " "{") (flatAlt " }" "}") ", " $
                           map (\(key, val) -> tupled [viaShow key, ppValue val]) $ Map.toList m
+  VPlot{}              -> text "<plot>"
+  VScatter{}           -> text "<scatter-plot>"
   VDFold{}             -> notImplemented "VDFold"
   VSFold{}             -> notImplemented "VSFold"
   VSuspended           -> notImplemented "VSuspended"
