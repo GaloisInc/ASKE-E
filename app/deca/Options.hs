@@ -33,6 +33,7 @@ data Command =
   | FitModel [Text] (Map Text Double)
   | ComputeError
   | ShowGromet ShowGromet
+  | ConvertToCTMC
   deriving Show
 
 data ShowGromet = JSON | PP
@@ -200,6 +201,10 @@ options = OptSpec
       , Option [] ["help"]
         "Show this help"
         $ NoArg \s -> Right s { onlyShowHelp = True }
+
+      , Option [] ["core-to-ctmc"]
+        "Converts core model to CTMC"
+        $ NoArg \s -> Right s { command = ConvertToCTMC }
       ]
 
   , progParamDocs = []
