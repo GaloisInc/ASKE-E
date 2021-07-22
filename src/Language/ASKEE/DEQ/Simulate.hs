@@ -25,7 +25,6 @@ import qualified Numeric.GSL.Fitting        as Fit
 import Data.Text (Text)
 import qualified Data.Text as Text
 
-import Debug.Trace
 
 evalDiffEqs ::
   [Ident] -> [Expr] -> Double -> [Double] -> [Double]
@@ -83,7 +82,6 @@ pruneEqns xs eqs
                   [ Map.findWithDefault mempty y deps | y <- Set.toList ys ]
 
   complete vs =
-    trace (vs `seq` "iterate")
     let ds = depsofSet vs
     in if ds `Set.isSubsetOf` vs then vs else complete (Set.union ds vs)
 

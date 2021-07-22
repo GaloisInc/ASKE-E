@@ -22,6 +22,7 @@ module Language.ASKEE
   , checkModel
   , checkModel'
     
+  , checkSimArgs
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
@@ -71,6 +72,7 @@ import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
 import           Data.Set                   ( Set )
+import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -359,6 +361,40 @@ data SimulationType =
   | AutomatesSvc
   deriving (Show)
 
+
+-- check some of the arguments to simulate functions
+-- against the described interface, possibly returning
+-- a list of human-readable problems
+checkSimArgs ::
+  ModelType ->
+  DataSource ->
+  Map Text Double {- ^ parameterization -} ->
+  Set Text {- ^ variables to measure -} ->
+  IO [Text]
+checkSimArgs mt ds params outs =
+  do  model <- loadModel mt ds
+      let iface = describeModelInterface model
+      pure $ concat [ paramsNotExistErrors iface
+                    , outputsNotExistErrors iface
+                    , unspecifiedValueErrors iface
+                    ]
+  where
+    requestParamNames = Map.keysSet params
+    ifaceParamNames iface = Set.fromList (portName <$> modelInputs iface)
+    ifaceParamsNoDefault iface = Set.fromList [portName p | p <- modelInputs iface, portDefault p == Nothing]
+    ifaceOutputNames iface = Set.fromList (portName <$> modelOutputs iface)
+    requireSubset a b err = err <$> (Set.toList $ Set.difference a b)
+
+    paramsNotExistErrors iface =
+      requireSubset requestParamNames (ifaceParamNames iface)
+                    (\v -> "'" <> v <> "' is not a parameter of the specified model")
+    outputsNotExistErrors iface =
+      requireSubset outs (ifaceOutputNames iface)
+                    (\v -> "'" <> v <> "' is not a measurable quantity of the specified model")
+    unspecifiedValueErrors iface =
+      requireSubset (ifaceParamsNoDefault iface) requestParamNames
+                    (\v -> "'" <> v <> "' has no default and must be specified")
+
 simulateModel :: 
   Maybe SimulationType ->
   ModelType -> 
@@ -374,7 +410,7 @@ simulateModel ::
   IO [DS.LabeledDataSeries Double]
 simulateModel sim format source start end step parameters outputs seed dp iterations =
   case simType of
-    GSL -> (:[]) . DS.ldsFromDs <$> simulateModelGSL format source start end step parameters outputs
+    GSL -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelGSL format source start end step parameters outputs
     Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
     AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
     AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs

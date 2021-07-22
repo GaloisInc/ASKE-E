@@ -100,19 +100,23 @@ handleRequest r =
   Snap.with exposureSessions cullOldSessions  >>
   case r of
     Simulate SimulateCommand{..} ->
-      do  res <- liftIO $ simulateModel
-            simType
-            (modelDefType simModel)
-            (modelDefSource simModel)
-            simStart
-            simEnd
-            simStep
-            simParameterValues
-            mempty
-            simSeed
-            simDomainParam
-            1
-          succeed' res
+      do  ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) simParameterValues simOutputs
+          case ifaceErrs of
+            [] ->
+              do  res <- liftIO $ simulateModel
+                    simType
+                    (modelDefType simModel)
+                    (modelDefSource simModel)
+                    simStart
+                    simEnd
+                    simStep
+                    simParameterValues
+                    simOutputs
+                    simSeed
+                    simDomainParam
+                    1
+                  succeed' res
+            errs -> pure (FailureResult (Text.unlines errs))
 
     CheckModel CheckModelCommand{..} ->
       do  model <- liftIO $ loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)

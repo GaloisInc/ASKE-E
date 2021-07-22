@@ -9,6 +9,8 @@ module Schema where
 
 import Data.Map(Map)
 import qualified Data.Map as Map
+import Data.Set(Set)
+import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as Lazy
 import Data.Text(Text)
 import qualified Data.Text as Text
@@ -217,7 +219,7 @@ data SimulateCommand = SimulateCommand
   , simEnd                :: Double
   , simDomainParam        :: Maybe Text
   , simParameterValues    :: Map Text Double
-  , simOutputs            :: [Text]
+  , simOutputs            :: Set Text
   , simType               :: Maybe SimulationType
   , simSeed               :: Maybe Int
   } deriving Show
@@ -256,7 +258,7 @@ instance HasSpec SimulateCommand where
             (assocSpec anySpec)
             "Use these values for model parameters"
 
-        simOutputs <- fromMaybe [] <$>
+        simOutputs <- Set.fromList . fromMaybe [] <$>
           optSection
             "outputs"
             "Which values to output from the simulation"
