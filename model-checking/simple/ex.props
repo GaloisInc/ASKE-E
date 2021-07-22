@@ -1,0 +1,8 @@
+
+//1. What is the probability of P1 becomes zero
+"P1_zero": P=?[F P1=0];
+
+// 2. What is the probability of P1 becomes N
+"P1_N": P=?[F P1=N];
+
+

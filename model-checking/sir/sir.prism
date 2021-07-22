@@ -1,0 +1,25 @@
+// Specifying the type of probabilistic model
+ctmc
+
+const int N; // Population size
+
+const double beta = 0.4;
+const double gamma = 0.04;
+
+module SIR
+    // Definition of State Variables
+    Sus : [0..N] init N - 1;
+    Inf : [0..N] init 1;
+    Rec : [0..N] init 0;
+
+    // Transition rules
+   [Infect] (Sus > 0) & (Inf > 0) & (Inf < N) -> (beta * Sus * Inf)/N : (Sus'= Sus - 1) & (Inf' = Inf + 1); 
+   //[Infect_ip] (Sus > 0) & (Inf > 0) & (Inf < N) -> (beta * Sus * Inf)/N : (Sus'= Sus - 1) & (Inf' = Inf - 1); 
+   //[Infect_op] (Sus > 0) & (Inf > 0) & (Inf < N-1) -> (beta * Sus * Inf)/N :  (Inf' = Inf + 2); 
+   [Remove] (Inf > 0) & (Rec < N) -> gamma * Inf : (Inf' = Inf - 1) & (Rec' = Rec + 1);
+endmodule
+
+//Definition of rewards
+rewards "time" 
+ true : 1; 
+endrewards

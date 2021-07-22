@@ -19,6 +19,8 @@ import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.CTMC as CTMC
+
 
 import Options
 
@@ -31,6 +33,8 @@ main =
         DumpPNC -> mapM_ dumpPNC (modelFiles opts)
 
         DumpCore -> mapM_ dumpCore (modelsProvided opts)
+
+        ConvertToCTMC -> mapM_ dumpCTMC (modelsProvided opts)
 
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
 
@@ -139,7 +143,17 @@ dumpCore (file,ty) =
                             , "error:" ++ err
                             ]
 
-
+dumpCTMC :: (FilePath, A.ModelType) -> IO ()
+dumpCTMC (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toCore m of
+       Right c -> print (CTMC.ppCTMC c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to Core"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
 
 testDescirbeInterface :: (FilePath, A.ModelType) -> IO ()
 testDescirbeInterface (file,ty) =
