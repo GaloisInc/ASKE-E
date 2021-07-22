@@ -3,7 +3,7 @@ module Language.ASKEE.Gromet.FunctionNetwork where
 
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Text(Text)
-import Data.Maybe(listToMaybe)
+import Data.Maybe(listToMaybe, maybeToList)
 import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.Model.Interface as MI
 import qualified Data.Map as Map
@@ -50,6 +50,11 @@ fnetInterface root =
     varToPort vars uid =
       do  var <- findUid vars uid
           tyValue <- objLookup var "type" >>= text
+          let mbDesc = try $ do metas <- objLookup var "metadata" >>= arr
+                                find metaDesc metas
+
+          let metaMap = Map.fromList (maybeToList mbDesc)
+
           ty <-
             case MB.parseValueType tyValue of
               Nothing -> Left ("could not parse value type '" <> tyValue <> "'")
@@ -58,7 +63,7 @@ fnetInterface root =
           pure MI.Port { MI.portName = uid
                        , MI.portValueType = ty
                        , MI.portDefault = Nothing
-                       , MI.portMeta = Map.empty -- TODO
+                       , MI.portMeta = metaMap
                        }
 
     text (JSON.String t) = Right t
@@ -67,9 +72,22 @@ fnetInterface root =
     obj (JSON.Object o) = Right o
     obj _ = Left "expecting object"
 
+    metaDesc o =
+      do  desc <- objLookup o "variable_definition"
+          descText <- text desc
+          pure ("Description", [descText])
+
+    find f as  =
+      case as of
+        [] -> Left "could not find required value"
+        a:as' ->
+          case try (f a) of
+            Nothing -> find f as'
+            Just b -> Right b
+
     findUid a uid =
       do  elts <- arr a
-          let mbVal = listToMaybe [ e | e <- elts
+          let mbVal =  listToMaybe [ e | e <- elts
                                       , Just uid == try (objLookup e "uid" >>= text)]
           case mbVal of
             Nothing -> Left ("could not find variable with uid '" <> uid <> "'")
