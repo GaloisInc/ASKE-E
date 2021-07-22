@@ -229,6 +229,7 @@ executable donu
                       , snap-core
                       , snap-server
                       , snap
+                      , lifted-base
                       , text
                       , time
                       , unordered-containers

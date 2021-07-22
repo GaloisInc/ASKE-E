@@ -5,6 +5,7 @@ module Main ( main ) where
 
 import Control.Monad.State
 
+import           Control.Exception.Lifted (try, SomeException)
 import           Control.Applicative ((<|>))
 import           Control.Lens.TH
 import qualified Web.ClientSession as ClientSession
@@ -56,19 +57,21 @@ initDonu =
         Snap.modifyResponse (Snap.setHeader "Access-Control-Allow-Origin" "*")
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
-          Right a ->
-               runHandler a
-           <|> errorWith 400 "Bad request"
+          Right a -> runHandler a <|> errorWith 400 "Bad request"
           Left err -> errorWith 400 ("Didn't recognize request: "<>err)
 
     runHandler r =
-      do out <- handleRequest r
-         let (code, msg) =
-               case out of
-                 (FailureResult _) -> (400, "Error")
-                 _ -> (200, "OK")
-         Snap.modifyResponse (Snap.setResponseStatus code msg)
-         Snap.writeLBS (JS.encode out)
+      do result <- try $ handleRequest r
+         case result of
+          Right out ->
+            do  let (code, msg) =
+                        case out of
+                          (FailureResult _) -> (400, "Error")
+                          _ -> (200, "OK")
+                Snap.modifyResponse (Snap.setResponseStatus code msg)
+                Snap.writeLBS (JS.encode out)
+          Left ex -> errorWith 500 (show (ex :: SomeException))
+
 
 
 errorWith :: Int -> String -> Snap.Handler DonuApp DonuApp ()
