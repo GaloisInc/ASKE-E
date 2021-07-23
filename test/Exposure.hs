@@ -129,8 +129,16 @@ tests =
             [ "sir = " <> loadSirEaselExpr ]
             "simulate(sir.I at [1..10 by 1])" $ \simResults ->
             case simResults of
-              VArray pts@(VTimed _ _:_) -> pure ()
+              VArray (VTimed _ _:_) -> pure ()
               _ -> assertFailure "Not an array of timed values"
+      , testCase "Basic simulation (single point)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir.I at 125.0)" $ \simResults ->
+            case simResults of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Not a VDouble"
       , testCase "environment should update even upon failure" $
           exprAssertionWithFailingStmts
             [ "x = 42"
