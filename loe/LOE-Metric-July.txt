@@ -48,12 +48,14 @@ We attempted to apply Latent Semantic Indexing[6] as a measure of document simil
 
 We considered and rejected the use of edit distance[7] (e.g. Levenshtein distance[8]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical.
 
+We have considered the use of structural metrics[9,10]. Measurement of these metrics depends upon the ability to build an AST from the source text.
+
 As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
 
 Results
 -------
 
-We collected from the Rosetta Code website[9] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[10] and Python[11]. Comments have been removed from all source texts.
+We collected from the Rosetta Code website[11] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[12] and Python[13]. Comments have been removed from all source texts.
 
 The following table shows the analysis of the sample source codes.
 
@@ -73,9 +75,11 @@ References
 [6] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
 [7] https://en.wikipedia.org/wiki/Edit_distance
 [8] https://en.wikipedia.org/wiki/Levenshtein_distance
-[9] https://rosettacode.org/
-[10] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
-[11] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
+[9] https://en.wikipedia.org/wiki/Halstead_complexity_measures
+[10] https://en.wikipedia.org/wiki/Cyclomatic_complexity
+[11] https://rosettacode.org/
+[12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
+[13] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
 ```
 
 Appendix
