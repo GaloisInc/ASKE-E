@@ -18,15 +18,15 @@ import Control.Applicative((<|>), Alternative(..))
 import Data.Foldable(traverse_)
 import qualified Data.Map as Map
 import Data.Map(Map)
-import Data.Maybe(isJust)
+import Data.Maybe(isJust, catMaybes)
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import Data.Set(Set)
+import Data.List (transpose)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
-import Data.Maybe(catMaybes)
 import Witherable (Witherable(..))
 
 
@@ -35,10 +35,10 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
-import Language.ASKEE.Latex.Syntax (Latex(..))
+import qualified Language.ASKEE.DEQ.Simulate as DEQ
+import           Language.ASKEE.Latex.Syntax (Latex(..))
 
 import Language.ASKEE.Exposure.Syntax
-import Data.List (transpose)
 
 data ExposureInfo = ExposureInfo
   deriving Show
@@ -267,11 +267,12 @@ interpretCall fun args =
         [VModelExpr e, times@(VArray _)] ->
           do  times' <- array double times
               pure $ VDFold (DFAtMany times') e
-        [VArray vs, VDouble d] -> do
-          -- TODO: Using getArrayContents here is gross. We should consider
-          -- restructuring things to avoid assuming the level of VArray nesting.
+        -- Sampled data is special: each v in vs is a sample of the same time domain,
+        -- so they should be grouped accordingly
+        [VSampledData vs, VDouble d] -> do
           vs' <- traverse getArrayContents vs
           VArray <$> traverse (\v -> atPoint v d) vs'
+        [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
         _ -> typeError "at expects a model and a double as its arguments"
 
@@ -624,12 +625,20 @@ getDoubleValue v =
     VDouble d -> pure d
     _ -> throw "Value is not a double"
 
--- this presumes quite a few things
+-- | Vals should be either a sequence of timed data,
+-- or a VSampledData
 atPoints :: Value -> Value -> Eval Value
 atPoints vals times =
-  do  pts <- array (array (timed value)) vals
-      times' <- array double times
-      pure $ VArray (atArrs pts <$> times')
+  do times' <- array double times
+     case vals of
+       VSampledData samples ->
+         do pts <- traverse (array (timed value)) samples
+            pure $ VArray (atArrs pts <$> times')
+       vals' ->
+         do let f v =
+                  do pts <- array (timed value) v
+                     pure $ VArray $ catMaybes [ VTimed <$> atSimple pts t <*> pure t | t <- times' ]
+            chooseLift f (typeErrorArgs [vals] "atPoints expects samples or an array of timed values") vals'
   where
     atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
 
@@ -753,6 +762,7 @@ chooseLift f orElse v0 =
   case v0 of
     VTimed v' t -> VTimed <$> chooseLift f orElse v' <*> pure t
     VArray vs -> VArray <$> (chooseLift f orElse `traverse` vs)
+    VSampledData vs -> VSampledData <$> (chooseLift f orElse `traverse` vs)
     _ -> orElse
 
 liftInto :: Value -> (Value -> Eval Value) -> Eval Value
@@ -763,6 +773,7 @@ liftPrim f v =
   case v of
     VTimed v' t -> VTimed <$> liftPrim f v' <*> pure t
     VArray vs -> VArray <$> (liftPrim f `traverse` vs)
+    VSampledData vs -> VSampledData <$> (liftPrim f `traverse` vs)
     _ -> f v
 
 liftPrim' :: Applicative f => (Value -> Eval (f Value)) -> Value -> Eval (f Value)
@@ -774,6 +785,9 @@ liftPrim' f v =
     VArray vs ->
       do  vs' <- liftPrim' f `traverse` vs
           pure $ VArray <$> sequenceA vs'
+    VSampledData vs ->
+      do  vs' <- liftPrim' f `traverse` vs
+          pure $ VSampledData <$> sequenceA vs'
     _ -> f v
 
 tryLiftArray :: (Value -> Eval Value) -> Value -> Eval Value

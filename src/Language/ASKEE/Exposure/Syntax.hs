@@ -42,6 +42,7 @@ data Value
   | VDataSeries (DataSeries Double)
   | VModel Core.Model
   | VLatex Latex
+  | VSampledData [Value] -- ^ list of samples
 
   | VTimed Value Double
   | VPoint (Map Text Value)
