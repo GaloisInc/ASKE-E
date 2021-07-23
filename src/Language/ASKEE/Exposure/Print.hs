@@ -6,6 +6,7 @@ import qualified Data.Text.Lazy.Encoding as TL (decodeUtf8)
 import Language.ASKEE.Core.Print (ppModel, text)
 import Language.ASKEE.DataSeries (dataSeriesAsCSV)
 import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Latex.Print (printLatex)
 import Prettyprinter
 
 ppValue :: Value -> Doc ()
@@ -15,6 +16,7 @@ ppValue v = case v of
   VBool b              -> if b then "true" else "false"
   VString s            -> viaShow s
   VModel m             -> ppModel m
+  VLatex l             -> printLatex l
   VArray vs            -> align $ list $ map ppValue vs
   VTimed v' t          -> ppValue v' <> "@time" <> pretty t
   VDataSeries ds       -> pretty $ TL.decodeUtf8 $ dataSeriesAsCSV ds
