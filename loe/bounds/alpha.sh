@@ -79,8 +79,7 @@ alpha=`mktemp`
 sed -f $edits $source > $alpha
 
 keywords=`mktemp`
-cat $alpha|tr '[[:space:][:punct:]]' '\n'|grep -v -e '^$' -e 'g[0-9]\+' -e '[0-9]\+'|sort -u > $keywords
-##symlen=`cat $keywords|wc -l|tr -d "\n"|wc -c`
+cat $alpha|tr '[[:space:][:punct:]]' '\n'|grep -v -e '^$' -e 'g[0-9]\+' -e '[0-9]\+'|sort -u|grep -v txt > $keywords
 symlen=2
 : > $edits
 count=0
