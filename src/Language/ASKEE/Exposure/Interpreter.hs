@@ -259,11 +259,11 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (Sample (SFSample d)) df e >>= interpretExpr
+        [VDFold df e, VDouble d] -> execSim (Sample 100 (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
     FSimulate    ->
       case args of
-        [VDFold df e] -> execSim SimDiffEq df e >>= interpretExpr
+        [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
         _ -> typeError "simulate expects a fold as its argument"
     FAt          ->
       case args of
@@ -548,8 +548,11 @@ typeErrorArgs _args msg = throw $ Text.unlines
   , "arguments: " <> Text.pack (show _args)
   ]
 
-data SimMethod = Sample SampleFold
-               | SimDiffEq
+data SimMethod = Sample Double SampleFold
+                 -- ^ First parameter is time-granularity of sampling
+               | SimDiffEq Double
+                 -- ^ Time-granularity of simulation
+               deriving (Show)
 
 -- run a single simulation - emitting a new (evaulable expr)
 execSim :: SimMethod -> DynamicalFold -> Expr -> Eval Expr
@@ -568,9 +571,9 @@ execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
       case how of
-        Sample (SFProbability n) -> ECall FProb [e1, EVal $ VDouble n]
-        Sample (SFSample _) -> e1
-        SimDiffEq -> e1
+        Sample _ (SFProbability n) -> ECall FProb [e1, EVal $ VDouble n]
+        Sample _ (SFSample _) -> e1
+        SimDiffEq _ -> e1
 
 
 -- TODO: generalized traversal?
@@ -590,22 +593,22 @@ runSimExpr how t e0 =
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
 
 runSim :: SimMethod -> Double -> Core.Model -> Eval Value
-runSim (Sample sf) t mdl =
+runSim (Sample delta sf) t mdl =
   do  series <- io mkSeries
       pure $ VSampledData (seriesAsPoints <$> series)
   where
     -- TODO: we should just get the raw simulation data?
-    mkSeries = CPP.simulate mdl 0 t (t/100) Nothing d
+    mkSeries = CPP.simulate mdl 0 t (t/delta) Nothing d
     d = case sf of
           SFProbability n -> floor n
           SFSample n      -> floor n
 
-runSim SimDiffEq t mdl =
+runSim (SimDiffEq delta) t mdl =
   case Model.toDeqs (Model.Core mdl) of
     Left err   ->
       throw (Text.pack err)
     Right deqs ->
-      do let series = DEQ.simulate deqs mempty mempty [0,t/100..t]
+      do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
          pure $ seriesAsPoints series
 
 seriesAsPoints :: DS.DataSeries Double -> Value
