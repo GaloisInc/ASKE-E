@@ -55,7 +55,11 @@ As an adjunct to compressibility, we also count the number of unique tokens (exc
 Results
 -------
 
-We collected from the Rosetta Code website[11] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code. We also gathered several ODEs with corresponding solvers written in Julia[12] and Python[13]. Comments have been removed from all source texts.
+We collected from the Rosetta Code website[11] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code.
+
+We also gathered several ODEs with corresponding solvers written in Julia[12] and Python[13]. Comments have been removed from all source texts.
+
+Finally, we used the Penn CHIME model[14] and the model's Python implemention[15]. The Python code has been stripped of comments and logging functionality.
 
 The following table shows the analysis of the sample source codes.
 
@@ -80,6 +84,8 @@ References
 [11] https://rosettacode.org/
 [12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
 [13] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
+[14] https://code-for-philly.gitbook.io/chime/what-is-chime/sir-modeling
+[15] https://raw.githubusercontent.com/CodeForPhilly/chime/develop/src/penn_chime/model/sir.py
 ```
 
 Appendix
