@@ -7,6 +7,7 @@ import Data.Map(Map)
 
 import Language.ASKEE.DataSeries (DataSeries)
 import qualified Language.ASKEE.Core.Syntax as Core
+import Language.ASKEE.Latex.Syntax (Latex)
 
 type Ident  = Text
 data Stmt
@@ -40,6 +41,7 @@ data Value
   | VString Text
   | VDataSeries (DataSeries Double)
   | VModel Core.Model
+  | VLatex Latex
 
   | VTimed Value Double
   | VPoint (Map Text Value)
@@ -89,6 +91,7 @@ data FunctionName
   | FIn
   | FPlot
   | FScatter
+  | FAsEqnArray
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -127,6 +130,7 @@ prefixFunctionName ident =
     "in"          -> Right FIn
     "plot"        -> Right FPlot
     "scatter"     -> Right FScatter
+    "asEqnArray"  -> Right FAsEqnArray
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

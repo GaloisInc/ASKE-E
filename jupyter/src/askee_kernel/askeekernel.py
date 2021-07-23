@@ -192,6 +192,19 @@ def format_scatter(xlab, ylabs, xs, ysss):
     # }
     return out
 
+
+def format_latex(orig_latex):
+    """
+    Jupyter requires the LaTeX to be:
+
+    (1) Surrounded by $$ ... $$
+    (2) Using \\ to indicate newlines
+
+    This function performs surgery on ASKE-E–pretty-printed LaTeX to conform
+    to these requirements.
+    """
+    return "$$ \n" + ''.join(w+" \\\\\n" for w in orig_latex.splitlines()) + "$$"
+
 def format_resp_value(v):
     if isinstance(v, dict):
         ty = v['type']
@@ -217,6 +230,9 @@ def format_resp_value(v):
                                     float(val['max']),
                                     float(val['size']),
                                     val['bins'])
+
+        if ty == 'latex':
+            return { 'text/latex': format_latex(val) }
 
     return { 'text/plain': json.dumps(v) }
 

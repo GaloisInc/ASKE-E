@@ -35,6 +35,7 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
+import Language.ASKEE.Latex.Syntax (Latex(..))
 
 import Language.ASKEE.Exposure.Syntax
 import Data.List (transpose)
@@ -357,6 +358,11 @@ interpretCall fun args =
         v1:v2:v3:rest -> interpretScatter v1 v2 v3 rest
         _   -> typeError "plot expects an array of points"
 
+    FAsEqnArray ->
+      case args of
+        [v] -> interpretAsEqnArray v
+        _   -> typeError "asEqnArray expects a single argument"
+
   where
 
     doubleArraySummarize f v =
@@ -521,6 +527,14 @@ interpretCallWithLambda fun args lambdaVar lambdaExpr =
       do  lambdaVal <- interpretExpr lambdaExpr
           b <- getBoolValue lambdaVal
           pure $ if b then Just arrayVal else Nothing
+
+interpretAsEqnArray :: Value -> Eval Value
+interpretAsEqnArray (VModelExpr (EVal v)) = interpretAsEqnArray v
+interpretAsEqnArray (VModel m) =
+  case Model.toDeqs (Model.Core m) of
+    Left err -> throw $ Text.pack err
+    Right d  -> pure $ VLatex $ Latex d
+interpretAsEqnArray v = typeErrorArgs [v] "asEqnArray expects a model"
 
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
