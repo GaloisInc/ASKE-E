@@ -116,13 +116,21 @@ tests =
             case modelVal of
               VModelExpr (EMember _ "S") -> pure ()
               _                          -> assertFailure "Not an EMember"
-      , testCase "Basic simulation" $ do
+      , testCase "Basic sampling" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertionWithStmts
             [ "sir = " <> loadSirEaselExpr
             , "evt = sample(sir.I > 15 at 125.0, 5)"
             ] "P(evt) + P(not evt)" $ \actualVal ->
             actualVal @?= VDouble 1
+      , testCase "Basic simulation" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir.I at [1..10 by 1])" $ \simResults ->
+            case simResults of
+              VArray pts@(VTimed _ _:_) -> pure ()
+              _ -> assertFailure "Not an array of timed values"
       , testCase "environment should update even upon failure" $
           exprAssertionWithFailingStmts
             [ "x = 42"
