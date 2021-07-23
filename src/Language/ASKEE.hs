@@ -65,12 +65,13 @@ module Language.ASKEE
   ) where
 
 import Control.Exception ( try, SomeException(..) )
-import Control.Monad     ( forM )
+import Control.Monad     ( forM, filterM )
 
 import           Data.Aeson                 ( decode )
 import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import qualified Data.Char                  as Char
 import           Data.Set                   ( Set )
 import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
@@ -539,32 +540,37 @@ listAllModelsWithMetadata =
           _ -> pure @IO $ pure @MetaAnn m
 
 
-queryModels :: [(Text, Text)] -> IO [MetaAnn ModelDef]
-queryModels query = 
-  filter match_model <$> listAllModelsWithMetadata
+queryModels :: Text -> IO [MetaAnn ModelDef]
+queryModels query = listAllModelsWithMetadata >>= filterM match_model
   where
-    match_model annModel =
-      all (match_metadata annModel) query    
-    match_metadata annModel (key, pattern) =
-      let mData = metaData annModel
-          mValue = fromMaybe "" $ lookup key mData
-      in match_wildcard (Text.toLower mValue) (Text.toLower pattern)
-    match_wildcard s pat
+    match_model metaAnnModel = do
+      (toplevelMetaData, model) <- loadModelFromDef metaAnnModel
+      let mInterface = describeModelInterface model
+          match_result = match_metadata_values (map snd toplevelMetaData) ||
+                         match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
+                         match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
+      return match_result
+    match_metadata_values values = any (match_wildcard query) values
+    loadModelFromDef metaAnnModel = do
+      let ModelDef {..} = metaValue metaAnnModel
+      model <- loadModel modelDefType modelDefSource
+      return (metaData metaAnnModel, model)
+    portMetaDataValues ports = concat $ concatMap (Map.elems . portMeta) ports
+    match_wildcard pat s
       | Text.null pat        = Text.null s
       | Text.head pat == '*' = handleStar
       | Text.head pat == '?' = handleQM
       | otherwise            = handleChar
       where
         handleStar =
-          match_wildcard s (Text.tail pat) 
-          || (not (Text.null s) && match_wildcard (Text.tail s) pat)
+          match_wildcard (Text.tail pat) s
+          || (not (Text.null s) && match_wildcard pat (Text.tail s))
         handleQM =
-          not (Text.null s) && match_wildcard (Text.tail s) (Text.tail pat)
+          not (Text.null s) && match_wildcard (Text.tail pat) (Text.tail s)
         handleChar =
-          not (Text.null s) && Text.head s == Text.head pat
-          && match_wildcard (Text.tail s) (Text.tail pat)
-
-
+          not (Text.null s) &&
+          Char.toLower (Text.head s) == Char.toLower (Text.head pat) &&
+          match_wildcard (Text.tail pat) (Text.tail s)
 
 --------------------------------------------------------------------------------
 

@@ -176,7 +176,7 @@ handleRequest r =
           succeed' res
 
     QueryModels QueryModelsCommand {..} ->
-      succeed <$> liftIO (queryModels queryParameters)
+      succeed <$> liftIO (queryModels queryText)
 
     ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
       case lexExposure (Text.unpack code) >>= parseExposureStmts of
