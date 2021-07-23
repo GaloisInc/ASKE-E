@@ -259,8 +259,12 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (SFSample d) df e >>= interpretExpr
+        [VDFold df e, VDouble d] -> execSim (Sample (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
+    FSimulate    ->
+      case args of
+        [VDFold df e] -> execSim SimDiffEq df e >>= interpretExpr
+        _ -> typeError "simulate expects a fold as its argument"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
@@ -544,9 +548,12 @@ typeErrorArgs _args msg = throw $ Text.unlines
   , "arguments: " <> Text.pack (show _args)
   ]
 
+data SimMethod = Sample SampleFold
+               | SimDiffEq
+
 -- run a single simulation - emitting a new (evaulable expr)
-execSim :: SampleFold -> DynamicalFold -> Expr -> Eval Expr
-execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
+execSim :: SimMethod -> DynamicalFold -> Expr -> Eval Expr
+execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
   where
     expLength =
       case df of
@@ -554,44 +561,52 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
         DFAtMany d -> maximum d
         DFIn _ end -> end
 
-    sampleCount =
-      case sf of
-        SFProbability d -> floor d
-        SFSample d -> floor d
-
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
-      case sf of
-        SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
-        SFSample _ -> e1
+      case how of
+        Sample (SFProbability n) -> ECall FProb [e1, EVal $ VDouble n]
+        Sample (SFSample _) -> e1
+        SimDiffEq -> e1
+
 
 -- TODO: generalized traversal?
-runSimExpr :: Int -> Double -> Expr -> Eval Expr
-runSimExpr n t e0 =
+runSimExpr :: SimMethod -> Double -> Expr -> Eval Expr
+runSimExpr how t e0 =
   case e0 of
-    EVal (VModel m) -> EVal <$> runSim n t m
+    EVal (VModel m) -> EVal <$> runSim how t m
     EVal _ -> pure e0
     EVar _ -> pure e0
-    ECall fname args -> ECall fname <$> runSimExpr n t `traverse` args
+    ECall fname args -> ECall fname <$> runSimExpr how t `traverse` args
     ECallWithLambda fname args lambdaVar lambdaExpr ->
-      ECallWithLambda fname <$> (runSimExpr n t `traverse` args)
+      ECallWithLambda fname <$> (runSimExpr how t `traverse` args)
                             <*> pure lambdaVar
-                            <*> (runSimExpr n t lambdaExpr)
-    EMember e lab -> EMember <$> runSimExpr n t e <*> pure lab
-    EList es -> EList <$> runSimExpr n t `traverse` es
-    EListRange start stop step -> EListRange <$> runSimExpr n t start <*> runSimExpr n t stop <*> runSimExpr n t step
+                            <*> (runSimExpr how t lambdaExpr)
+    EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
+    EList es -> EList <$> runSimExpr how t `traverse` es
+    EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
 
-runSim :: Int -> Double -> Core.Model -> Eval Value
-runSim n t mdl =
+runSim :: SimMethod -> Double -> Core.Model -> Eval Value
+runSim (Sample sf) t mdl =
   do  series <- io mkSeries
-      pure $ VArray (seriesAsPoints <$> series)
+      pure $ VSampledData (seriesAsPoints <$> series)
   where
     -- TODO: we should just get the raw simulation data?
-    mkSeries = CPP.simulate mdl 0 t (t/100) Nothing n
+    mkSeries = CPP.simulate mdl 0 t (t/100) Nothing d
+    d = case sf of
+          SFProbability n -> floor n
+          SFSample n      -> floor n
+
+runSim SimDiffEq t mdl =
+  case Model.toDeqs (Model.Core mdl) of
+    Left err   ->
+      throw (Text.pack err)
+    Right deqs ->
+      do let series = DEQ.simulate deqs mempty mempty [0,t/100..t]
+         pure $ seriesAsPoints series
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
