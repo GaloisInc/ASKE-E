@@ -37,6 +37,7 @@ library
                         Language.ASKEE.Core.Syntax
                         Language.ASKEE.Core.Interface
                         Language.ASKEE.Core.Visualization
+                        Language.ASKEE.Core.Properties
 
                         Language.ASKEE.CPP
                         Language.ASKEE.CPP.Compile

@@ -5,6 +5,7 @@ import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Core.Expr as CoreExpr
 import qualified Data.Map as Map
 
+-- | Determine if a model has a fixed total population across all state variables
 populationLimit :: Core.Model -> Maybe Double
 populationLimit m =
     if all isEventConservative (Core.modelEvents m)
@@ -29,6 +30,7 @@ populationLimit m =
         [] -> True
         e:l' -> nonemptySum e l' ==  CoreExpr.NumLit 0
 
+-- | Make all population limits explicit in the model
 withExplicitPopulationLimits :: Core.Model -> Maybe Core.Model
 withExplicitPopulationLimits m =
   do  pop <- populationLimit m
@@ -40,6 +42,7 @@ withExplicitPopulationLimits m =
     mkLimitedEvent pop evt =
       evt { Core.eventWhen = foldr (CoreExpr.:&&:) (Core.eventWhen evt)  (popLimits pop evt) }
 
+-- | Try to simplify any expression involving sums of state variables if a population constraint can be derived
 simplifyPopulations :: Core.Model -> Maybe Core.Model
 simplifyPopulations m =
   do  pop <- populationLimit m

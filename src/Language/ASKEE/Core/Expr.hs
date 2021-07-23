@@ -204,7 +204,10 @@ exprToTermList e =
 
 -- | turn a term list back into a linear expression
 termListToExpr :: [Expr] -> Expr
-termListToExpr = foldr mkTerm (NumLit 0.0)
+termListToExpr t =
+  case t of
+    [] -> NumLit 0.0
+    e:l -> foldr mkTerm e l
   where
     mkTerm e1 (Op1 Neg e2) = Op2 Sub e1 e2
     mkTerm e1 e2 = Op2 Add e1 e2
