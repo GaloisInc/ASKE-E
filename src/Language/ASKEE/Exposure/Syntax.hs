@@ -42,6 +42,7 @@ data Value
   | VDataSeries (DataSeries Double)
   | VModel Core.Model
   | VLatex Latex
+  | VSampledData [Value] -- ^ list of samples
 
   | VTimed Value Double
   | VPoint (Map Text Value)
@@ -78,6 +79,7 @@ data FunctionName
   | FOr
   | FProb
   | FSample
+  | FSimulate
   | FMin
   | FMax
   | FAt
@@ -122,6 +124,7 @@ prefixFunctionName ident =
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
     "sample"      -> Right FSample
+    "simulate"    -> Right FSimulate
     "min"         -> Right FMin
     "max"         -> Right FMax
     "histogram"   -> Right FHistogram

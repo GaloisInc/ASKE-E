@@ -17,6 +17,7 @@ ppValue v = case v of
   VString s            -> viaShow s
   VModel m             -> ppModel m
   VLatex l             -> printLatex l
+  VSampledData vs      -> align $ encloseSep "{ " " }" ", " $ map ppValue vs
   VArray vs            -> align $ list $ map ppValue vs
   VTimed v' t          -> ppValue v' <> "@time" <> pretty t
   VDataSeries ds       -> pretty $ TL.decodeUtf8 $ dataSeriesAsCSV ds

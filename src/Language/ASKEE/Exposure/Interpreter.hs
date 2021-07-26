@@ -18,15 +18,15 @@ import Control.Applicative((<|>), Alternative(..))
 import Data.Foldable(traverse_)
 import qualified Data.Map as Map
 import Data.Map(Map)
-import Data.Maybe(isJust)
+import Data.Maybe(isJust, catMaybes)
 import Data.Text(Text)
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
 import Data.Set(Set)
+import Data.List (transpose)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
-import Data.Maybe(catMaybes)
 import Witherable (Witherable(..))
 
 
@@ -35,10 +35,10 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import qualified Language.ASKEE.CPP as CPP
-import Language.ASKEE.Latex.Syntax (Latex(..))
+import qualified Language.ASKEE.DEQ.Simulate as DEQ
+import           Language.ASKEE.Latex.Syntax (Latex(..))
 
 import Language.ASKEE.Exposure.Syntax
-import Data.List (transpose)
 
 data ExposureInfo = ExposureInfo
   deriving Show
@@ -259,19 +259,24 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (SFSample d) df e >>= interpretExpr
+        [VDFold df e, VDouble d] -> execSim (Sample 100 (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
+    FSimulate    ->
+      case args of
+        [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
+        _ -> typeError "simulate expects a fold as its argument"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
         [VModelExpr e, times@(VArray _)] ->
           do  times' <- array double times
               pure $ VDFold (DFAtMany times') e
-        [VArray vs, VDouble d] -> do
-          -- TODO: Using getArrayContents here is gross. We should consider
-          -- restructuring things to avoid assuming the level of VArray nesting.
+        -- Sampled data is special: each v in vs is a sample of the same time domain,
+        -- so they should be grouped accordingly
+        [VSampledData vs, VDouble d] -> do
           vs' <- traverse getArrayContents vs
           VArray <$> traverse (\v -> atPoint v d) vs'
+        [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
         _ -> typeError "at expects a model and a double as its arguments"
 
@@ -543,9 +548,15 @@ typeErrorArgs _args msg = throw $ Text.unlines
   , "arguments: " <> Text.pack (show _args)
   ]
 
+data SimMethod = Sample Double SampleFold
+                 -- ^ First parameter is time-granularity of sampling
+               | SimDiffEq Double
+                 -- ^ Time-granularity of simulation
+               deriving (Show)
+
 -- run a single simulation - emitting a new (evaulable expr)
-execSim :: SampleFold -> DynamicalFold -> Expr -> Eval Expr
-execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
+execSim :: SimMethod -> DynamicalFold -> Expr -> Eval Expr
+execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
   where
     expLength =
       case df of
@@ -553,44 +564,52 @@ execSim sf df e = unfoldS . unfoldD <$> runSimExpr sampleCount expLength e
         DFAtMany d -> maximum d
         DFIn _ end -> end
 
-    sampleCount =
-      case sf of
-        SFProbability d -> floor d
-        SFSample d -> floor d
-
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
-      case sf of
-        SFProbability n -> ECall FProb [e1, EVal $ VDouble n]
-        SFSample _ -> e1
+      case how of
+        Sample _ (SFProbability n) -> ECall FProb [e1, EVal $ VDouble n]
+        Sample _ (SFSample _) -> e1
+        SimDiffEq _ -> e1
+
 
 -- TODO: generalized traversal?
-runSimExpr :: Int -> Double -> Expr -> Eval Expr
-runSimExpr n t e0 =
+runSimExpr :: SimMethod -> Double -> Expr -> Eval Expr
+runSimExpr how t e0 =
   case e0 of
-    EVal (VModel m) -> EVal <$> runSim n t m
+    EVal (VModel m) -> EVal <$> runSim how t m
     EVal _ -> pure e0
     EVar _ -> pure e0
-    ECall fname args -> ECall fname <$> runSimExpr n t `traverse` args
+    ECall fname args -> ECall fname <$> runSimExpr how t `traverse` args
     ECallWithLambda fname args lambdaVar lambdaExpr ->
-      ECallWithLambda fname <$> (runSimExpr n t `traverse` args)
+      ECallWithLambda fname <$> (runSimExpr how t `traverse` args)
                             <*> pure lambdaVar
-                            <*> (runSimExpr n t lambdaExpr)
-    EMember e lab -> EMember <$> runSimExpr n t e <*> pure lab
-    EList es -> EList <$> runSimExpr n t `traverse` es
-    EListRange start stop step -> EListRange <$> runSimExpr n t start <*> runSimExpr n t stop <*> runSimExpr n t step
+                            <*> (runSimExpr how t lambdaExpr)
+    EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
+    EList es -> EList <$> runSimExpr how t `traverse` es
+    EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
 
-runSim :: Int -> Double -> Core.Model -> Eval Value
-runSim n t mdl =
+runSim :: SimMethod -> Double -> Core.Model -> Eval Value
+runSim (Sample delta sf) t mdl =
   do  series <- io mkSeries
-      pure $ VArray (seriesAsPoints <$> series)
+      pure $ VSampledData (seriesAsPoints <$> series)
   where
     -- TODO: we should just get the raw simulation data?
-    mkSeries = CPP.simulate mdl 0 t (t/100) Nothing n
+    mkSeries = CPP.simulate mdl 0 t (t/delta) Nothing d
+    d = case sf of
+          SFProbability n -> floor n
+          SFSample n      -> floor n
+
+runSim (SimDiffEq delta) t mdl =
+  case Model.toDeqs (Model.Core mdl) of
+    Left err   ->
+      throw (Text.pack err)
+    Right deqs ->
+      do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
+         pure $ seriesAsPoints series
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
@@ -624,12 +643,20 @@ getDoubleValue v =
     VDouble d -> pure d
     _ -> throw "Value is not a double"
 
--- this presumes quite a few things
+-- | Vals should be either a sequence of timed data,
+-- or a VSampledData
 atPoints :: Value -> Value -> Eval Value
 atPoints vals times =
-  do  pts <- array (array (timed value)) vals
-      times' <- array double times
-      pure $ VArray (atArrs pts <$> times')
+  do times' <- array double times
+     case vals of
+       VSampledData samples ->
+         do pts <- traverse (array (timed value)) samples
+            pure $ VArray (atArrs pts <$> times')
+       vals' ->
+         do let f v =
+                  do pts <- array (timed value) v
+                     pure $ VArray $ catMaybes [ VTimed <$> atSimple pts t <*> pure t | t <- times' ]
+            chooseLift f (typeErrorArgs [vals] "atPoints expects samples or an array of timed values") vals'
   where
     atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
 
@@ -753,6 +780,7 @@ chooseLift f orElse v0 =
   case v0 of
     VTimed v' t -> VTimed <$> chooseLift f orElse v' <*> pure t
     VArray vs -> VArray <$> (chooseLift f orElse `traverse` vs)
+    VSampledData vs -> VSampledData <$> (chooseLift f orElse `traverse` vs)
     _ -> orElse
 
 liftInto :: Value -> (Value -> Eval Value) -> Eval Value
@@ -763,6 +791,7 @@ liftPrim f v =
   case v of
     VTimed v' t -> VTimed <$> liftPrim f v' <*> pure t
     VArray vs -> VArray <$> (liftPrim f `traverse` vs)
+    VSampledData vs -> VSampledData <$> (liftPrim f `traverse` vs)
     _ -> f v
 
 liftPrim' :: Applicative f => (Value -> Eval (f Value)) -> Value -> Eval (f Value)
@@ -774,6 +803,9 @@ liftPrim' f v =
     VArray vs ->
       do  vs' <- liftPrim' f `traverse` vs
           pure $ VArray <$> sequenceA vs'
+    VSampledData vs ->
+      do  vs' <- liftPrim' f `traverse` vs
+          pure $ VSampledData <$> sequenceA vs'
     _ -> f v
 
 tryLiftArray :: (Value -> Eval Value) -> Value -> Eval Value
