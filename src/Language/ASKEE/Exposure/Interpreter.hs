@@ -27,6 +27,7 @@ import Data.List (transpose)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
+import qualified System.Timeout as System (timeout)
 import Witherable (Witherable(..))
 
 
@@ -259,12 +260,20 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (Sample 100 (SFSample d)) df e >>= interpretExpr
-        _ -> typeError "sample expects a fold and a double as its arguments"
+        [VDFold df e, VDouble d] -> interpretSample df e d Nothing
+        _ -> typeError "sample expects a fold and a number of samples as its arguments"
+    FSampleTimeout ->
+      case args of
+        [VDFold df e, VDouble d, VDouble timeOut] -> interpretSample df e d (Just timeOut)
+        _ -> typeError "sampleTimeout expects a fold, a number of samples, and a timeout as its arguments"
     FSimulate    ->
       case args of
-        [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
+        [VDFold df e] -> interpretSimulate df e Nothing
         _ -> typeError "simulate expects a fold as its argument"
+    FSimulateTimeout ->
+      case args of
+        [VDFold df e, VDouble timeOut] -> interpretSimulate df e (Just timeOut)
+        _ -> typeError "simulateTimeout expects a fold and a timeout as its arguments"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
@@ -435,6 +444,19 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
+interpretSample :: DynamicalFold -> Expr
+                -> Double       -- ^ Number of samples
+                -> Maybe Double -- ^ Timeout
+                -> Eval Value
+interpretSample df e d mbTimeout =
+  execSim (Sample defaultSimOptions{timeout = floor <$> mbTimeout} (SFSample d)) df e >>= interpretExpr
+
+interpretSimulate :: DynamicalFold -> Expr
+                  -> Maybe Double -- ^ Timeout
+                  -> Eval Value
+interpretSimulate df e mbTimeout =
+  execSim (SimDiffEq defaultSimOptions{timeout = floor <$> mbTimeout}) df e >>= interpretExpr
+
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
   interpretInterpolate arg1 arg2
@@ -548,10 +570,22 @@ typeErrorArgs _args msg = throw $ Text.unlines
   , "arguments: " <> Text.pack (show _args)
   ]
 
-data SimMethod = Sample Double SampleFold
-                 -- ^ First parameter is time-granularity of sampling
-               | SimDiffEq Double
-                 -- ^ Time-granularity of simulation
+data SimOptions = SimOptions
+  { timeGranularity :: Double
+    -- ^ The time-granularity of sampling/simulation.
+  , timeout :: Maybe Int
+    -- ^ If @'Just' n@, time out a sample/simulation after @n@ microseconds.
+    --   If 'Nothing', do not impose a timeout.
+  } deriving Show
+
+defaultSimOptions :: SimOptions
+defaultSimOptions = SimOptions
+  { timeGranularity = 100
+  , timeout         = Nothing
+  }
+
+data SimMethod = Sample SimOptions SampleFold
+               | SimDiffEq SimOptions
                deriving (Show)
 
 -- run a single simulation - emitting a new (evaulable expr)
@@ -593,23 +627,38 @@ runSimExpr how t e0 =
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
 
 runSim :: SimMethod -> Double -> Core.Model -> Eval Value
-runSim (Sample delta sf) t mdl =
-  do  series <- io mkSeries
-      pure $ VSampledData (seriesAsPoints <$> series)
+runSim (Sample opts sf) t mdl =
+  do  mbSeries <- io mkSeriesTimeout
+      case mbSeries of
+        Nothing     -> throw "Interrupted."
+        Just series -> pure $ VSampledData (seriesAsPoints <$> series)
   where
+    delta = timeGranularity opts
+    mkSeriesTimeout =
+      case timeout opts of
+        Nothing      -> Just <$> mkSeries
+        Just timeOut -> System.timeout timeOut mkSeries
     -- TODO: we should just get the raw simulation data?
     mkSeries = CPP.simulate mdl 0 t (t/delta) Nothing d
     d = case sf of
           SFProbability n -> floor n
           SFSample n      -> floor n
 
-runSim (SimDiffEq delta) t mdl =
+runSim (SimDiffEq opts) t mdl =
   case Model.toDeqs (Model.Core mdl) of
     Left err   ->
       throw (Text.pack err)
     Right deqs ->
-      do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
-         pure $ seriesAsPoints series
+      do let delta = timeGranularity opts
+             mkSeries = DEQ.simulate deqs mempty mempty [0,t/delta..t]
+             mkSeriesTimeout =
+               case timeout opts of
+                 Nothing      -> pure $ Just mkSeries
+                 Just timeOut -> System.timeout timeOut (pure mkSeries)
+         mbSeries <- io mkSeriesTimeout
+         case mbSeries of
+           Nothing     -> throw "Interrupted."
+           Just series -> pure $ seriesAsPoints series
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)

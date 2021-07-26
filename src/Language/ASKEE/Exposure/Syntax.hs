@@ -79,7 +79,9 @@ data FunctionName
   | FOr
   | FProb
   | FSample
+  | FSampleTimeout
   | FSimulate
+  | FSimulateTimeout
   | FMin
   | FMax
   | FAt
@@ -118,22 +120,24 @@ data SampleFold =
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
   case T.unpack ident of
-    "loadESL"     -> Right FLoadEasel
-    "loadCSV"     -> Right FLoadCSV
-    "P"           -> Right FProb
-    "mean"        -> Right FMean
-    "interpolate" -> Right FInterpolate
-    "sample"      -> Right FSample
-    "simulate"    -> Right FSimulate
-    "min"         -> Right FMin
-    "max"         -> Right FMax
-    "histogram"   -> Right FHistogram
-    "time"        -> Right FTimedTime
-    "value"       -> Right FTimedValue
-    "in"          -> Right FIn
-    "plot"        -> Right FPlot
-    "scatter"     -> Right FScatter
-    "asEqnArray"  -> Right FAsEqnArray
+    "loadESL"         -> Right FLoadEasel
+    "loadCSV"         -> Right FLoadCSV
+    "P"               -> Right FProb
+    "mean"            -> Right FMean
+    "interpolate"     -> Right FInterpolate
+    "sample"          -> Right FSample
+    "sampleTimeout"   -> Right FSampleTimeout
+    "simulate"        -> Right FSimulate
+    "simulateTimeout" -> Right FSimulateTimeout
+    "min"             -> Right FMin
+    "max"             -> Right FMax
+    "histogram"       -> Right FHistogram
+    "time"            -> Right FTimedTime
+    "value"           -> Right FTimedValue
+    "in"              -> Right FIn
+    "plot"            -> Right FPlot
+    "scatter"         -> Right FScatter
+    "asEqnArray"      -> Right FAsEqnArray
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName
