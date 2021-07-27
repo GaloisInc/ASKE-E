@@ -1,0 +1,179 @@
+{
+  "syntax": "Gromet",
+  "type": "PetriNetClassic",
+  "name": "SimpleSIR_metadata",
+  "metadata": [
+    {
+      "metadata_type": "ModelInterface",
+      "uid": "simple_sir_PNC_model_interface",
+      "provenance": {
+        "metadata_type": "Provenance",
+        "method": "Manual_claytonm@az",
+        "timestamp": "2021-06-23T09:38:34:691751_MST-0700"
+      },
+      "variables": [
+        "J:S",
+        "J:I",
+        "J:R",
+        "J:beta",
+        "J:gamma"
+      ],
+      "parameters": [
+        "J:beta",
+        "J:gamma"
+      ],
+      "initial_conditions": [
+        "J:S",
+        "J:I",
+        "J:R"
+      ]
+    }
+  ],
+  "uid": "SimpleSIR_PetriNetClassic",
+  "root": "B:sir",
+  "types": null,
+  "literals": null,
+  "junctions": [
+    {
+      "syntax": "Junction",
+      "type": "State",
+      "name": "S",
+      "metadata": null,
+      "value": null,
+      "value_type": "Integer",
+      "uid": "J:S"
+    },
+    {
+      "syntax": "Junction",
+      "type": "State",
+      "name": "I",
+      "metadata": null,
+      "value": null,
+      "value_type": "Integer",
+      "uid": "J:I"
+    },
+    {
+      "syntax": "Junction",
+      "type": "State",
+      "name": "R",
+      "metadata": null,
+      "value": null,
+      "value_type": "Integer",
+      "uid": "J:R"
+    },
+    {
+      "syntax": "Junction",
+      "type": "Rate",
+      "name": "beta",
+      "metadata": null,
+      "value": null,
+      "value_type": "Real",
+      "uid": "J:beta"
+    },
+    {
+      "syntax": "Junction",
+      "type": "Rate",
+      "name": "gamma",
+      "metadata": null,
+      "value": null,
+      "value_type": "Real",
+      "uid": "J:gamma"
+    }
+  ],
+  "ports": null,
+  "wires": [
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:S.beta",
+      "src": "J:S",
+      "tgt": "J:beta"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:beta.I1",
+      "src": "J:beta",
+      "tgt": "J:I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:beta.I2",
+      "src": "J:beta",
+      "tgt": "J:I"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:I.beta",
+      "src": "J:I",
+      "tgt": "J:beta"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:I.gamma",
+      "src": "J:I",
+      "tgt": "J:gamma"
+    },
+    {
+      "syntax": "Wire",
+      "type": null,
+      "name": null,
+      "metadata": null,
+      "value": null,
+      "value_type": null,
+      "uid": "W:gamma.R",
+      "src": "J:gamma",
+      "tgt": "J:R"
+    }
+  ],
+  "boxes": [
+    {
+      "wires": [
+        "W:S.beta",
+        "W:beta.I1",
+        "W:beta.I2",
+        "W:I.beta",
+        "W:I.gamma",
+        "W:gamma.R"
+      ],
+      "boxes": null,
+      "junctions": [
+        "J:S",
+        "J:I",
+        "J:R",
+        "J:beta",
+        "J:gamma"
+      ],
+      "syntax": "Relation",
+      "type": null,
+      "name": "sir",
+      "metadata": null,
+      "uid": "B:sir",
+      "ports": null
+    }
+  ],
+  "variables": null
+}
