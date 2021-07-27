@@ -1,9 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Language.ASKEE.Core.CTMC (ppCTMC, ppTransition, ppExpr, text, Doc) where
+module Language.ASKEE.Core.CTMC ( ppCTMC
+                                , ppTransition
+                                , ppExpr
+                                , text
+                                , Doc
+                                ) where
 
 import qualified Data.Text as Text
 import qualified Data.Map as Map
+
 
 import Language.ASKEE.Core.Syntax
 import Language.ASKEE.Core.Expr
@@ -22,22 +29,23 @@ import Prettyprinter ( (<+>)
                      , rbracket
                      , colon
                      , semi
-                     , hang
                      )
 import           Text.Printf      ( printf )
+import Language.ASKEE.Core.Properties 
 
 type Doc = PP.Doc ()
 
 -- | NB: does _not_ print metadata 
 ppCTMC :: Model ->  Doc
-ppCTMC corem = vcat [decl, startModule, body, endModule, rewards]
+ppCTMC cm = vcat [decl, startModule, body <> line, endModule, rewards]
   where
-    m = inlineLets $ inlineParams corem
+    inlineM = inlineLets $ inlineParams cm
+    Just totalPopulation = populationLimit inlineM
+    Just sm = simplifyPopulations inlineM
+    Just m = withExplicitPopulationLimits sm
 
     decl :: Doc
     decl = vcat [ text "ctmc"
-                , line
-                , text "const int MAX;"
                 , line
                 ]
 
@@ -45,9 +53,9 @@ ppCTMC corem = vcat [decl, startModule, body, endModule, rewards]
     startModule = text "module" <+> pretty (modelName m) <> line
 
     body :: Doc 
-    body = indent 2 (vcat $ [ pretty (Text.toLower x) <> text ": [0..MAX] init" <+> ppExpr e <> semi
+    body = indent 2 (vcat $ [ pretty (Text.toLower x) <> text ": [0.."<> pretty (show (round totalPopulation::Integer)) <> text "] init" <+> ppExpr e <> semi
                 | (x,e) <- Map.toList (modelInitState m)
-                ] ++[line] ++ map ppTransition (modelEvents m))
+                ] ++ [line] ++ map ppTransition (modelEvents m))
 
     endModule :: Doc
     endModule = text "endmodule" <> line
@@ -81,11 +89,13 @@ ppTransition ev = hsep [ label, guard <+> text "->", rate <> colon, effect <> se
     insertAnd [] = [emptyDoc]
     insertAnd (h:[]) = [ parens (h) ] 
     insertAnd (h:t) = [ parens (h) <> text " &"] ++ insertAnd t 
+
 ppExpr :: Expr -> Doc
 ppExpr expr =
   case expr of
-    NumLit d -> if d == fromInteger (round d)
-                then text $ show (round d)
+    NumLit d -> let (val::Integer) = round d in
+                if d == fromInteger val
+                then text $ show val
                 else text $ printf "%f" d
     BoolLit b -> if b then "true" else "false"
     Op1 Neg e' -> "-"PP.<>pp e'
@@ -94,9 +104,7 @@ ppExpr expr =
     e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
     e1 :/: e2 -> PP.hsep [pp e1, "/", pp e2]
-    e1 :<: e2 -> case e1 of 
-                  NumLit d | d == 0 -> PP.hsep [pp e1, "<", pp e2, "&", pp e2, "< MAX"]
-                  _ -> PP.hsep [pp e1, "<", pp e2] 
+    e1 :<: e2 -> PP.hsep [pp e1, "<", pp e2]
     e1 :<=: e2 -> PP.hsep [pp e1, "<=", pp e2]
     e1 :==: e2 -> PP.hsep [pp e1, "==", pp e2]
     e1 :&&: e2 -> PP.hsep [pp e1, "&", pp e2]
