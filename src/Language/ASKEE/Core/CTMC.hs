@@ -6,6 +6,7 @@ module Language.ASKEE.Core.CTMC ( ppCTMC
                                 , ppExpr
                                 , text
                                 , Doc
+                                , ppCTMCSimpl
                                 ) where
 
 import qualified Data.Text as Text
@@ -37,37 +38,41 @@ type Doc = PP.Doc ()
 
 -- | NB: does _not_ print metadata 
 ppCTMC :: Model ->  Doc
-ppCTMC cm = vcat [decl, startModule, body <> line, endModule, rewards]
-  where
-    inlineM = inlineLets $ inlineParams cm
-    Just totalPopulation = populationLimit inlineM
-    Just sm = simplifyPopulations inlineM
-    Just m = withExplicitPopulationLimits sm
+ppCTMC m = 
+  case populationLimit m of 
+    Nothing -> error "It's not possible to convert this model to CTMC"
+    Just totalPopulation -> vcat [decl, startModule, body <> line, endModule, rewards]
+      where
+        decl :: Doc
+        decl = vcat [ text "ctmc"
+                    , line
+                    ]
 
-    decl :: Doc
-    decl = vcat [ text "ctmc"
-                , line
-                ]
+        startModule :: Doc
+        startModule = text "module" <+> pretty (modelName m) <> line
 
-    startModule :: Doc
-    startModule = text "module" <+> pretty (modelName m) <> line
+        body :: Doc 
+        body = indent 2 (vcat $ [ pretty (Text.toLower x) <> text ": [0.."<> pretty (show (round totalPopulation::Integer)) <> text "] init" <+> ppExpr e <> semi
+                    | (x,e) <- Map.toList (modelInitState m)
+                    ] ++ [line] ++ map ppTransition (modelEvents m))
 
-    body :: Doc 
-    body = indent 2 (vcat $ [ pretty (Text.toLower x) <> text ": [0.."<> pretty (show (round totalPopulation::Integer)) <> text "] init" <+> ppExpr e <> semi
-                | (x,e) <- Map.toList (modelInitState m)
-                ] ++ [line] ++ map ppTransition (modelEvents m))
+        endModule :: Doc
+        endModule = text "endmodule" <> line
 
-    endModule :: Doc
-    endModule = text "endmodule" <> line
+        rewards :: Doc 
+        rewards = vcat [text ("rewards"<>" \"time\""), indent 2 rewardsBody, text "endrewards"]
 
-    rewards :: Doc 
-    rewards = vcat [text ("rewards"<>" \"time\""), indent 2 rewardsBody, text "endrewards"]
+        rewardsBody :: Doc
+        rewardsBody = vcat [rewardOne]
 
-    rewardsBody :: Doc
-    rewardsBody = vcat [rewardOne]
+        rewardOne :: Doc
+        rewardOne = hsep [ text "true : 1", semi ]
 
-    rewardOne :: Doc
-    rewardOne = hsep [ text "true : 1", semi ]
+-- | Top-level function that converts a core model in to corresponding CTMC
+ppCTMCSimpl :: Model -> Maybe Doc
+ppCTMCSimpl m =
+  do  m' <- withExplicitPopulationLimits m >>= simplifyPopulations
+      pure $ ppCTMC  (inlineLets $ inlineParams m')
 
 -- | Events translated to transitions in CTMC
 ppTransition :: Event -> Doc
