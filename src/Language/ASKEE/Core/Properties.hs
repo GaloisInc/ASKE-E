@@ -36,7 +36,7 @@ withExplicitPopulationLimits m =
   do  pop <- populationLimit m
       pure $ m { Core.modelEvents = mkLimitedEvent pop <$> Core.modelEvents m }
   where
-    popCmp pop var = CoreExpr.Var var CoreExpr.:<=: CoreExpr.NumLit pop
+    popCmp pop var = CoreExpr.Var var CoreExpr.:<: CoreExpr.NumLit pop
     popLimits pop evt =
       popCmp pop <$> Map.keys (Core.eventEffect evt)
     mkLimitedEvent pop evt =
