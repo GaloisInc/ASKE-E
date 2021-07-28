@@ -3,10 +3,13 @@
 {-# LANGUAGE RecordWildCards #-}
 module ASKEE ( tests ) where
 
+import           Control.Monad (forM_)
 import qualified Data.FileEmbed as Embed
 import qualified Data.Map       as Map
 import qualified Data.Set       as Set
 import           Data.Text      ( Text, pack )
+import           Data.Text.Lazy.Encoding ( decodeUtf8 )
+import           Data.Text.Lazy (toStrict)
 
 import           Language.ASKEE
 import qualified Language.ASKEE.Core.Syntax        as Core
@@ -46,6 +49,16 @@ series1 =
                 ]
              }
 
+series1' :: DataSeries Double
+series1' =
+  DataSeries { times = [0,30,60,90,120]
+             , values = Map.fromList
+                [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
+                , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
+                , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
+                ]
+             }
+
 -- Generated via GSL simulation with beta=0.5
 series2 :: DataSeries Double
 series2 =
@@ -81,6 +94,17 @@ testSimulateEslParameterized mdlSrc expected =
   do  (start, step, stop) <- asRange (times expected)
       actual <- simulateModelGSL EaselType mdlSrc start stop step (Map.singleton "beta" 0.5) mempty
       assertDataClose actual expected
+
+testFitParam :: DataSource -> [(Text, (Double, Double))] -> DataSeries Double -> Assertion
+testFitParam mdlSrc params dataToFit =
+  do let lbsData = toStrict . decodeUtf8 $ dataSeriesAsCSV dataToFit
+     (res,_) <- fitModelToData EaselType (Inline lbsData) (fst <$> params) mempty mdlSrc
+     forM_ params $ \(param, (lo, hi)) ->
+       case Map.lookup param res of
+         Just (x, _) ->
+           do assertBool ("Fit parameter " ++ show param ++ " lower bound") (lo <= x)
+              assertBool ("Fit parameter " ++ show param ++ " uppper bound") (x <= hi)
+         _ -> assertFailure (show param ++ " not found after fitting")
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =
@@ -249,6 +273,13 @@ tests =
   Tasty.testGroup "ASKEE API Tests"
     [ testCase "Basic SIR ODE simulation test" $ testSimulateEsl (Inline sir) series1
     , testCase "Parameterized SIR ODE simulation test" $ testSimulateEslParameterized (Inline sir) series2
+    , testCase "Basic parameter fitting (one parameter)" $
+        testFitParam (Inline sir) [("i_initial", (2.0, 4.0))] series1'
+    , testCase "Basic parameter fitting (two parameters)" $
+        testFitParam (Inline sir) [ ("s_initial", (995.0, 1000.0))
+                                  , ("gamma", (0.02, 0.06))
+                                  ]
+                                  series1'
     , testCase "Basic SIR discrete event simulation test" $ testSimulateEslDiscrete (Inline sirSansParameters) 0 120 30 series3
     , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
     , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e

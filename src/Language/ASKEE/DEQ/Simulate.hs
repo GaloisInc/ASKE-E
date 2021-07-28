@@ -211,4 +211,10 @@ fitModel eqs ds scaled start =
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
-  eqs' = addParams (Map.map (Just . NumLit) start) eqs
+
+  -- Transform the given eqs by specializing to all the parameters
+  -- that we're _not_ trying to fit, then add as parameters the params in
+  -- @start@
+  eqs' = addParams (Map.map (Just . NumLit) start) specialized
+  specialized  = specializeDiffEqs toSpecialize eqs
+  toSpecialize = Map.filterWithKey (\p _ -> Map.notMember p start) (getParams eqs mempty)
