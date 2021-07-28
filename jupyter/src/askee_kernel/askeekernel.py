@@ -9,16 +9,71 @@ import traceback
 import tabulate
 import requests
 from ipykernel.kernelbase import Kernel
+import json
+import websocket
+import threading
+import queue
 
 #------------------------------------------------------------------------------
 # Config
 #------------------------------------------------------------------------------
-DONU_ADDRESS = "http://localhost:8000"
+DONU_WS_ADDRESS = "ws://localhost:8000/:exposure"
 vega_lite_schema = "https://vega.github.io/schema/vega-lite/v4.json"
+
 
 # -----------------------------------------------------------------------------
 # Donu client
 # -----------------------------------------------------------------------------
+
+def on_message(resp_q):
+    """
+    This just adds any websocket messages to our
+    internal response queue so that they can be
+    processed by the protocol thread
+    """
+    def go(app, msg):
+        resp_q.put(msg)
+    return go
+
+def on_open(req_q, resp_q, kernel_q):
+    """
+    Starts the protocol thread on connect
+    """
+    def go(app):
+        threading.Thread(target=exposure_protocol, args=[app, req_q, resp_q, kernel_q]).start()
+    return go
+
+def exposure_protocol(app, req_q, resp_q, to_kernel_q):
+    """
+    Implements the exposure protocol for the client.
+    This looks like:
+    1. Client sends code to donu for evaluation
+    2. On response,
+      a. the response is a request for a file: we read the file and send it back, go to 2
+      b. the response is a success or failure: enqueue the response on the kernel queue.
+    """
+    while True:
+        app.send(req_q.get())
+        while True:
+            resp = json.loads(resp_q.get())
+
+            if resp['type'] == 'read-file':
+                with open(resp['path']) as f:
+                    app.send(json.dumps({'type':'file-contents', 'contents': f.read()}))
+
+            elif resp['type'] == 'write-file':
+                with open(resp['path'], 'w+') as f:
+                    f.write(resp['contents'])
+
+            elif resp['type'] == 'success':
+                break
+
+            elif resp['type'] == 'failure':
+                break
+
+            else:
+                raise Exception(resp)
+        to_kernel_q.put(resp)
 
 class Donu:
     """
@@ -26,42 +81,29 @@ class Donu:
     """
     # pylint: disable=too-few-public-methods
     def __init__(self, addr:str):
-        self.sess = requests.Session()
-        self.address = addr
+        self.request_q = queue.Queue()
+        self.response_q = queue.Queue()
+        self.kernel_q = queue.Queue()
+        self.app = websocket.WebSocketApp(
+            addr,
+            on_message=on_message(self.response_q),
+            on_open=on_open(self.request_q, self.response_q, self.kernel_q)
+        )
+        self.app_thread = threading.Thread(target=self.app.run_forever)
+        self.app_thread.start()
 
-    def request(self, req:Dict) -> Dict:
+    def execute_code(self, code:str) -> Dict:
         """
-        POST a request to the connected Donu session.
-        req should conform to Donu's API
+        Send a message to the protocol thread to execute a new Donu stmt. Returns a JSON response
+        indicating success or failure
         """
-        response = self.sess.post(self.address, json.dumps(req))
-        try:
-            return json.loads(response.text)
-        except Exception as ex:
-            raise Exception("Call to donu failed - response text: " + response.text) from ex
+        self.request_q.put(json.dumps({'type':'run-program', 'code':code}))
+        response = self.kernel_q.get()
+        return response
+
 # -----------------------------------------------------------------------------
 #  Kernel
 # -----------------------------------------------------------------------------
-def parse_code(code:str):
-    """
-    This returns the command that we should send to 'donu'. Normally this is just
-    'execute-exposure', but we might also be given a 'magic' to reset the REPL
-    state
-    """
-    cmd = None
-
-    if re.match(r'\%clear', code) is not None:
-        cmd = {
-            'command' : 'clear-exposure-state',
-        }
-    else:
-        cmd = {
-            'command' : 'execute-exposure-code',
-            'code': code
-        }
-
-    return cmd
-
 def format_data_series(time, values):
     """
     Returns a vega light chart + a textual representation
@@ -252,7 +294,7 @@ class ASKEEKernel(Kernel):
         'file_extension': '.txt',
     }
     banner = "ASKE-E Kernel - TODO (come up with a better name)"
-    donu   = Donu(DONU_ADDRESS)
+    donu   = Donu(DONU_WS_ADDRESS)
 
     def do_execute(self, code:str, silent:bool, store_history=True, user_expressions=None,
                    allow_stdin=False):
@@ -261,12 +303,9 @@ class ASKEEKernel(Kernel):
         by sending a request to Donu.
         """
         try:
-            parsed = parse_code(code)
-            resp   = self.execute_donu_cmd(parsed)
+            resp   = self.execute_donu_cmd(code)
             # Resp should be a list of things to display
-            # lines = "\n".join([format_resp_value(r) for r in resp])
             lines = [format_resp_value(r) for r in resp]
-            # output = { 'text/plain': lines }
 
             if not silent:
                 for output in lines:
@@ -295,12 +334,12 @@ class ASKEEKernel(Kernel):
 
     def execute_donu_cmd(self, cmd):
         if cmd is not None:
-            resp = self.donu.request(cmd)
-            if resp['status'] == 'success':
-                return resp['result']
-            if resp['status'] == 'error':
-                return ["Error: %s" % resp['error']]
-            raise Exception("Unexpected response status %s" % resp['status'])
+            resp = self.donu.execute_code(cmd)
+            if resp['type'] == 'success':
+                return resp['displays']
+            if resp['type'] == 'failure':
+                return ["Error: %s" % resp['message']]
+            raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
     def run_as_main():

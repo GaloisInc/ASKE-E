@@ -7,51 +7,27 @@ import Control.Monad.State
 
 import           Control.Exception.Lifted (try, SomeException)
 import           Control.Applicative ((<|>))
-import           Control.Lens.TH
-import qualified Web.ClientSession as ClientSession
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
-import           Data.Maybe (fromMaybe)
 
 import qualified Snap
 import qualified Snap.Util.GZip as SnapGzip
 
 import           Language.ASKEE
-import qualified Language.ASKEE.Exposure.Interpreter as Exposure
-import           Language.ASKEE.Exposure.GenLexer (lexExposure)
-import           Language.ASKEE.Exposure.GenParser (parseExposureStmts)
 
 import           Schema
 import           ExposureSession
-import qualified Language.ASKEE.Exposure.Syntax as Exposure
-
--- Snaplet Definition ---------------------------------------------------------
-
-newtype Donu sim = Donu
- { _exposureSessions :: Snap.Snaplet (ExposureSessionManager sim)
-   -- ^ Snaplet implementing Exposure REPL sessions
- }
-
-makeLenses ''Donu
 
 -------------------------------------------------------------------------------
 
-type ExposureState = Exposure.Env
-type DonuApp = Donu ExposureState
-
-initDonu :: Snap.SnapletInit DonuApp DonuApp
-initDonu =
-  Snap.makeSnaplet "donu" "donu" Nothing $
-    do sess <- Snap.nestSnaplet "sessions" exposureSessions $
-                 initExposureSessionManager
-                   ClientSession.defaultKeyFile -- TODO: Do we care about this?
-                   "exposure-env-id"
-                   1800
-       Snap.addRoutes [ ("/help", showHelp)
-                      , ("/", endpoint)
-                      ]
-       return $ Donu sess
+runDonu :: IO ()
+runDonu =
+  Snap.quickHttpServe $
+    Snap.route [ ("/help", showHelp)
+               , ("/:exposure", exposureHandler)
+               , ("/", endpoint)
+               ]
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -76,7 +52,7 @@ initDonu =
 
 
 
-errorWith :: Int -> String -> Snap.Handler DonuApp DonuApp ()
+errorWith :: Int -> String -> Snap.Snap ()
 errorWith code err =
   do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
       let response = JS.object
@@ -88,18 +64,18 @@ errorWith code err =
 main :: IO ()
 main =
   do initStorage
-     Snap.serveSnaplet Snap.defaultConfig initDonu
+     runDonu
 
-showHelp :: Snap.Handler (Donu sim) (Donu sim) ()
+showHelp :: Snap.Snap ()
 showHelp = Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
+exposureHandler :: Snap.Snap ()
+exposureHandler = exposureServer
 
-
-handleRequest :: Input -> Snap.Handler DonuApp DonuApp Result
+handleRequest :: Input -> Snap.Snap Result
 handleRequest r =
   liftIO (print r) >>
-  Snap.with exposureSessions cullOldSessions  >>
   case r of
     Simulate SimulateCommand{..} ->
       do  ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) simParameterValues simOutputs
@@ -180,39 +156,41 @@ handleRequest r =
     QueryModels QueryModelsCommand {..} ->
       succeed <$> liftIO (queryModels queryParameters)
 
-    ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
-      case lexExposure (Text.unpack code) >>= parseExposureStmts of
-        Left err ->
-          pure $ FailureResult $ Text.pack err
-        Right stmts ->
-          stepExposureSession stmts
+    -- ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
+    --   do exposureServer
+    --      succeed' ()
+      -- case lexExposure (Text.unpack code) >>= parseExposureStmts of
+      --   Left err ->
+      --     pure $ FailureResult $ Text.pack err
+      --   Right stmts ->
+      --     stepExposureSession stmts
 
-    ResetExposureState _ ->
-      do Snap.with exposureSessions $
-           putExposureSessionState Exposure.initialEnv
-         succeed' ()
+    -- ResetExposureState _ ->
+    --   do Snap.with exposureSessions $
+    --        putExposureSessionState Exposure.initialEnv
+    --      succeed' ()
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
 
-    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Handler x x Result
+    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Snap Result
     succeed' = pure . succeed
 
--- Driving Exposure -----------------------------------------------------------
+-- -- Driving Exposure -----------------------------------------------------------
 
--- | Run the given exposure statements in the current session and return the
--- resulting DisplayValues as a (JSON) list (or any error messages)
-stepExposureSession :: [Exposure.Stmt] -> Snap.Handler DonuApp DonuApp Result
-stepExposureSession stmts =
-  do env <- Snap.with exposureSessions $
-       fromMaybe Exposure.initialEnv <$> getExposureSessionState
-     (res, env') <- liftIO $ Exposure.evalStmts stmts env
-     case res of
-       Left err ->
-         do Snap.with exposureSessions $
-              putExposureSessionState env'
-            pure $ FailureResult err
-       Right (displays, _effs) -> -- TODO: Do we want to do anything with _effs?
-         do Snap.with exposureSessions $
-              putExposureSessionState env'
-            return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays
+-- -- | Run the given exposure statements in the current session and return the
+-- -- resulting DisplayValues as a (JSON) list (or any error messages)
+-- stepExposureSession :: [Exposure.Stmt] -> Snap.Snap Result
+-- stepExposureSession stmts =
+--   do env <- Snap.with exposureSessions $
+--        fromMaybe Exposure.initialEnv <$> getExposureSessionState
+--      (res, env') <- liftIO $ Exposure.evalStmts stmts env
+--      case res of
+--        Left err ->
+--          do Snap.with exposureSessions $
+--               putExposureSessionState env'
+--             pure $ FailureResult err
+--        Right (displays, _effs) -> -- TODO: Do we want to do anything with _effs?
+--          do Snap.with exposureSessions $
+--               putExposureSessionState env'
+--             return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays

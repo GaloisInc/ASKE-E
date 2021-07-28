@@ -43,8 +43,6 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | QueryModels QueryModelsCommand
-  | ExecuteExposureCode ExecuteExposureCodeCommand
-  | ResetExposureState ResetExposureStateCommand
     deriving Show
 
 instance HasSpec Input where
@@ -60,8 +58,6 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (QueryModels <$> anySpec)
-         <!> (ExecuteExposureCode <$> anySpec)
-         <!> (ResetExposureState <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -457,31 +453,6 @@ instance HasSpec QueryModelsCommand where
         queryParameters <- reqSection' "query" (assocSpec anySpec)
                            "Query parameters expressed a set of key-value pairs"
         pure QueryModelsCommand { .. }
-
--------------------------------------------------------------------------------
--- TODO RGS: Document all of this
-
-newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
-  { executeExposureCode :: Text -- ^ The exposure program to parse and execute
-  }
-  deriving Show
-
-instance HasSpec ExecuteExposureCodeCommand where
-  anySpec =
-    sectionsSpec "execute-exposure-code"
-    do  reqSection' "command" (jsAtom "execute-exposure-code")
-                    "Execute an Exposure command"
-        executeExposureCode <- reqSection' "code" textSpec "The code to execute"
-        pure ExecuteExposureCodeCommand{..}
-
-newtype ResetExposureStateCommand = ResetExposureStateCommand ()
-  deriving Show
-
-instance HasSpec ResetExposureStateCommand where
-  anySpec =
-    sectionsSpec "clear-exposure" $
-      do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
-         pure $ ResetExposureStateCommand ()
 
 -- | Wrapper for Value to control precisely how these are passed
 -- to clients of Donu

@@ -214,7 +214,6 @@ executable donu
                       , aske-e
                       , bytestring
                       , cereal
-                      , clientsession
                       , config-schema
                       , config-value
                       , containers
@@ -234,6 +233,8 @@ executable donu
                       , time
                       , unordered-containers
                       , vector
+                      , websockets-snap
+                      , websockets
 
   default-language:     Haskell2010
   ghc-options:          -Wall -threaded
