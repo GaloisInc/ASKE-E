@@ -11,7 +11,7 @@ metakernel = "*"
 pylint = "*"
 tabulate = "*"
 askee-kernel = {path = "."}
-websocket = "*"
+websocket-client = "*"
 
 [dev-packages]
 
