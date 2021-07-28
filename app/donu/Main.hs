@@ -15,6 +15,7 @@ import qualified Data.Aeson as JS
 import           Data.Maybe (fromMaybe)
 
 import qualified Snap
+import qualified Snap.Util.GZip as SnapGzip
 
 import           Language.ASKEE
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
@@ -57,7 +58,7 @@ initDonu =
         Snap.modifyResponse (Snap.setHeader "Access-Control-Allow-Origin" "*")
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
-          Right a -> runHandler a <|> errorWith 400 "Bad request"
+          Right a -> SnapGzip.withCompression (runHandler a) <|> errorWith 400 "Bad request"
           Left err -> errorWith 400 ("Didn't recognize request: "<>err)
 
     runHandler r =
@@ -68,6 +69,7 @@ initDonu =
                         case out of
                           (FailureResult _) -> (400, "Error")
                           _ -> (200, "OK")
+                Snap.modifyResponse (Snap.setHeader "Content-Type" "application/json")
                 Snap.modifyResponse (Snap.setResponseStatus code msg)
                 Snap.writeLBS (JS.encode out)
           Left ex -> errorWith 500 (show (ex :: SomeException))
