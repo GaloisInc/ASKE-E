@@ -94,6 +94,8 @@ data FunctionName
   | FPlot
   | FScatter
   | FAsEqnArray
+  | FMSE -- Mean Squared Error
+  | FMAE -- Mean Absolute Error
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -134,6 +136,8 @@ prefixFunctionName ident =
     "plot"        -> Right FPlot
     "scatter"     -> Right FScatter
     "asEqnArray"  -> Right FAsEqnArray
+    "mse"         -> Right FMSE
+    "mae"         -> Right FMAE
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

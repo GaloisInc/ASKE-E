@@ -368,6 +368,16 @@ interpretCall fun args =
         [v] -> interpretAsEqnArray v
         _   -> typeError "asEqnArray expects a single argument"
 
+    FMSE ->
+      case args of
+        [vPredicted, vActual] -> interpretMeanError (^(2 :: Int)) vPredicted vActual
+        _                     -> typeError "mse expects two arguments"
+
+    FMAE ->
+      case args of
+        [vPredicted, vActual] -> interpretMeanError abs vPredicted vActual
+        _                     -> typeError "mae expects two arguments"
+
   where
 
     doubleArraySummarize f v =
@@ -540,6 +550,24 @@ interpretAsEqnArray (VModel m) =
     Left err -> throw $ Text.pack err
     Right d  -> pure $ VLatex $ Latex d
 interpretAsEqnArray v = typeErrorArgs [v] "asEqnArray expects a model"
+
+interpretMeanError :: (Double -> Double) -> Value -> Value -> Eval Value
+interpretMeanError f vPredicted vActual =
+  case (vPredicted, vActual) of
+    (VDouble predicted, VArray actual) ->
+      do  ads <- traverse double actual
+          pure $ meanError $ map (predicted,) ads
+    (VArray predicted, VDouble actual) ->
+      do  pds <- traverse double predicted
+          pure $ meanError $ map (,actual) pds
+    (VArray{}, VArray{}) ->
+      do  pas <- parallelArrays double vPredicted vActual
+          pure $ meanError pas
+    (_, _) -> typeErrorArgs [vPredicted, vActual]
+                "mse/mae expects two arrays of doubles as arguments"
+  where
+    meanError :: [(Double, Double)] -> Value
+    meanError pas = VDouble $ mean $ map (\(p, a) -> f (p - a)) pas
 
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
