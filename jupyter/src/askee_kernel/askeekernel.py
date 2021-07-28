@@ -7,7 +7,6 @@ import json
 from typing import Dict
 import traceback
 import tabulate
-import requests
 from ipykernel.kernelbase import Kernel
 import json
 import websocket
