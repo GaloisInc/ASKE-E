@@ -205,6 +205,42 @@ for the ASKE-E program.</p>
   }
 }
 </code></pre>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>The literal <code>&quot;query-models&quot;</code></td></tr>
+<tr><td>text</td><td>string</td><td>Text to search for. Accepts wildcards <code>*</code> and <code>?</code>. Searches through model level metadata (as returned by <code>list-models</code>) as well as parameter and measure metadata values for a match.</td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;query-models&quot;,
+  &quot;text&quot;: &quot;*hospital*&quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>models</td><td>list</td><td>list of &quot;model-def++&quot; objects of the same form as returned by <code>list-models</code></td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: [
+    {
+      &quot;source&quot;: {
+          &quot;model&quot;: &quot;seird_hosp.easel&quot;
+      },
+      &quot;name&quot;: &quot;SEIRS_Hospitalization_Death&quot;,
+      &quot;description&quot;: &quot;No description.&quot;,
+      &quot;type&quot;: &quot;easel&quot;
+    },
+    {
+      &quot;source&quot;: {
+          &quot;model&quot;: &quot;seird_hosp.easel&quot;
+      },
+      &quot;type&quot;: &quot;gromet-prt&quot;
+    }
+  ]
+}
+</code></pre>
 <h3 id="simulate---simulate-a-model"><a class="header" href="#simulate---simulate-a-model"><code>simulate</code> - simulate a model</a></h3>
 <p><strong>Request:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th><th>Stipulations</th></tr></thead><tbody>
