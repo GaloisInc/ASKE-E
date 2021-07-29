@@ -25,6 +25,7 @@ import           Language.ASKEE
 import           Language.ASKEE.ESL.Print (printModel)
 import           Language.ASKEE.Exposure.Syntax
 import qualified Language.ASKEE.Core.Syntax as Core
+import           Language.ASKEE.Latex.Print (printLatex)
 
 -------------------------------------------------------------------------------
 -- Input
@@ -534,6 +535,9 @@ instance JS.ToJSON DonuValue where
 
       VArray vs ->
         typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
+
+      VLatex l ->
+        typedPrim "latex" $ show $ printLatex l
 
       VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
       VModelExpr (EVal v) -> JS.toJSON (DonuValue v)

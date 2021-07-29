@@ -30,6 +30,7 @@ main =
 
         DumpPNC -> mapM_ dumpPNC (modelFiles opts)
 
+        DumpDEQs -> mapM_ dumpDEQ  (modelsProvided opts)
         DumpCore -> mapM_ dumpCore (modelsProvided opts)
 
         DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
@@ -138,6 +139,20 @@ dumpCore (file,ty) =
                             , "type:" ++ show ty
                             , "error:" ++ err
                             ]
+
+
+dumpDEQ :: (FilePath, A.ModelType) -> IO ()
+dumpDEQ (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toDeqs m of
+       Right c -> print (DEQ.printDiffEqs c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to DEqs"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
+
 
 
 

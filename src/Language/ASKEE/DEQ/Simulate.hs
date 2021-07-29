@@ -10,6 +10,7 @@ import           Data.List ( transpose )
 import Language.ASKEE.Core.Expr   ( substExpr, simplifyExpr
                                   , Expr(..), pattern (:-:), pattern NumLit
                                   , collectExprVars
+                                  , orderDecls
                                   , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
 import Language.ASKEE.DataSeries  ( foldDataSeries
@@ -17,7 +18,7 @@ import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAlignedWithTimeAndLabel
                                   , DataSeries(..) )
 import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..), addParams )
-import Language.ASKEE.DEQ.Print
+-- import Language.ASKEE.DEQ.Print
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
@@ -85,6 +86,10 @@ pruneEqns xs eqs
     let ds = depsofSet vs
     in if ds `Set.isSubsetOf` vs then vs else complete (Set.union ds vs)
 
+
+{- | This just makes up fresh variables for all states.
+It was mostly used to investigate automatically synthesized
+models with rather unreasonable variable names. -}
 renameHack :: DiffEqs -> DiffEqs
 renameHack eqs =
   eqs { deqInitial = Map.fromList [ (names Map.! x, e) | (x,e) <- Map.toList (deqInitial eqs) ]
@@ -111,18 +116,17 @@ simulate eqs paramVs vars ts =
              }
   where
   (stateNames,stateInitExprs) = unzip (Map.toList (deqRates eqs'))
-  letList                     = Map.toList (deqLets eqs')
-  (letNames,letInitExprs)     = unzip letList
+  letList                     = orderDecls (Map.toList (deqLets eqs'))
+  (letNames,letExprs)         = unzip letList
 
   observableNames = stateNames ++ letNames
   observableInitExprs = stateInitExprs
-                     ++ map (\(letName, letExpr) -> letExpr :-: Var letName)
-                            letList
+                     ++ zipWith (:-:) letExprs (map Var letNames)
 
-  initMap = Map.map (\e -> evalDouble e mempty) (deqInitial eqs')
-  initS   = Map.elems initMap
-         ++ [ evalDouble l initMap
-            | l <- letInitExprs ]
+  initMap           = (`evalDouble` mempty) <$> deqInitial eqs'
+  initEnv           = foldl evalLet initMap letList
+  evalLet env (x,e) = Map.insert x (evalDouble e env) env
+  initS             = [ initEnv Map.! x | x <- observableNames ]
 
   resMatrix = ODE.odeSolve
                 (evalDiffEqs observableNames observableInitExprs)
@@ -207,4 +211,10 @@ fitModel eqs ds scaled start =
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
-  eqs' = addParams (Map.map (Just . NumLit) start) eqs
+
+  -- Transform the given eqs by specializing to all the parameters
+  -- that we're _not_ trying to fit, then add as parameters the params in
+  -- @start@
+  eqs' = addParams (Map.map (Just . NumLit) start) specialized
+  specialized  = specializeDiffEqs toSpecialize eqs
+  toSpecialize = Map.filterWithKey (\p _ -> Map.notMember p start) (getParams eqs mempty)

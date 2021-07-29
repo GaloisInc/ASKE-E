@@ -7,6 +7,7 @@ import Data.Map(Map)
 
 import Language.ASKEE.DataSeries (DataSeries)
 import qualified Language.ASKEE.Core.Syntax as Core
+import Language.ASKEE.Latex.Syntax (Latex)
 
 type Ident  = Text
 data Stmt
@@ -40,6 +41,8 @@ data Value
   | VString Text
   | VDataSeries (DataSeries Double)
   | VModel Core.Model
+  | VLatex Latex
+  | VSampledData [Value] -- ^ list of samples
 
   | VTimed Value Double
   | VPoint (Map Text Value)
@@ -76,6 +79,7 @@ data FunctionName
   | FOr
   | FProb
   | FSample
+  | FSimulate
   | FMin
   | FMax
   | FAt
@@ -89,6 +93,9 @@ data FunctionName
   | FIn
   | FPlot
   | FScatter
+  | FAsEqnArray
+  | FMSE -- Mean Squared Error
+  | FMAE -- Mean Absolute Error
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -119,6 +126,7 @@ prefixFunctionName ident =
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
     "sample"      -> Right FSample
+    "simulate"    -> Right FSimulate
     "min"         -> Right FMin
     "max"         -> Right FMax
     "histogram"   -> Right FHistogram
@@ -127,6 +135,9 @@ prefixFunctionName ident =
     "in"          -> Right FIn
     "plot"        -> Right FPlot
     "scatter"     -> Right FScatter
+    "asEqnArray"  -> Right FAsEqnArray
+    "mse"         -> Right FMSE
+    "mae"         -> Right FMAE
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

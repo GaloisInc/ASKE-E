@@ -63,6 +63,22 @@ exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
+exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2 = exprAssertion2WithStmts []
+
+exprAssertion2WithStmts :: [String] -> String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
+  stmts             <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  expr1             <- assertRightStr $ lexAndParseExpr exprStr1
+  expr2             <- assertRightStr $ lexAndParseExpr exprStr2
+  (lr, env)         <- evalStmts stmts initialEnv
+  (_, _)            <- assertRightText lr
+  (errOrVal1, _, _) <- runEval emptyEvalRead env $ interpretExpr expr1
+  (errOrVal2, _, _) <- runEval emptyEvalRead env $ interpretExpr expr2
+  val1              <- assertRightText errOrVal1
+  val2              <- assertRightText errOrVal2
+  k val1 val2
+
 getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
   dataDir <- getDataDir
@@ -116,13 +132,29 @@ tests =
             case modelVal of
               VModelExpr (EMember _ "S") -> pure ()
               _                          -> assertFailure "Not an EMember"
-      , testCase "Basic simulation" $ do
+      , testCase "Basic sampling" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertionWithStmts
             [ "sir = " <> loadSirEaselExpr
             , "evt = sample(sir.I > 15 at 125.0, 5)"
             ] "P(evt) + P(not evt)" $ \actualVal ->
             actualVal @?= VDouble 1
+      , testCase "Basic simulation" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir.I at [1..10 by 1])" $ \simResults ->
+            case simResults of
+              VArray (VTimed _ _:_) -> pure ()
+              _ -> assertFailure "Not an array of timed values"
+      , testCase "Basic simulation (single point)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir.I at 125.0)" $ \simResults ->
+            case simResults of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Not a VDouble"
       , testCase "environment should update even upon failure" $
           exprAssertionWithFailingStmts
             [ "x = 42"
@@ -131,5 +163,23 @@ tests =
             actualVal @?= VDouble 42
       , testCase "filter" $
           "filter([1 .. 10 by 1]) { x => x > 8 }" `exprShouldEvalTo` VArray [VDouble 9, VDouble 10]
+      , testCase "MSE/MAE of identical results" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertion2WithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "evt = sample(sir.I at 125.0, 1)"
+            ] "mse(evt, evt)" "mae(evt, evt)" $ \val1 val2 ->
+            do val1 @=? val2
+               val1 @=? VDouble 0
+      , testCase "MSE lifting" $ do
+          exprAssertion2 "mse([1, 2, 3], [4, 4, 4])"
+                         "mse([1, 2, 3], 4)"         $ \val1 val2 -> val1 @=? val2
+          exprAssertion2 "mse(1,         [4, 5, 6])"
+                         "mse([1, 1, 1], [4, 5, 6])" $ \val1 val2 -> val1 @=? val2
+      , testCase "MAE lifting" $ do
+          exprAssertion2 "mae([1, 2, 3], [4, 4, 4])"
+                         "mae([1, 2, 3], 4)"         $ \val1 val2 -> val1 @=? val2
+          exprAssertion2 "mae(1,         [4, 5, 6])"
+                         "mae([1, 1, 1], [4, 5, 6])" $ \val1 val2 -> val1 @=? val2
       ]
     ]

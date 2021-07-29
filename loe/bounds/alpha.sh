@@ -69,6 +69,7 @@ while read symbol; do
 	count=$(($count+1))
 	echo "s/\([[:punct:][:space:]]\)$symbol\([[:punct:][:space:]]\)/\1$gensym$suffix\2/g"
 	echo "s/^$symbol\([[:punct:][:space:]]\)/$gensym$suffix\1/g"
+	echo "s/^$symbol\$/$gensym$suffix/g"
 	echo "s/\([[:punct:][:space:]]\)$symbol$/\1$gensym$suffix/g"
 done < $srcsym >> $edits
 
@@ -79,8 +80,7 @@ alpha=`mktemp`
 sed -f $edits $source > $alpha
 
 keywords=`mktemp`
-cat $alpha|tr '[[:space:][:punct:]]' '\n'|grep -v -e '^$' -e 'g[0-9]\+' -e '[0-9]\+'|sort -u > $keywords
-##symlen=`cat $keywords|wc -l|tr -d "\n"|wc -c`
+cat $alpha|tr '[[:space:][:punct:]]' '\n'|grep -v -e '^$' -e 'g[0-9]\+' -e '[0-9]\+'|sort -u|grep -v txt > $keywords
 symlen=2
 : > $edits
 count=0
@@ -89,6 +89,7 @@ while read keyword; do
 	count=$(($count+1))
 	echo "s/\([[:punct:][:space:]]\)$keyword\([[:punct:][:space:]]\)/\1$gensym$suffix\2/g"
 	echo "s/^$keyword\([[:punct:][:space:]]\)/$gensym$suffix\1/g"
+	echo "s/^$keyword\$/$gensym$suffix/g"
 	echo "s/\([[:punct:][:space:]]\)$keyword$/\1$gensym$suffix/g"
 done < $keywords >> $edits
 
