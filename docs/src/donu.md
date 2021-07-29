@@ -96,6 +96,53 @@ Example:
 }
 ```
 
+**Request:**
+
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| command          | string                   | The literal `"query-models"`|
+| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model level metadata (as returned by `list-models`) as well as parameter and measure metadata values for a match.|
+
+Example:
+
+```JSON
+{
+  "command": "query-models",
+  "text": "*hospital*"
+}
+```
+
+**Response:**
+
+
+| Field   | Type    | Description                                                       |
+|---------|---------|-------------------------------------------------------------------|
+| models  | list    | list of "model-def++" objects of the same form as returned by `list-models` |
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": [
+    {
+      "source": {
+          "model": "seird_hosp.easel"
+      },
+      "name": "SEIRS_Hospitalization_Death",
+      "description": "No description.",
+      "type": "easel"
+    },
+    {
+      "source": {
+          "model": "seird_hosp.easel"
+      },
+      "type": "gromet-prt"
+    }
+  ]
+}
+```
+
 ### `simulate` - simulate a model
 
 **Request:**
