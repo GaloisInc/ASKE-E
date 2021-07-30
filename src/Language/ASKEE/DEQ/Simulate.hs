@@ -1,14 +1,16 @@
 {-# Language BlockArguments, OverloadedStrings, PatternSynonyms #-}
 module Language.ASKEE.DEQ.Simulate where
 
-
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
+import           Data.Set   ( Set )
+import qualified Data.Set  as Set
 import           Data.List ( transpose )
 
-import Language.ASKEE.Core.Expr   ( mapExprs
-                                  , substExpr
+import Language.ASKEE.Core.Expr   ( substExpr, simplifyExpr
                                   , Expr(..), pattern (:-:), pattern NumLit
+                                  , collectExprVars
+                                  , orderDecls
                                   , Ident, asText )
 import Language.ASKEE.Core.Eval   ( evalDouble )
 import Language.ASKEE.DataSeries  ( foldDataSeries
@@ -16,40 +18,118 @@ import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAlignedWithTimeAndLabel
                                   , DataSeries(..) )
 import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..), addParams )
+-- import Language.ASKEE.DEQ.Print
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
 import qualified Numeric.GSL.Fitting        as Fit
 import Data.Text (Text)
+import qualified Data.Text as Text
+
 
 evalDiffEqs ::
-  [Ident] -> [Expr] -> Map Ident Double -> Double -> [Double] -> [Double]
-evalDiffEqs xs es ps t s = [ evalDouble e env | e <- es ]
+  [Ident] -> [Expr] -> Double -> [Double] -> [Double]
+evalDiffEqs xs es t s = [ evalDouble e env | e <- es ]
   where
-  env = Map.insert "time" t (Map.fromList (zip xs s)) `Map.union` ps
+  env = Map.insert "time" t (Map.fromList (zip xs s))
 
-simulate :: DiffEqs -> Map Ident Double -> [Double] -> DataSeries Double
-simulate eqs paramVs ts =
+
+getParams ::
+  DiffEqs ->
+  Map Ident Double {- ^ Overwrites for parameters -} ->
+  Map Ident Double
+getParams eqs val = fin
+  where
+  evalP :: Ident -> Maybe Expr -> Double
+  evalP x mb = case Map.lookup x val of
+                 Just d -> d
+                 Nothing ->
+                   case mb of
+                     Just e  -> evalDouble e fin
+                     Nothing -> 0   -- XXX: unspecified
+  fin :: Map Ident Double
+  fin = Map.mapWithKey evalP (deqParams eqs)
+
+specializeDiffEqs :: Map Ident Double -> DiffEqs -> DiffEqs
+specializeDiffEqs paramVs eqs =
+  DiffEqs { deqParams  = mempty
+          , deqInitial = spec <$> deqInitial eqs
+          , deqRates   = spec <$> deqRates  eqs
+          , deqLets    = spec <$> deqLets eqs
+          }
+  where
+  su   = NumLit <$> paramVs
+  spec = simplifyExpr . substExpr su
+
+
+pruneEqns :: Set Ident -> DiffEqs -> DiffEqs
+pruneEqns xs eqs
+  | Set.null xs = eqs
+  | otherwise =    eqs { deqInitial = restrict deqInitial
+                       , deqLets    = restrict deqLets
+                       , deqRates   = restrict deqRates
+                       }
+  where
+
+  restrict f = Map.restrictKeys (f eqs) vars
+  vars = complete xs
+
+  deps = Map.fromList
+           [ (x, collectExprVars e)
+           | (x,e) <- Map.toList (deqRates eqs) ++ Map.toList (deqLets eqs)
+           ]
+
+  depsofSet ys = Set.unions
+                  [ Map.findWithDefault mempty y deps | y <- Set.toList ys ]
+
+  complete vs =
+    let ds = depsofSet vs
+    in if ds `Set.isSubsetOf` vs then vs else complete (Set.union ds vs)
+
+
+{- | This just makes up fresh variables for all states.
+It was mostly used to investigate automatically synthesized
+models with rather unreasonable variable names. -}
+renameHack :: DiffEqs -> DiffEqs
+renameHack eqs =
+  eqs { deqInitial = Map.fromList [ (names Map.! x, e) | (x,e) <- Map.toList (deqInitial eqs) ]
+      , deqRates = Map.fromList [ (names Map.! x, change e) | (x,e) <- Map.toList (deqRates eqs) ]
+      , deqLets = change <$> deqLets eqs
+      }
+  where
+  change = substExpr su
+  su = Var <$> names
+  names = Map.fromList
+          [ (x, Text.pack ("S" <> show n))
+          | (n,x) <- zip [1 :: Int ..] (Map.keys (deqRates eqs)) ]
+
+
+simulate ::
+  DiffEqs ->
+  Map Ident Double {- ^ Parameters -} ->
+  Set Ident {- ^ Variables to simuate; [] means all -} ->
+  [Double] {- ^ Times of interest -} ->
+  DataSeries Double
+simulate eqs paramVs vars ts =
   DataSeries { times = ts
              , values = Map.fromList (zip observableNames (map upd rows))
              }
   where
   (stateNames,stateInitExprs) = unzip (Map.toList (deqRates eqs'))
-  letList                     = Map.toList (deqLets eqs')
-  (letNames,letInitExprs)     = unzip letList
+  letList                     = orderDecls (Map.toList (deqLets eqs'))
+  (letNames,letExprs)         = unzip letList
 
   observableNames = stateNames ++ letNames
   observableInitExprs = stateInitExprs
-                     ++ map (\(letName, letExpr) -> letExpr :-: Var letName)
-                            letList
+                     ++ zipWith (:-:) letExprs (map Var letNames)
 
-  initMap = Map.map (\e -> evalDouble e paramVs) (deqInitial eqs')
-  initS   = Map.elems initMap
-         ++ [ evalDouble l (paramVs `Map.union` initMap)
-            | l <- letInitExprs ]
+  initMap           = (`evalDouble` mempty) <$> deqInitial eqs'
+  initEnv           = foldl evalLet initMap letList
+  evalLet env (x,e) = Map.insert x (evalDouble e env) env
+  initS             = [ initEnv Map.! x | x <- observableNames ]
 
   resMatrix = ODE.odeSolve
-                (evalDiffEqs observableNames observableInitExprs paramVs)
+                (evalDiffEqs observableNames observableInitExprs)
                 initS
                 (LinAlg.fromList ts')
 
@@ -60,10 +140,9 @@ simulate eqs paramVs ts =
                 _           -> (id,ts)
 
   rows   = LinAlg.toList <$> LinAlg.toColumns resMatrix
-  eqs'   = mapExprs inlineEqParams eqs
-  params = foldr Map.delete (Map.mapMaybe id (deqParams eqs')) (Map.keys paramVs)
-  inlineEqParams = substExpr params
 
+  eqs'   = let eqs1 = pruneEqns vars eqs
+           in specializeDiffEqs (getParams eqs1 paramVs) eqs1
 
 
 -- | Compute the difference between the model and the data, using
@@ -72,7 +151,7 @@ modelErrorWith ::
   (Ident -> Double -> Double -> Double) {- ^ how to compute difference -} ->
   DiffEqs -> DataSeries Double -> Map Ident Double -> DataSeries Double
 modelErrorWith err eqs expected ps =
-  zipAlignedWithTimeAndLabel err' (simulate eqs ps (times expected)) expected
+  zipAlignedWithTimeAndLabel err' (simulate eqs ps mempty (times expected)) expected
   where err' l _ x y = err l x y
 
 
@@ -118,7 +197,7 @@ fitModel eqs ds scaled start =
                               Just m  -> 1 / m
                   ]
 
-  simWith vs = simulate eqs' vs (times ds)
+  simWith vs = simulate eqs' vs mempty (times ds)
 
   model pvec = let ans = simWith (psFromVec pvec)
                in \x -> values ans Map.! x
@@ -132,4 +211,10 @@ fitModel eqs ds scaled start =
         changes  = map change ps
     in \x -> transpose [ values pch Map.! x | pch <- changes ]
 
-  eqs' = addParams (Map.map (Just . NumLit) start) eqs
+
+  -- Transform the given eqs by specializing to all the parameters
+  -- that we're _not_ trying to fit, then add as parameters the params in
+  -- @start@
+  eqs' = addParams (Map.map (Just . NumLit) start) specialized
+  specialized  = specializeDiffEqs toSpecialize eqs
+  toSpecialize = Map.filterWithKey (\p _ -> Map.notMember p start) (getParams eqs mempty)

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+BASEDIR=$(dirname "$0")/..
+cd $BASEDIR
+
+tmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'askee-demo-models')
+
+git clone git@github.com:GaloisInc/askee-august-2021-demo-model-collection.git $tmp
+cp $tmp/AlgebraicJulia_models/* modelRepo/gromet-pnc
+cp $tmp/emmaa_models/* modelRepo/gromet-pnc
+cp $tmp/Simple_SIR/SimpleSIR_metadata_gromet_FunctionNetwork.json modelRepo/gromet-fnet

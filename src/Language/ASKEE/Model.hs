@@ -16,6 +16,7 @@ module Language.ASKEE.Model
   ) where
 
 import Data.Text(Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Encoding as Text
 import Control.Monad ( (>=>) )
 import qualified Data.Aeson as JSON
@@ -29,6 +30,7 @@ import qualified Language.ASKEE.ESL as ESL
 import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
 import qualified Language.ASKEE.Gromet.PetriNetClassic as GPNC
+import qualified Language.ASKEE.Gromet.FunctionNetwork as FNET
 
 data Model =
     Easel     ESL.Model
@@ -37,7 +39,8 @@ data Model =
   | RNet      RNet.ReactionNet
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
-  | GrometFnet JSON.Value
+  | GrometFnet FNET.FunctionNetwork
+  deriving Show
 
 modelTypeOf :: Model -> MT.ModelType
 modelTypeOf m =
@@ -69,10 +72,10 @@ asCore = tryConvs [ unCore
 asDeq :: Model -> ConversionResult DEQ.DiffEqs
 asDeq = tryConvs [ unDeq, asCore >=> coreToDeqs, notExist MT.DeqType ]
   where
-    coreToDeqs c = pure $ Core.asDiffEqs c
+    coreToDeqs c = pure $ Core.asDiffEqs Core.NoGuards c
 
 asGrometPrt :: Model -> ConversionResult GPRT.Gromet
-asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPncType ]
+asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrtType ]
   where
     fromCore = pure . GPRT.convertCoreToGromet
 
@@ -203,7 +206,7 @@ printModel m =
     Deq deq -> (Right . show . DEQ.printDiffEqs) deq
     Core c -> Right $ show $ Core.ppModel c
     RNet _ -> Left "XXX: no printer for RNet yet"
-    GrometPrt g -> Right $ GPRT.grometString g
+    GrometPrt g -> Right $ Text.unpack $ GPRT.grometText g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v
   where

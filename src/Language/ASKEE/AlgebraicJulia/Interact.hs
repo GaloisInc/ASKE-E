@@ -3,7 +3,6 @@ module Language.ASKEE.AlgebraicJulia.Interact where
 
 import Data.Aeson                 ( encode, Value, FromJSON, decode )
 import Data.ByteString.Lazy.Char8 ( unpack, pack )
-import Data.Maybe                 ( fromMaybe )
 
 import Language.ASKEE.Error ( die, ASKEEError(..) )
 

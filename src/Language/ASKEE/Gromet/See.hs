@@ -1,6 +1,8 @@
 {-# Language OverloadedStrings #-}
 module Language.ASKEE.Gromet.See where
 
+import Data.Map(Map)
+import qualified Data.Map as Map
 import Data.Text(Text)
 import qualified Data.Text as Text
 import Text.PrettyPrint hiding ((<>))
@@ -11,7 +13,7 @@ class PP t where
   pp :: t -> Doc
 
 instance PP Gromet where
-  pp g = ppBox g (grometRoot g)
+  pp g = ppMeta (grometMeta g) $$ ppBox g (grometRoot g)
 
 instance PP Text where
   pp = text . Text.unpack
@@ -27,13 +29,14 @@ instance PP ValueType where
   pp vt =
     case vt of
       Real    -> "real"
-      Bool    -> "bool"
+      Boolean -> "bool"
       Integer -> "integer"
 
 instance PP Port where
   pp po =
     pp (portType po) <+> pp (portValueType po) <+> pp (portName po)
       <+> "// uid:" <+> pp (portUid po) <+> comma <+> "box:" <+> pp (portBox po)
+      $$ nest 2 (ppMeta (portMeta po))
 
 instance PP PortUid where
   pp (PortUid x) = pp x
@@ -55,7 +58,7 @@ instance PP WirePort where
 
 instance PP Junction where
   pp j = "state" <+> pp (jName j) <+> ":" <+> pp (jValueType j)
-          <+> "//" <+> pp (jUID j)
+          <+> "//" <+> pp (jUID j) $$ nest 2 (ppMeta (jMeta j))
 
 
 instance PP Wire where
@@ -72,6 +75,7 @@ instance PP GrometBox where
   pp (GrometBox g bo) =
       vcat [ front <+> "box" <+> quotes (pp (boxName bo))
                           <+> "//" <+> pp (boxUid bo)
+                            $$ nest 2 (ppMeta (boxMeta bo))
            , nest 2 def
            , "end"
            , " "
@@ -109,6 +113,8 @@ ppBox g bid = case [ b | b <- grometBoxes g, boxUid b == bid ] of
                 b : _ -> pp (GrometBox g b)
                 _  -> "undefined box" <+> pp bid
 
+ppMeta :: Map Text [Text] -> Doc
+ppMeta mp = vcat [ (pp k <> colon) <+> pp v | (k,vs) <- Map.toList mp, v <- vs ]
 
 
 instance PP Arg where

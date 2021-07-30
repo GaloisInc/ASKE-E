@@ -11,6 +11,8 @@ metakernel = "*"
 requests = "*"
 pylint = "*"
 antlr4-python3-runtime = "*"
+tabulate = "*"
+askee-kernel = {path = "."}
 
 [dev-packages]
 

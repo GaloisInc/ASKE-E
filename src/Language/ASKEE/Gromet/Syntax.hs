@@ -11,6 +11,8 @@ module Language.ASKEE.Gromet.Syntax
   ) where
 
 import Data.Text(Text)
+import Data.Map(Map)
+import qualified Data.Map as Map
 import qualified Data.Aeson as JSON
 import Data.Aeson((.=))
 
@@ -24,12 +26,16 @@ data Gromet =
          , grometJunctions :: [Junction]
          , grometWires :: [Wire]
          , grometBoxes :: [Box]
+         , grometMeta :: Meta -- ^ model level metadata
          } deriving (Show,Eq)
+
+type Meta = Map Text [Text]
 
 data Junction =
   Junction { jUID       :: JunctionUid
            , jName      :: Text
            , jValueType :: ValueType
+           , jMeta      :: Meta
            } deriving (Show,Eq)
 
 data Port =
@@ -38,6 +44,7 @@ data Port =
        , portType       :: PortType
        , portValueType  :: ValueType
        , portName       :: Text
+       , portMeta       :: Meta
        }
   deriving(Show, Eq)
 
@@ -79,6 +86,7 @@ data Box = Box
   , boxBoxes  :: [BoxUid]   -- nested boxed
   , boxWires  :: [WireUid]  -- connections betweed ports and nested boxes
   , boxJuncitons :: [JunctionUid]
+  , boxMeta   :: Meta
   } deriving(Show, Eq)
 
 data BoxSyntax =
@@ -99,12 +107,19 @@ data BoxRelType =
 ---------------------------------------------------------------------
 -- JSON
 
+doMeta :: Map Text [Text] -> JSON.Value
+doMeta mp = JSON.object [ k .= doVal vs | (k,vs) <- Map.toList mp ]
+  where
+  doVal vs = case vs of
+               [v] -> JSON.toJSON v
+               _   -> JSON.toJSON vs
+
 instance JSON.ToJSON Gromet where
   toJSON g =
     JSON.object [ "syntax"    .= jsText "Gromet"
                 , "type"      .= jsText "PrTNet"
                 , "name"      .= grometName g
-                , "metadata"  .= JSON.Null
+                , "metadata"  .= doMeta (grometMeta g)
                 , "uid"       .= jsText (grometName g) -- XXX: ?
                 , "root"      .= grometRoot g
                 , "ports"     .= grometPorts g
@@ -119,6 +134,7 @@ instance JSON.ToJSON Junction where
                 , "uid"        .= jUID j
                 , "type"       .= jsText "State"   -- are there any others?
                 , "value_type" .= jValueType j
+                , "metadata"   .= doMeta (jMeta j)
                 ]
 
 instance JSON.ToJSON Port where
@@ -126,7 +142,7 @@ instance JSON.ToJSON Port where
     JSON.object [ "syntax"     .= jsText "Port"
                 , "type"       .= portType p
                 , "name"       .= portName p
-                , "metadata"   .= JSON.Null
+                , "metadata"   .= doMeta (portMeta p)
                 , "value_type" .= portValueType p
                 , "uid"        .= portUid p
                 , "box"        .= portBox p
@@ -138,7 +154,6 @@ instance JSON.ToJSON Wire where
                 , "uid"         .= wireUid w
                 , "type"        .= wireType w
                 , "value_type"  .= wireValueType w
-                , "metadata"    .= JSON.Null
                 , "src"         .= wireSource w
                 , "tgt"         .= wireTarget w
                 ]
@@ -153,6 +168,7 @@ instance JSON.ToJSON Box where
       , "boxes"     .= boxBoxes b
       , "ports"     .= boxPorts b
       , "junctions" .= boxJuncitons b
+      , "metadata"  .= doMeta (boxMeta b)
       ]
 
     varFields =

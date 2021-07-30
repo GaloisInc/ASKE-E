@@ -1,0 +1,3 @@
+{"argv":["python","-m","askee_kernel", "-f", "{connection_file}"],
+  "display_name":"ASKE-E"
+ }

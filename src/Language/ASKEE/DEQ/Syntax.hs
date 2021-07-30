@@ -25,7 +25,7 @@ data DiffEqs = DiffEqs
   , deqRates   :: Map Ident Expr      -- ^ These are the diff. eqns.
   , deqLets    :: Map Ident Expr
   }
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 instance TraverseExprs DiffEqs where
   traverseExprs f DiffEqs { .. } =

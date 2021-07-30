@@ -96,24 +96,78 @@ Example:
 }
 ```
 
-### `simulate-gsl` - Simulate a model using ODEs via the Gnu Scientific Library
+### `query-models` - Query models based on metadata
 
 **Request:**
 
-| Field            | Type                     | Description                                                           |
-|------------------|--------------------------|-----------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate-gsl"`   |
-| definition       | model-def                | Definition of the model                                               |
-| start            | number                   | Start time of the simulation                                          |
-| end              | number                   | End time of the simulation                                            |
-| step             | number                   | Simulation time step size                                             |
-| parameters       | dict                     | Parameter values/initial conditions for the simulation                |
+| Field            | Type                     | Description                                                       |
+|------------------|--------------------------|-------------------------------------------------------------------|
+| command          | string                   | The literal `"query-models"`|
+| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model level metadata (as returned by `list-models`) as well as parameter and measure metadata values for a match.|
 
 Example:
 
 ```JSON
 {
-  "command": "simulate-gsl",
+  "command": "query-models",
+  "text": "*hospital*"
+}
+```
+
+**Response:**
+
+
+| Field   | Type    | Description                                                       |
+|---------|---------|-------------------------------------------------------------------|
+| models  | list    | list of "model-def++" objects of the same form as returned by `list-models` |
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": [
+    {
+      "source": {
+          "model": "seird_hosp.easel"
+      },
+      "name": "SEIRS_Hospitalization_Death",
+      "description": "No description.",
+      "type": "easel"
+    },
+    {
+      "source": {
+          "model": "seird_hosp.easel"
+      },
+      "type": "gromet-prt"
+    }
+  ]
+}
+```
+
+### `simulate` - simulate a model
+
+**Request:**
+
+| Field            | Type                     | Description                                                         | Stipulations
+|------------------|--------------------------|---------------------------------------------------------------------|----------------
+| command          | string                   | The literal `"simulate"`                                            |
+| sim-type         | string                   | (optional) Simulation engine - one of `"aj"`, `"discrete"`, `"gsl"`, `"automates"` | Defaults to a model specific simulation type
+| definition       | model-def                | Definition of the model                                             | 
+| start            | number                   | Start time of the simulation                                        | 
+| end              | number                   | End time of the simulation                                          | 
+| step             | number                   | Simulation time step size                                           | 
+| seed             | integer                  | (optional) Seed for random number generation/event selection        | Only valid when `sim-type` is `discrete`
+| domain-parameter | string                   | (optional) Independent variable over which start/step/end varies    | Not yet supported, and only valid when simulating function networks
+| parameters       | dict                     | (optional) Parameter values/initial conditions for the simulation   | When `sim-type` is `aj`, parameters specified neither here nor in the model will default to 0
+| outputs          | list                     | Restrict model output to these values                               | Leave empty to output all variables
+
+Example:
+
+```JSON
+{
+  "command": "simulate",
+  "sim-type": "gsl",
   "definition": {
     "type": "easel",
     "source": { "model": "sir.easel" }
@@ -129,13 +183,12 @@ Example:
 
 **Response:**
 
+| Field            | Type                             | Description                                                       |
+|------------------|----------------------------------|-------------------------------------------------------------------|
+| times            | list of number                   | series of times used in simulation                                |
+| values           | list of result series object     | values of state varaibles                                         |
 
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| times            | list of number           | series of times used in simulation                                |
-| values           | result series object     | values of state varaibles                                         |
-
-The object in `values` is such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
 Example:
 
@@ -172,166 +225,6 @@ Example:
       60,
       90,
       120
-    ]
-  }
-}
-```
-
-### `simulate-aj` - Simulate a model using the `AlgebraicJulia` library
-
-**Request:**
-
-| Field            | Type                     | Description                                                           |
-|------------------|--------------------------|-----------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate-aj"`    |
-| definition       | model-def                | Definition of the model                                               |
-| start            | number                   | Start time of the simulation                                          |
-| end              | number                   | End time of the simulation                                            |
-| step             | number                   | Simulation time step size                                             |
-| parameters       | dict                     | Parameter values/initial conditions for the simulation                |
-
-Example:
-
-```JSON
-{
-  "command": "simulate-aj",
-  "definition": {
-    "type": "gromet-pnc",
-    "source": { "model": "sir.gromet" }
-  },
-  "start": 0,
-  "end": 120.0,
-  "step": 30.0,
-  "parameters": {
-    "beta": 0.0009
-  }
-}
-```
-
-
-**Response:**
-
-
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| times            | list of number           | series of times used in simulation                                |
-| values           | result series object     | values of state varaibles                                         |
-
-The object in `values` is structured identically to that of a `simulate-gsl` response.
-
-Example:
-
-```JSON
-{
-  "status": "success",
-  "result": {
-    "values": {
-      "I": [
-        3,
-        396.2048455040716,
-        119.33468889804428,
-        35.94323586312473,
-        10.826124195680332
-      ],
-      "S": [
-        997,
-        0.001257877688698183,
-        2.48067968772645e-06,
-        3.809490286003136e-07,
-        2.1651578118562457e-07
-      ],
-      "R": [
-        0,
-        603.79389661824,
-        880.6653086212763,
-        964.0567637559265,
-        989.173875587804
-      ]
-    },
-    "times": [
-      0,
-      30,
-      60,
-      90,
-      120
-    ]
-  }
-}
-```
-
-Note: in this example we chose a `beta` orders of magnitude smaller than in the `simulate-gsl` example to obtain roughly the same results. This is because our SIR ESL model declares an infection rate of `beta * S * I / (S + I + R)`, while the SIR Gromet model declares the rate as simply `beta`. When simulating a model, `AlgebraicJulia` takes the provided rate and applies an implicit mass-action scaling effect, multiplying the given rate by the product of the variables a particular event affects. We therefore end up with an actual infection rate of `beta * S * I` in the `AlgebraicJulia` framework. Matching these rates across frameworks requires dividing our "ESL `beta`" value by `S + I + R` (in our examples, this is `1000`) to obtain the pure mass-action scaler, i.e. our "Gromet `beta`".
-
-
-### `simulate-discrete` - Simulate a model using a custom-built discrete event simulator
-
-**Request:**
-
-| Field            | Type                     | Description                                                                |
-|------------------|--------------------------|----------------------------------------------------------------------------|
-| command          | string                   | Command - for this operation it will be the string `"simulate-discrete"`   |
-| definition       | model-def                | Definition of the model                                                    |
-| start            | number                   | Start time of the simulation                                               |
-| end              | number                   | End time of the simulation                                                 |
-| step             | number                   | Simulation time step size                                                  |
-| seed             | integer                  | (optional) use this seed for random number generation/event selection                     |
-
-
-```JSON
-{
-  "command": "simulate-discrete",
-  "definition": {
-    "type": "easel",
-    "source": { "file": "modelRepo/easel/sirs.easel" }
-  },
-  "start": 0,
-  "end": 120.0,
-  "step": 30.0
-}
-```
-
-**Response:**
-
-| Field            | Type                     | Description                                                       |
-|------------------|--------------------------|-------------------------------------------------------------------|
-| times            | list of number           | series of times used in simulation                                |
-| values           | result series object     | values of state varaibles                                         |
-
-The object in `values` is structured identically to that of a `simulate-gsl` response.
-
-```JSON
-{
-  "status": "success",
-  "result": {
-    "values": {
-      "D": [
-        0,
-        113,
-        246,
-        346
-      ],
-      "I": [
-        3,
-        558,
-        377,
-        303
-      ],
-      "S": [
-        997,
-        50,
-        74,
-        69
-      ],
-      "R": [
-        0,
-        279,
-        303,
-        282
-      ]
-    },
-    "times": [
-      30.0028,
-      60.0238,
-      90.0006
     ]
   }
 }

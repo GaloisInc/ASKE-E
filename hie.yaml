@@ -3,6 +3,12 @@ cradle:
     - path: "src"
       component: "lib:aske-e"
 
+    - path: "app/champ/Main.hs"
+      component: "aske-e:exe:champ"
+
+    - path: "app/champ/Logo.hs"
+      component: "aske-e:exe:champ"
+
     - path: "app/deca/Main.hs"
       component: "aske-e:exe:deca"
 
@@ -12,20 +18,20 @@ cradle:
     - path: "app/donu/Main.hs"
       component: "aske-e:exe:donu"
 
-    - path: "app/donu/SchemaJS.hs"
-      component: "aske-e:exe:donu"
-
-    - path: "app/donu/SchemaGeneric.hs"
-      component: "aske-e:exe:donu"
-
-    - path: "app/donu/Schema.hs"
+    - path: "app/donu/ExposureSession.hs"
       component: "aske-e:exe:donu"
 
     - path: "app/donu/HTML.hs"
       component: "aske-e:exe:donu"
 
-    - path: "app/ex/Main.hs"
-      component: "aske-e:exe:ex"
+    - path: "app/donu/Schema.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/SchemaGeneric.hs"
+      component: "aske-e:exe:donu"
+
+    - path: "app/donu/SchemaJS.hs"
+      component: "aske-e:exe:donu"
 
     - path: "test"
       component: "aske-e:test:tests"

@@ -9,6 +9,8 @@ import qualified Data.Text.IO as Text
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
 import Language.ASKEE.Model.Basics ( ModelType(..), allModelTypes )
+import qualified Language.ASKEE.ESL as ESL
+import Language.ASKEE.Gromet(grometText,convertCoreToGromet)
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
@@ -51,10 +53,37 @@ loadModelText baseDirectory format source =
       | otherwise ->
         do let path = modelLocation baseDirectory format name
            yes <- Directory.doesFileExist path
-           unless yes bad
-           Text.readFile path
+           case (yes,format) of
+
+             -- Special case to auto-convert ESL to PRT Gromet
+             (False,GrometPrtType) ->
+                do txt <- loadModelText baseDirectory EaselType source
+                   case eslAsGromet txt of
+                     Right a -> pure a
+                     Left err -> die (StorageError err)
+             (False,_) -> bad
+             _ -> Text.readFile path
       where
       bad = die (StorageError ("model "++ show name ++ " doesn't exist"))
+
+eslAsGromet :: Text -> Either String Text
+eslAsGromet txt =
+  do m <- ESL.parseESL txt
+     pure (grometText (convertCoreToGromet (ESL.modelAsCore m)))
+
+-- | Is this model in the database
+-- This check if the actual file is in the databse, and does consider
+-- the "virtual" gromets
+doesModelExist :: FilePath -> ModelType -> DataSource -> IO Bool
+doesModelExist baseDirectory format source =
+  case source of
+    Inline _ -> pure True
+    FromFile file -> Directory.doesFileExist file
+    FromStore name
+      | not (validModelName name) -> pure False
+      | otherwise ->
+        Directory.doesFileExist (modelLocation baseDirectory format name)
+
 
 storeModel' :: FilePath -> ModelName -> ModelType -> Text -> IO FilePath
 storeModel' baseDirectory name format model =
@@ -71,11 +100,19 @@ storeModel baseDirectory name format model =
   void $ storeModel' baseDirectory name format model
 
 listAllModels :: FilePath -> IO [ModelDef]
-listAllModels baseDirectory = concat <$> sequence [ listModels baseDirectory mt | mt <- allModelTypes ]
+listAllModels baseDirectory =
+  concat <$> sequence [ listModels baseDirectory mt | mt <- allModelTypes ]
 
 listModels :: FilePath -> ModelType -> IO [ModelDef]
 listModels baseDirectory mt =
-  do files <- Directory.listDirectory (modelTypeLocation baseDirectory mt)
+  do files0 <- Directory.listDirectory (modelTypeLocation baseDirectory mt)
+     files <- case mt of
+                GrometPrtType ->
+                  do extra0 <- Directory.listDirectory
+                                    (modelTypeLocation baseDirectory EaselType)
+                     let extra = [ f | f <- extra0, not (f `elem` files0) ]
+                     pure (files0 ++ extra)
+                _ -> pure files0
      pure [ ModelDef { modelDefSource = FromStore f
                      , modelDefType   = mt
                      } | f <- map Text.pack files, validModelName f ]
