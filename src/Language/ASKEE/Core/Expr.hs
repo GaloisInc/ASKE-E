@@ -143,6 +143,7 @@ simplifyExpr :: Expr -> Expr
 simplifyExpr expr =
   case mapAt exprChildren (toFrom . simplifyExpr . toFrom) expr of
     If (BoolLit b) e1 e2          -> if b then e1 else e2
+
     -- Numerics
     Op1 Neg (Op1 Neg e)           -> e
     Op1 Neg (NumLit x)            -> NumLit (negate x)
@@ -155,15 +156,23 @@ simplifyExpr expr =
     Op2 Add (NumLit 0) e          -> e
     Op2 Add e (NumLit 0)          -> e
     Op2 Add (NumLit x) (NumLit y) -> NumLit (x + y)
+    e1 :+: (e2 :+: e3)            -> (e1 :+: e2) :+: e3
 
     Op2 Sub (NumLit 0) e          -> simplifyExpr (Op1 Neg e)
     Op2 Sub e (NumLit 0)          -> e
     Op2 Sub (NumLit x) (NumLit y) -> NumLit (x - y)
+    e1 :-: (e2 :-: e3) -> (e1 :-: e2) :-: e3
 
     Op2 Mul (NumLit 0) _          -> NumLit 0
     Op2 Mul _ (NumLit 0)          -> NumLit 0
     Op2 Mul (NumLit 1) e          -> e
     Op2 Mul e (NumLit 1)          -> e
+
+    (NumLit n) :*: (NumLit m) -> NumLit (n * m)
+    e1 :*: (Op1 Neg e2) :*: e3 -> Op1 Neg e1 :*: e2 :*: e3
+    e1 :*: e2@(NumLit _) -> e2 :*: e1
+    e1 :*: (Op1 Neg e2) -> Op1 Neg e1 :*: e2
+    e1 :*: (e2 :*: e3) -> (e1 :*: e2) :*: e3
 
     Op2 Mul e (NumLit (-1))       -> simplifyExpr (Op1 Neg e)
     Op2 Mul (NumLit (-1)) e       -> simplifyExpr (Op1 Neg e)
