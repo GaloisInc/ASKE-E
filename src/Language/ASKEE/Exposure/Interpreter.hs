@@ -8,6 +8,7 @@ module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
+import Control.Monad (unless)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -16,6 +17,7 @@ import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
 import Control.Applicative((<|>), Alternative(..))
 import Data.Foldable(traverse_)
+import qualified Data.List.Extra as List
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(isJust, catMaybes)
@@ -377,6 +379,22 @@ interpretCall fun args =
       case args of
         [vPredicted, vActual] -> interpretMeanError abs vPredicted vActual
         _                     -> typeError "mae expects two arguments"
+
+    FTable ->
+      case args of
+        [VArray labels, VArray columns] ->
+          do  labels'  <- traverse str labels
+              columns' <- traverse (array pure) columns
+              let numLabels  = length labels'
+                  numColumns = length columns'
+              unless (numLabels == numColumns) $
+                throw $ "Expected " <> Text.pack (show numLabels)
+                                    <> "columns, received "
+                                    <> Text.pack (show numColumns)
+              unless (List.allSame (map length columns')) $
+                throw "Columns must all have the same number of elements"
+              pure $ VTable labels' columns'
+        _ -> typeError "table expects a list of labels and a list of columns as arguments"
 
   where
 

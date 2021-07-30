@@ -57,6 +57,11 @@ data Value
   | VPlot Text [Text] [Double] [[Double]]
   | VScatter Text [Text] [Double] [[[Double]]]
     -- ^ last list is indexed by series, then time, then sample
+  | VTable [Text]    -- List of header labels
+           [[Value]] -- The contents of rows after the header.
+                     -- The outer list should be equal in length to the list of
+                     -- header labels. Each of the inner lists should be of
+                     -- equal length to each other.
   deriving (Show, Eq, Ord)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
@@ -96,6 +101,7 @@ data FunctionName
   | FAsEqnArray
   | FMSE -- Mean Squared Error
   | FMAE -- Mean Absolute Error
+  | FTable
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -138,6 +144,7 @@ prefixFunctionName ident =
     "asEqnArray"  -> Right FAsEqnArray
     "mse"         -> Right FMSE
     "mae"         -> Right FMAE
+    "table"       -> Right FTable
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

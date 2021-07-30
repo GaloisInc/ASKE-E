@@ -26,6 +26,7 @@ ppValue v = case v of
                           map (\(key, val) -> tupled [viaShow key, ppValue val]) $ Map.toList m
   VPlot{}              -> text "<plot>"
   VScatter{}           -> text "<scatter-plot>"
+  VTable{}             -> text "<table>"
   VDFold{}             -> notImplemented "VDFold"
   VSFold{}             -> notImplemented "VSFold"
   VSuspended           -> notImplemented "VSuspended"

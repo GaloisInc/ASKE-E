@@ -205,6 +205,28 @@ def format_latex(orig_latex):
     """
     return "$$ \n" + ''.join(w+" \\\\\n" for w in orig_latex.splitlines()) + "$$"
 
+
+def format_table(labels, rows):
+    """
+    TODO RGS: Docs
+    """
+    def mk_md_row(cells):
+        row  = "|"
+        row += "|".join(cells)
+        return row + "|"
+
+    md = []
+    md.append(mk_md_row(labels))
+    md.append(mk_md_row(["---" for i in range(len(labels))]))
+    for row in rows:
+        md.append(mk_md_row(str(e['value']) for e in row))
+
+    out = {
+        'text/markdown': "\n".join(md)
+    }
+    return out
+
+
 def format_resp_value(v):
     if isinstance(v, dict):
         ty = v['type']
@@ -233,6 +255,9 @@ def format_resp_value(v):
 
         if ty == 'latex':
             return { 'text/latex': format_latex(val) }
+
+        if ty == 'table':
+            return format_table(val['labels'], val['rows'])
 
     return { 'text/plain': json.dumps(v) }
 

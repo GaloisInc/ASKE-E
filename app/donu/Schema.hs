@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Schema where
 
+import qualified Data.List as List
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
@@ -534,6 +535,12 @@ instance JS.ToJSON DonuValue where
                     , "yss"     .= JS.toJSON yss
                     ]
 
+      VTable labels columns ->
+        typed "table" $
+          JS.object [ "labels" .= JS.toJSON labels
+                    , "rows"   .= JS.toJSON (List.transpose (map (map DonuValue) columns))
+                    ]
+
       VArray vs ->
         typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
 
@@ -548,7 +555,8 @@ instance JS.ToJSON DonuValue where
       VSFold {}      -> unimplVal "<sfold>"
       VSuspended     -> unimplVal "<suspended>"
 
-      _ -> error "TBD"
+      VSampledData{} -> tbd
+      VPoint{}       -> tbd
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
@@ -561,3 +569,6 @@ instance JS.ToJSON DonuValue where
 
       unimplVal :: String -> JS.Value
       unimplVal str = typedPrim "string" str
+
+      tbd :: JS.Value
+      tbd = error "TBD"

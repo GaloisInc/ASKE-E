@@ -135,6 +135,7 @@ library
                       , Chart
                       , containers
                       , directory
+                      , extra
                       , filepath
                       , hmatrix
                       , hmatrix-gsl
