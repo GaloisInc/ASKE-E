@@ -130,10 +130,9 @@ suspend v
 data EvalRead = EvalRead
   { erPrecomputed :: Map Value Value
   , erLocalVars   :: Map Ident Value
-  , putFileFn     :: FilePath -> LBS.ByteString -> IO ()
-  , getFileFn     :: FilePath -> IO LBS.ByteString
+  , erPutFileFn   :: FilePath -> LBS.ByteString -> IO ()
+  , erGetFileFn   :: FilePath -> IO LBS.ByteString
   }
-   -- TODO: Should the IO be LBS? DataSeries requires it for read, and why not be consistent...?
 
 emptyEvalRead :: EvalRead
 emptyEvalRead = EvalRead Map.empty Map.empty LBS.writeFile LBS.readFile
@@ -159,12 +158,12 @@ throw = Except.throwError
 
 putFile :: FilePath -> LBS.ByteString  -> Eval ()
 putFile f contents =
-  do putF <- RWS.asks putFileFn
+  do putF <- RWS.asks erPutFileFn
      io $ putF f contents
 
 getFile :: FilePath -> Eval LBS.ByteString
 getFile f =
-  do getF <- RWS.asks getFileFn
+  do getF <- RWS.asks erGetFileFn
      io $ getF f
 
 notImplemented :: Text -> Eval a
