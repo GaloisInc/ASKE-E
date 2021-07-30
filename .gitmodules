@@ -1,3 +1,6 @@
 [submodule "ASKE-E-Simulation-WG"]
 	path = ASKE-E-Simulation-WG
 	url = https://github.com/samcowger/ASKE-E-Simulation-WG.git
+[submodule "demoRepo"]
+	path = demoRepo
+	url = https://github.com/GaloisInc/askee-august-2021-demo-model-collection.git
