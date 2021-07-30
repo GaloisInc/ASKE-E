@@ -97,7 +97,7 @@ ppTransition ev = hsep [ label, guard <+> text "->", rate <> colon, effect <> se
 
 ppExpr :: Expr -> Doc
 ppExpr expr =
-  case expr of
+  case simplify expr of
     NumLit d -> let (val::Integer) = round d in
                 if d == fromInteger val
                 then text $ show val
@@ -152,6 +152,27 @@ ppExpr expr =
           panic 
             "encountered unknown Core expression when pretty-printing" 
             [ "while determining precedence", show e ]
+
+simplify :: Expr -> Expr
+simplify e =
+  let e' = simplifyExpr. toFrom . simplifyExpr $ mapAt exprChildren propLeft (propLeft e)
+  in if e == e' then e' else simplify e'
+
+propLeft :: Expr -> Expr
+propLeft e0 =
+  case e0 of
+    (NumLit n) :*: (NumLit m) -> NumLit (n * m)
+    --(e1@(NumLit _) :*: e2) :+: (e3@(NumLit _) :*: e4) -> if e2 == e4 then (e1 :+: e3) :*: e4 else (e1 :*: e2) :+: (e3 :*: e4)
+    --(e1@(NumLit _) :*: e2) :-: (e3@(NumLit _) :*: e4) -> if e2 == e4 then (e1 :+: e3) :*: e4 else (e1 :*: e2) :-: (e3 :*: e4)
+    e1 :*: (Op1 Neg e2) :*: e3 -> Op1 Neg e1 :*: e2 :*: e3
+    e1 :+: (Op1 Neg e2) -> e1 :-: e2
+    e1 :-: (Op1 Neg e2) -> e1 :+: e2
+    e1 :*: e2@(NumLit _) -> e2 :*: e1
+    e1 :*: (Op1 Neg e2) -> (Op1 Neg e1) :*: e2
+    --e1 :+: (e2 :+: e3) -> (e1 :+: e2) :+: e3
+    --e1 :-: (e2 :-: e3) -> (e1 :-: e2) :-: e3
+    e1 :*: (e2 :*: e3) -> (e1 :*: e2) :*: e3
+    _ -> e0
 
 text :: String -> Doc
 text = PP.pretty
