@@ -448,15 +448,14 @@ instance HasSpec DescribeModelInterfaceCommand where
 -- Query
 
 newtype QueryModelsCommand = QueryModelsCommand
-  { queryParameters :: [(Text, Text)] }
+  { queryText :: Text }
   deriving Show
 
 instance HasSpec QueryModelsCommand where
   anySpec =
     sectionsSpec "query-models"
     do  reqSection' "command" (jsAtom "query-models") "Query available models"
-        queryParameters <- reqSection' "query" (assocSpec anySpec)
-                           "Query parameters expressed a set of key-value pairs"
+        queryText <- reqSection' "text" textSpec "Text to search"
         pure QueryModelsCommand { .. }
 
 -------------------------------------------------------------------------------

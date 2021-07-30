@@ -18,12 +18,9 @@ Kolmogorov complexity (and our computable proxy: compressibility) considers the 
 Alpha-conversion
 ----------------
 
-When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is affected strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content. Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are not subjected to alpha-conversion. Keyword argument names are considered an essential part of function invocation and are not subjected to alpha-conversion.
+When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content.
 
-Keyword normalization
----------------------
-
-The set of reserved words and directives varies according to programming language. After alpha-conversion, we assume that remaining unconverted symbols are specific to the language and convert these to tokens of uniform length.
+Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are subjected to an independent pass of alpha-conversion. Keyword argument names are considered an essential part of function invocation and are also subjected to this second alpha-conversion pass. Using two independent passes of alpha-conversion effectively provides two namespaces for the normalized symbol names, thus isolating the normalized lengths of user-defined and language-defined symbols from influencing each other.
 
 Other Considerations
 --------------------
@@ -31,6 +28,8 @@ Other Considerations
 The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm.
 
 Implementations of a given compression method may differ in their encodings while still being considered to be the same method[5]; we don't know how significant these differences may be as regards a compressibility measure.
+
+As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
 
 Validation of Approach
 ----------------------
@@ -48,9 +47,7 @@ We attempted to apply Latent Semantic Indexing[6] as a measure of document simil
 
 We considered and rejected the use of edit distance[7] (e.g. Levenshtein distance[8]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical.
 
-We have considered the use of structural metrics[9,10]. Measurement of these metrics depends upon the ability to build an AST from the source text.
-
-As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
+We have considered the use of structural metrics[9,10]. Measurement of these metrics depends upon the ability to build an AST from the source text. The Halstead metric is based upon counts of operators and operands. This approach, proposed in 1977, predates the common usage of modern programming paradigms (object, functional, message-passing, etc.); it's not clear that later research has attempted to validate the metric for modern programming languages and techniques. The Cyclomatic (McCabe) metric, proposed in 1976, denotes a program's complexity in terms of the shape of its control-flow graph. This metric was designed to flag code in need of refactoring to simplify complex or deeply-nested control flows. Cyclomatic complexity analysis tools often analyze only a function at a time; the complexity estimate for a whole program is taken as the average of the complexity of its functions.
 
 Results
 -------
@@ -61,11 +58,16 @@ We also gathered several ODEs with corresponding solvers written in Julia[12] an
 
 Finally, we used the Penn CHIME model[14] and the model's Python implemention[15]. The Python code has been stripped of comments and logging functionality.
 
-The following table shows the analysis of the sample source codes.
+The following table shows the analysis of the sample source codes. The referenced sources are listed in Appendix B.
 
 ```
 FILL_USING ./report.sh
 ```
+
+Alternative Metrics
+-------------------
+
+For purposes of comparison to legacy software metrics, Appendix A contains analyses extracted using both lizard[16] (for function-level Cyclomatic complexity) and multimetric[17] (for Halstead's effort metric).
 
 References
 ----------
@@ -86,10 +88,29 @@ References
 [13] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
 [14] https://code-for-philly.gitbook.io/chime/what-is-chime/sir-modeling
 [15] https://raw.githubusercontent.com/CodeForPhilly/chime/develop/src/penn_chime/model/sir.py
+[16] https://pypi.org/project/lizard/
+[17] https://pypi.org/project/multimetric/
 ```
 
-Appendix
---------
+Appendix A
+----------
+
+This appendix illustrates structural complexity metrics for comparison to the Kolmogorov metric used in the body of the report.
+
+Here is an example of McCabe complexity analysis at the level of individual functions (CCN is Cyclomatic Complexity Number; NS is the count of nested control structures):
+
+```
+FILL_USING ./mccabe/lizard-ccm.sh ./samples/chime_sir.py
+```
+
+The following table lists Halstead's predicted effort for all sample programs:
+
+```
+FILL_USING ./halstead/halstead-all.sh
+```
+
+Appendix B
+----------
 
 This is all of the sample code:
 
