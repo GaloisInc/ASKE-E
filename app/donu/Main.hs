@@ -156,41 +156,9 @@ handleRequest r =
     QueryModels QueryModelsCommand {..} ->
       succeed <$> liftIO (queryModels queryParameters)
 
-    -- ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
-    --   do exposureServer
-    --      succeed' ()
-      -- case lexExposure (Text.unpack code) >>= parseExposureStmts of
-      --   Left err ->
-      --     pure $ FailureResult $ Text.pack err
-      --   Right stmts ->
-      --     stepExposureSession stmts
-
-    -- ResetExposureState _ ->
-    --   do Snap.with exposureSessions $
-    --        putExposureSessionState Exposure.initialEnv
-    --      succeed' ()
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
 
     succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Snap Result
     succeed' = pure . succeed
-
--- -- Driving Exposure -----------------------------------------------------------
-
--- -- | Run the given exposure statements in the current session and return the
--- -- resulting DisplayValues as a (JSON) list (or any error messages)
--- stepExposureSession :: [Exposure.Stmt] -> Snap.Snap Result
--- stepExposureSession stmts =
---   do env <- Snap.with exposureSessions $
---        fromMaybe Exposure.initialEnv <$> getExposureSessionState
---      (res, env') <- liftIO $ Exposure.evalStmts stmts env
---      case res of
---        Left err ->
---          do Snap.with exposureSessions $
---               putExposureSessionState env'
---             pure $ FailureResult err
---        Right (displays, _effs) -> -- TODO: Do we want to do anything with _effs?
---          do Snap.with exposureSessions $
---               putExposureSessionState env'
---             return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays
