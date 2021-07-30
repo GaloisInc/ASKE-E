@@ -7,4 +7,4 @@ Working with `AlgebraicJulia` (for model stratification or PNC gromet simulation
 
 ## Models
 
-Some of the models you might expect `donu` to serve, if you're using it locally, are symlinked to from a submodule ([`demoRepo`](./demoRepo)). The classic `git submodule update --init` should populate it.
+Some of the models you might expect `donu` to serve, if you're using it locally, are symlinked to from a submodule (`demoRepo`). The classic `git submodule update --init` should populate it.
