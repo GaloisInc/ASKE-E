@@ -96,6 +96,8 @@ Example:
 }
 ```
 
+### `query-models` - Query models based on metadata
+
 **Request:**
 
 | Field            | Type                     | Description                                                       |
