@@ -34,8 +34,8 @@ import qualified Numeric.GSL.Interpolation as Interpolation
 import Witherable (Witherable(..))
 
 
+import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Core as Core
-import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
@@ -494,22 +494,22 @@ interpretCall fun args =
 
 interpretFit :: Value -> DS.DataSeries Double -> [Value] -> Eval Value
 interpretFit mv ds ps =
-  do m   <- model mv
+  do m   <- Model.Core <$> model mv
      ps' <- traverse str ps
-     case Model.toDeqs (Model.Core m) of
+     case Model.toDeqs m of
        Left err ->
          throw $ Text.pack err
        Right deq ->
-         do let res = DEQ.fitModel deq ds mempty $ Map.fromList (zip ps' (repeat 0))
-            case res of
-              Left inv ->
-                throw $ "Model " <> Core.modelName m <> " does not have parameters named: "
-                     <> Text.pack (show inv)
-              Right fit ->
-                do let fitM = fst fit
-                       vals = VPoint $ Map.map (VDouble . fst) fitM
-                       errs = VPoint $ Map.map (VDouble . snd) fitM
+         do let iface     = A.describeModelInterface m
+                ifaceErrs = A.paramsNotExistErrors (Set.fromList ps') iface
+            case ifaceErrs of
+              [] ->
+                do let (res, _) = DEQ.fitModel deq ds mempty $ Map.fromList (zip ps' (repeat 0))
+                       vals = VPoint $ Map.map (VDouble . fst) res
+                       errs = VPoint $ Map.map (VDouble . snd) res
                    return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
+              _ ->
+                throw (Text.unlines ifaceErrs)
 
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
