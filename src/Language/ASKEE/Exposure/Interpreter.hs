@@ -22,8 +22,10 @@ import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(isJust, catMaybes)
 import Data.Text(Text)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
+import qualified Data.Text.Lazy.Encoding as Text
+import qualified Data.Text.Lazy as Text (toStrict)
 import Data.Set(Set)
 import Data.List (transpose)
 import qualified Data.Set as Set
@@ -50,14 +52,11 @@ runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
-evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalStmts stmts env = evalLoop env stmts
-
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalLoop env stmts = go emptyEvalRead
+evalLoop :: EvalRead -> Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
+evalLoop evr env stmts = go evr
   where
     go :: EvalRead -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
     go m =
@@ -126,10 +125,22 @@ suspend v
 data EvalRead = EvalRead
   { erPrecomputed :: Map Value Value
   , erLocalVars   :: Map Ident Value
+  , erPutFileFn   :: EvalWriteFileFn
+  , erGetFileFn   :: EvalReadFileFn
   }
 
-emptyEvalRead :: EvalRead
-emptyEvalRead = EvalRead Map.empty Map.empty
+type EvalReadFileFn  = FilePath -> IO LBS.ByteString
+type EvalWriteFileFn = FilePath -> LBS.ByteString -> IO ()
+
+
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
+mkEvalReadEnv rd wr = EvalRead
+  { erPrecomputed = Map.empty
+  , erLocalVars   = Map.empty
+  , erPutFileFn   = wr
+  , erGetFileFn   = rd
+  }
+
 
 data StmtEff =
   StmtEffBind Ident Value
@@ -149,6 +160,16 @@ io = liftIO
 
 throw :: Text -> Eval a
 throw = Except.throwError
+
+putFile :: FilePath -> LBS.ByteString  -> Eval ()
+putFile f contents =
+  do putF <- RWS.asks erPutFileFn
+     io $ putF f contents
+
+getFile :: FilePath -> Eval LBS.ByteString
+getFile f =
+  do getF <- RWS.asks erGetFileFn
+     io $ getF f
 
 notImplemented :: Text -> Eval a
 notImplemented what = throw ("not implemented: " <> what)
@@ -285,21 +306,20 @@ interpretCall fun args =
     FLoadEasel   ->
       case args of
         [VString path] ->
-          do  eitherVal <-
-                io $
-                  do  src <- Text.readFile (Text.unpack path)
-                      let m = Model.parseModel MB.EaselType src >>= Model.toCore
-                      pure (VModelExpr . EVal . VModel <$> m)
-              case eitherVal of
+          do  src <- Text.toStrict . Text.decodeUtf8 <$> getFile (Text.unpack path)
+              let m = Model.parseModel MB.EaselType src >>= Model.toCore
+              case VModelExpr . EVal . VModel <$> m of
                 Left err -> throw (Text.pack err)
-                Right m -> pure m
+                Right mdl -> pure mdl
         _ -> typeError "loadESL expects a single string argument"
 
     FLoadCSV ->
       case args of
         [VString path] ->
-          do ds <- io $ DS.parseDataSeriesFromFile $ Text.unpack path
-             pure $ VModelExpr $ EVal $ VDataSeries ds
+          do csv <- getFile (Text.unpack path)
+             case DS.parseDataSeries csv of
+               Left err -> throw (Text.pack err)
+               Right ds -> pure $ VModelExpr $ EVal $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
 
     FMean ->
