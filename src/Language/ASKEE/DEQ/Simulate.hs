@@ -175,20 +175,26 @@ fitModel ::
   DataSeries Double {- ^ Data to fit -} ->
   Map Ident Double  {- ^ Scaling for resudals, assumed to be 1 if missing -} ->
   Map Ident Double  {- ^ Initial parameter values -} ->
-  (Map Text (Double,Double), [ Map Text Double ])
+  Either [Ident] (Map Text (Double,Double), [ Map Text Double ])
   -- ^ Returns (result, search path)
   -- where result is the computed value for each parameter,
   -- and the corresponding errror
-fitModel eqs ds scaled start =
-  ( psFromVec slns
-  , map (psFromVec . LinAlg.toList) (LinAlg.toColumns path)
-  )
+fitModel eqs ds scaled start
+  | not (Set.null invalidParams) =
+    Left (Set.toList invalidParams)
+  | otherwise =
+    Right ( psFromVec slns
+          , map (psFromVec . LinAlg.toList) (LinAlg.toColumns path)
+          )
   where
   (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
   ps            = map asText $ Map.keys $ deqParams eqs'
   initParams    = psToVec start
   psToVec vs    = [ vs Map.! p | p <- ps ]
   psFromVec vs  = Map.fromList (ps `zip` vs)
+
+  invalidParams = Set.fromList (Map.keys start) Set.\\
+                  Set.fromList (Map.keys (deqParams eqs))
 
   dt            = [ (x,(vs,s))
                   | (x,vs) <- Map.toList (values ds)

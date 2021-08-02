@@ -338,7 +338,7 @@ fitModelToData ::
   [Text] {- ^ parameters to fit -} -> 
   Map Text Double {- ^ ??? -} ->
   DataSource {- ^ the model -} -> 
-  IO (Map Text (Double, Double), [Map Text Double])
+  IO (Either [Text] (Map Text (Double, Double), [Map Text Double]))
   -- IO (Map Text (Double, Double))
 fitModelToData format fitData fitParams fitScale source = 
   do  eqs <- loadDiffEqsFrom format source
