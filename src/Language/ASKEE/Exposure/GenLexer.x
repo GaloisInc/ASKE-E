@@ -12,9 +12,8 @@ import Language.ASKEE.Exposure.Lexer
 $upper   = [A-Z]
 $lower   = [a-z]
 $digit   = [0-9]
-$graphic = $printable # $white
 
-@string    = \" ($graphic # \")* \"
+@string    = \" ($printable # \")* \"
 @exp       = e [\+\-]? $digit+
 @real      = $digit+ (\. $digit+)? @exp?
 @identHead = [$upper $lower _]

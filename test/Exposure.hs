@@ -181,5 +181,8 @@ tests =
                          "mae([1, 2, 3], 4)"         $ \val1 val2 -> val1 @=? val2
           exprAssertion2 "mae(1,         [4, 5, 6])"
                          "mae([1, 1, 1], [4, 5, 6])" $ \val1 val2 -> val1 @=? val2
+      , testCase "String with whitespace" $ do
+          exprAssertion "\"Hello World\"" $ \actualVal ->
+            actualVal @?= VString "Hello World"
       ]
     ]
