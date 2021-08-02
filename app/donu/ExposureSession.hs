@@ -81,8 +81,11 @@ readClientFile c f =
   do sendTextData c (ReadFile f)
      msg <- receiveData c
      case msg of
-       FileContents contents -> pure contents
-       _ -> pure "" -- TODO: Should this throw an error?
+       FileContents contents ->
+         pure contents
+       _ ->
+         error $ "readClientFile: expecting FileContents but received "
+              ++ show msg
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
