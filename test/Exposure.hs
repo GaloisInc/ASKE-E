@@ -44,14 +44,11 @@ exprShouldEvalTo actualExprStr expectedVal =
 exprAssertion :: String -> (Value -> Assertion) -> Assertion
 exprAssertion = exprAssertionWithStmts []
 
-emptyEvalRead :: EvalRead
-emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
-
 exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithStmts stmtStrs actualExprStr k = do
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)              <- evalStmts stmts emptyEvalRead initialEnv
+  (lr, env)              <- evalLoop emptyEvalRead initialEnv stmts
   (_, _)                 <- assertRightText lr
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
@@ -61,11 +58,14 @@ exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> A
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
   stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)  <- evalStmts stmts emptyEvalRead initialEnv
+  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
   assertLeft lr
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
+
+emptyEvalRead :: EvalRead
+emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
 
 exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2 = exprAssertion2WithStmts []
@@ -75,7 +75,7 @@ exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
   stmts             <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   expr1             <- assertRightStr $ lexAndParseExpr exprStr1
   expr2             <- assertRightStr $ lexAndParseExpr exprStr2
-  (lr, env)         <- evalStmts stmts initialEnv
+  (lr, env)         <- evalLoop emptyEvalRead initialEnv stmts
   (_, _)            <- assertRightText lr
   (errOrVal1, _, _) <- runEval emptyEvalRead env $ interpretExpr expr1
   (errOrVal2, _, _) <- runEval emptyEvalRead env $ interpretExpr expr2

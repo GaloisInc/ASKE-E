@@ -50,9 +50,6 @@ runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
-evalStmts :: [Stmt] -> EvalRead -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalStmts stmts evr env = evalLoop evr env stmts
-
 initialEnv :: Env
 initialEnv = Env Map.empty
 
