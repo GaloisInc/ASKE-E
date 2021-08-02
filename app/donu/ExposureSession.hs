@@ -50,7 +50,7 @@ exposureServerLoop c = go Exposure.initialEnv
       do msg <- X.try (receiveData c)
          case msg of
            Right msg' -> onReceive msg' env
-           Left  ex   -> print ex >> onExcept ex
+           Left  ex   -> onExcept ex
 
     onReceive msg env =
       case msg of
@@ -71,11 +71,8 @@ exposureServerLoop c = go Exposure.initialEnv
     eval = Exposure.evalLoop evr
     evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
 
-    onExcept e =
-      case e of
-        CloseRequest{} -> return ()
-        ConnectionClosed -> return ()
-        _ -> return ()
+    onExcept :: ConnectionException -> IO ()
+    onExcept _ = return ()
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
