@@ -101,7 +101,6 @@ import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
-import qualified Language.ASKEE.Expr                   as Expr
 import           Language.ASKEE.Metadata               ( MetaAnn(..) )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
@@ -593,40 +592,3 @@ describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterf
       case model of
         GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
         _ -> Nothing
-
-doJoin :: IO ()
-doJoin =
-  do  sir <- loadESL (FromStore "sir.easel")
-      sirsd <- loadESL (FromStore "sirs.easel")
-      let m = join (Map.singleton "S" "S") sir sirsd
-          Right mt = printModel (Easel m)
-          filename = "join.easel"
-      writeFile filename mt
-      putStrLn $ "wrote to "<>filename
-
-doCompose :: IO ()
-doCompose =
-  do  sir <- loadESL (FromStore "sir.easel")
-      sir' <- loadESL (FromStore "sir-small-beta.easel")
-      let e = Expr.Var "time" `Expr.GT` Expr.LitD 10
-          m = compose (Map.fromList [(x,x) | x <- ["S", "I", "R"]]) sir sir' e e
-          Right mt = printModel (Easel m)
-          filename = "compose.easel"
-      writeFile filename mt
-      putStrLn $ "wrote to "<>filename
-
-doEnsemble :: IO ()
-doEnsemble =
-  do  sir <- loadESL (FromStore "sir.easel")
-      sir' <- loadESL (FromStore "sir-small-beta.easel")
-      let m = ensemble [(sir, 1.0), (sir', 0.3)] Average
-          Right mt = printModel (Easel m)
-          filename = "ensemble.easel"
-      writeFile filename mt
-      putStrLn $ "wrote to "<>filename
-
-doDemo :: IO ()
-doDemo =
-  do  doJoin
-      doCompose
-      doEnsemble
