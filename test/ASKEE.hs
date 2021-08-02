@@ -101,7 +101,7 @@ testFitParam mdlSrc params dataToFit =
      res <- fitModelToData EaselType (Inline lbsData) (fst <$> params) mempty mdlSrc
      case res of
        Left msg -> assertFailure ("params " ++ show msg ++ " not found in model")
-       Right fit ->
+       Right (fit, _) ->
          forM_ params $ \(param, (lo, hi)) ->
            case Map.lookup param fit of
              Just (x, _) ->
