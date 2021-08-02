@@ -3,14 +3,16 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Language.ASKEE.Core.Syntax where
 
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
+import           Data.Set (Set)
 import qualified Data.Set  as Set
-import qualified Data.Text as Text
 import           Data.Text ( Text )
+import qualified Data.Text as Text
 
 import Language.ASKEE.Core.Expr
 
@@ -156,3 +158,52 @@ legalize m@Model{..} =
     freshening = map (Text.pack . show) [1::Integer ..]
 
     flipMap = Map.fromList . map (\(a, b) -> (b, a)) . Map.toList
+
+-- | Prune the model to only include events influencing or influenced by,
+-- directly or indirectly, the specified state variables, and the parameters
+-- and let bindings necessary to let those events fire.
+-- TODO this is a little overeager about including events - we may want to
+-- change `let vars' = vars `Set.union` collectVars' e` to be more tailored to
+-- examine an event's actual effect, but I'm not sure that's sound
+pruneModel :: Set Ident -> Model -> Model
+pruneModel states model@Model{..} =
+  model 
+    { modelLets = relevantLets
+    , modelEvents = relevantEvents
+    , modelParams = relevantParams
+    , modelInitState = relevantStates
+    , modelMeta = relevantMeta }
+  where
+    restrict what = Map.restrictKeys what (Set.unions $ map collectVars' relevantEvents)
+    
+    relevantParams = restrict modelParams 
+    relevantLets   = restrict modelLets
+    relevantStates = restrict modelInitState
+    relevantMeta   = restrict modelMeta
+
+    overlaps s1 s2 = not (Set.disjoint s1 s2)
+    
+    relevantEvents = pruneRelevantVia modelEvents states
+
+    pruneRelevantVia events vars =
+      case events of
+        (e:es) ->
+          let vars' = vars `Set.union` collectVars' e
+          in  case (vars == vars', vars `overlaps` collectVars' e) of
+                -- We added no new variables to our dependency set
+                (True, _) -> pruneRelevantVia es vars
+                -- We added new variables, and we care about this event
+                (False, True) -> pruneRelevantVia modelEvents vars'
+                -- We would add new variables, but we don't care about this event (yet)
+                (False, False) -> pruneRelevantVia es vars
+        [] -> filter (\e -> collectVars' e `overlaps` vars) modelEvents
+
+    collectVars' :: TraverseExprs t => t -> Set Ident
+    collectVars' thing =
+      let vars = collectVars thing
+          for = flip Set.map
+      in  Set.unions $
+            for vars \v ->
+              case modelLets Map.!? v of
+                Just e -> Set.insert v (collectVars' e)
+                Nothing -> Set.singleton v
