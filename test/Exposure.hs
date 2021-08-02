@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Exposure (tests) where
 
+import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -43,11 +44,14 @@ exprShouldEvalTo actualExprStr expectedVal =
 exprAssertion :: String -> (Value -> Assertion) -> Assertion
 exprAssertion = exprAssertionWithStmts []
 
+emptyEvalRead :: EvalRead
+emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
+
 exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithStmts stmtStrs actualExprStr k = do
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)              <- evalStmts stmts initialEnv
+  (lr, env)              <- evalStmts stmts emptyEvalRead initialEnv
   (_, _)                 <- assertRightText lr
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
@@ -57,7 +61,7 @@ exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> A
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
   stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)  <- evalStmts stmts initialEnv
+  (lr, env)  <- evalStmts stmts emptyEvalRead initialEnv
   assertLeft lr
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal

@@ -172,6 +172,7 @@ executable champ
   build-depends:        base
                       , ansi-terminal
                       , aske-e
+                      , bytestring
                       , containers
                       , directory
                       , exceptions
@@ -251,6 +252,7 @@ test-suite tests
   autogen-modules:      Paths_aske_e
   build-depends:        base
                       , aske-e
+                      , bytestring
                       , containers
                       , directory
                       , filepath

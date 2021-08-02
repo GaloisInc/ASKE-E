@@ -35,6 +35,7 @@ data ExposureClientMessage =
     RunProgram [Exposure.Stmt] -- ^ Ask the server to run some code
   | FileContents LBS.ByteString -- ^ Provide file contents
   | Error LBS.ByteString -- ^ This is actually an error deciphering a client message
+  deriving Show
 
 -- | The main entry point into a websocket-based Exposure session
 exposureServer :: MonadSnap m => m ()
@@ -67,11 +68,8 @@ exposureServerLoop c = go Exposure.initialEnv
           -- example
           sendTextData c (Failure "Unexpected message")
 
-    eval = Exposure.evalLoop' evr
-    evr  = Exposure.emptyEvalRead
-                { Exposure.getFileFn = readClientFile c
-                , Exposure.putFileFn = writeClientFile c
-                }
+    eval = Exposure.evalLoop evr
+    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
 
     onExcept e =
       case e of

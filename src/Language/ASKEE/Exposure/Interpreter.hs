@@ -50,15 +50,14 @@ runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
-evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalStmts stmts env = evalLoop env stmts
+evalStmts :: [Stmt] -> EvalRead -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
+evalStmts stmts evr env = evalLoop evr env stmts
 
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-
-evalLoop' :: EvalRead -> Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalLoop' evr env stmts = go evr
+evalLoop :: EvalRead -> Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
+evalLoop evr env stmts = go evr
   where
     go :: EvalRead -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
     go m =
@@ -73,9 +72,6 @@ evalLoop' evr env stmts = go evr
                         case evs of
                           Left e -> pure (Left e, env')
                           Right vs -> go (m { erPrecomputed = erPrecomputed m <> vs })
-
-evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalLoop = evalLoop' emptyEvalRead
 
 -------------------------------------------------------------------------------
 
@@ -130,12 +126,22 @@ suspend v
 data EvalRead = EvalRead
   { erPrecomputed :: Map Value Value
   , erLocalVars   :: Map Ident Value
-  , erPutFileFn   :: FilePath -> LBS.ByteString -> IO ()
-  , erGetFileFn   :: FilePath -> IO LBS.ByteString
+  , erPutFileFn   :: EvalWriteFileFn
+  , erGetFileFn   :: EvalReadFileFn
   }
 
-emptyEvalRead :: EvalRead
-emptyEvalRead = EvalRead Map.empty Map.empty LBS.writeFile LBS.readFile
+type EvalReadFileFn  = FilePath -> IO LBS.ByteString
+type EvalWriteFileFn = FilePath -> LBS.ByteString -> IO ()
+
+
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
+mkEvalReadEnv rd wr = EvalRead
+  { erPrecomputed = Map.empty
+  , erLocalVars   = Map.empty
+  , erPutFileFn   = wr
+  , erGetFileFn   = rd
+  }
+
 
 data StmtEff =
   StmtEffBind Ident Value
