@@ -102,6 +102,7 @@ data FunctionName
   | FMSE -- Mean Squared Error
   | FMAE -- Mean Absolute Error
   | FTable
+  | FSimplify
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -145,6 +146,7 @@ prefixFunctionName ident =
     "mse"         -> Right FMSE
     "mae"         -> Right FMAE
     "table"       -> Right FTable
+    "simplify"    -> Right FSimplify
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

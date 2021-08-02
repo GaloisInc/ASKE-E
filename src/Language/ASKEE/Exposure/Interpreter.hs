@@ -415,8 +415,20 @@ interpretCall fun args =
                 throw "Columns must all have the same number of elements"
               pure $ VTable labels' columns'
         _ -> typeError "table expects a list of labels and a list of columns as arguments"
+    
+    FSimplify ->
+      case args of
+        [VModelExpr (EVal (VModel m)), VArray arr] ->
+          do  states <- 
+                case strings arr of
+                  Just ss -> pure ss
+                  Nothing -> 
+                    typeError "simplify's list of states must be string literals"
+              pure $ VModel (Core.pruneModel (Set.fromList states) m)
+        _ -> typeError "simplify expects a model and a list of states"
 
   where
+    strings = mapM (\case VString s -> Just s; _ -> Nothing)
 
     doubleArraySummarize f v =
       do  v' <- array double v
