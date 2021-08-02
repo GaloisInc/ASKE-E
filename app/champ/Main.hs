@@ -11,6 +11,7 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable
 import qualified Data.List.Extra as L
 import Data.Maybe
@@ -241,12 +242,13 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env   <- gets champEnv
   stmts <- gets champBatchedStmts
-  res   <- liftIO $ Exposure.evalLoop env (toList stmts)
+  let er = Exposure.mkEvalReadEnv LBS.readFile LBS.writeFile
+  (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err             -> do
       liftIO $ T.putStrLn err
       clearBatchedStmts
-    Right (env', dvs, _) -> do
+    Right (dvs, _) -> do
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
-      putEnv env'
-      clearBatchedStmts
+  putEnv env'
+  clearBatchedStmts

@@ -124,6 +124,8 @@ library
                         Language.ASKEE.HTTPClient
                         Language.ASKEE.Automates.Client
 
+                        Language.ASKEE.Utils
+
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
                       , scientific
@@ -134,6 +136,7 @@ library
                       , Chart
                       , containers
                       , directory
+                      , extra
                       , filepath
                       , hmatrix
                       , hmatrix-gsl
@@ -151,6 +154,7 @@ library
                       , text
                       , unordered-containers
                       , vector
+                      , witherable >= 0.4
                       , http-client
                       , http-client-tls
                       , utf8-string
@@ -170,6 +174,7 @@ executable champ
   build-depends:        base
                       , ansi-terminal
                       , aske-e
+                      , bytestring
                       , containers
                       , directory
                       , exceptions
@@ -212,7 +217,6 @@ executable donu
                       , aske-e
                       , bytestring
                       , cereal
-                      , clientsession
                       , config-schema
                       , config-value
                       , containers
@@ -227,10 +231,13 @@ executable donu
                       , snap-core
                       , snap-server
                       , snap
+                      , lifted-base
                       , text
                       , time
                       , unordered-containers
                       , vector
+                      , websockets-snap
+                      , websockets
 
   default-language:     Haskell2010
   ghc-options:          -Wall -threaded
@@ -247,6 +254,7 @@ test-suite tests
   autogen-modules:      Paths_aske_e
   build-depends:        base
                       , aske-e
+                      , bytestring
                       , containers
                       , directory
                       , filepath

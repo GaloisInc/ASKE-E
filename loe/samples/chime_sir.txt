@@ -1,0 +1,3 @@
+S{t+1​} = S{t​} − beta S{t​} I{t​}
+I{t+1​​} = I{t​} + beta S{t​​} I{t​​} − gamma I{t​​}
+R{t+1​​} = R{t​} + gamma I{t​​}

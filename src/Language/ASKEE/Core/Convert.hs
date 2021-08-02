@@ -44,7 +44,7 @@ eventTerm how sv event =
 
 
 coreAsModel :: Model -> ESL.Model
-coreAsModel m = ESL.Model newName newDecls newEvents
+coreAsModel m = ESL.Model newName newDecls newEvents []
   where
     newName = modelName m
     newDecls = 

@@ -25,6 +25,9 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 ')'      { Located _ _ Lexer.CloseP     }
 '['      { Located _ _ Lexer.OpenB      }
 ']'      { Located _ _ Lexer.CloseB     }
+'{'      { Located _ _ Lexer.OpenC      }
+'}'      { Located _ _ Lexer.CloseC     }
+'=>'     { Located _ _ Lexer.LambdaArr  }
 '..'     { Located _ _ Lexer.DotDot     }
 REAL     { Located _ _ (Lexer.LitD $$)  }
 STRING   { Located _ _ (Lexer.LitS $$)  }
@@ -93,6 +96,9 @@ expr : IDENT                            { EVar $1 }
      | bool                             { EVal $1 }
      | IDENT '(' commaSepExprs0 ')'     {% do { funName <- prefixFunctionName $1
                                               ; pure (ECall funName $3) }}
+     | IDENT '(' commaSepExprs0 ')'
+             '{' IDENT '=>' expr '}'    {% do { funName <- functionWithLambdaName $1
+                                              ; pure (ECallWithLambda funName $3 $6 $8) }}
      | infixExpr                        { $1 }
      | expr '.' IDENT                   { EMember $1 $3 }
      | '[' commaSepExprs0 ']'           { EList $2 }

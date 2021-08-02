@@ -287,7 +287,7 @@ instance TraverseExprs Expr where
       Literal {}   -> pure expr
       Op1 op e     -> Op1 op <$> f e
       Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
-      Var {}       -> pure expr
+      Var {}       -> f expr
       If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
       Fail {}      -> pure expr
 

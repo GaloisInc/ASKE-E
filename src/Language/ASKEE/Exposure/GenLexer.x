@@ -12,9 +12,8 @@ import Language.ASKEE.Exposure.Lexer
 $upper   = [A-Z]
 $lower   = [a-z]
 $digit   = [0-9]
-$graphic = $printable # $white
 
-@string    = \" ($graphic # \")* \"
+@string    = \" ($printable # \")* \"
 @exp       = e [\+\-]? $digit+
 @real      = $digit+ (\. $digit+)? @exp?
 @identHead = [$upper $lower _]
@@ -30,6 +29,9 @@ tokens :-
 <0> ")"         { atomic CloseP    }
 <0> "["         { atomic OpenB     }
 <0> "]"         { atomic CloseB    }
+<0> "{"         { atomic OpenC     }
+<0> "}"         { atomic CloseC    }
+<0> "=>"        { atomic LambdaArr }
 <0> ".."        { atomic DotDot    }
 <0> ","         { atomic Comma     }
 <0> "+"         { atomic InfixAdd  }

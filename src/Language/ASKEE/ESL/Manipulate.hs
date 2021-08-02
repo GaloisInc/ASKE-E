@@ -105,7 +105,7 @@ compose stateShare m1 m2 stop1 start2 = join stateShare m1' m2'
 -- variable of a pair is overwritten.
 join :: Map Text Text -> Model -> Model -> Model
 join renaming model1 model2 = 
-  Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents
+  Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents []
   -- TODO propagate metadata somehow?
   where
     newDecls =

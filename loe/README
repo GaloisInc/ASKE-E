@@ -1,0 +1,50 @@
+ASKE-E LOE Estimation
+
+NOTE: K(s) represents the Kolmogorov complexity (in bits) of the
+      source text `s`.
+
+Guide to files
+
+bounds/
+  This directory contains code to explore the use of compression
+  as a proxy for the Kolmogorov Complexity metric. In particular,
+  we demonstrate that the metric has tight bounds despite reordering
+  of a program's function definitions, and that identifier length
+  must be normalized in order to meaningfully to compare the proxy
+  K(s) of different source programs.
+check.sh
+  This script displays the source text of code samples after
+  normalization of keywords, identifiers and strings. This normalized
+  form is used in the generation of proxy K(s).
+halstead/
+  This directory contains code to explore Halstead's complexity metric.
+june/
+  This directory contains experiments (since abandoned) which attempt
+  to quantify the similarity of two code samples.
+list-samples.sh
+  This script simple lists all of the sample code.
+LOE-Metric-July.pdf
+  This report does not exist in the repo; it is generated from the
+  LOE-Metric-July.txt file via the ./make-pdf-report.sh script.
+LOE-Metric-July.txt
+  This is the source text of the PDF report.
+loe.sh
+  This script generates a proxy K(s) metric from a source text after
+  normalization (alpha-conversion of identifiers and keywords into
+  distinct namespaces, plus conversion of strings to a fixed definition.
+  See the report for a justification of normalization.
+make-pdf-report.sh
+  This script generates the PDF report from its source text.
+mccabe/
+  This directory contains tools to extract function-level Cyclomatic
+  complexity metrics from a source text.
+report.sh
+  This script generates a proxy K(s) report for all texts in the
+  samples directory.
+samples/
+  This directory contains all sample texts. Each text is accomanpanied
+  by a manually-generated list of symbols used as identifiers.
+samples.cfg
+  This script is automatically sourced to define source texts to be
+  processed. It must be updated when source texts are added to or
+  removed from the samples directory.

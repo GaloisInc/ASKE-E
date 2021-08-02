@@ -5,73 +5,54 @@ module Main ( main ) where
 
 import Control.Monad.State
 
+import           Control.Exception.Lifted (try, SomeException)
 import           Control.Applicative ((<|>))
-import           Control.Lens.TH
-import qualified Web.ClientSession as ClientSession
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
-import           Data.Maybe (fromMaybe)
 
 import qualified Snap
+import qualified Snap.Util.GZip as SnapGzip
 
 import           Language.ASKEE
-import qualified Language.ASKEE.Exposure.Interpreter as Exposure
-import           Language.ASKEE.Exposure.GenLexer (lexExposure)
-import           Language.ASKEE.Exposure.GenParser (parseExposureStmts)
 
 import           Schema
 import           ExposureSession
-import qualified Language.ASKEE.Exposure.Syntax as Exposure
-
--- Snaplet Definition ---------------------------------------------------------
-
-newtype Donu sim = Donu
- { _exposureSessions :: Snap.Snaplet (ExposureSessionManager sim)
-   -- ^ Snaplet implementing Exposure REPL sessions
- }
-
-makeLenses ''Donu
 
 -------------------------------------------------------------------------------
 
-type ExposureState = Exposure.Env
-type DonuApp = Donu ExposureState
-
-initDonu :: Snap.SnapletInit DonuApp DonuApp
-initDonu =
-  Snap.makeSnaplet "donu" "donu" Nothing $
-    do sess <- Snap.nestSnaplet "sessions" exposureSessions $
-                 initExposureSessionManager
-                   ClientSession.defaultKeyFile -- TODO: Do we care about this?
-                   "exposure-env-id"
-                   1800
-       Snap.addRoutes [ ("/help", showHelp)
-                      , ("/", endpoint)
-                      ]
-       return $ Donu sess
+runDonu :: IO ()
+runDonu =
+  Snap.quickHttpServe $
+    Snap.route [ ("/help", showHelp)
+               , ("/:exposure", exposureHandler)
+               , ("/", endpoint)
+               ]
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
         Snap.modifyResponse (Snap.setHeader "Access-Control-Allow-Origin" "*")
         body <- Snap.readRequestBody limit
         case JS.eitherDecode body of
-          Right a ->
-               runHandler a
-           <|> errorWith 400 "Bad request"
+          Right a -> SnapGzip.withCompression (runHandler a) <|> errorWith 400 "Bad request"
           Left err -> errorWith 400 ("Didn't recognize request: "<>err)
 
     runHandler r =
-      do out <- handleRequest r
-         let (code, msg) =
-               case out of
-                 (FailureResult _) -> (400, "Error")
-                 _ -> (200, "OK")
-         Snap.modifyResponse (Snap.setResponseStatus code msg)
-         Snap.writeLBS (JS.encode out)
+      do result <- try $ handleRequest r
+         case result of
+          Right out ->
+            do  let (code, msg) =
+                        case out of
+                          (FailureResult _) -> (400, "Error")
+                          _ -> (200, "OK")
+                Snap.modifyResponse (Snap.setHeader "Content-Type" "application/json")
+                Snap.modifyResponse (Snap.setResponseStatus code msg)
+                Snap.writeLBS (JS.encode out)
+          Left ex -> errorWith 500 (show (ex :: SomeException))
 
 
-errorWith :: Int -> String -> Snap.Handler DonuApp DonuApp ()
+
+errorWith :: Int -> String -> Snap.Snap ()
 errorWith code err =
   do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
       let response = JS.object
@@ -83,33 +64,37 @@ errorWith code err =
 main :: IO ()
 main =
   do initStorage
-     Snap.serveSnaplet Snap.defaultConfig initDonu
+     runDonu
 
-showHelp :: Snap.Handler (Donu sim) (Donu sim) ()
+showHelp :: Snap.Snap ()
 showHelp = Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
+exposureHandler :: Snap.Snap ()
+exposureHandler = exposureServer
 
-
-handleRequest :: Input -> Snap.Handler DonuApp DonuApp Result
+handleRequest :: Input -> Snap.Snap Result
 handleRequest r =
   liftIO (print r) >>
-  Snap.with exposureSessions cullOldSessions  >>
   case r of
     Simulate SimulateCommand{..} ->
-      do  res <- liftIO $ simulateModel
-            simType
-            (modelDefType simModel)
-            (modelDefSource simModel)
-            simStart
-            simEnd
-            simStep
-            simParameterValues
-            mempty
-            simSeed
-            simDomainParam
-            1
-          succeed' res
+      do  ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) simParameterValues simOutputs
+          case ifaceErrs of
+            [] ->
+              do  res <- liftIO $ simulateModel
+                    simType
+                    (modelDefType simModel)
+                    (modelDefSource simModel)
+                    simStart
+                    simEnd
+                    simStep
+                    simParameterValues
+                    simOutputs
+                    simSeed
+                    simDomainParam
+                    1
+                  succeed' res
+            errs -> pure (FailureResult (Text.unlines errs))
 
     CheckModel CheckModelCommand{..} ->
       do  model <- liftIO $ loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
@@ -169,39 +154,11 @@ handleRequest r =
           succeed' res
 
     QueryModels QueryModelsCommand {..} ->
-      succeed <$> liftIO (queryModels queryParameters)
+      succeed <$> liftIO (queryModels queryText)
 
-    ExecuteExposureCode (ExecuteExposureCodeCommand code) ->
-      case lexExposure (Text.unpack code) >>= parseExposureStmts of
-        Left err ->
-          pure $ FailureResult $ Text.pack err
-        Right stmts ->
-          stepExposureSession stmts
-
-    ResetExposureState _ ->
-      do Snap.with exposureSessions $
-           putExposureSessionState Exposure.initialEnv
-         succeed' ()
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult
 
-    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Handler x x Result
+    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Snap Result
     succeed' = pure . succeed
-
--- Driving Exposure -----------------------------------------------------------
-
--- | Run the given exposure statements in the current session and return the
--- resulting DisplayValues as a (JSON) list (or any error messages)
-stepExposureSession :: [Exposure.Stmt] -> Snap.Handler DonuApp DonuApp Result
-stepExposureSession stmts =
-  do env <- Snap.with exposureSessions $
-       fromMaybe Exposure.initialEnv <$> getExposureSessionState
-     res <- liftIO $ Exposure.evalStmts stmts env
-     case res of
-       Left err ->
-         pure $ FailureResult err
-       Right (env', displays, _effs) -> -- TODO: Do we want to do anything with _effs?
-         do Snap.with exposureSessions $
-              putExposureSessionState env'
-            return . SuccessResult $ fmap (DonuValue . Exposure.unDisplayValue) displays

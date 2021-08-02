@@ -1,147 +1,154 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-module ExposureSession (
-    ExposureSessionManager
-  , initExposureSessionManager
-  , getExposureSessionState
-  , putExposureSessionState
-  , cullOldSessions
-  ) where
+module ExposureSession ( exposureServer ) where
 
-{-
-The implementation for this module is mostly derived from the CookieSession
-provided by Snap. The session key is set as a cookie on the client, and the
-session ExposureSessionManager is essentially a map from keys to state.
--}
-
-import           Control.Concurrent (MVar, modifyMVar_, newMVar, readMVar)
 import           Control.Monad.State
-import           Data.ByteString
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import qualified Data.Serialize as S
-import           Data.Time (UTCTime)
-import           Data.Time.Clock (getCurrentTime)
-import           Data.Text (Text)
-import           Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
-import           Web.ClientSession
-import           Snap.Snaplet.Session
-import           Snap (Snap, SnapletInit, makeSnaplet, Handler, liftSnap)
+import           Snap (MonadSnap)
 
-type SessionKey = Text
+import           Network.WebSockets      as Sockets
+import           Network.WebSockets.Snap
+import qualified Data.ByteString.Lazy as LBS
+import qualified Data.Aeson as JS
+import           Data.Aeson ((.=), (.:))
+import qualified Data.Text.Lazy.Encoding as Text
+import qualified Control.Exception as X
+import Data.Maybe (fromMaybe)
+import qualified Language.ASKEE.Exposure.Interpreter as Exposure
+import qualified Language.ASKEE.Exposure.Syntax as Exposure
+import qualified Data.Text as Text
+import qualified Language.ASKEE.Exposure.GenLexer as Exposure
+import qualified Language.ASKEE.Exposure.GenParser as Exposure
+import Schema
+import Data.String (fromString)
 
-data ExposureSessionManager st = ExposureSessionManager
-  { stateMap        :: MVar (Map SessionKey st)
-    -- ^ Map from session key to Exposure state
-    -- Needs to be an MVar because this is shared across handler threads
-  , timeoutMap      :: MVar (Map SessionKey UTCTime)
-    -- ^ Map from session key to the expiration date of the session.
-    -- Needs to be an MVar because this is shared across handler threads
-  , session         :: Maybe ExposureSession
-    -- ^ Cached session
-  , key             :: Key
-  , cookieName      :: ByteString
-  , timeout         :: Int
-  , randomNumGen    :: RNG
-  }
+-- | Messages sent by the server
+data ExposureServerMessage =
+    ReadFile FilePath -- ^ Instruct the client to retrieve a file's contents
+  | WriteFile FilePath LBS.ByteString -- ^ Ask the client to write to a file
+  | Success [DonuValue] -- ^ Successfully evaluated program
+  | Failure Text.Text -- ^ Some error occurred
 
-newtype ExposureSession = ExposureSession
-  { esToken :: SessionKey }
-  deriving (Eq, Show)
+-- | Messages sent by client
+data ExposureClientMessage =
+    RunProgram [Exposure.Stmt] -- ^ Ask the server to run some code
+  | FileContents LBS.ByteString -- ^ Provide file contents
+  | Error LBS.ByteString -- ^ This is actually an error deciphering a client message
+  deriving Show
 
-newtype Payload = Payload ByteString
-  deriving (Eq, Show, Ord, S.Serialize)
+-- | The main entry point into a websocket-based Exposure session
+exposureServer :: MonadSnap m => m ()
+exposureServer = runWebSocketsSnap (acceptRequest >=> exposureServerLoop)
 
-instance S.Serialize ExposureSession where
-  put (ExposureSession t) = S.put (encodeUtf8 t)
-  get = ExposureSession . decodeUtf8 <$> S.get
+-- | The main server loop, the toplevel of which waits for programs to try and
+-- run in the exposure interpreter.
+exposureServerLoop :: Connection -> IO ()
+exposureServerLoop c = go Exposure.initialEnv
+  where
+    go env =
+      do msg <- X.try (receiveData c)
+         case msg of
+           Right msg' -> onReceive msg' env
+           Left  ex   -> onExcept ex
 
-initExposureSessionManager :: FilePath -> ByteString -> Int -> SnapletInit b (ExposureSessionManager s)
-initExposureSessionManager keyPath c t =
-  makeSnaplet
-    "ExposureSession"
-    "A snaplet providing sessions for the Exposure REPL"
-    Nothing $
-    liftIO $
-      do k <- getKey keyPath
-         rng <- liftIO mkRNG
-         sm <- newMVar mempty
-         tm <- newMVar mempty
-         return $! ExposureSessionManager sm tm Nothing k c t rng
+    onReceive msg env =
+      case msg of
+        RunProgram prog ->
+          do (res, env') <- liftIO $ eval env prog
+             case res of
+               Left err ->
+                 do sendTextData c (Failure err)
+               Right (displays, _) ->
+                 do let display = fmap (DonuValue . Exposure.unDisplayValue) displays
+                    sendTextData c (Success display)
+             go env'
+        _ ->
+          -- This is the toplevel, so we don't expect any filecontents, for
+          -- example
+          sendTextData c (Failure "Unexpected message")
 
-cullOldSessions :: Handler b (ExposureSessionManager s) ()
-cullOldSessions =
-  do esm <- get
-     to  <- liftIO $ readMVar (timeoutMap esm)
-     -- If someone adds more then we'll miss them here,
-     -- but that's ok
-     forM_ (Map.toList to) $ \(token, time)  ->
-       do timedout <- checkTimeout (Just (timeout esm)) time
-          when timedout
-            (liftSnap $ deleteSession (ExposureSession token) esm)
-     put esm { session = Nothing }
+    eval = Exposure.evalLoop evr
+    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
 
-getExposureSessionState :: Handler b (ExposureSessionManager s) (Maybe s)
-getExposureSessionState =
-  do esm <- get
-     esm' <- liftSnap $ loadSession esm
-     put esm'
-     case session esm' of
-       Just s ->
-         do sm <- liftIO $ readMVar (stateMap esm')
-            return $ Map.lookup (esToken s) sm
-       Nothing ->
-         return Nothing
+    onExcept :: ConnectionException -> IO ()
+    onExcept _ = return ()
 
-putExposureSessionState :: s -> Handler b (ExposureSessionManager s) ()
-putExposureSessionState st =
-  do esm <- get
-     esm' <- liftSnap $ loadSession esm
-     put esm'
-     case session esm' of
-       Just s ->
-         liftIO $ modifyMVar_ (stateMap esm') (pure . Map.insert (esToken s) st)
-       Nothing ->
-         return ()
+-- | The implementation of @getFileFn@ for Exposure. This implementation sends a
+-- message to the client to fetch a file.
+readClientFile :: Connection -> FilePath -> IO LBS.ByteString
+readClientFile c f =
+  do sendTextData c (ReadFile f)
+     msg <- receiveData c
+     case msg of
+       FileContents contents ->
+         pure contents
+       _ ->
+         error $ "readClientFile: expecting FileContents but received "
+              ++ show msg
 
-mkExposureSession :: RNG -> IO ExposureSession
-mkExposureSession rng =
-  ExposureSession <$> liftIO (mkCSRFToken rng)
+-- | The implementation of @getFileFn@ for Exposure. This implementation sends a
+-- message to the client to fetch a file.
+writeClientFile :: Connection -> FilePath -> LBS.ByteString -> IO ()
+writeClientFile c f bs = sendTextData c (WriteFile f bs)
 
--- | If the current session has been loadede, then touch it, resetting its
--- timeout.
-pokeSession :: ExposureSessionManager st -> Snap (ExposureSessionManager st)
-pokeSession esm =
-  case session esm of
-    Just s ->
-      do now <- liftIO getCurrentTime
-         liftIO $ modifyMVar_ (timeoutMap esm) (pure . Map.insert (esToken s) now)
-         return esm
-    Nothing ->
-      return esm
+-- Instances for serializing/deserializing protocol messages ---------
 
--- | Remove a session's state from the manager
-deleteSession :: ExposureSession -> ExposureSessionManager st -> Snap ()
-deleteSession s esm = liftIO $
-  do modifyMVar_ (timeoutMap esm) (pure . Map.delete (esToken s))
-     modifyMVar_ (stateMap esm) (pure . Map.delete (esToken s))
-     return ()
+instance JS.ToJSON ExposureServerMessage where
+  toJSON (ReadFile fp) =
+    JS.object [ "type" .= ("read-file" :: String)
+              , "path" .= JS.toJSON fp
+              ]
 
--- | Load the session corresponding to the current request
-loadSession :: ExposureSessionManager st -> Snap (ExposureSessionManager st)
-loadSession esm =
-  case session esm of
-    Just _  -> return esm
-    Nothing ->
-      do tk   <- getSecureCookie (cookieName esm) (key esm) (Just $ timeout esm)
-         case tk of
-           -- We have a thing
-           Just (Payload (S.decode -> Right s)) ->
-             pokeSession esm { session = Just s }
-           _ ->
-             -- New session
-             do sess <- liftIO $ mkExposureSession (randomNumGen esm)
-                setSecureCookie (cookieName esm) Nothing (key esm) (Just $ timeout esm) (Payload (S.encode sess))
-                pokeSession esm { session = Just sess }
+  toJSON (WriteFile fp contents) =
+    JS.object [ "type"     .= ("write-file" :: String)
+              , "path"     .= JS.toJSON fp
+              , "contents" .= JS.toJSON (Text.decodeUtf8 contents)
+              ]
+
+  toJSON (Success displays) =
+    JS.object [ "type"     .= ("success" :: String)
+              , "displays" .= JS.toJSON displays
+              ]
+
+  toJSON (Failure err) =
+    JS.object [ "type"     .= ("failure" :: String)
+              , "message"  .= JS.toJSON err
+              ]
+
+instance WebSocketsData ExposureServerMessage where
+  fromDataMessage _ = error "We don't receive server messages!"
+  fromLazyByteString _ = error "We don't receive server messages!"
+  toLazyByteString msg = JS.encode msg
+
+instance JS.FromJSON ExposureClientMessage where
+  parseJSON js =
+    case js of
+      JS.Object o ->
+        do ty <- o .: "type"
+           case ty :: String of
+
+             "run-program" ->
+               do code <- o .: "code"
+                  case Exposure.lexExposure (Text.unpack code) >>= Exposure.parseExposureStmts of
+                    Left err -> pure $ Error (fromString err)
+                    Right stmts -> pure $ RunProgram stmts
+
+             "file-contents" ->
+               do contents <- o.:"contents"
+                  let bs = Text.encodeUtf8 contents
+                  pure $ FileContents bs
+
+             _ -> pure $ Error "Unrecognized command"
+
+      _ ->
+        pure (Error "Expected object")
+
+instance WebSocketsData ExposureClientMessage where
+  fromDataMessage (Text bs _) =
+    fromMaybe (Error bs) (JS.decode bs)
+  fromDataMessage (Binary bindata) =
+    fromMaybe (Error bindata) (JS.decode bindata)
+
+  fromLazyByteString bs = fromMaybe (Error bs) (JS.decode bs)
+  toLazyByteString _msg = error "We don't send client messages"

@@ -7,8 +7,11 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Schema where
 
+import qualified Data.List as List
 import Data.Map(Map)
 import qualified Data.Map as Map
+import Data.Set(Set)
+import qualified Data.Set as Set
 import qualified Data.ByteString.Lazy as Lazy
 import Data.Text(Text)
 import qualified Data.Text as Text
@@ -23,6 +26,7 @@ import           Language.ASKEE
 import           Language.ASKEE.ESL.Print (printModel)
 import           Language.ASKEE.Exposure.Syntax
 import qualified Language.ASKEE.Core.Syntax as Core
+import           Language.ASKEE.Latex.Print (printLatex)
 
 -------------------------------------------------------------------------------
 -- Input
@@ -40,8 +44,6 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | QueryModels QueryModelsCommand
-  | ExecuteExposureCode ExecuteExposureCodeCommand
-  | ResetExposureState ResetExposureStateCommand
     deriving Show
 
 instance HasSpec Input where
@@ -57,8 +59,6 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (QueryModels <$> anySpec)
-         <!> (ExecuteExposureCode <$> anySpec)
-         <!> (ResetExposureState <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -217,7 +217,7 @@ data SimulateCommand = SimulateCommand
   , simEnd                :: Double
   , simDomainParam        :: Maybe Text
   , simParameterValues    :: Map Text Double
-  , simOutputs            :: [Text]
+  , simOutputs            :: Set Text
   , simType               :: Maybe SimulationType
   , simSeed               :: Maybe Int
   } deriving Show
@@ -256,7 +256,7 @@ instance HasSpec SimulateCommand where
             (assocSpec anySpec)
             "Use these values for model parameters"
 
-        simOutputs <- fromMaybe [] <$>
+        simOutputs <- Set.fromList . fromMaybe [] <$>
           optSection
             "outputs"
             "Which values to output from the simulation"
@@ -444,41 +444,15 @@ instance HasSpec DescribeModelInterfaceCommand where
 -- Query
 
 newtype QueryModelsCommand = QueryModelsCommand
-  { queryParameters :: [(Text, Text)] }
+  { queryText :: Text }
   deriving Show
 
 instance HasSpec QueryModelsCommand where
   anySpec =
     sectionsSpec "query-models"
     do  reqSection' "command" (jsAtom "query-models") "Query available models"
-        queryParameters <- reqSection' "query" (assocSpec anySpec)
-                           "Query parameters expressed a set of key-value pairs"
+        queryText <- reqSection' "text" textSpec "Text to search"
         pure QueryModelsCommand { .. }
-
--------------------------------------------------------------------------------
--- TODO RGS: Document all of this
-
-newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
-  { executeExposureCode :: Text -- ^ The exposure program to parse and execute
-  }
-  deriving Show
-
-instance HasSpec ExecuteExposureCodeCommand where
-  anySpec =
-    sectionsSpec "execute-exposure-code"
-    do  reqSection' "command" (jsAtom "execute-exposure-code")
-                    "Execute an Exposure command"
-        executeExposureCode <- reqSection' "code" textSpec "The code to execute"
-        pure ExecuteExposureCodeCommand{..}
-
-newtype ResetExposureStateCommand = ResetExposureStateCommand ()
-  deriving Show
-
-instance HasSpec ResetExposureStateCommand where
-  anySpec =
-    sectionsSpec "clear-exposure" $
-      do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
-         pure $ ResetExposureStateCommand ()
 
 -- | Wrapper for Value to control precisely how these are passed
 -- to clients of Donu
@@ -496,11 +470,52 @@ instance JS.ToJSON DonuValue where
       VDouble dbl    -> typedPrim "double" dbl
       VString str    -> typedPrim "string" str
 
+      VTimed v t ->
+        typed "timed" $
+          JS.object [ "time"  .= JS.toJSON t
+                    , "value" .= JS.toJSON (DonuValue v)
+                    ]
+
       VDataSeries ds ->
         typed "data-series" $
           JS.object [ "time"   .= JS.toJSON (times ds)
                     , "values" .= JS.toJSON (values ds)
                     ]
+
+      VHistogram low hi sz bins ->
+        typed "histogram" $
+          JS.object [ "min" .= JS.toJSON low
+                    , "max" .= JS.toJSON hi
+                    , "size" .= JS.toJSON sz
+                    , "bins" .= JS.toJSON bins
+                    ]
+
+      VPlot xlab ylabs xs yss ->
+        typed "plot" $
+          JS.object [ "xlabel"  .= JS.toJSON xlab
+                    , "ylabels" .= JS.toJSON ylabs
+                    , "xs"      .= JS.toJSON xs
+                    , "yss"      .= JS.toJSON yss
+                    ]
+      VScatter xlab ylabs xs yss ->
+        typed "scatter" $
+          JS.object [ "xlabel"  .= JS.toJSON xlab
+                    , "ylabels" .= JS.toJSON ylabs
+                    , "xs"      .= JS.toJSON xs
+                    , "yss"     .= JS.toJSON yss
+                    ]
+
+      VTable labels columns ->
+        typed "table" $
+          JS.object [ "labels" .= JS.toJSON labels
+                    , "rows"   .= JS.toJSON (List.transpose (map (map DonuValue) columns))
+                    ]
+
+      VArray vs ->
+        typed "array" (JS.toJSON (JS.toJSON . DonuValue <$> vs))
+
+      VLatex l ->
+        typedPrim "latex" $ show $ printLatex l
 
       VModel mdl          -> typedPrim "string" $ "<model " <> Core.modelName mdl <> ">"
       VModelExpr (EVal v) -> JS.toJSON (DonuValue v)
@@ -510,7 +525,8 @@ instance JS.ToJSON DonuValue where
       VSFold {}      -> unimplVal "<sfold>"
       VSuspended     -> unimplVal "<suspended>"
 
-      _ -> error "TBD"
+      VSampledData{} -> tbd
+      VPoint{}       -> tbd
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
@@ -523,3 +539,6 @@ instance JS.ToJSON DonuValue where
 
       unimplVal :: String -> JS.Value
       unimplVal str = typedPrim "string" str
+
+      tbd :: JS.Value
+      tbd = error "TBD"

@@ -22,6 +22,7 @@ module Language.ASKEE
   , checkModel
   , checkModel'
     
+  , checkSimArgs
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
@@ -64,13 +65,15 @@ module Language.ASKEE
   ) where
 
 import Control.Exception ( try, SomeException(..) )
-import Control.Monad     ( forM )
+import Control.Monad     ( forM, filterM )
 
 import           Data.Aeson                 ( decode )
 import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import qualified Data.ByteString.Builder    as Builder
+import qualified Data.Char                  as Char
 import           Data.Set                   ( Set )
+import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Maybe                 ( fromMaybe )
@@ -94,7 +97,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic )
+import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic)
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -125,14 +128,26 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        , listAllModels
                                                        , loadModelText
                                                        , DataSource(..)
-                                                       , ModelDef(..) )
+                                                       , ModelDef(..)
+                                                       , doesModelExist
+                                                       )
 import qualified Language.ASKEE.Storage                as Storage
 import qualified Language.ASKEE.Automates.Client       as Automates
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
-  do modelString <- loadModelText format source
-     throwLeft ParseError (parseModel format modelString)
+  do yes <- doesModelExist format source
+     if yes
+       then doLoadModel format source
+
+       -- Special case for "virtual" PrtGromet
+       else case format of
+              GrometPrtType -> Easel <$> loadESL source
+              _ -> doLoadModel format source
+  where
+  doLoadModel fmt src =
+    do modelString <- loadModelText fmt src
+       throwLeft ParseError (parseModel fmt modelString)
 
 -------------------------------------------------------------------------------
 -- ESL
@@ -352,6 +367,40 @@ data SimulationType =
   | AutomatesSvc
   deriving (Show)
 
+
+-- check some of the arguments to simulate functions
+-- against the described interface, possibly returning
+-- a list of human-readable problems
+checkSimArgs ::
+  ModelType ->
+  DataSource ->
+  Map Text Double {- ^ parameterization -} ->
+  Set Text {- ^ variables to measure -} ->
+  IO [Text]
+checkSimArgs mt ds params outs =
+  do  model <- loadModel mt ds
+      let iface = describeModelInterface model
+      pure $ concat [ paramsNotExistErrors iface
+                    , outputsNotExistErrors iface
+                    , unspecifiedValueErrors iface
+                    ]
+  where
+    requestParamNames = Map.keysSet params
+    ifaceParamNames iface = Set.fromList (portName <$> modelInputs iface)
+    ifaceParamsNoDefault iface = Set.fromList [portName p | p <- modelInputs iface, portDefault p == Nothing]
+    ifaceOutputNames iface = Set.fromList (portName <$> modelOutputs iface)
+    requireSubset a b err = err <$> (Set.toList $ Set.difference a b)
+
+    paramsNotExistErrors iface =
+      requireSubset requestParamNames (ifaceParamNames iface)
+                    (\v -> "'" <> v <> "' is not a parameter of the specified model")
+    outputsNotExistErrors iface =
+      requireSubset outs (ifaceOutputNames iface)
+                    (\v -> "'" <> v <> "' is not a measurable quantity of the specified model")
+    unspecifiedValueErrors iface =
+      requireSubset (ifaceParamsNoDefault iface) requestParamNames
+                    (\v -> "'" <> v <> "' has no default and must be specified")
+
 simulateModel :: 
   Maybe SimulationType ->
   ModelType -> 
@@ -367,7 +416,7 @@ simulateModel ::
   IO [DS.LabeledDataSeries Double]
 simulateModel sim format source start end step parameters outputs seed dp iterations =
   case simType of
-    GSL -> (:[]) . DS.ldsFromDs <$> simulateModelGSL format source start end step parameters outputs
+    GSL -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelGSL format source start end step parameters outputs
     Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
     AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
     AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
@@ -496,32 +545,37 @@ listAllModelsWithMetadata =
           _ -> pure @IO $ pure @MetaAnn m
 
 
-queryModels :: [(Text, Text)] -> IO [MetaAnn ModelDef]
-queryModels query = 
-  filter match_model <$> listAllModelsWithMetadata
+queryModels :: Text -> IO [MetaAnn ModelDef]
+queryModels query = listAllModelsWithMetadata >>= filterM match_model
   where
-    match_model annModel =
-      all (match_metadata annModel) query    
-    match_metadata annModel (key, pattern) =
-      let mData = metaData annModel
-          mValue = fromMaybe "" $ lookup key mData
-      in match_wildcard (Text.toLower mValue) (Text.toLower pattern)
-    match_wildcard s pat
+    match_model metaAnnModel = do
+      (toplevelMetaData, model) <- loadModelFromDef metaAnnModel
+      let mInterface = describeModelInterface model
+          match_result = match_metadata_values (map snd toplevelMetaData) ||
+                         match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
+                         match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
+      return match_result
+    match_metadata_values values = any (match_wildcard query) values
+    loadModelFromDef metaAnnModel = do
+      let ModelDef {..} = metaValue metaAnnModel
+      model <- loadModel modelDefType modelDefSource
+      return (metaData metaAnnModel, model)
+    portMetaDataValues ports = concat $ concatMap (Map.elems . portMeta) ports
+    match_wildcard pat s
       | Text.null pat        = Text.null s
       | Text.head pat == '*' = handleStar
       | Text.head pat == '?' = handleQM
       | otherwise            = handleChar
       where
         handleStar =
-          match_wildcard s (Text.tail pat) 
-          || (not (Text.null s) && match_wildcard (Text.tail s) pat)
+          match_wildcard (Text.tail pat) s
+          || (not (Text.null s) && match_wildcard pat (Text.tail s))
         handleQM =
-          not (Text.null s) && match_wildcard (Text.tail s) (Text.tail pat)
+          not (Text.null s) && match_wildcard (Text.tail pat) (Text.tail s)
         handleChar =
-          not (Text.null s) && Text.head s == Text.head pat
-          && match_wildcard (Text.tail s) (Text.tail pat)
-
-
+          not (Text.null s) &&
+          Char.toLower (Text.head s) == Char.toLower (Text.head pat) &&
+          match_wildcard (Text.tail pat) (Text.tail s)
 
 --------------------------------------------------------------------------------
 
