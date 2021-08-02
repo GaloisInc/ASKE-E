@@ -98,16 +98,13 @@ testSimulateEslParameterized mdlSrc expected =
 testFitParam :: DataSource -> [(Text, (Double, Double))] -> DataSeries Double -> Assertion
 testFitParam mdlSrc params dataToFit =
   do let lbsData = toStrict . decodeUtf8 $ dataSeriesAsCSV dataToFit
-     res <- fitModelToData EaselType (Inline lbsData) (fst <$> params) mempty mdlSrc
-     case res of
-       Left msg -> assertFailure ("params " ++ show msg ++ " not found in model")
-       Right (fit, _) ->
-         forM_ params $ \(param, (lo, hi)) ->
-           case Map.lookup param fit of
-             Just (x, _) ->
-               do assertBool ("Fit parameter " ++ show param ++ " lower bound") (lo <= x)
-                  assertBool ("Fit parameter " ++ show param ++ " uppper bound") (x <= hi)
-             _ -> assertFailure (show param ++ " not found after fitting")
+     (res,_) <- fitModelToData EaselType (Inline lbsData) (fst <$> params) mempty mdlSrc
+     forM_ params $ \(param, (lo, hi)) ->
+       case Map.lookup param res of
+         Just (x, _) ->
+           do assertBool ("Fit parameter " ++ show param ++ " lower bound") (lo <= x)
+              assertBool ("Fit parameter " ++ show param ++ " uppper bound") (x <= hi)
+         _ -> assertFailure (show param ++ " not found after fitting")
 
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =

@@ -77,14 +77,11 @@ main =
               equations <- A.loadDiffEqsFrom modelType (A.FromFile modelFile)
               dataFile <- exactlyOne "data file" (dataFiles opts)
               ds <- A.parseDataSeriesFromFile dataFile
-              res <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)
-              case res of
-                Left unknown ->
-                  do putStrLn "Unknown parameters: "
-                     forM_ (Text.unpack <$> unknown) \p ->
-                       putStrLn (" " ++ p)
-                Right (fit, work) ->
-                  do let showF f = showGFloat Nothing f ""
+              ifaceErrs <- A.checkFitArgs modelType (A.FromFile modelFile) ps
+              case ifaceErrs of
+                [] ->
+                  do (fit, work) <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)
+                     let showF f = showGFloat Nothing f ""
                          see n xs =
                            do  putStrLn n
                                forM_ (Map.toList xs) \(x,(y,e)) ->
@@ -101,6 +98,7 @@ main =
                                   $ DEQ.modelSquareError equations ds (fst <$> fit)
                      forM_ (Map.toList totalErr) \(x,e) ->
                        putStrLn $ "# error in " ++ Text.unpack x ++ " = " ++ showF e
+                errs -> forM_ errs (putStrLn . Text.unpack)
 
         _ -> throwIO (GetOptException [""])
 

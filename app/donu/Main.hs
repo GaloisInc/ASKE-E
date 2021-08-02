@@ -113,19 +113,19 @@ handleRequest r =
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do res <-
-            liftIO $
-            fitModelToData
-              (modelDefType fitModel)
-              fitData
-              fitParams
-              mempty
-              (modelDefSource fitModel)
-         case res of
-           Left unknowns -> pure (FailureResult $ "unknown parameters: " <> ps)
-             where
-               ps = Text.intercalate " " unknowns
-           Right (fit, _) -> succeed' (FitResult fit)
+      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) fitParams
+         case ifaceErrs of
+           [] ->
+             do (res, _) <-
+                  liftIO $
+                  fitModelToData
+                    (modelDefType fitModel)
+                    fitData
+                    fitParams
+                    mempty
+                    (modelDefSource fitModel)
+                succeed' (FitResult res)
+           errs -> pure (FailureResult (Text.unlines errs))
 
     GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
       do  cpp <- liftIO $ loadCPPFrom modelDefType modelDefSource
