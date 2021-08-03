@@ -85,6 +85,7 @@ data FunctionName
   | FProb
   | FSample
   | FSimulate
+  | FFit
   | FMin
   | FMax
   | FAt
@@ -102,6 +103,7 @@ data FunctionName
   | FMSE -- Mean Squared Error
   | FMAE -- Mean Absolute Error
   | FTable
+  | FSimplify
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -133,6 +135,7 @@ prefixFunctionName ident =
     "interpolate" -> Right FInterpolate
     "sample"      -> Right FSample
     "simulate"    -> Right FSimulate
+    "fit"         -> Right FFit
     "min"         -> Right FMin
     "max"         -> Right FMax
     "histogram"   -> Right FHistogram
@@ -145,6 +148,7 @@ prefixFunctionName ident =
     "mse"         -> Right FMSE
     "mae"         -> Right FMAE
     "table"       -> Right FTable
+    "simplify"    -> Right FSimplify
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

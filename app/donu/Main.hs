@@ -114,15 +114,19 @@ handleRequest r =
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do  (res, _) <-
-            liftIO $
-            fitModelToData
-              (modelDefType fitModel)
-              fitData
-              fitParams
-              mempty
-              (modelDefSource fitModel)
-          succeed' (FitResult res)
+      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) fitParams
+         case ifaceErrs of
+           [] ->
+             do (res, _) <-
+                  liftIO $
+                  fitModelToData
+                    (modelDefType fitModel)
+                    fitData
+                    fitParams
+                    mempty
+                    (modelDefSource fitModel)
+                succeed' (FitResult res)
+           errs -> pure (FailureResult (Text.unlines errs))
 
     GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
       do  cpp <- liftIO $ loadCPPFrom modelDefType modelDefSource

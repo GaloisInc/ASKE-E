@@ -77,24 +77,28 @@ main =
               equations <- A.loadDiffEqsFrom modelType (A.FromFile modelFile)
               dataFile <- exactlyOne "data file" (dataFiles opts)
               ds <- A.parseDataSeriesFromFile dataFile
-              (res,work) <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)
-              let showF f = showGFloat Nothing f ""
-                  see n xs =
-                    do  putStrLn n
-                        forM_ (Map.toList xs) \(x,(y,e)) ->
-                          putStrLn ("let " ++ Text.unpack x ++
-                                    " = " ++ showF y ++
-                                    " # error = " ++ showF e)
-              forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
-                do  putStrLn ("-- Step " ++ show n ++ " --")
-                    forM_ (Map.toList ys) \(x,y) ->
-                      putStrLn ("let " ++ Text.unpack x ++
-                                " = " ++ showF y)
-              see "Result:" res
-              let totalErr = DEQ.computeErrorPerVar
-                           $ DEQ.modelSquareError equations ds (fst <$> res)
-              forM_ (Map.toList totalErr) \(x,e) ->
-                putStrLn $ "# error in " ++ Text.unpack x ++ " = " ++ showF e
+              ifaceErrs <- A.checkFitArgs modelType (A.FromFile modelFile) ps
+              case ifaceErrs of
+                [] ->
+                  do (fit, work) <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)
+                     let showF f = showGFloat Nothing f ""
+                         see n xs =
+                           do  putStrLn n
+                               forM_ (Map.toList xs) \(x,(y,e)) ->
+                                 putStrLn ("let " ++ Text.unpack x ++
+                                           " = " ++ showF y ++
+                                           " # error = " ++ showF e)
+                     forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
+                       do  putStrLn ("-- Step " ++ show n ++ " --")
+                           forM_ (Map.toList ys) \(x,y) ->
+                             putStrLn ("let " ++ Text.unpack x ++
+                                       " = " ++ showF y)
+                     see "Result:" fit
+                     let totalErr = DEQ.computeErrorPerVar
+                                  $ DEQ.modelSquareError equations ds (fst <$> fit)
+                     forM_ (Map.toList totalErr) \(x,e) ->
+                       putStrLn $ "# error in " ++ Text.unpack x ++ " = " ++ showF e
+                errs -> forM_ errs (putStrLn . Text.unpack)
 
         _ -> throwIO (GetOptException [""])
 
