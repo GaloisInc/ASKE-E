@@ -21,6 +21,7 @@ modelAsCore mdl =
         , modelParams    = mParams
         , modelEvents    = map eventAsCore (Src.modelEvents mdl)
         , modelLets      = Map.fromList mLets
+        , modelAsserts   = mAsserts
         , modelInitState =
             Map.fromList [(v, expAsCore e) | (v, e) <- Src.stateDecls decls]
         , modelMeta = extractMeta mdl
@@ -37,6 +38,8 @@ modelAsCore mdl =
     partOrderDecls
       (Set.fromList ("time" : map fst (Src.stateDecls decls)))
       [ (x, expAsCore e) | (x,e) <- Src.letDecls decls ]
+
+  mAsserts = [ expAsCore e | e <- Src.assertDecls decls ]
 
 
 extractMeta :: Src.Model -> Map Ident (Map Text [Text])

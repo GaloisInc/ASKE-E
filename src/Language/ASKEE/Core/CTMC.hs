@@ -72,7 +72,10 @@ ppCTMC m =
 ppCTMCSimpl :: Model -> Maybe Doc
 ppCTMCSimpl m =
   do  m' <- withExplicitPopulationLimits m >>= simplifyPopulations
-      pure $ ppCTMC  (inlineLets $ inlineParams m')
+      let m'' = inlineLets $ inlineParams m'
+      p <- ppCTMCProp m''
+      pure $ vcat [ ppCTMC m'', line, text "\"correctness\":" <+> text "filter(forall,"<+> p <> text ")" <> semi ]
+      
 
 -- | Events translated to transitions in CTMC
 ppTransition :: Event -> Doc
@@ -95,6 +98,14 @@ ppTransition ev = hsep [ label, guard <+> text "->", rate <> colon, effect <> se
     insertAnd [h] = [ parens h ] 
     insertAnd (h:t) = parens h <> text " &" : insertAnd t 
 
+ppAsserts :: Model -> Maybe Doc
+ppAsserts m =  Just $ vcat $ ppExpr <$> modelAsserts m
+  
+ppCTMCProp :: Model -> Maybe Doc
+ppCTMCProp m =
+  do  m' <- withExplicitPopulationLimits m >>= simplifyPopulations
+      ppAsserts (inlineLets $ inlineParams m')
+
 ppExpr :: Expr -> Doc
 ppExpr expr =
   case simplifyExpr $ toFrom $ simplifyExpr expr of
@@ -114,7 +125,7 @@ ppExpr expr =
     e1 :==: e2 -> PP.hsep [pp e1, "==", pp e2]
     e1 :&&: e2 -> PP.hsep [pp e1, "&", pp e2]
     e1 :||: e2 -> PP.hsep [pp e1, "|", pp e2]
-    Var v -> text $ Text.unpack $ Text.toLower v
+    Var v -> text $ Text.unpack $ Text.toLower $ head $ Text.splitOn "_" v 
     If e1 e2 e3 -> PP.hsep ["if", pp e1, "then", pp e2, "else", pp e3]
     Fail s -> error s -- XXX
     _ -> 

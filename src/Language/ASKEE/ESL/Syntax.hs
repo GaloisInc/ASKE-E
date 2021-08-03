@@ -54,6 +54,9 @@ stateDecls ds = [(n,v) | State n v <- map metaValue ds ]
 letDecls :: [MetaAnn Decl] -> [(Text, Expr)]
 letDecls ds = [(n,v) | Let n v <- map metaValue ds ]
 
+assertDecls :: [MetaAnn Decl] -> [Expr]
+assertDecls ds = [ e | Assert e <- map metaValue ds ]
+
 varDecls :: [Decl] -> [(Text, Expr)]
 varDecls ds = ds >>= vd
   where

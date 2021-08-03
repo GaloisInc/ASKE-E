@@ -22,13 +22,12 @@ data Model =
           -- We keep them here, in case one wants to observe them
           -- (e.g., measure their values)
           -- These should not be recursive.
-
         , modelMeta      :: !(Map Ident (Map Text [Text]))
           -- ^ Optional metadata (key/value pairs) for named things
           -- (parameters, lets, states, events)
+        , modelAsserts   :: [Expr]
         }
   deriving (Show, Eq)
-
 
 data Event =
   Event { eventName   :: Ident
@@ -38,16 +37,11 @@ data Event =
         }
   deriving (Show, Eq)
 
-
-
-
-
 modelStateVars :: Model -> [Ident]
 modelStateVars mdl = Map.keys (modelInitState mdl)
 
 isStateVar :: Ident -> Model -> Bool
 isStateVar x m = Map.member x (modelInitState m)
-
 
 
 instance TraverseExprs Model where
@@ -69,6 +63,7 @@ inlineLets :: Model -> Model
 inlineLets m@Model{..} = m
   { modelEvents = substEvent <$> modelEvents
   , modelInitState = substExpr substitution <$> modelInitState
+  , modelAsserts = substExpr substitution <$> modelAsserts
   }
   where
     substitution = modelLets

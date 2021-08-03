@@ -140,6 +140,7 @@ pnToCore pn =
     , modelInitState = Map.fromList (zip sUIds sInit)
     , modelEvents    = coreEvs
     , modelLets      = mempty
+    , modelAsserts   = []
     , modelMeta      = Map.fromList
                      $ zipWith mkMeta sParamLets spMeta ++
                        zipWith mkMeta rParamLets rpMeta ++

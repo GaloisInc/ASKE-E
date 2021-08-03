@@ -25,6 +25,7 @@ rnetToCore rn = Model
 
   , modelEvents = zipWith rToEvent [1..] (Src.reactions rn)
   , modelLets   = Map.fromList lets
+  , modelAsserts = []
   , modelMeta   = Map.empty -- XXX
   }
   where

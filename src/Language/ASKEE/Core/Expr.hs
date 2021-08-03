@@ -129,7 +129,6 @@ substExpr su expr =
     Var x | Just e <- Map.lookup x su -> e
     _ -> mapAt exprChildren (substExpr su) expr
 
-
 collectVars :: (TraverseExprs t) => t -> Set.Set Ident
 collectVars = collectExprs collectExprVars
 
