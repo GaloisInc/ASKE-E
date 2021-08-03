@@ -539,6 +539,3 @@ instance JS.ToJSON DonuValue where
 
       unimplVal :: String -> JS.Value
       unimplVal str = typedPrim "string" str
-
-      tbd :: JS.Value
-      tbd = error "TBD"
