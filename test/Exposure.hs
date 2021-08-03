@@ -215,13 +215,20 @@ tests =
             ] "x" $ \v -> v @?= VDouble 5.0
       , testCase "Param fitting (success)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
-          exprAssertionWithStmts
+          exprAssertion2WithStmts
             [ "sir = " <> loadSirEaselExpr
             , "series = simulate(sir at [0..120 by 30])"
             , "ps = fit(sir, series, \"i_initial\")"
-            ] "ps.values.I_initial" $ \val ->
-            case val of
-              VPoint _ -> pure ()
-              _ -> assertFailure "fit did not return a point"
+            ] "ps.values.i_initial" "ps.errors.i_initial" $ \val1 val2 ->
+            case (val1, val2) of
+              (VDouble _, VDouble _) -> pure ()
+              _ -> assertFailure "fit did not return a point with expected shape"
+      , testCase "Param fitting (failure)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          const () <$>
+            assertStmtsFail [ "sir = " <> loadSirEaselExpr
+                            , "series = simulate(sir at [0..120 by 30])"
+                            , "ps = fit(sir, series, \"I_initial\")"
+                            ]
       ]
     ]
