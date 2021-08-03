@@ -142,14 +142,13 @@ renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
 
 
 renameModelVarsWith :: (Text -> Text) -> Syntax.Model -> Syntax.Model
-renameModelVarsWith r = runIdentity . modifyModelVars
+renameModelVarsWith r = modifyModelVars
   where
     modifyModelVars mdl =
-      do  let decls' = map transformDecl (Syntax.modelDecls mdl)
-          let events' = map (renameEventVarsWith r) (Syntax.modelEvents mdl)
-          pure mdl 
-            { Syntax.modelDecls = decls'
-            , Syntax.modelEvents = events' }
+      let decls' = map transformDecl (Syntax.modelDecls mdl)
+          events' = map (renameEventVarsWith r) (Syntax.modelEvents mdl)
+      in  mdl { Syntax.modelDecls = decls'
+              , Syntax.modelEvents = events' }
 
     transformDecl (MetaAnn m d) =
       case d of
