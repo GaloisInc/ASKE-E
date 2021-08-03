@@ -324,13 +324,15 @@ interpretCall fun args =
 
     FJoin ->
       case args of
-        [VModelExpr (EVal (VModel m1)), VModelExpr (EVal (VModel m2)), VArray vs]
-          | Just vs' <- twoStrsM `traverse` vs -> 
-            pure $
-            VModel $
-            modelAsCore (join (Map.fromList vs') (coreAsModel m1) (coreAsModel m2) )
+        [ VArray sm1, VArray sm2, VArray ss] | Just ss' <- twoStrsM `traverse` ss ->
+            case (sm1, sm2) of
+              ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
+                pure $
+                VModel $
+                modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
+              _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
           | otherwise -> typeError "all variable joins must be two-element arrays of strings"
-        _ -> typeError $ "join expects two models and a list of variables to join" <> Text.pack (show args)
+        _ -> typeError $ "join expects two [suffix, model] lists and a list of variables to join" <> Text.pack (show args)
       where
         twoStrsM (VArray [VString s1, VString s2]) = Just (s1, s2)
         twoStrsM _ = Nothing

@@ -25,7 +25,7 @@ data CombinationStrategy = Sum | Average
 ensemble :: [(Model, Double)] -> CombinationStrategy -> Model
 ensemble models combo = megaModel { modelDecls = [pure (Let v e) | (v, e) <- newLets] ++ modelDecls megaModel }
   where
-    megaModel = foldr1 (join mempty) (map (\(model,_,_) -> model) freshModels)
+    megaModel = foldr1 (join mempty "" "") (map (\(model,_,_) -> model) freshModels)
 
     freshModels = flatten $ zipWith (\i (m, d) -> (freshenModel i m, d)) [1::Integer ..] models
 
@@ -68,7 +68,7 @@ compose ::
   Expr {- ^ Execute the first model while this expression is false -} -> 
   Expr {- ^ Execute the second model while this expression is true -} -> 
   Model
-compose stateShare m1 m2 stop1 start2 = join stateShare m1' m2'
+compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
   where
     m1' = m1 { modelEvents = map (doWhen (Not stop1)) (modelEvents m1) }
     m2' = m2 { modelEvents = map (doWhen start2) (modelEvents m2) }
@@ -80,17 +80,20 @@ compose stateShare m1 m2 stop1 start2 = join stateShare m1' m2'
 
 -- | To declare states `s1` of the first argument to this function (`model1`) 
 -- and `s2` of the second (`model2`) shared, include in this function's `Map` 
--- (`renaming`) the entry `(s2, s1)`.
+-- (`share`) the entry `(s2, s1)`.
 --
+-- Before attempting to `join`, this function will suffix `model1` variables
+-- that won't be affected by `join`ing with `suf1`, and likewise with `model2`.
+-- 
 -- All variable declarations and references from `model1` are propagated with
--- no changes. Variable declarations and references from `model2` are
--- propagated according to some rules:
+-- only the aforementioned suffixing. Variable declarations and references from
+-- `model2` are propagated according to some rules:
 --
 -- > if 'v' is a state variable in 'model2':
--- >     if 'v' is in 'renaming':
+-- >     if 'v' is in 'share':
 -- >         replace it with its corresponding value
 -- > else if 'v' is any variable in 'model2':
--- >     if 'v' is also any variable in 'model1':
+-- >     if 'v' is also any variable in 'model1' (post-suffixing):
 -- >         replace it with a freshened version of its original name
 -- > else:
 -- >     no change
@@ -103,21 +106,26 @@ compose stateShare m1 m2 stop1 start2 = join stateShare m1' m2'
 -- flipped. Since a model is very likely to treat different state variables 
 -- differently, it follows that the unions will differ depending on which 
 -- variable of a pair is overwritten.
-join :: Map Text Text -> Model -> Model -> Model
-join renaming model1 model2 = 
+join :: Map Text Text -> Text -> Text -> Model -> Model -> Model
+join share suf1 suf2 model1 model2 = 
   Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents []
   -- TODO propagate metadata somehow?
   where
+    m1DontRename = Set.fromList (Map.elems share)
+    m2DontRename = Map.keysSet share
+    model1' = renameModelVarsWith (\t -> if t `Set.member` m1DontRename then t else t <> suf1) model1
+    model2' = renameModelVarsWith (\t -> if t `Set.member` m2DontRename then t else t <> suf2) model2
+
     newDecls =
-      modelDecls model1 ++
+      modelDecls model1' ++
       renameDecls  State     nonSharedStates ++
-      renameDecls  Let       (letDecls       (modelDecls model2)) ++
-      renameDeclsM Parameter (parameterDecls (modelDecls model2))
+      renameDecls  Let       (letDecls       (modelDecls model2')) ++
+      renameDeclsM Parameter (parameterDecls (modelDecls model2'))
 
     nonSharedStates = 
       [ (v, e) 
-      | (v, e) <- stateDecls (modelDecls model2)
-      , v `Map.notMember` renaming 
+      | (v, e) <- stateDecls (modelDecls model2')
+      , v `Map.notMember` share 
       ]
 
     renameDecls mkDecl decls =
@@ -131,11 +139,11 @@ join renaming model1 model2 =
       ]
 
     newEvents = 
-      modelEvents model1 ++ 
-      map (renameEventVarsWith renameMaybe) (modelEvents model2)
+      modelEvents model1' ++ 
+      map (renameEventVarsWith renameMaybe) (modelEvents model2')
 
     renameMaybe t =
-      case renaming Map.!? t of
+      case share Map.!? t of
         Just t' -> t'
         Nothing -> freshenMaybe t
       
@@ -143,7 +151,7 @@ join renaming model1 model2 =
       | t `elem` m1vars = freshenMaybe (t `Text.append` "_prime")
       | otherwise = t
 
-    m1vars = modelVars model1
+    m1vars = modelVars model1'
 
 -- | All variables in a model
 modelVars :: Model -> Set Text
