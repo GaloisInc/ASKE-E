@@ -106,6 +106,15 @@ testFitParam mdlSrc params dataToFit =
               assertBool ("Fit parameter " ++ show param ++ " uppper bound") (x <= hi)
          _ -> assertFailure (show param ++ " not found after fitting")
 
+testFitInvalidParam :: DataSource -> [Text] -> [Text] -> Assertion
+testFitInvalidParam mdlSrc params invalidParams =
+  do res <- checkFitArgs EaselType mdlSrc params
+     assertBool msg (length res == length invalidParams)
+     where
+       msg = "number of invalid params does not match expected"
+
+
+
 testSimulateEslDiscrete :: DataSource -> Double -> Double -> Double -> DataSeries Double -> Assertion
 testSimulateEslDiscrete mdlSrc start stop step expected =
   do  actual <- head <$> simulateModelDiscrete EaselType mdlSrc start stop step mempty (Just 123) 1
@@ -273,6 +282,10 @@ tests =
   Tasty.testGroup "ASKEE API Tests"
     [ testCase "Basic SIR ODE simulation test" $ testSimulateEsl (Inline sir) series1
     , testCase "Parameterized SIR ODE simulation test" $ testSimulateEslParameterized (Inline sir) series2
+    , testCase "Parameter fitting error checking" $
+        testFitInvalidParam (Inline sir) ["invalid"] ["invalid"]
+    , testCase "Parameter fitting error checking" $
+        testFitInvalidParam (Inline sir) ["invalid1", "s_initial", "invalid2"] ["invalid1", "invalid2"]
     , testCase "Basic parameter fitting (one parameter)" $
         testFitParam (Inline sir) [("i_initial", (2.0, 4.0))] series1'
     , testCase "Basic parameter fitting (two parameters)" $

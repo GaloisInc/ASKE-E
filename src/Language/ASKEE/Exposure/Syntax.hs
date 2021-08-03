@@ -85,6 +85,7 @@ data FunctionName
   | FProb
   | FSample
   | FSimulate
+  | FFit
   | FMin
   | FMax
   | FAt
@@ -136,6 +137,7 @@ prefixFunctionName ident =
     "interpolate" -> Right FInterpolate
     "sample"      -> Right FSample
     "simulate"    -> Right FSimulate
+    "fit"         -> Right FFit
     "min"         -> Right FMin
     "max"         -> Right FMax
     "histogram"   -> Right FHistogram

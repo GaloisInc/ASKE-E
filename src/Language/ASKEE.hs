@@ -23,6 +23,11 @@ module Language.ASKEE
   , checkModel'
     
   , checkSimArgs
+  , checkFitArgs
+  , checkInterfaceRequirements
+  , paramsNotExistErrors
+  , outputsNotExistErrors
+  , unspecifiedValueErrors
   , simulateModelGSL
   , simulateModelAJ
   , simulateModelDiscrete
@@ -377,28 +382,58 @@ checkSimArgs ::
   Set Text {- ^ variables to measure -} ->
   IO [Text]
 checkSimArgs mt ds params outs =
-  do  model <- loadModel mt ds
-      let iface = describeModelInterface model
-      pure $ concat [ paramsNotExistErrors iface
-                    , outputsNotExistErrors iface
-                    , unspecifiedValueErrors iface
-                    ]
-  where
-    requestParamNames = Map.keysSet params
-    ifaceParamNames iface = Set.fromList (portName <$> modelInputs iface)
-    ifaceParamsNoDefault iface = Set.fromList [portName p | p <- modelInputs iface, portDefault p == Nothing]
-    ifaceOutputNames iface = Set.fromList (portName <$> modelOutputs iface)
-    requireSubset a b err = err <$> (Set.toList $ Set.difference a b)
+  checkInterfaceRequirements mt ds
+      [ paramsNotExistErrors (Map.keysSet params)
+      , outputsNotExistErrors outs
+      , unspecifiedValueErrors (Map.keysSet params)
+      ]
 
-    paramsNotExistErrors iface =
-      requireSubset requestParamNames (ifaceParamNames iface)
-                    (\v -> "'" <> v <> "' is not a parameter of the specified model")
-    outputsNotExistErrors iface =
-      requireSubset outs (ifaceOutputNames iface)
-                    (\v -> "'" <> v <> "' is not a measurable quantity of the specified model")
-    unspecifiedValueErrors iface =
-      requireSubset (ifaceParamsNoDefault iface) requestParamNames
-                    (\v -> "'" <> v <> "' has no default and must be specified")
+-- check that the params to fit are a subset of the model's inputs.
+checkFitArgs ::
+  ModelType ->
+  DataSource ->
+  [Text] ->
+  IO [Text]
+checkFitArgs mt ds params =
+  checkInterfaceRequirements mt ds
+    [ paramsNotExistErrors (Set.fromList params) ]
+
+paramsNotExistErrors :: Set Text -> ModelInterface -> [Text]
+paramsNotExistErrors params iface =
+  requireSubset params (ifaceParamNames iface)
+    (\v -> "'" <> v <> "' is not a parameter of the specified model")
+
+outputsNotExistErrors :: Set Text -> ModelInterface -> [Text]
+outputsNotExistErrors outs iface =
+  requireSubset outs (ifaceOutputNames iface)
+                (\v -> "'" <> v <> "' is not a measurable quantity of the specified model")
+
+unspecifiedValueErrors :: Set Text -> ModelInterface -> [Text]
+unspecifiedValueErrors params iface =
+  requireSubset (ifaceParamsNoDefault iface) params
+                (\v -> "'" <> v <> "' has no default and must be specified")
+
+ifaceParamNames :: ModelInterface -> Set Text
+ifaceParamNames iface =
+  Set.fromList (portName <$> modelInputs iface)
+
+ifaceParamsNoDefault :: ModelInterface -> Set Text
+ifaceParamsNoDefault iface =
+  Set.fromList [portName p | p <- modelInputs iface, portDefault p == Nothing]
+
+ifaceOutputNames :: ModelInterface -> Set Text
+ifaceOutputNames iface =
+  Set.fromList (portName <$> modelOutputs iface)
+
+checkInterfaceRequirements :: ModelType -> DataSource -> [ModelInterface -> [Text]] -> IO [Text]
+checkInterfaceRequirements mt ds reqs =
+  do model <- loadModel mt ds
+     let iface = describeModelInterface model
+     pure $ concat [r iface | r <- reqs]
+
+requireSubset :: Ord a => Set a -> Set a -> (a -> Text) -> [Text]
+requireSubset a b err = err <$> Set.toList (Set.difference a b)
+
 
 simulateModel :: 
   Maybe SimulationType ->
