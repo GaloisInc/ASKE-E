@@ -35,6 +35,7 @@ import Witherable (Witherable(..))
 
 
 import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax as Core
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
@@ -278,6 +279,12 @@ interpretCall fun args =
       case args of
         [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
         _ -> typeError "simulate expects a fold as its argument"
+    FFit         ->
+      case args of
+        (m:VDataSeries series:params) ->
+          interpretFit m series params
+        _ ->
+          typeError "fit expects a model, a data series, and a sequence of parameter names"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
@@ -309,7 +316,7 @@ interpretCall fun args =
           do csv <- getFile (Text.unpack path)
              case DS.parseDataSeries csv of
                Left err -> throw (Text.pack err)
-               Right ds -> pure $ VModelExpr $ EVal $ VDataSeries ds
+               Right ds -> pure $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
 
     FMean ->
@@ -484,6 +491,25 @@ interpretCall fun args =
       if any isMexpr args
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
+
+interpretFit :: Value -> DS.DataSeries Double -> [Value] -> Eval Value
+interpretFit mv ds ps =
+  do m   <- model mv
+     ps' <- traverse str ps
+     case Model.toDeqs (Model.Core m) of
+       Left err ->
+         throw $ Text.pack err
+       Right deq ->
+         do let res = DEQ.fitModel deq ds mempty $ Map.fromList (zip ps' (repeat 0))
+            case res of
+              Left inv ->
+                throw $ "Model " <> Core.modelName m <> " does not have parameters named: "
+                     <> Text.pack (show inv)
+              Right fit ->
+                do let fitM = fst fit
+                       vals = VPoint $ Map.map (VDouble . fst) fitM
+                       errs = VPoint $ Map.map (VDouble . snd) fitM
+                   return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
 
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
@@ -781,6 +807,13 @@ count p = go 0
 
 chooseOr :: [Eval a] -> Eval a -> Eval a
 chooseOr e r = foldr (<|>) r e
+
+model :: Value -> Eval Core.Model
+model v =
+  case v of
+    VModel m -> pure m
+    VModelExpr (EVal v') -> model v'
+    _ -> throw "Expecting model"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
