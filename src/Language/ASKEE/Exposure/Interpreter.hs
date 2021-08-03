@@ -39,8 +39,11 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
+import           Language.ASKEE.Core.Convert ( coreAsModel )
 import qualified Language.ASKEE.CPP as CPP
 import qualified Language.ASKEE.DEQ.Simulate as DEQ
+import           Language.ASKEE.ESL.Convert ( modelAsCore )
+import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
 import Language.ASKEE.Exposure.Syntax
@@ -322,6 +325,21 @@ interpretCall fun args =
                Left err -> throw (Text.pack err)
                Right ds -> pure $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
+
+    FJoin ->
+      case args of
+        [ VArray sm1, VArray sm2, VArray ss] | Just ss' <- twoStrsM `traverse` ss ->
+            case (sm1, sm2) of
+              ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
+                pure $
+                VModel $
+                modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
+              _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
+          | otherwise -> typeError "all variable joins must be two-element arrays of strings"
+        _ -> typeError $ "join expects two [suffix, model] lists and a list of variables to join" <> Text.pack (show args)
+      where
+        twoStrsM (VArray [VString s1, VString s2]) = Just (s1, s2)
+        twoStrsM _ = Nothing
 
     FMean ->
       case args of

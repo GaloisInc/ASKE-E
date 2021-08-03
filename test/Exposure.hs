@@ -3,6 +3,7 @@ module Exposure (tests) where
 
 import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
+import Data.Functor ( void )
 import qualified Data.Text as Text
 import qualified Data.Map as Map
 import Data.Text (Text)
@@ -230,5 +231,23 @@ tests =
                             , "series = simulate(sir at [0..120 by 30])"
                             , "ps = fit(sir, series, \"I_initial\")"
                             ]
+      , testCase "Join (bad model args)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          void $ assertStmtsFail 
+            [ "sir = "<>loadSirEaselExpr
+            , "join(sir, sir, [])" ]
+      , testCase "Join (bad share args)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          void $ assertStmtsFail 
+            [ "sir = "<>loadSirEaselExpr
+            , "join([\"_1\", sir], [\"_2\", sir], [\"S\", \"S\"])" ]
+      , testCase "Join (success)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = "<>loadSirEaselExpr
+            ] "join([\"_1\", sir], [\"_2\", sir], [[\"S\", \"S\"]])" $ \v ->
+                case v of
+                  VModel _ -> pure ()
+                  x -> assertFailure $ "joining didn't produce a model, instead a "<>show x
       ]
     ]

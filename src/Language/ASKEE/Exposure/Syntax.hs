@@ -92,6 +92,7 @@ data FunctionName
   | FAt
   | FLoadEasel
   | FLoadCSV
+  | FJoin
   | FMean
   | FInterpolate
   | FHistogram
@@ -132,6 +133,7 @@ prefixFunctionName ident =
   case T.unpack ident of
     "loadESL"     -> Right FLoadEasel
     "loadCSV"     -> Right FLoadCSV
+    "join"        -> Right FJoin
     "P"           -> Right FProb
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
