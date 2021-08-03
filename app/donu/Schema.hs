@@ -44,6 +44,8 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | QueryModels QueryModelsCommand
+  | ListDataSets ListDataSetsCommand
+  | GetDataSet GetDataSetCommand
     deriving Show
 
 instance HasSpec Input where
@@ -542,3 +544,39 @@ instance JS.ToJSON DonuValue where
 
       tbd :: JS.Value
       tbd = error "TBD"
+
+-------------------------------------------------------------------------------
+-- datasets
+
+newtype GetDataSetCommand = GetDataSetCommand
+  { getDataSetCommandDataSource :: DataSource
+  }
+  deriving Show
+
+instance HasSpec GetDataSetCommand where
+  anySpec =
+    sectionsSpec "get-dataset"
+    do  reqSection' "command"  (jsAtom "get-dataset")
+                    "Get dataset JSON"
+
+        getDataSetCommandDataSource <- reqSection' "source" dataSource "Data source"
+
+        pure $ GetDataSetCommand { .. }
+
+dataSetDescToJSON :: DataSetDescription -> JS.Value
+dataSetDescToJSON dd =
+  JS.object [ "source" .= dataSourceToJSON (dataSetDescSource dd)
+            , "name"   .= dataSetDescName dd
+            , "description" .= dataSetDescDescription dd
+            ]
+
+data ListDataSetsCommand = ListDataSetsCommand
+  deriving Show
+
+instance HasSpec ListDataSetsCommand where
+  anySpec =
+    sectionsSpec "list-datasets"
+    do  reqSection' "command"  (jsAtom "list-datasets")
+                    "List available datasets"
+
+        pure ListDataSetsCommand

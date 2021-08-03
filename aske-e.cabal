@@ -122,6 +122,7 @@ library
                         Language.ASKEE.Storage.Internal
                         Language.ASKEE.HTTPClient
                         Language.ASKEE.Automates.Client
+                        Language.ASKEE.DataSet
 
                         Language.ASKEE.Utils
 
