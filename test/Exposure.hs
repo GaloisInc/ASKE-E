@@ -207,10 +207,7 @@ tests =
             [ "x = 3.0"
             , "x = 5.0"
             , "x"
-            ] "x" $ \v ->
-            case v of
-              VDouble 5.0 -> pure ()
-              _ -> assertFailure "x not 5.0"
+            ] "x" $ \v -> v @?= VDouble 5.0
       , testCase "Param fitting (success)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertionWithStmts
