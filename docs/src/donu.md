@@ -673,7 +673,7 @@ Dataset schema:
 |------------------|--------------------------|---------------------------------------------------------------------|
 | name             | string                   | Display name of this dataset                                        |
 | description      | string                   | Human readable description for this data set                        |
-| columns          | column                   | List of columns (see column schema)                                 |
+| columns          | array of column          | List of columns (see column schema)                                 |
 
 Column schema:
 
