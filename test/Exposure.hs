@@ -188,5 +188,14 @@ tests =
       , testCase "String with whitespace" $ do
           exprAssertion "\"Hello World\"" $ \actualVal ->
             actualVal @?= VString "Hello World"
+      , testCase "Name shadowing" $ do
+          exprAssertionWithStmts
+            [ "x = 3.0"
+            , "x = 5.0"
+            , "x"
+            ] "x" $ \v ->
+            case v of
+              VDouble 5.0 -> pure ()
+              _ -> assertFailure "x not 5.0"
       ]
     ]
