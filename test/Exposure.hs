@@ -4,6 +4,7 @@ module Exposure (tests) where
 import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
 import qualified Data.Text as Text
+import qualified Data.Map as Map
 import Data.Text (Text)
 import System.FilePath ((</>))
 import Test.Tasty.HUnit
@@ -13,7 +14,20 @@ import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
+
 import Paths_aske_e (getDataDir)
+import Language.ASKEE (DataSeries(..))
+
+series1 :: DataSeries Double
+series1 =
+  DataSeries { times = [0,30,60,90,120]
+             , values = Map.fromList
+                [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
+                , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
+                , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
+                , ("total_population",[1000,1000,1000,1000])
+                ]
+             }
 
 assertLeft :: Either a b -> IO ()
 assertLeft (Left _)  = pure ()
@@ -56,13 +70,18 @@ exprAssertionWithStmts stmtStrs actualExprStr k = do
 
 exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
-  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
-  assertLeft lr
+  env        <- assertStmtsFail stmtStrs
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
+
+assertStmtsFail :: [String] -> IO Env
+assertStmtsFail stmtStrs = do
+  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
+  assertLeft lr
+  return env
 
 emptyEvalRead :: EvalRead
 emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
@@ -188,5 +207,28 @@ tests =
       , testCase "String with whitespace" $ do
           exprAssertion "\"Hello World\"" $ \actualVal ->
             actualVal @?= VString "Hello World"
+      , testCase "Name shadowing" $ do
+          exprAssertionWithStmts
+            [ "x = 3.0"
+            , "x = 5.0"
+            , "x"
+            ] "x" $ \v -> v @?= VDouble 5.0
+      , testCase "Param fitting (success)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertion2WithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "series = simulate(sir at [0..120 by 30])"
+            , "ps = fit(sir, series, \"i_initial\")"
+            ] "ps.values.i_initial" "ps.errors.i_initial" $ \val1 val2 ->
+            case (val1, val2) of
+              (VDouble _, VDouble _) -> pure ()
+              _ -> assertFailure "fit did not return a point with expected shape"
+      , testCase "Param fitting (failure)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          const () <$>
+            assertStmtsFail [ "sir = " <> loadSirEaselExpr
+                            , "series = simulate(sir at [0..120 by 30])"
+                            , "ps = fit(sir, series, \"I_initial\")"
+                            ]
       ]
     ]

@@ -525,8 +525,8 @@ instance JS.ToJSON DonuValue where
       VSFold {}      -> unimplVal "<sfold>"
       VSuspended     -> unimplVal "<suspended>"
 
-      VSampledData{} -> tbd
-      VPoint{}       -> tbd
+      VSampledData{} -> unimplVal "<sampledData>"
+      VPoint m       -> typedPrim "point" (JS.toJSON . DonuValue <$> m)
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value

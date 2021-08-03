@@ -8,7 +8,7 @@ module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
-import Control.Monad (unless)
+import Control.Monad (unless, foldM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -34,6 +34,7 @@ import qualified Numeric.GSL.Interpolation as Interpolation
 import Witherable (Witherable(..))
 
 
+import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
@@ -184,21 +185,11 @@ getVarValue i =
 
 bindTopLevelVar :: Ident -> Value -> Eval ()
 bindTopLevelVar i v =
-  do  mbV <- State.gets (Map.lookup i . envTopLevelVars)
-      case mbV of
-        Nothing ->
-          State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+  State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
 
 withLocalVar :: Ident -> Value -> Eval a -> Eval a
-withLocalVar i v thing =
-  do  localEnv    <- Reader.asks erLocalVars
-      topLevelEnv <- State.gets envTopLevelVars
-      case Map.lookup i localEnv <|> Map.lookup i topLevelEnv of
-        Nothing -> Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) }) thing
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+withLocalVar i v =
+  Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) })
 
 -------------------------------------------------------------------------------
 
@@ -288,6 +279,12 @@ interpretCall fun args =
       case args of
         [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
         _ -> typeError "simulate expects a fold as its argument"
+    FFit         ->
+      case args of
+        (m:series:params) ->
+          interpretFit m series params
+        _ ->
+          typeError "fit expects a model, a data series, and a sequence of parameter names"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
@@ -319,7 +316,7 @@ interpretCall fun args =
           do csv <- getFile (Text.unpack path)
              case DS.parseDataSeries csv of
                Left err -> throw (Text.pack err)
-               Right ds -> pure $ VModelExpr $ EVal $ VDataSeries ds
+               Right ds -> pure $ VDataSeries ds
         _ -> typeError "loadCSV expects a single string argument"
 
     FMean ->
@@ -494,6 +491,26 @@ interpretCall fun args =
       if any isMexpr args
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
+
+interpretFit :: Value -> Value -> [Value] -> Eval Value
+interpretFit mv ds ps =
+  do m   <- Model.Core <$> model mv
+     ps' <- traverse str ps
+     ds' <- dataSeries ds
+     case Model.toDeqs m of
+       Left err ->
+         throw $ Text.pack err
+       Right deq ->
+         do let iface     = A.describeModelInterface m
+                ifaceErrs = A.paramsNotExistErrors (Set.fromList ps') iface
+            case ifaceErrs of
+              [] ->
+                do let (res, _) = DEQ.fitModel deq ds' mempty $ Map.fromList (zip ps' (repeat 0))
+                       vals = VPoint $ Map.map (VDouble . fst) res
+                       errs = VPoint $ Map.map (VDouble . snd) res
+                   return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
+              _ ->
+                throw (Text.unlines ifaceErrs)
 
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
@@ -696,6 +713,17 @@ seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
       let vals = VPoint (VDouble <$> DS.ptValues p)
       in VTimed vals (DS.ptTime p)
 
+timedPointsAsSeries :: [Value] -> Eval (DS.DataSeries Double)
+timedPointsAsSeries vs =
+  do (ts, m) <- foldM go ([], mempty) (reverse vs)
+     pure $ DS.DataSeries ts m
+  where
+    go (ts, ptMap) v =
+      do (p, t) <- timed withPoint v
+         pure (t:ts, Map.unionWith (++) p ptMap)
+
+    withPoint (VPoint pt) = traverse (fmap pure . double) pt
+    withPoint _ = throw "Expected point of doubles"
 
 getArrayContents :: Value -> Eval [Value]
 getArrayContents v =
@@ -791,6 +819,20 @@ count p = go 0
 
 chooseOr :: [Eval a] -> Eval a -> Eval a
 chooseOr e r = foldr (<|>) r e
+
+model :: Value -> Eval Core.Model
+model v =
+  case v of
+    VModel m -> pure m
+    VModelExpr (EVal v') -> model v'
+    _ -> throw "Expecting model"
+
+dataSeries :: Value -> Eval (DS.DataSeries Double)
+dataSeries v =
+  case v of
+    VArray vs -> timedPointsAsSeries vs
+    VDataSeries d -> pure d
+    _ -> throw "Expecting dataseries"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
