@@ -70,13 +70,18 @@ exprAssertionWithStmts stmtStrs actualExprStr k = do
 
 exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
-  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
-  assertLeft lr
+  env        <- assertStmtsFail stmtStrs
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
+
+assertStmtsFail :: [String] -> IO Env
+assertStmtsFail stmtStrs = do
+  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
+  assertLeft lr
+  return env
 
 emptyEvalRead :: EvalRead
 emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
