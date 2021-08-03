@@ -17,6 +17,8 @@ data Token
   | CloseB
   | OpenC
   | CloseC
+  | OpenCC
+  | CloseCC
   | LambdaArr
   | DotDot
   | Ident Text

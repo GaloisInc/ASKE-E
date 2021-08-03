@@ -243,6 +243,10 @@ interpretExpr e0 =
               pure $ VArray $ map VDouble [startD, startD + stepD .. stopD]
             _ -> typeErrorArgs [start', stop', step'] "all values in a range should be doubles"
 
+    EPoint binds ->
+      do  binds' <- traverse (traverse interpretExpr) binds
+          pure $ VPoint $ Map.fromList binds'
+
 interpretDisplayExpr :: DisplayExpr -> Eval ()
 interpretDisplayExpr (DisplayScalar scalar) = do
   v <- interpretExpr scalar
@@ -412,17 +416,22 @@ interpretCall fun args =
                 throw "Columns must all have the same number of elements"
               pure $ VTable labels' columns'
         _ -> typeError "table expects a list of labels and a list of columns as arguments"
-    
+
     FSimplify ->
       case args of
         [VModelExpr (EVal (VModel m)), VArray arr] ->
-          do  states <- 
+          do  states <-
                 case strings arr of
                   Just ss -> pure ss
-                  Nothing -> 
+                  Nothing ->
                     typeError "simplify's list of states must be string literals"
               pure $ VModel (Core.pruneModel (Set.fromList states) m)
         _ -> typeError "simplify expects a model and a list of states"
+
+    FWithParams ->
+      case args of
+        [m, p] -> interpretWithParams m p
+        _      -> typeError "withParams expects two arguments"
 
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)
@@ -636,6 +645,15 @@ interpretMeanError f vPredicted vActual =
     meanError :: [(Double, Double)] -> Value
     meanError pas = VDouble $ mean $ map (\(p, a) -> f (p - a)) pas
 
+interpretWithParams :: Value -> Value -> Eval Value
+interpretWithParams (VModelExpr (EVal m)) p =
+  interpretWithParams m p
+interpretWithParams (VModel m) (VPoint p) =
+  do  p' <- traverse double p
+      pure $ VModel $ Core.applyParams p' m
+interpretWithParams m p =
+  typeErrorArgs [m, p] "withParams expects a model and a point as arguments"
+
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
   [ "type error: " <> msg
@@ -686,6 +704,7 @@ runSimExpr how t e0 =
     EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
     EList es -> EList <$> runSimExpr how t `traverse` es
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
+    EPoint es -> EPoint <$> traverse (traverse (runSimExpr how t)) es
 
 runSim :: SimMethod -> Double -> Core.Model -> Eval Value
 runSim (Sample delta sf) t mdl =

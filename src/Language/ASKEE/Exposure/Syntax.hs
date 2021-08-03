@@ -32,6 +32,7 @@ data Expr
   | EMember Expr Ident
   | EList [Expr]
   | EListRange Expr Expr Expr
+  | EPoint [(Ident, Expr)]
   deriving (Show, Eq, Ord)
 
 data Value
@@ -104,6 +105,7 @@ data FunctionName
   | FMAE -- Mean Absolute Error
   | FTable
   | FSimplify
+  | FWithParams
   deriving (Show, Eq, Ord)
 
 data FunctionWithLambdaName
@@ -149,6 +151,7 @@ prefixFunctionName ident =
     "mae"         -> Right FMAE
     "table"       -> Right FTable
     "simplify"    -> Right FSimplify
+    "withParams"  -> Right FWithParams
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName
