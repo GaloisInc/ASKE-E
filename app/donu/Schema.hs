@@ -61,6 +61,8 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (QueryModels <$> anySpec)
+         <!> (ListDataSets <$> anySpec)
+         <!> (GetDataSet <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
