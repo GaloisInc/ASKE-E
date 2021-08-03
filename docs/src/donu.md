@@ -647,7 +647,7 @@ A list of dataset descriptions.
 }
 ```
 
-### `list-datasets` Get datasets
+### `get-dataset` Get a dataset
 
 | Field            | Type                     | Description                                                         |
 |------------------|--------------------------|---------------------------------------------------------------------|
