@@ -334,7 +334,7 @@ asExpr expr =
     Op2 op2 e1 e2 -> doOp2 op2 e1 e2
     Var i -> Expr.Var i
     If p t f -> Expr.If (asExpr p) (asExpr t) (asExpr f)
-    Fail _ -> undefined
+    Fail err -> error err
 
   where
     doLit l =
