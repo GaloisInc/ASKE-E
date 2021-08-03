@@ -8,7 +8,7 @@ module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
-import Control.Monad (unless)
+import Control.Monad (unless, foldM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -281,7 +281,7 @@ interpretCall fun args =
         _ -> typeError "simulate expects a fold as its argument"
     FFit         ->
       case args of
-        (m:VDataSeries series:params) ->
+        (m:series:params) ->
           interpretFit m series params
         _ ->
           typeError "fit expects a model, a data series, and a sequence of parameter names"
@@ -492,10 +492,11 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
-interpretFit :: Value -> DS.DataSeries Double -> [Value] -> Eval Value
+interpretFit :: Value -> Value -> [Value] -> Eval Value
 interpretFit mv ds ps =
   do m   <- Model.Core <$> model mv
      ps' <- traverse str ps
+     ds' <- dataSeries ds
      case Model.toDeqs m of
        Left err ->
          throw $ Text.pack err
@@ -504,7 +505,7 @@ interpretFit mv ds ps =
                 ifaceErrs = A.paramsNotExistErrors (Set.fromList ps') iface
             case ifaceErrs of
               [] ->
-                do let (res, _) = DEQ.fitModel deq ds mempty $ Map.fromList (zip ps' (repeat 0))
+                do let (res, _) = DEQ.fitModel deq ds' mempty $ Map.fromList (zip ps' (repeat 0))
                        vals = VPoint $ Map.map (VDouble . fst) res
                        errs = VPoint $ Map.map (VDouble . snd) res
                    return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
@@ -712,6 +713,17 @@ seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
       let vals = VPoint (VDouble <$> DS.ptValues p)
       in VTimed vals (DS.ptTime p)
 
+timedPointsAsSeries :: [Value] -> Eval (DS.DataSeries Double)
+timedPointsAsSeries vs =
+  do (ts, m) <- foldM go ([], mempty) (reverse vs)
+     pure $ DS.DataSeries ts m
+  where
+    go (ts, ptMap) v =
+      do (p, t) <- timed withPoint v
+         pure (t:ts, Map.unionWith (++) p ptMap)
+
+    withPoint (VPoint pt) = traverse (fmap pure . double) pt
+    withPoint _ = throw "Expected point of doubles"
 
 getArrayContents :: Value -> Eval [Value]
 getArrayContents v =
@@ -814,6 +826,13 @@ model v =
     VModel m -> pure m
     VModelExpr (EVal v') -> model v'
     _ -> throw "Expecting model"
+
+dataSeries :: Value -> Eval (DS.DataSeries Double)
+dataSeries v =
+  case v of
+    VArray vs -> timedPointsAsSeries vs
+    VDataSeries d -> pure d
+    _ -> throw "Expecting dataseries"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
