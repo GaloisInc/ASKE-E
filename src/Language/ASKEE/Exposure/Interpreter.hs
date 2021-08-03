@@ -184,21 +184,11 @@ getVarValue i =
 
 bindTopLevelVar :: Ident -> Value -> Eval ()
 bindTopLevelVar i v =
-  do  mbV <- State.gets (Map.lookup i . envTopLevelVars)
-      case mbV of
-        Nothing ->
-          State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+  State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
 
 withLocalVar :: Ident -> Value -> Eval a -> Eval a
-withLocalVar i v thing =
-  do  localEnv    <- Reader.asks erLocalVars
-      topLevelEnv <- State.gets envTopLevelVars
-      case Map.lookup i localEnv <|> Map.lookup i topLevelEnv of
-        Nothing -> Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) }) thing
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+withLocalVar i v =
+  Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) })
 
 -------------------------------------------------------------------------------
 
