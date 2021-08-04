@@ -10,7 +10,7 @@ ipykernel = "*"
 metakernel = "*"
 pylint = "*"
 tabulate = "*"
-askee-kernel = {path = "."}
+askee_kernel = {path = "."}
 websocket-client = "*"
 
 [dev-packages]
