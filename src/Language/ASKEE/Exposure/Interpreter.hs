@@ -808,6 +808,7 @@ atSimple lst t =
   case lst of
     []     -> Nothing
     (e, t'):_ | t <= t' -> Just e
+    [(e, _)] -> Just e
     _:lst' -> atSimple lst' t
 
 atPoint :: [Value] -> Double -> Eval Value
