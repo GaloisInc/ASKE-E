@@ -778,6 +778,125 @@ as a hint to group related parameters.</p>
   }
 }
 </code></pre>
+<h3 id="list-datasets-list-available-datasets"><a class="header" href="#list-datasets-list-available-datasets"><code>list-datasets</code> List available datasets</a></h3>
+<p><strong>Request:</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;list-datasets&quot;</code></td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;list-datasets&quot;
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<p>A list of dataset descriptions.</p>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: [
+    {
+      &quot;source&quot;: {
+        &quot;model&quot;: &quot;example.json&quot;
+      },
+      &quot;name&quot;: &quot;Example Data&quot;,
+      &quot;description&quot;: &quot;Example data drawn from SIR model&quot;
+    },
+    {
+      &quot;source&quot;: {
+        &quot;model&quot;: &quot;sir_noise.json&quot;
+      },
+      &quot;name&quot;: &quot;SIR Infected with Noise&quot;,
+      &quot;description&quot;: &quot;Infected values from SIR model with added noise&quot;
+    },
+    {
+      &quot;source&quot;: {
+        &quot;model&quot;: &quot;sir_sample.json&quot;
+      },
+      &quot;name&quot;: &quot;Sample SIR Data&quot;,
+      &quot;description&quot;: &quot;Sample data generated from a SIR model&quot;
+    }
+  ]
+}
+</code></pre>
+<h3 id="get-dataset-get-a-dataset"><a class="header" href="#get-dataset-get-a-dataset"><code>get-dataset</code> Get a dataset</a></h3>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;get-dataset&quot;</code></td></tr>
+<tr><td>source</td><td>datasource</td><td>Datasource for model (e.g. from <code>list-datasets</code>)</td></tr>
+</tbody></table>
+<p><strong>Request:</strong></p>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;command&quot;: &quot;get-dataset&quot;,
+  &quot;source&quot;: {&quot;model&quot;: &quot;example.json&quot;}
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<p>Dataset schema:</p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>name</td><td>string</td><td>Display name of this dataset</td></tr>
+<tr><td>description</td><td>string</td><td>Human readable description for this data set</td></tr>
+<tr><td>columns</td><td>array of column</td><td>List of columns (see column schema)</td></tr>
+</tbody></table>
+<p>Column schema:</p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>name</td><td>string</td><td>Name of this column</td></tr>
+<tr><td>description</td><td>string</td><td>Human readable description for this column</td></tr>
+<tr><td>values</td><td>array of numbers</td><td>Data values</td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-JSON">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;name&quot;: &quot;Example Data&quot;,
+    &quot;description&quot;: &quot;Example data drawn from SIR model&quot;,
+    &quot;columns&quot;: [
+      {
+        &quot;values&quot;: [
+          3,
+          570.9758710681087,
+          177.8779579737781,
+          53.66360145338841,
+          16.175249034797183
+        ],
+        &quot;name&quot;: &quot;I&quot;,
+        &quot;description&quot;: &quot;Infected Population&quot;
+      },
+      {
+        &quot;values&quot;: [
+          0,
+          412.987493166334,
+          821.8532404022537,
+          946.2589265257153,
+          983.7715119765173
+        ],
+        &quot;name&quot;: &quot;R&quot;,
+        &quot;description&quot;: &quot;Recovered Population&quot;
+      },
+      {
+        &quot;values&quot;: [
+          997,
+          16.036635765557786,
+          0.2688016239687889,
+          0.07747202089688701,
+          0.05323898868597068
+        ],
+        &quot;name&quot;: &quot;S&quot;,
+        &quot;description&quot;: &quot;Susceptible Population&quot;
+      },
+      {
+        &quot;values&quot;: [
+          0,
+          30,
+          60,
+          90,
+          120
+        ],
+        &quot;name&quot;: &quot;time&quot;,
+        &quot;description&quot;: &quot;Time (in days)&quot;
+      }
+    ]
+  }
+}
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="prtnet-gromet-specification"><a class="header" href="#prtnet-gromet-specification">PrTNet Gromet Specification</a></h1>
 <p>PrTNet Gromet is a JSON based representation of stochastic Petri nets.
 Abstractly, a stochastic Petri net is a collection of <em>state</em> variables,
