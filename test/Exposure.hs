@@ -5,7 +5,6 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
 import Data.Functor ( void )
 import qualified Data.Text as Text
-import qualified Data.Map as Map
 import Data.Text (Text)
 import System.FilePath ((</>))
 import Test.Tasty.HUnit
@@ -17,18 +16,6 @@ import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
 import Paths_aske_e (getDataDir)
-import Language.ASKEE (DataSeries(..))
-
-series1 :: DataSeries Double
-series1 =
-  DataSeries { times = [0,30,60,90,120]
-             , values = Map.fromList
-                [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
-                , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
-                , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
-                , ("total_population",[1000,1000,1000,1000])
-                ]
-             }
 
 assertLeft :: Either a b -> IO ()
 assertLeft (Left _)  = pure ()
