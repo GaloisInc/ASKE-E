@@ -104,6 +104,7 @@ data FunctionName
   | FAsEqnArray
   | FMSE -- Mean Squared Error
   | FMAE -- Mean Absolute Error
+  | FSkillRank
   | FTable
   | FSimplify
   | FWithParams
@@ -154,6 +155,7 @@ prefixFunctionName ident =
     "table"       -> Right FTable
     "simplify"    -> Right FSimplify
     "withParams"  -> Right FWithParams
+    "modelSkillRank" -> Right FSkillRank
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName
