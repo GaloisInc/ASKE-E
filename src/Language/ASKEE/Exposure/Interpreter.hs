@@ -228,10 +228,7 @@ interpretExpr e0 =
     -- TODO: will we also need suspend for this?
     EMember e lab ->
       do  v <- interpretExpr e
-          case v of
-            -- TODO: typecheck model expr
-            VModelExpr m -> pure $ VModelExpr (EMember m lab)
-            _ -> mem v lab
+          fmap VModelExpr (EMember . EVal . VModel <$> model v <*> pure lab) <|> mem v lab
 
     EList es ->
       do  vs <- interpretExpr `traverse` es
