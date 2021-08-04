@@ -275,44 +275,46 @@ for the ASKE-E program.</p>
 <p><strong>Response:</strong></p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td>times</td><td>list of number</td><td>series of times used in simulation</td></tr>
-<tr><td>values</td><td>list of result series object</td><td>values of state varaibles</td></tr>
+<tr><td>values</td><td>list of result series object</td><td>values of state variables</td></tr>
 </tbody></table>
 <p>Each object in <code>result</code> is structured such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
-  &quot;result&quot;: {
-    &quot;values&quot;: {
-      &quot;I&quot;: [
-        3,
-        396.20766691080604,
-        119.33588838987737,
-        35.943279530151585,
-        10.825907756942332
-      ],
-      &quot;S&quot;: [
-        997,
-        0.0012550867795002216,
-        2.4726152151230926e-06,
-        3.7868257221162325e-07,
-        2.151977671793774e-07
-      ],
-      &quot;R&quot;: [
+  &quot;result&quot;: [
+    {
+      &quot;values&quot;: {
+        &quot;I&quot;: [
+          3,
+          396.20766691080604,
+          119.33588838987737,
+          35.943279530151585,
+          10.825907756942332
+        ],
+        &quot;S&quot;: [
+          997,
+          0.0012550867795002216,
+          2.4726152151230926e-06,
+          3.7868257221162325e-07,
+          2.151977671793774e-07
+        ],
+        &quot;R&quot;: [
+          0,
+          603.7910780024147,
+          880.6641091375077,
+          964.0567200911661,
+          989.1740920278602
+        ]
+      },
+      &quot;times&quot;: [
         0,
-        603.7910780024147,
-        880.6641091375077,
-        964.0567200911661,
-        989.1740920278602
+        30,
+        60,
+        90,
+        120
       ]
-    },
-    &quot;times&quot;: [
-      0,
-      30,
-      60,
-      90,
-      120
-    ]
-  }
+    }
+  ]
 }
 </code></pre>
 <h3 id="get-model-schematic---get-schematic-description-of-a-model"><a class="header" href="#get-model-schematic---get-schematic-description-of-a-model"><code>get-model-schematic</code> - get schematic description of a model</a></h3>
