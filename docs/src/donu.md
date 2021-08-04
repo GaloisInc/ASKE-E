@@ -186,7 +186,7 @@ Example:
 | Field            | Type                             | Description                                                       |
 |------------------|----------------------------------|-------------------------------------------------------------------|
 | times            | list of number                   | series of times used in simulation                                |
-| values           | list of result series object     | values of state varaibles                                         |
+| values           | list of result series object     | values of state variables                                         |
 
 Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
@@ -195,38 +195,40 @@ Example:
 ```JSON
 {
   "status": "success",
-  "result": {
-    "values": {
-      "I": [
-        3,
-        396.20766691080604,
-        119.33588838987737,
-        35.943279530151585,
-        10.825907756942332
-      ],
-      "S": [
-        997,
-        0.0012550867795002216,
-        2.4726152151230926e-06,
-        3.7868257221162325e-07,
-        2.151977671793774e-07
-      ],
-      "R": [
+  "result": [
+    {
+      "values": {
+        "I": [
+          3,
+          396.20766691080604,
+          119.33588838987737,
+          35.943279530151585,
+          10.825907756942332
+        ],
+        "S": [
+          997,
+          0.0012550867795002216,
+          2.4726152151230926e-06,
+          3.7868257221162325e-07,
+          2.151977671793774e-07
+        ],
+        "R": [
+          0,
+          603.7910780024147,
+          880.6641091375077,
+          964.0567200911661,
+          989.1740920278602
+        ]
+      },
+      "times": [
         0,
-        603.7910780024147,
-        880.6641091375077,
-        964.0567200911661,
-        989.1740920278602
+        30,
+        60,
+        90,
+        120
       ]
-    },
-    "times": [
-      0,
-      30,
-      60,
-      90,
-      120
-    ]
-  }
+    }
+  ]
 }
 ```
 
