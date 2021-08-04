@@ -117,9 +117,9 @@ Example:
 **Response:**
 
 
-| Field   | Type    | Description                                                       |
-|---------|---------|-------------------------------------------------------------------|
-| models  | list    | list of "model-def++" objects of the same form as returned by `list-models` |
+| Description                                                                 |
+|-----------------------------------------------------------------------------|
+| list of "model-def++" objects of the same form as returned by `list-models` |
 
 Example:
 
@@ -183,12 +183,18 @@ Example:
 
 **Response:**
 
+| Description                  |
+|------------------------------|
+| A list of simulation results |
+
+Simulation result schema:
+
 | Field            | Type                             | Description                                                       |
 |------------------|----------------------------------|-------------------------------------------------------------------|
 | times            | list of number                   | series of times used in simulation                                |
-| values           | list of result series object     | values of state variables                                         |
+| values           | result series object             | values of state variables                                         |
 
-Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+Each object in `values` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
 Example:
 
@@ -618,7 +624,9 @@ Example:
 
 **Response:**
 
-A list of dataset descriptions.
+| Description                     |
+|---------------------------------|
+| A list of dataset descriptions. |
 
 ```JSON
 {
