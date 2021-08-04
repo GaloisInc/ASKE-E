@@ -815,6 +815,8 @@ skillRank modelObservations alphas truth =
 
 
 -- | Weighted interval score for a given set of samples, alphas and observation.
+-- Implementation based on
+-- <https://github.com/GaloisInc/ASKE-E/blob/main/docs/metrics/weighted_interval_score.py>
 wis :: [Double] -> [Double] -> Double -> Double
 wis vals alphas y =
   (1/(k + 0.5)) * (w0 * abs (y-m) + agg_interval)
