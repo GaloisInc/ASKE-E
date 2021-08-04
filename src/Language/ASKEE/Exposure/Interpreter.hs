@@ -830,6 +830,9 @@ wis vals alphas y =
     vals' = sort vals
 
 -- The first argument should be sorted in increasing order
+-- Performs the equivalent of `numpy.quantile` with
+-- `interpolation='lower'` when the quantile lies between
+-- two data points.
 quantile :: [a] -> Double -> a
 quantile sortedData q = sortedData !! safe
   where
