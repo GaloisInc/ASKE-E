@@ -370,8 +370,8 @@ for the ASKE-E program.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
-<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
-<tr><td>models</td><td>list</td><td>list of &quot;model-def++&quot; objects of the same form as returned by <code>list-models</code></td></tr>
+<table><thead><tr><th>Description</th></tr></thead><tbody>
+<tr><td>list of &quot;model-def++&quot; objects of the same form as returned by <code>list-models</code></td></tr>
 </tbody></table>
 <p>Example:</p>
 <pre><code class="language-JSON">{
@@ -425,11 +425,15 @@ for the ASKE-E program.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
+<table><thead><tr><th>Description</th></tr></thead><tbody>
+<tr><td>A list of simulation results</td></tr>
+</tbody></table>
+<p>Simulation result schema:</p>
 <table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
 <tr><td>times</td><td>list of number</td><td>series of times used in simulation</td></tr>
-<tr><td>values</td><td>list of result series object</td><td>values of state variables</td></tr>
+<tr><td>values</td><td>result series object</td><td>values of state variables</td></tr>
 </tbody></table>
-<p>Each object in <code>result</code> is structured such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
+<p>Each object in <code>values</code> is structured such that each key is the name of a model variable <code>V</code> and each value is a list <code>l</code> such that <code>V</code> has the value <code>l[x]</code> at time <code>times[x]</code>.</p>
 <p>Example:</p>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
@@ -791,7 +795,9 @@ as a hint to group related parameters.</p>
 }
 </code></pre>
 <p><strong>Response:</strong></p>
-<p>A list of dataset descriptions.</p>
+<table><thead><tr><th>Description</th></tr></thead><tbody>
+<tr><td>A list of dataset descriptions.</td></tr>
+</tbody></table>
 <pre><code class="language-JSON">{
   &quot;status&quot;: &quot;success&quot;,
   &quot;result&quot;: [
