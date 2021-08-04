@@ -143,7 +143,8 @@ loop = do
       res <- lift $ try $ runCommand $ L.trim input
       case res of
         Left (exc :: SomeException) -> do
-          liftIO $ putStrLn (show exc)
+          liftIO $ putStrLn $ "Caught exception: " ++ show exc
+          lift clearBatchedStmts
           loop
         Right keepGoing -> when keepGoing loop
   where
@@ -245,10 +246,9 @@ executeBatchedStmts = do
   let er = Exposure.mkEvalReadEnv LBS.readFile LBS.writeFile
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
-    Left err             -> do
+    Left err ->
       liftIO $ T.putStrLn err
-      clearBatchedStmts
-    Right (dvs, _) -> do
+    Right (dvs, _) ->
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
   putEnv env'
   clearBatchedStmts
