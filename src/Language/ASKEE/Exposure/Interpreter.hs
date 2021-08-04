@@ -821,8 +821,13 @@ wis vals alphas y =
   where
     k = fromIntegral (length alphas - 1)
     w0 = 0.5
-    go a = (a/2) -- w_k
-         * isAlpha (quant (a/2)) (quant (1 - (a/2))) a y -- interval score
+    go a = -- w_k
+           (a/2)
+           -- interval score
+         * intervalScoreAlpha (quant (a/2))
+                              (quant (1 - (a/2)))
+                              a
+                              y
     agg_interval = sum (go <$> alphas)
 
     m     = quant 0.5
@@ -839,14 +844,17 @@ quantile sortedData q = sortedData !! safe
     safe   = max 0 (min needed (length sortedData - 1))
     needed = floorDoubleInt (q * fromIntegral (length sortedData))
 
-isAlpha :: Double -> Double -> Double -> Double -> Double
-isAlpha l u alpha y =
+intervalScoreAlpha :: Double -> Double -> Double -> Double -> Double
+intervalScoreAlpha l u alpha y =
     (u-l) -- Penalize wide interval
-  + ((2/alpha)*(l-y)*i_left) -- Penalize a "too-high" lower bound
-  + ((2/alpha)*(y-u)*i_right) -- Penalize a "too-low" upper bound
+  + (w*(l-y)) `onlyIf` (y < l) -- Penalize a "too-high" lower bound
+  + (w*(y-u)) `onlyIf` (y > u) -- Penalize a "too-low" upper bound
   where
-    i_left  = if y < l then 1 else 0
-    i_right = if y > u then 1 else 0
+    w = 2/alpha
+
+    onlyIf e p
+      | p         = e
+      | otherwise = 0
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
