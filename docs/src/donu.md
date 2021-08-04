@@ -587,12 +587,156 @@ command = {
 The result, if successful, is a `model-def` object with the new file in the `source` field.
 
 Example:
+
 ```JSON
 {
   "status": "success",
   "result": {
     "source": { "model": "sir.easel" },
     "type": "easel"
+  }
+}
+```
+
+### `list-datasets` List available datasets
+
+**Request:**
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"list-datasets"`|
+
+Example:
+
+```JSON
+{
+  "command": "list-datasets"
+}
+```
+
+**Response:**
+
+A list of dataset descriptions.
+
+```JSON
+{
+  "status": "success",
+  "result": [
+    {
+      "source": {
+        "model": "example.json"
+      },
+      "name": "Example Data",
+      "description": "Example data drawn from SIR model"
+    },
+    {
+      "source": {
+        "model": "sir_noise.json"
+      },
+      "name": "SIR Infected with Noise",
+      "description": "Infected values from SIR model with added noise"
+    },
+    {
+      "source": {
+        "model": "sir_sample.json"
+      },
+      "name": "Sample SIR Data",
+      "description": "Sample data generated from a SIR model"
+    }
+  ]
+}
+```
+
+### `get-dataset` Get a dataset
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"get-dataset"`  |
+| source           | datasource               | Datasource for model (e.g. from `list-datasets`)                    |
+
+**Request:**
+
+Example:
+
+```JSON
+{
+  "command": "get-dataset",
+  "source": {"model": "example.json"}
+}
+```
+
+**Response:**
+
+Dataset schema:
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| name             | string                   | Display name of this dataset                                        |
+| description      | string                   | Human readable description for this data set                        |
+| columns          | array of column          | List of columns (see column schema)                                 |
+
+Column schema:
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| name             | string                   | Name of this column                                                 |
+| description      | string                   | Human readable description for this column                          |
+| values           | array of numbers         | Data values                                                         |
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "name": "Example Data",
+    "description": "Example data drawn from SIR model",
+    "columns": [
+      {
+        "values": [
+          3,
+          570.9758710681087,
+          177.8779579737781,
+          53.66360145338841,
+          16.175249034797183
+        ],
+        "name": "I",
+        "description": "Infected Population"
+      },
+      {
+        "values": [
+          0,
+          412.987493166334,
+          821.8532404022537,
+          946.2589265257153,
+          983.7715119765173
+        ],
+        "name": "R",
+        "description": "Recovered Population"
+      },
+      {
+        "values": [
+          997,
+          16.036635765557786,
+          0.2688016239687889,
+          0.07747202089688701,
+          0.05323898868597068
+        ],
+        "name": "S",
+        "description": "Susceptible Population"
+      },
+      {
+        "values": [
+          0,
+          30,
+          60,
+          90,
+          120
+        ],
+        "name": "time",
+        "description": "Time (in days)"
+      }
+    ]
   }
 }
 ```

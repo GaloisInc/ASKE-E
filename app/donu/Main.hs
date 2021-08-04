@@ -64,6 +64,7 @@ errorWith code err =
 main :: IO ()
 main =
   do initStorage
+     initDataStorage
      runDonu
 
 showHelp :: Snap.Snap ()
@@ -159,6 +160,12 @@ handleRequest r =
 
     QueryModels QueryModelsCommand {..} ->
       succeed <$> liftIO (queryModels queryText)
+
+    ListDataSets ListDataSetsCommand ->
+      succeed . fmap dataSetDescToJSON <$> liftIO listDataSets
+
+    GetDataSet GetDataSetCommand {..} ->
+      succeed <$> liftIO (loadDataSet getDataSetCommandDataSource)
 
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result

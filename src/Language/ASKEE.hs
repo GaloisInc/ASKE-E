@@ -48,6 +48,10 @@ module Language.ASKEE
   , listAllModelsWithMetadata
   , loadModelText
   , storeModel
+  , Storage.listDataSets
+  , Storage.loadDataSet
+  , Storage.initDataStorage
+  , Storage.DataSetDescription(..)
   , queryModels
 
   , describeModelType
@@ -577,7 +581,6 @@ listAllModelsWithMetadata =
             do  ESL.Model{..} <- loadESL modelDefSource
                 pure $ MetaAnn { metaData = meta modelName, metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
-
 
 queryModels :: Text -> IO [MetaAnn ModelDef]
 queryModels query = listAllModelsWithMetadata >>= filterM match_model
