@@ -589,7 +589,6 @@ interpretSeries vs label opts =
        , Plot.plotSeriesStyle = style
        , Plot.plotColor       = Nothing
        }
-     error "not implemented"
   where
     style =
       case Map.lookup "style" opts of
