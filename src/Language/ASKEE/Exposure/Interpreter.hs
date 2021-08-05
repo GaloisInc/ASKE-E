@@ -52,6 +52,7 @@ import           Language.ASKEE.ESL.Convert ( modelAsCore )
 import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
+import qualified Language.ASKEE.Exposure.Plot as Plot
 import Language.ASKEE.Exposure.Syntax
 
 data ExposureInfo = ExposureInfo
@@ -402,8 +403,14 @@ interpretCall fun args =
 
     FPlot ->
       case args of
-        v1:v2:v3:rest -> interpretPlot v1 v2 v3 rest
+        [VString title, VArray series, VArray times, VString timeLabel] ->
+          interpretPlot title series times timeLabel
         _   -> typeError "plot expects an array of points"
+
+    FSeries ->
+      case args of
+        [VArray vs, VString title, VPoint options] -> interpretSeries vs title options
+        _ -> typeError "series expects data, a title, and options"
 
     FScatter ->
       case args of
@@ -561,6 +568,40 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
+interpretPlot :: Text -> [Value] -> [Value] -> Text -> Eval Value
+interpretPlot title series xs xLabel =
+  do series' <- traverse plotSeries series
+     xs'     <- traverse double xs
+     pure $ VPlot $ Plot.Plot
+       { Plot.plotTitle = title
+       , Plot.plotSeries = series'
+       , Plot.plotVs = xs'
+       , Plot.plotVsLabel = xLabel
+       }
+
+
+interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
+interpretSeries vs label opts =
+  do vs' <- traverse double vs
+     pure $ VSeries $ Plot.PlotSeries
+       { Plot.plotSeriesLabel = label
+       , Plot.plotSeriesData  = vs'
+       , Plot.plotSeriesStyle = style
+       , Plot.plotColor       = Nothing
+       }
+     error "not implemented"
+  where
+    style =
+      case Map.lookup "style" opts of
+        Just (VString s) -> interpStyle s
+        _                -> Plot.Line
+
+    interpStyle "points"  = Plot.Points
+    interpStyle "circles" = Plot.Circles
+    interpStyle "squares" = Plot.Squares
+    interpStyle "Line"    = Plot.Line
+    interpStyle _         = Plot.Line
+
 interpretFit :: Value -> Value -> [Value] -> Eval Value
 interpretFit mv ds ps =
   do m   <- Model.Core <$> model mv
@@ -645,19 +686,6 @@ interpretHistogram (VArray vs) n =
     incBin (Just c) = Just (c + 1)
 interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
-
-interpretPlot :: Value -> Value -> Value -> [Value] -> Eval Value
-interpretPlot xs yss xlab optLabels =
-  do labels <- traverse str optLabels
-     xlab'  <- str xlab
-     xs'    <- array double xs
-     yss'   <- array (array double) yss
-
-     let rest   = take needed ["y" <> Text.pack (show i) | i <- [length yss'..]]
-         needed = length yss'  - length labels
-
-     return $ VPlot xlab' (labels ++ rest) xs' (transpose yss')
-
 
 interpretScatter :: Value -> Value -> Value -> [Value] -> Eval Value
 interpretScatter xs ysss xlab optLabels =
@@ -1026,6 +1054,12 @@ model v =
     VModel m -> pure m
     VModelExpr (EVal v') -> model v'
     _ -> throw "Expecting model"
+
+plotSeries :: Value -> Eval (Plot.PlotSeries [Double])
+plotSeries v =
+  case v of
+    VSeries ps -> pure ps
+    _ -> throw "Expecting plot series"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
