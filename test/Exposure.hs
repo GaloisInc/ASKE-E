@@ -5,7 +5,6 @@ import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
 import Data.Functor ( void )
 import qualified Data.Text as Text
-import qualified Data.Map as Map
 import Data.Text (Text)
 import System.FilePath ((</>))
 import Test.Tasty.HUnit
@@ -17,18 +16,6 @@ import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
 import Paths_aske_e (getDataDir)
-import Language.ASKEE (DataSeries(..))
-
-series1 :: DataSeries Double
-series1 =
-  DataSeries { times = [0,30,60,90,120]
-             , values = Map.fromList
-                [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
-                , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
-                , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
-                , ("total_population",[1000,1000,1000,1000])
-                ]
-             }
 
 assertLeft :: Either a b -> IO ()
 assertLeft (Left _)  = pure ()
@@ -249,5 +236,22 @@ tests =
                 case v of
                   VModel _ -> pure ()
                   x -> assertFailure $ "joining didn't produce a model, instead a "<>show x
+      , testCase "Model Skill Ranking" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+           [ "sir = "<>loadSirEaselExpr
+           , "sir1 = withParams(sir, {{beta=0.5}})"
+           , "sir2 = withParams(sir, {{beta=0.6}})"
+           , "times = [50.0, 100.0, 150.0]"
+           , "ground_truth = value(sample(sir.I at times, 100))"
+           , "sir1_samples = value(sample(sir1.I at times, 100))"
+           , "sir2_samples = value(sample(sir2.I at times, 100))"
+           , "ranking = modelSkillRank([sir1_samples, ground_truth, sir2_samples], [0.02, 0.1, 0.8], mean(ground_truth))"
+           ] "ranking" $ \v ->
+            case v of
+              VArray [r1, r2, r3] ->
+                do assertBool "Ground Truth should be better than sir1" (r2 > r1)
+                   assertBool "sir1 should be better than sir2" (r1 > r3)
+              _ -> assertFailure $ "modelSkillRank didn't produce a three element array"
       ]
     ]

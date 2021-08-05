@@ -4,6 +4,7 @@
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
 {-# Language TupleSections #-}
+{-# LANGUAGE ParallelListComp #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
@@ -26,8 +27,9 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Encoding as Text
 import qualified Data.Text.Lazy as Text (toStrict)
+import Data.Function (on)
 import Data.Set(Set)
-import Data.List (transpose)
+import Data.List (transpose, sort, sortBy, groupBy)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
@@ -228,10 +230,7 @@ interpretExpr e0 =
     -- TODO: will we also need suspend for this?
     EMember e lab ->
       do  v <- interpretExpr e
-          case v of
-            -- TODO: typecheck model expr
-            VModelExpr m -> pure $ VModelExpr (EMember m lab)
-            _ -> mem v lab
+          fmap VModelExpr (EMember . EVal . VModel <$> model v <*> pure lab) <|> mem v lab
 
     EList es ->
       do  vs <- interpretExpr `traverse` es
@@ -418,6 +417,11 @@ interpretCall fun args =
       case args of
         [vPredicted, vActual] -> interpretMeanError abs vPredicted vActual
         _                     -> typeError "mae expects two arguments"
+
+    FSkillRank ->
+      case args of
+        [vsample, valphas, vactual] -> interpretModelSkillRank vsample valphas vactual
+        _                     -> typeError "modelSkillRank expects three arguments"
 
     FTable ->
       case args of
@@ -742,6 +746,117 @@ runSim (SimDiffEq delta) t mdl =
     Right deqs ->
       do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
          pure $ seriesAsPoints series
+
+interpretWIS :: Value -> Value -> Value -> Eval Value
+interpretWIS samples alphas pt =
+  do samples' <- array double samples
+     alphas'  <- array double alphas
+     pt'      <- double pt
+     pure $ VDouble $ wis samples' alphas' pt'
+
+interpretModelSkillRank :: Value -> Value -> Value -> Eval Value
+interpretModelSkillRank modelObsSamples alphas truth =
+  do modelObsSamples' <- array (array (array double)) modelObsSamples
+     alphas'          <- array double alphas
+     truth'           <- array double truth
+     pure $ VArray (VDouble <$> skillRank modelObsSamples' alphas' truth')
+
+-- The first parameter is a list of samples indexed by (model number,
+-- observation number, sample number). The second param is a list of alphas
+-- Third param is the "ground truth", i.e. a list of values indexed by
+-- observation number. Returns a list of ranks (value in [0,1]) indexed by model
+-- number (higher is better)
+skillRank :: [[[Double]]] -> [Double] -> [Double] -> [Double]
+skillRank modelObservations alphas truth =
+  -- Returns the _mean_ of the ranks across all observations for a given model
+  [ mean (Map.findWithDefault [0.0] mi ranksByModel)
+  | mi <- [0..n-1]
+  ]
+  where
+    -- Group all of the per-observation ranks by model.
+    ranksByModel =
+      foldr (\(mi, r) -> Map.insertWith (++) mi [r]) mempty rankedByObservation
+
+    -- Given all scores (indexed by model and observation number), For each
+    -- observation assign each model a rank, (lower rank means lower interval
+    -- score for that observation)
+    rankedByObservation =
+      assignRanks =<< byObservation
+
+    byObservation =
+        groupBy ((==)`on`obsNo)
+      $ sortBy (compare`on`obsNo) wmi
+
+    assignRanks :: [(Int, Int, Double)] -> [(Int, Double)]
+    assignRanks obsScores =
+      [ (modelNo s, rank (fromIntegral r))
+      | s <- sortBy (compare`on`score) obsScores
+      | r <- [(1::Int)..]
+      ]
+
+    rank :: Double -> Double
+    rank r = 1.0 - ((r - 1.0)/(fromIntegral n - 1))
+
+    n = length modelObservations
+
+    -- Calculate WIS for all models mi and all observations
+    wmi = concat [ goModel mi m | m <- modelObservations | mi <- [0..] ]
+
+    obsNo (_,i,_)    = i
+    modelNo (mi,_,_) = mi
+    score (_,_,s)    = s
+
+    -- for model mi:
+    -- for each observation i
+    -- calculate the WIS at i.
+    goModel :: Int -> [[Double]] -> [(Int, Int, Double)]
+    goModel mi obsSamples =
+      [ (mi, i, wis obs alphas y) | obs <- obsSamples | y <- truth | i <- [0..] ]
+
+
+-- | Weighted interval score for a given set of samples, alphas and observation.
+-- Implementation based on
+-- <https://github.com/GaloisInc/ASKE-E/blob/main/docs/metrics/weighted_interval_score.py>
+wis :: [Double] -> [Double] -> Double -> Double
+wis vals alphas y =
+  (1/(k + 0.5)) * (w0 * abs (y-m) + agg_interval)
+  where
+    k = fromIntegral (length alphas - 1)
+    w0 = 0.5
+    go a = -- w_k
+           (a/2)
+           -- interval score
+         * intervalScoreAlpha (quant (a/2))
+                              (quant (1 - (a/2)))
+                              a
+                              y
+    agg_interval = sum (go <$> alphas)
+
+    m     = quant 0.5
+    quant = quantile vals'
+    vals' = sort vals
+
+-- The first argument should be sorted in increasing order
+-- Performs the equivalent of `numpy.quantile` with
+-- `interpolation='lower'` when the quantile lies between
+-- two data points.
+quantile :: [a] -> Double -> a
+quantile sortedData q = sortedData !! safe
+  where
+    safe   = max 0 (min needed (length sortedData - 1))
+    needed = floorDoubleInt (q * fromIntegral (length sortedData))
+
+intervalScoreAlpha :: Double -> Double -> Double -> Double -> Double
+intervalScoreAlpha l u alpha y =
+    (u-l) -- Penalize wide interval
+  + (w*(l-y)) `onlyIf` (y < l) -- Penalize a "too-high" lower bound
+  + (w*(y-u)) `onlyIf` (y > u) -- Penalize a "too-low" upper bound
+  where
+    w = 2/alpha
+
+    onlyIf e p
+      | p         = e
+      | otherwise = 0
 
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
