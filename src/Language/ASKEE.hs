@@ -452,12 +452,14 @@ simulateModel ::
   Maybe Text {- ^ domain parameter (for function networks) -} -> 
   Int ->
   IO [DS.LabeledDataSeries Double]
-simulateModel sim format source start end step parameters outputs seed dp iterations =
-  case simType of
-    GSL -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelGSL format source start end step parameters outputs
-    Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
-    AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
-    AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
+simulateModel sim format source start end step parameters outputs seed dp iterations
+  | step <= 0 = die (ValidationError "step must be a positive, nonzero number")
+  | otherwise =
+    case simType of
+      GSL -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelGSL format source start end step parameters outputs
+      Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
+      AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
+      AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
   where
     simType = fromMaybe defaultSimulationType sim
     defaultSimulationType =
