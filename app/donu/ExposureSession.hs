@@ -66,9 +66,11 @@ exposureServerLoop c = go Exposure.initialEnv
              go env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
-          sendTextData c (Failure "Unexpected FileContents message")
+          do sendTextData c (Failure "Unexpected FileContents message")
+             go env
         Error err ->
-          sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
+          do sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
+             go env
 
     eval = Exposure.evalLoop evr
     evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
