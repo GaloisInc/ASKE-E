@@ -258,7 +258,7 @@ interpretDisplayExpr (DisplayScalar scalar) = do
 interpretCall :: FunctionName -> [Value] -> Eval Value
 interpretCall fun args =
   case fun of
-    FAdd         -> compilable (binarith (+))
+    FAdd         -> compilable add
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
     FDiv         -> compilable (binarith (/))
@@ -470,6 +470,37 @@ interpretCall fun args =
 
     asMexprArg (VModelExpr e) = e
     asMexprArg v = EVal v
+
+    add = do
+      l1 <- lincmpAdd
+      l2 <- liftLeftBin (binarithMb (+))
+      l3 <- liftRightBin (binarithMb (+))
+      case l1 <|> l2 <|> l3 of
+        Just v  -> pure v
+        Nothing -> throw "Cannot do addition on these values"
+
+    lincmpAdd =
+      case args of
+        [l, r] -> go l r
+        _      -> pure Nothing
+      where
+        go :: Value -> Value -> Eval (Maybe Value)
+        go (VDouble d1) (VDouble d2) =
+          pure $ Just $ VDouble (d1 + d2)
+        go (VTimed v1 t1) (VTimed v2 t2)
+          | t1 == t2
+          = do  v <- go v1 v2
+                pure $ fmap (\x -> VTimed x t1) v
+          | otherwise
+          = throw $ Text.unlines [ "Mismatched times"
+                                 , "t1: " <> Text.pack (show t1)
+                                 , "t2: " <> Text.pack (show t2)
+                                 ]
+        go a1@VArray{} a2@VArray{} =
+          do  a  <- parallelArrays value a1 a2
+              a' <- traverse (uncurry go) a
+              pure $ fmap VArray $ sequenceA a'
+        go _ _ = pure Nothing
 
     liftLeftBin f =
       case args of
