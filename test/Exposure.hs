@@ -3,6 +3,7 @@ module Exposure (tests) where
 
 import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
+import Data.Foldable (traverse_)
 import Data.Functor ( void )
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -94,6 +95,14 @@ getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
   dataDir <- getDataDir
   pure $ "loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")"
+
+assertDouble :: Value -> IO ()
+assertDouble VDouble{} = pure ()
+assertDouble v         = assertFailure $ "Expected a double, received: " ++ show v
+
+assertTimedArray :: Value -> IO ()
+assertTimedArray (VTimed VArray{} _) = pure ()
+assertTimedArray v                    = assertFailure $ "Expected a timed array, received: " ++ show v
 
 tests :: Tasty.TestTree
 tests =
@@ -220,12 +229,12 @@ tests =
                             ]
       , testCase "Join (bad model args)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
-          void $ assertStmtsFail 
+          void $ assertStmtsFail
             [ "sir = "<>loadSirEaselExpr
             , "join(sir, sir, [])" ]
       , testCase "Join (bad share args)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
-          void $ assertStmtsFail 
+          void $ assertStmtsFail
             [ "sir = "<>loadSirEaselExpr
             , "join([\"_1\", sir], [\"_2\", sir], [\"S\", \"S\"])" ]
       , testCase "Join (success)" $ do
@@ -253,5 +262,26 @@ tests =
                 do assertBool "Ground Truth should be better than sir1" (r2 > r1)
                    assertBool "sir1 should be better than sir2" (r1 > r3)
               _ -> assertFailure $ "modelSkillRank didn't produce a three element array"
+      , testCase "Linear combination of samples" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          let failure = assertFailure "Linear combination of samples did not return an array"
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "is1 = sample(sir.I at [0, 30, 60], 1)"
+            , "is2 = sample(sir.I at [0, 30, 60], 1)"
+            ] "3 * is1 + 5 * is2" $ \v ->
+            case v of
+              VArray vs -> traverse_ assertTimedArray vs
+              _         -> failure
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "is1 = sample(sir.I at 60, 1)"
+            , "is2 = sample(sir.I at 60, 1)"
+            ] "3 * is1 + 5 * is2" $ \v ->
+            case v of
+              VArray vs -> traverse_ assertDouble vs
+              _         -> failure
       ]
     ]
