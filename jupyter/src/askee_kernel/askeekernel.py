@@ -267,6 +267,14 @@ def format_table(labels, rows):
     }
     return out
 
+def format_array(arr):
+    def get_one(v):
+        formatted = format_resp_value(v)
+        return formatted['text/plain']
+
+    return {
+        'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
+    }
 
 def format_resp_value(v):
     if isinstance(v, dict):
@@ -284,6 +292,9 @@ def format_resp_value(v):
 
         if ty == 'scatter':
             return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+
+        if ty == 'array':
+            return format_array(val)
 
         if ty == 'data-series':
             return format_data_series(val['time'], val['values'])
