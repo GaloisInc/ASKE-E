@@ -494,7 +494,7 @@ instance JS.ToJSON DonuValue where
           JS.object [ "title" .= title
                     , "series" .= JS.toJSON (go <$> seriess)
                     , "vs" .= JS.toJSON xs
-                    , "vs-label" .= JS.toJSON xlab
+                    , "vs_label" .= JS.toJSON xlab
                     ]
         where
           go (PlotSeries label dat style _color) =
