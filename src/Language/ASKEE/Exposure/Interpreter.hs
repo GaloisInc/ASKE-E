@@ -329,7 +329,7 @@ interpretCall fun args =
           do csv <- getFile (Text.unpack path)
              case DS.parseDataSeries csv of
                Left err -> throw (Text.pack err)
-               Right ds -> pure $ VDataSeries ds
+               Right ds -> pure $ seriesAsPoints ds
         _ -> typeError "loadCSV expects a single string argument"
 
     FJoin ->
@@ -565,7 +565,7 @@ interpretFit :: Value -> Value -> [Value] -> Eval Value
 interpretFit mv ds ps =
   do m   <- Model.Core <$> model mv
      ps' <- traverse str ps
-     ds' <- dataSeries ds
+     ds' <- timedPointsAsSeries =<< array value ds
      case Model.toDeqs m of
        Left err ->
          throw $ Text.pack err
@@ -584,18 +584,27 @@ interpretFit mv ds ps =
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
   interpretInterpolate arg1 arg2
-interpretInterpolate (VDataSeries (DS.DataSeries{DS.times = oldTimes, DS.values = oldValueMap}))
-                     (VArray points) =
-  do pointDs <- getDoubleValue `traverse` points
-     pure $ VDataSeries $ DS.DataSeries
-       { DS.times = pointDs
-       , DS.values = Map.map (\oldValues ->
-                               map (Interpolation.evaluateV Interpolation.Linear
-                                                            (VS.fromList oldTimes)
-                                                            (VS.fromList oldValues))
-                                   pointDs)
-                             oldValueMap
-       }
+interpretInterpolate arr@(VArray vs) (VArray points) =
+  do pointDs  <- getDoubleValue `traverse` points
+     oldTimes <- array double =<< mem arr "time"
+
+     let buildMap m (VPoint pt) =
+           do pt' <- traverse double pt
+              pure $ Map.unionWith (++) m (pure <$> pt')
+         buildMap _ _ =
+           throw "Expected array of points"
+
+     grouped <- foldM buildMap mempty vs
+     let interpolated =
+           Map.map (\oldValues ->
+                      map (Interpolation.evaluateV Interpolation.Linear
+                                                   (VS.fromList oldTimes)
+                                                   (VS.fromList oldValues))
+                          pointDs)
+                   grouped
+
+     let unMapped = transpose [ [ (i, VDouble d) | d <- ds ] | (i, ds) <- Map.toList interpolated ]
+     pure $ VArray (VPoint . Map.fromList <$> unMapped)
 interpretInterpolate arg1 arg2 =
   typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
 
@@ -603,8 +612,6 @@ interpretHistogram :: Value -> Value -> Eval Value
 interpretHistogram (VModelExpr e) nBins =
   do v <- interpretExpr e
      interpretHistogram v nBins
-interpretHistogram (VDataSeries ds) nBins =
-  interpretHistogram (seriesAsPoints ds) nBins
 interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
      nBins <- case n of
@@ -1017,13 +1024,6 @@ model v =
     VModel m -> pure m
     VModelExpr (EVal v') -> model v'
     _ -> throw "Expecting model"
-
-dataSeries :: Value -> Eval (DS.DataSeries Double)
-dataSeries v =
-  case v of
-    VArray vs -> timedPointsAsSeries vs
-    VDataSeries d -> pure d
-    _ -> throw "Expecting dataseries"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =

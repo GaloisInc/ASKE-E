@@ -480,12 +480,6 @@ instance JS.ToJSON DonuValue where
                     , "value" .= JS.toJSON (DonuValue v)
                     ]
 
-      VDataSeries ds ->
-        typed "data-series" $
-          JS.object [ "time"   .= JS.toJSON (times ds)
-                    , "values" .= JS.toJSON (values ds)
-                    ]
-
       VHistogram low hi sz bins ->
         typed "histogram" $
           JS.object [ "min" .= JS.toJSON low

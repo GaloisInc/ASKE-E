@@ -44,7 +44,6 @@ data Value
   | VInt Int
   | VBool Bool
   | VString Text
-  | VDataSeries (DataSeries Double)
   | VModel Core.Model
   | VLatex Latex
   | VSampledData [Value] -- ^ list of samples
