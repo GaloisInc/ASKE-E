@@ -441,7 +441,7 @@ interpretCall fun args =
 
     FSimplify ->
       case args of
-        [VModelExpr (EVal (VModel m)), VArray arr] ->
+        [VModel m, VArray arr] ->
           do  states <-
                 case strings arr of
                   Just ss -> pure ss

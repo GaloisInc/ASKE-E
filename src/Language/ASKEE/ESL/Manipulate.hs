@@ -83,7 +83,7 @@ compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
 -- (`share`) the entry `(s2, s1)`.
 --
 -- Before attempting to `join`, this function will suffix `model1` variables
--- that won't be affected by `join`ing with `suf1`, and likewise with `model2`.
+-- that won't be affected by `join`ing with `pref1`, and likewise with `model2`.
 -- 
 -- All variable declarations and references from `model1` are propagated with
 -- only the aforementioned suffixing. Variable declarations and references from
@@ -107,14 +107,14 @@ compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
 -- differently, it follows that the unions will differ depending on which 
 -- variable of a pair is overwritten.
 join :: Map Text Text -> Text -> Text -> Model -> Model -> Model
-join share suf1 suf2 model1 model2 = 
+join share pref1 pref2 model1 model2 =
   Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents []
   -- TODO propagate metadata somehow?
   where
     m1DontRename = Set.fromList (Map.elems share)
     m2DontRename = Map.keysSet share
-    model1' = renameModelVarsWith (\t -> if t `Set.member` m1DontRename then t else t <> suf1) model1
-    model2' = renameModelVarsWith (\t -> if t `Set.member` m2DontRename then t else t <> suf2) model2
+    model1' = renameModelVarsWith (\t -> if t `Set.member` m1DontRename then t else pref1 <> t) model1
+    model2' = renameModelVarsWith (\t -> if t `Set.member` m2DontRename then t else pref2 <> t) model2
 
     newDecls =
       modelDecls model1' ++
