@@ -907,8 +907,9 @@ seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
   where
     pointToValue p =
-      let vals = VPoint (VDouble <$> DS.ptValues p)
-      in VTimed vals (DS.ptTime p)
+      let m    = VDouble <$> DS.ptValues p
+          t    = DS.ptTime p
+      in  VTimed (VPoint m) t
 
 timedPointsAsSeries :: [Value] -> Eval (DS.DataSeries Double)
 timedPointsAsSeries vs =
@@ -990,8 +991,9 @@ atPoint vs t =
                else go r val
 
 mem :: Value -> Ident -> Eval Value
-mem v0 l = liftPrim getMem v0
+mem v0 l = chooseLift getMem nope v0
   where
+    nope = throw $ "cannot find member '" <> l <> "' in value"
     getMem v =
       case v of
         VPoint p ->
