@@ -12,7 +12,8 @@ import           Network.WebSockets.Snap
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Aeson as JS
 import           Data.Aeson ((.=), (.:))
-import qualified Data.Text.Lazy.Encoding as Text
+import qualified Data.Text.Lazy as TL (toStrict)
+import qualified Data.Text.Lazy.Encoding as TL
 import qualified Control.Exception as X
 import Data.Maybe (fromMaybe)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
@@ -63,10 +64,11 @@ exposureServerLoop c = go Exposure.initialEnv
                  do let display = fmap (DonuValue . Exposure.unDisplayValue) displays
                     sendTextData c (Success display)
              go env'
-        _ ->
-          -- This is the toplevel, so we don't expect any filecontents, for
-          -- example
-          sendTextData c (Failure "Unexpected message")
+        FileContents{} ->
+          -- This is the toplevel, so we don't expect any filecontents
+          sendTextData c (Failure "Unexpected FileContents message")
+        Error err ->
+          sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
 
     eval = Exposure.evalLoop evr
     evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
@@ -103,7 +105,7 @@ instance JS.ToJSON ExposureServerMessage where
   toJSON (WriteFile fp contents) =
     JS.object [ "type"     .= ("write-file" :: String)
               , "path"     .= JS.toJSON fp
-              , "contents" .= JS.toJSON (Text.decodeUtf8 contents)
+              , "contents" .= JS.toJSON (TL.decodeUtf8 contents)
               ]
 
   toJSON (Success displays) =
@@ -136,7 +138,7 @@ instance JS.FromJSON ExposureClientMessage where
 
              "file-contents" ->
                do contents <- o.:"contents"
-                  let bs = Text.encodeUtf8 contents
+                  let bs = TL.encodeUtf8 contents
                   pure $ FileContents bs
 
              _ -> pure $ Error "Unrecognized command"
