@@ -9,7 +9,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Map(Map)
 
-import Language.ASKEE.DataSeries (DataSeries)
+import Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import Language.ASKEE.Latex.Syntax (Latex)
 
@@ -44,7 +44,6 @@ data Value
   | VInt Int
   | VBool Bool
   | VString Text
-  | VDataSeries (DataSeries Double)
   | VModel Core.Model
   | VLatex Latex
   | VSampledData [Value] -- ^ list of samples
@@ -59,7 +58,8 @@ data Value
   | VSuspended
 
   | VHistogram Double Double Double !(Map Int Int) -- ^ min max size bins
-  | VPlot Text [Text] [Double] [[Double]]
+  | VPlot (Plot [Double])
+  | VSeries (PlotSeries [Double])
   | VScatter Text [Text] [Double] [[[Double]]]
     -- ^ last list is indexed by series, then time, then sample
   | VTable [Text]    -- List of header labels
@@ -104,6 +104,7 @@ data FunctionName
   | FTimedValue
   | FIn
   | FPlot
+  | FSeries
   | FScatter
   | FAsEqnArray
   | FMSE -- Mean Squared Error
@@ -160,6 +161,7 @@ prefixFunctionName ident =
     "simplify"    -> Right FSimplify
     "withParams"  -> Right FWithParams
     "modelSkillRank" -> Right FSkillRank
+    "series"      -> Right FSeries
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

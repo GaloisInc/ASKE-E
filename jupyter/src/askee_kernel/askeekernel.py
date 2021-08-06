@@ -169,29 +169,30 @@ def format_histogram(lo, _hi, sz, bins):
 
     return out
 
-def format_plot(xlab, ylabs, xs, yss):
+def format_plot(title, series, vs, vs_label):
     """
     Returns a vega light chart + a textual representation
     """
     vals = []
-    for (t, ys) in enumerate(yss):
-        for (yi,ylab) in enumerate(ylabs):
-            vals.append({ xlab: xs[t], ylab: ys[yi], "series": ylab })
+    for (vi,v) in enumerate(vs):
+        for s in series:
+            vals.append({ vs_label: v,
+                          s['label']: s['data'][vi],
+                          'series': s['label'] })
 
-    layers = [ { "mark": "line",
+    layers = [ { "mark": s['style'],
                  "encoding": {
-                     "x": {"field": xlab, "type": "quantitative"},
-                     "y": {"field": ylab, "type": "quantitative"},
+                     "x": {"field": vs_label, "type": "quantitative"},
+                     "y": {"field": s['label'], "type": "quantitative"},
                      "color": {"field": "series", "type": "nominal"}
                  }
-                } for ylab in ylabs ]
+                } for s in series ]
 
     out = {
         'application/vnd.vegalite.v4+json': {
             '$schema': vega_lite_schema,
             'description':'',
             'data': { "values": vals},
-            'mark': 'point',
             'layer': layers
         },
     }
@@ -267,6 +268,21 @@ def format_table(labels, rows):
     }
     return out
 
+def format_array(arr):
+    def get_one(v):
+        formatted = format_resp_value(v)
+        return formatted['text/plain']
+
+    return {
+        'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
+    }
+
+def format_timed(v):
+    formatted = format_resp_value(v['value'])
+    time      = format_resp_value(v['time'])
+    return {
+        'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
+    }
 
 def format_resp_value(v):
     if isinstance(v, dict):
@@ -279,11 +295,17 @@ def format_resp_value(v):
         if ty == 'double':
             return { 'text/plain': json.dumps(val) }
 
+        if ty == 'timed':
+            return format_timed(val)
+
         if ty == 'plot':
-            return format_plot(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+            return format_plot(val['title'], val['series'], val['vs'], val['vs_label'])
 
         if ty == 'scatter':
             return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+
+        if ty == 'array':
+            return format_array(val)
 
         if ty == 'data-series':
             return format_data_series(val['time'], val['values'])

@@ -25,6 +25,7 @@ import SchemaJS
 import           Language.ASKEE
 import           Language.ASKEE.ESL.Print (printModel)
 import           Language.ASKEE.Exposure.Syntax
+import           Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import           Language.ASKEE.Latex.Print (printLatex)
 
@@ -480,12 +481,6 @@ instance JS.ToJSON DonuValue where
                     , "value" .= JS.toJSON (DonuValue v)
                     ]
 
-      VDataSeries ds ->
-        typed "data-series" $
-          JS.object [ "time"   .= JS.toJSON (times ds)
-                    , "values" .= JS.toJSON (values ds)
-                    ]
-
       VHistogram low hi sz bins ->
         typed "histogram" $
           JS.object [ "min" .= JS.toJSON low
@@ -494,13 +489,22 @@ instance JS.ToJSON DonuValue where
                     , "bins" .= JS.toJSON bins
                     ]
 
-      VPlot xlab ylabs xs yss ->
+      VPlot (Plot title seriess xs xlab) ->
         typed "plot" $
-          JS.object [ "xlabel"  .= JS.toJSON xlab
-                    , "ylabels" .= JS.toJSON ylabs
-                    , "xs"      .= JS.toJSON xs
-                    , "yss"      .= JS.toJSON yss
+          JS.object [ "title" .= title
+                    , "series" .= JS.toJSON (go <$> seriess)
+                    , "vs" .= JS.toJSON xs
+                    , "vs_label" .= JS.toJSON xlab
                     ]
+        where
+          go (PlotSeries label dat style _color) =
+            JS.object [ "label" .= label
+                      , "data"  .= JS.toJSON dat
+                      , "style" .= JS.toJSON style
+                      ]
+
+      VSeries _ps -> unimplVal "<series>"
+
       VScatter xlab ylabs xs yss ->
         typed "scatter" $
           JS.object [ "xlabel"  .= JS.toJSON xlab

@@ -13,7 +13,7 @@ import qualified Data.Aeson as JSON
 
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, foldM)
+import Control.Monad (unless, foldM, when)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -52,6 +52,7 @@ import           Language.ASKEE.ESL.Convert ( modelAsCore )
 import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
+import qualified Language.ASKEE.Exposure.Plot as Plot
 import Language.ASKEE.Exposure.Syntax
 
 data ExposureInfo = ExposureInfo
@@ -329,7 +330,7 @@ interpretCall fun args =
           do csv <- getFile (Text.unpack path)
              case DS.parseDataSeries csv of
                Left err -> throw (Text.pack err)
-               Right ds -> pure $ VDataSeries ds
+               Right ds -> pure $ seriesAsPoints ds
         _ -> typeError "loadCSV expects a single string argument"
 
     FJoin ->
@@ -402,8 +403,14 @@ interpretCall fun args =
 
     FPlot ->
       case args of
-        v1:v2:v3:rest -> interpretPlot v1 v2 v3 rest
+        [VString title, VArray series, VArray times, VString timeLabel] ->
+          interpretPlot title series times timeLabel
         _   -> typeError "plot expects an array of points"
+
+    FSeries ->
+      case args of
+        [VArray vs, VString title, VPoint options] -> interpretSeries vs title options
+        _ -> typeError "series expects data, a title, and options"
 
     FScatter ->
       case args of
@@ -561,11 +568,44 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
+interpretPlot :: Text -> [Value] -> [Value] -> Text -> Eval Value
+interpretPlot title series xs xLabel =
+  do series' <- traverse plotSeries series
+     xs'     <- traverse double xs
+     pure $ VPlot $ Plot.Plot
+       { Plot.plotTitle = title
+       , Plot.plotSeries = series'
+       , Plot.plotVs = xs'
+       , Plot.plotVsLabel = xLabel
+       }
+
+
+interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
+interpretSeries vs label opts =
+  do vs' <- traverse double vs
+     pure $ VSeries $ Plot.PlotSeries
+       { Plot.plotSeriesLabel = label
+       , Plot.plotSeriesData  = vs'
+       , Plot.plotSeriesStyle = style
+       , Plot.plotColor       = Nothing
+       }
+  where
+    style =
+      case Map.lookup "style" opts of
+        Just (VString s) -> interpStyle s
+        _                -> Plot.Line
+
+    interpStyle "points"  = Plot.Points
+    interpStyle "circles" = Plot.Circles
+    interpStyle "squares" = Plot.Squares
+    interpStyle "Line"    = Plot.Line
+    interpStyle _         = Plot.Line
+
 interpretFit :: Value -> Value -> [Value] -> Eval Value
 interpretFit mv ds ps =
   do m   <- Model.Core <$> model mv
      ps' <- traverse str ps
-     ds' <- dataSeries ds
+     ds' <- timedPointsAsSeries =<< array value ds
      case Model.toDeqs m of
        Left err ->
          throw $ Text.pack err
@@ -584,18 +624,27 @@ interpretFit mv ds ps =
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
   interpretInterpolate arg1 arg2
-interpretInterpolate (VDataSeries (DS.DataSeries{DS.times = oldTimes, DS.values = oldValueMap}))
-                     (VArray points) =
-  do pointDs <- getDoubleValue `traverse` points
-     pure $ VDataSeries $ DS.DataSeries
-       { DS.times = pointDs
-       , DS.values = Map.map (\oldValues ->
-                               map (Interpolation.evaluateV Interpolation.Linear
-                                                            (VS.fromList oldTimes)
-                                                            (VS.fromList oldValues))
-                                   pointDs)
-                             oldValueMap
-       }
+interpretInterpolate arr@(VArray vs) (VArray points) =
+  do pointDs  <- getDoubleValue `traverse` points
+     oldTimes <- array double =<< mem arr "time"
+
+     let buildMap m (VPoint pt) =
+           do pt' <- traverse double pt
+              pure $ Map.unionWith (++) m (pure <$> pt')
+         buildMap _ _ =
+           throw "Expected array of points"
+
+     grouped <- foldM buildMap mempty vs
+     let interpolated =
+           Map.map (\oldValues ->
+                      map (Interpolation.evaluateV Interpolation.Linear
+                                                   (VS.fromList oldTimes)
+                                                   (VS.fromList oldValues))
+                          pointDs)
+                   grouped
+
+     let unMapped = transpose [ [ (i, VDouble d) | d <- ds ] | (i, ds) <- Map.toList interpolated ]
+     pure $ VArray (VPoint . Map.fromList <$> unMapped)
 interpretInterpolate arg1 arg2 =
   typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
 
@@ -603,8 +652,6 @@ interpretHistogram :: Value -> Value -> Eval Value
 interpretHistogram (VModelExpr e) nBins =
   do v <- interpretExpr e
      interpretHistogram v nBins
-interpretHistogram (VDataSeries ds) nBins =
-  interpretHistogram (seriesAsPoints ds) nBins
 interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
      nBins <- case n of
@@ -638,19 +685,6 @@ interpretHistogram (VArray vs) n =
     incBin (Just c) = Just (c + 1)
 interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
-
-interpretPlot :: Value -> Value -> Value -> [Value] -> Eval Value
-interpretPlot xs yss xlab optLabels =
-  do labels <- traverse str optLabels
-     xlab'  <- str xlab
-     xs'    <- array double xs
-     yss'   <- array (array double) yss
-
-     let rest   = take needed ["y" <> Text.pack (show i) | i <- [length yss'..]]
-         needed = length yss'  - length labels
-
-     return $ VPlot xlab' (labels ++ rest) xs' (transpose yss')
-
 
 interpretScatter :: Value -> Value -> Value -> [Value] -> Eval Value
 interpretScatter xs ysss xlab optLabels =
@@ -797,7 +831,19 @@ interpretModelSkillRank modelObsSamples alphas truth =
   do modelObsSamples' <- array (array (array double)) modelObsSamples
      alphas'          <- array double alphas
      truth'           <- array double truth
+
+     when (any (wrongNumberObservations (length truth')) modelObsSamples') $
+       throw "can't compute skill rank with mismatched numbers of observations"
+
+     when (any hasEmptyObservations modelObsSamples') $
+       throw "can't compute skill rank with an empty observation"
+
      pure $ VArray (VDouble <$> skillRank modelObsSamples' alphas' truth')
+  where
+    hasEmptyObservations :: [[Double]] -> Bool
+    hasEmptyObservations obss = any null obss
+
+    wrongNumberObservations n obs = length obs /= n
 
 -- The first parameter is a list of samples indexed by (model number,
 -- observation number, sample number). The second param is a list of alphas
@@ -874,10 +920,9 @@ wis vals alphas y =
     quant = quantile vals'
     vals' = sort vals
 
--- The first argument should be sorted in increasing order
--- Performs the equivalent of `numpy.quantile` with
--- `interpolation='lower'` when the quantile lies between
--- two data points.
+-- The first argument should be non-empty and sorted in increasing order
+-- Performs the equivalent of `numpy.quantile` with `interpolation='lower'` when
+-- the quantile lies between two data points.
 quantile :: [a] -> Double -> a
 quantile sortedData q = sortedData !! safe
   where
@@ -900,8 +945,9 @@ seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
   where
     pointToValue p =
-      let vals = VPoint (VDouble <$> DS.ptValues p)
-      in VTimed vals (DS.ptTime p)
+      let m    = VDouble <$> DS.ptValues p
+          t    = DS.ptTime p
+      in  VTimed (VPoint m) t
 
 timedPointsAsSeries :: [Value] -> Eval (DS.DataSeries Double)
 timedPointsAsSeries vs =
@@ -983,8 +1029,9 @@ atPoint vs t =
                else go r val
 
 mem :: Value -> Ident -> Eval Value
-mem v0 l = liftPrim getMem v0
+mem v0 l = chooseLift getMem nope v0
   where
+    nope = throw $ "cannot find member '" <> l <> "' in value"
     getMem v =
       case v of
         VPoint p ->
@@ -1018,12 +1065,11 @@ model v =
     VModelExpr (EVal v') -> model v'
     _ -> throw "Expecting model"
 
-dataSeries :: Value -> Eval (DS.DataSeries Double)
-dataSeries v =
+plotSeries :: Value -> Eval (Plot.PlotSeries [Double])
+plotSeries v =
   case v of
-    VArray vs -> timedPointsAsSeries vs
-    VDataSeries d -> pure d
-    _ -> throw "Expecting dataseries"
+    VSeries ps -> pure ps
+    _ -> throw "Expecting plot series"
 
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
