@@ -1043,7 +1043,7 @@ str :: Value -> Eval Text
 str v0 =
   case v0 of
     VString t -> pure t
-    _ -> throw "Expecting number"
+    _ -> throw "Expecting string"
 
 timed :: (Value -> Eval a) -> Value ->  Eval (a, Double)
 timed f v0 =

@@ -127,6 +127,8 @@ library
 
                         Language.ASKEE.Utils
 
+  other-modules:        Language.ASKEE.Experiments
+
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
                       , scientific
