@@ -5,10 +5,14 @@
 {-# Language LambdaCase #-}
 {-# Language TupleSections #-}
 {-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Control.Monad (unless, foldM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
@@ -90,7 +94,9 @@ simulate vs =
 -- eval monad
 newtype Env = Env
   { envTopLevelVars :: Map Ident Value
-  }
+  } deriving (Generic)
+    deriving newtype NFData
+
 data EvalWrite = EvalWrite
   { ewDeps :: Set Value
   , ewDisplay :: [DisplayValue]
@@ -150,6 +156,7 @@ mkEvalReadEnv rd wr = EvalRead
 
 data StmtEff =
   StmtEffBind Ident Value
+  deriving (Generic, NFData)
 
 newtype Eval a = Eval { unEval :: Except.ExceptT Text (RWS.RWST EvalRead EvalWrite Env IO) a }
   deriving newtype ( Functor, Applicative, Monad, MonadIO

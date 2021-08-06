@@ -69,16 +69,16 @@ exposureServerLoop c = go Exposure.initialEnv
     onReceive msg env =
       case msg of
         RunProgram prog ->
-          do (res, env') <- eval env prog
+          do (res, env') <- X.evaluate . force =<< eval env prog
+             -- We want to force any exceptions (such as bugs in the interpreter)
+             -- before sending the response, otherwise the connection will be closed
+             -- and we don't want that, now do we?
              case res of
                Left err ->
                  sendTextData c (Failure err)
                Right (displays, _) ->
-                 do -- We want to force any exceptions (such as bugs in the interpreter)
-                    -- before sending the response, otherwise the connection will be closed
-                    -- and we don't want that, now do we?
-                    vs <- X.evaluate $!! unDisplayValue <$> displays
-                    sendTextData c (Success (DonuValue <$> vs))
+                 do let vs = DonuValue . unDisplayValue <$> displays
+                    sendTextData c (Success vs)
              return env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
