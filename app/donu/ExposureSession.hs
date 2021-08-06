@@ -1,9 +1,11 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module ExposureSession ( exposureServer ) where
 
 import           Control.Monad.State
+import           Control.DeepSeq
 
 import           Snap (MonadSnap)
 
@@ -23,6 +25,7 @@ import qualified Language.ASKEE.Exposure.GenLexer as Exposure
 import qualified Language.ASKEE.Exposure.GenParser as Exposure
 import Schema
 import Data.String (fromString)
+import Language.ASKEE.Exposure.Syntax
 
 -- | Messages sent by the server
 data ExposureServerMessage =
@@ -50,31 +53,46 @@ exposureServerLoop c = go Exposure.initialEnv
     go env =
       do msg <- X.try (receiveData c)
          case msg of
-           Right msg' -> onReceive msg' env
-           Left  ex   -> onExcept ex
+           Right msg' ->
+             X.handle (exHandler env) (onReceive msg' env) >>= go
+           Left  ex   ->
+             onExcept ex
+
+    exHandler :: Exposure.Env -> X.SomeException -> IO Exposure.Env
+    exHandler env se =
+      do X.handle onExcept (sendTextData c (Failure msg))
+         return env
+      where
+        msg =
+          "Caught exception: " <> Text.pack (X.displayException se)
 
     onReceive msg env =
       case msg of
         RunProgram prog ->
-          do (res, env') <- liftIO $ eval env prog
+          do (res, env') <- X.evaluate . force =<< eval env prog
+             -- We want to force any exceptions (such as bugs in the interpreter)
+             -- before sending the response, otherwise the connection will be closed
+             -- and we don't want that, now do we?
              case res of
                Left err ->
-                 do sendTextData c (Failure err)
+                 sendTextData c (Failure err)
                Right (displays, _) ->
-                 do let display = fmap (DonuValue . Exposure.unDisplayValue) displays
-                    sendTextData c (Success display)
-             go env'
+                 do let vs = DonuValue . unDisplayValue <$> displays
+                    sendTextData c (Success vs)
+             return env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
-          sendTextData c (Failure "Unexpected FileContents message")
+          do sendTextData c (Failure "Unexpected FileContents message")
+             return env
         Error err ->
-          sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
+          do sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
+             return env
 
     eval = Exposure.evalLoop evr
     evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
 
     onExcept :: ConnectionException -> IO ()
-    onExcept _ = return ()
+    onExcept _ce = return ()
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.

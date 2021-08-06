@@ -138,6 +138,7 @@ library
                       , cassava
                       , Chart
                       , containers
+                      , deepseq
                       , directory
                       , extra
                       , filepath
@@ -223,6 +224,7 @@ executable donu
                       , config-schema
                       , config-value
                       , containers
+                      , deepseq
                       , directory
                       , filepath
                       , lens
