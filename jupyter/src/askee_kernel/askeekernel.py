@@ -362,7 +362,7 @@ class ASKEEKernel(Kernel):
             if resp['type'] == 'success':
                 return resp['displays']
             if resp['type'] == 'failure':
-                return ["Error: %s" % resp['message']]
+                return [{'type':'string', 'value':"Error: %s" % resp['message']}]
             raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
