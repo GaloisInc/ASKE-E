@@ -13,7 +13,7 @@ import qualified Data.Aeson as JSON
 
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, foldM)
+import Control.Monad (unless, foldM, when)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -831,7 +831,19 @@ interpretModelSkillRank modelObsSamples alphas truth =
   do modelObsSamples' <- array (array (array double)) modelObsSamples
      alphas'          <- array double alphas
      truth'           <- array double truth
+
+     when (any (wrongNumberObservations (length truth')) modelObsSamples') $
+       throw "can't compute skill rank with mismatched numbers of observations"
+
+     when (any hasEmptyObservations modelObsSamples') $
+       throw "can't compute skill rank with an empty observation"
+
      pure $ VArray (VDouble <$> skillRank modelObsSamples' alphas' truth')
+  where
+    hasEmptyObservations :: [[Double]] -> Bool
+    hasEmptyObservations obss = any null obss
+
+    wrongNumberObservations n obs = length obs /= n
 
 -- The first parameter is a list of samples indexed by (model number,
 -- observation number, sample number). The second param is a list of alphas
@@ -908,10 +920,9 @@ wis vals alphas y =
     quant = quantile vals'
     vals' = sort vals
 
--- The first argument should be sorted in increasing order
--- Performs the equivalent of `numpy.quantile` with
--- `interpolation='lower'` when the quantile lies between
--- two data points.
+-- The first argument should be non-empty and sorted in increasing order
+-- Performs the equivalent of `numpy.quantile` with `interpolation='lower'` when
+-- the quantile lies between two data points.
 quantile :: [a] -> Double -> a
 quantile sortedData q = sortedData !! safe
   where
