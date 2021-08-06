@@ -4,9 +4,13 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.ASKEE.Core.Syntax where
 
+import           GHC.Generics (Generic)
+import           Control.DeepSeq (NFData)
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import           Data.Set (Set)
@@ -32,7 +36,7 @@ data Model =
           -- (parameters, lets, states, events)
           -- Model level metadata is under the empty identifier ""
         }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 
 data Event =
@@ -41,7 +45,7 @@ data Event =
         , eventWhen   :: Expr
         , eventEffect :: Map Ident Expr
         }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 
 

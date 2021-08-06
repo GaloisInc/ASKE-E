@@ -1,6 +1,8 @@
 {-# Language OverloadedStrings, ParallelListComp, BlockArguments #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.DataSeries
   ( -- * Basics
     DataSeries(..)
@@ -32,6 +34,8 @@ module Language.ASKEE.DataSeries
   , toDataPoints
   ) where
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Data.Text(Text)
 import Data.Text.Encoding(decodeUtf8',encodeUtf8)
 import qualified Data.Vector as Vector
@@ -54,7 +58,7 @@ data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 instance Functor DataSeries where
   fmap f ds = ds { values = fmap f <$> values ds }

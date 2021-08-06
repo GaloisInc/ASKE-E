@@ -5,6 +5,7 @@
 module ExposureSession ( exposureServer ) where
 
 import           Control.Monad.State
+import           Control.DeepSeq
 
 import           Snap (MonadSnap)
 
@@ -73,12 +74,11 @@ exposureServerLoop c = go Exposure.initialEnv
                Left err ->
                  sendTextData c (Failure err)
                Right (displays, _) ->
-                 do let force = evalValue . Exposure.unDisplayValue
-                    -- We want to force any exceptions (such as bugs in the interpreter)
+                 do -- We want to force any exceptions (such as bugs in the interpreter)
                     -- before sending the response, otherwise the connection will be closed
                     -- and we don't want that, now do we?
-                    displays' <- fmap DonuValue <$> traverse force displays
-                    sendTextData c (Success displays')
+                    vs <- X.evaluate $!! unDisplayValue <$> displays
+                    sendTextData c (Success (DonuValue <$> vs))
              return env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
@@ -93,22 +93,6 @@ exposureServerLoop c = go Exposure.initialEnv
 
     onExcept :: ConnectionException -> IO ()
     onExcept _ce = return ()
-
--- A poor substitute for deepseq
-evalValue :: Value -> IO Value
-evalValue v =
-  case v of
-    VInt i    -> VInt <$> X.evaluate i
-    VBool b   -> VBool <$> X.evaluate b
-    VString t -> VString <$> X.evaluate t
-    VDouble d -> VDouble <$> X.evaluate d
-    VArray vs -> VArray <$> traverse evalValue vs
-    VPoint pt -> VPoint <$> traverse evalValue pt
-    VHistogram x y z m ->
-      VHistogram <$> X.evaluate x <*> X.evaluate y <*> X.evaluate z <*> traverse X.evaluate m
-    VPlot t ls xs ys ->
-      VPlot <$> X.evaluate t <*> traverse X.evaluate ls <*> traverse X.evaluate xs <*> traverse (traverse X.evaluate) ys
-    _ -> X.evaluate v
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.

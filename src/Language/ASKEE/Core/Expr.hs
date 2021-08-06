@@ -1,6 +1,10 @@
 {-# Language PatternSynonyms, ApplicativeDo, RankNTypes #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.Core.Expr where
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Data.Text ( Text )
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -27,18 +31,18 @@ data Expr =
   | Var Ident
   | If Expr Expr Expr
   | Fail String
-    deriving (Show,Eq, Ord)
+    deriving (Show,Eq,Ord,Generic,NFData)
 
 data Op1 = Not | Neg | Exp | Log
-  deriving (Show,Eq,Ord)
+  deriving (Show,Eq,Ord,Generic,NFData)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
-  deriving (Show,Eq,Ord)
+  deriving (Show,Eq,Ord,Generic,NFData)
 
 data Literal =
     Num Double
   | Bool Bool
-    deriving (Show,Eq,Ord)
+    deriving (Show,Eq,Ord,Generic,NFData)
 
 
 --------------------------------------------------------------------------------

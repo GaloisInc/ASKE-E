@@ -1,10 +1,14 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Language.ASKEE.DEQ.Syntax where
 
+import           GHC.Generics (Generic)
+import           Control.DeepSeq (NFData)
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
 import qualified Data.Set  as Set
@@ -25,7 +29,7 @@ data DiffEqs = DiffEqs
   , deqRates   :: Map Ident Expr      -- ^ These are the diff. eqns.
   , deqLets    :: Map Ident Expr
   }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 instance TraverseExprs DiffEqs where
   traverseExprs f DiffEqs { .. } =

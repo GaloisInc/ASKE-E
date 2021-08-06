@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.Exposure.Syntax where
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Map(Map)
@@ -18,11 +22,11 @@ data Stmt
 -- TODO: Labels?
 newtype DisplayExpr
   = DisplayScalar Expr
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, NFData)
 
 newtype DisplayValue
   = DisplayValue { unDisplayValue :: Value }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic, NFData)
 
 data Expr
   = EVar Text
@@ -33,7 +37,7 @@ data Expr
   | EList [Expr]
   | EListRange Expr Expr Expr
   | EPoint [(Ident, Expr)]
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 data Value
   = VDouble Double
@@ -63,7 +67,7 @@ data Value
                      -- The outer list should be equal in length to the list of
                      -- header labels. Each of the inner lists should be of
                      -- equal length to each other.
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
 -- sir.I at 30.0
@@ -108,11 +112,11 @@ data FunctionName
   | FTable
   | FSimplify
   | FWithParams
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
   = FFilter
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 -------------------------------------------------------------------------------
 -- compilable expr
@@ -122,12 +126,12 @@ data DynamicalFold =
     DFAt Double
   | DFAtMany [Double]
   | DFIn Double Double
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 data SampleFold =
     SFProbability Double
   | SFSample Double
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 prefixFunctionName :: Ident -> Either String FunctionName
 prefixFunctionName ident =
