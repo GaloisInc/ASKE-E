@@ -10,7 +10,6 @@ import qualified Data.Text as T
 import Data.Map(Map)
 
 import Language.ASKEE.Exposure.Plot
-import Language.ASKEE.DataSeries (DataSeries)
 import qualified Language.ASKEE.Core.Syntax as Core
 import Language.ASKEE.Latex.Syntax (Latex)
 
