@@ -277,6 +277,13 @@ def format_array(arr):
         'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
     }
 
+def format_timed(v):
+    formatted = format_resp_value(v['value'])
+    time      = format_resp_value(v['time'])
+    return {
+        'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
+    }
+
 def format_resp_value(v):
     if isinstance(v, dict):
         ty = v['type']
@@ -287,6 +294,9 @@ def format_resp_value(v):
 
         if ty == 'double':
             return { 'text/plain': json.dumps(val) }
+
+        if ty == 'timed':
+            return format_timed(val)
 
         if ty == 'plot':
             return format_plot(val['title'], val['series'], val['vs'], val['vs_label'])
