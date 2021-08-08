@@ -1,0 +1,88 @@
+model SEIRHD:
+    let Rt = 2.2
+    let Tinf = 2.9
+    let Tinc = 5.2
+    let pHosp = 0.2
+    let CFR = 0.01
+
+    let s_initial = 700000
+    let e_initial = 0
+    let i_initial = 1
+    let r_initial = 0
+    let h_initial = 0
+    let d_initial = 0
+    
+    state S = s_initial
+    state E = e_initial
+    state I = i_initial
+    state R = r_initial
+    state H = h_initial
+    state D = d_initial
+
+    let total_population = S + E + I + R + H + D
+
+    assert total_population == s_initial + e_initial + i_initial + r_initial + h_initial + d_initial
+
+    event Expose:
+        when:
+            S > 0 and I > 0
+        rate:
+            Rt/Tinf * (1/(S + E + I + R))
+        effect: 
+            S -= 1
+            E += 1
+
+    event Infect:
+        when:
+            E > 0
+        rate:
+            (1.0 - pHosp)/Tinc
+        effect:
+            E -= 1
+            I += 1
+    
+    event Hospitalize:
+        when: 
+            E > 0
+        rate: 
+            pHosp/Tinc
+        effect: 
+            E -= 1
+            H += 1
+
+    event Recover1:
+        when: 
+            I > 0
+        rate:
+            (1.0 - CFR)/Tinf
+        effect:
+            I -= 1
+            R += 1
+
+    event Recover2:
+        when:
+            H > 0
+        rate:
+            (1.0 - CFR)/Tinf
+        effect:
+            H -= 1
+            R += 1
+
+    event Death1:
+        when:
+            I > 0
+        rate:
+            CFR/Tinf
+        effect:
+            I -= 1
+            D += 1
+
+    event Death2:
+        when:
+            H > 0
+        rate:
+            CFR/Tinf
+        effect:
+            H -= 1
+            D += 1
+
