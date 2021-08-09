@@ -18,6 +18,7 @@ import Language.ASKEE.DataSeries  ( foldDataSeries
                                   , zipAlignedWithTimeAndLabel
                                   , DataSeries(..) )
 import Language.ASKEE.DEQ.Syntax  ( DiffEqs(..), addParams )
+import Language.ASKEE.Panic (panic)
 -- import Language.ASKEE.DEQ.Print
 
 import qualified Numeric.LinearAlgebra.Data as LinAlg
@@ -126,7 +127,8 @@ simulate eqs paramVs vars ts =
   initMap           = (`evalDouble` mempty) <$> deqInitial eqs'
   initEnv           = foldl evalLet initMap letList
   evalLet env (x,e) = Map.insert x (evalDouble e env) env
-  initS             = [ initEnv Map.! x | x <- observableNames ]
+  initS             = mapLookup initEnv <$> observableNames
+  mapLookup x       = lookupPanic "simulate" ["Unknown observable: " ++ show x] x
 
   resMatrix = ODE.odeSolve
                 (evalDiffEqs observableNames observableInitExprs)
@@ -187,7 +189,7 @@ fitModel eqs ds scaled start =
   (slns,path)   = Fit.fitModelScaled 1e-6 1e-6 20 (model,deriv) dt initParams
   ps            = map asText $ Map.keys $ deqParams eqs'
   initParams    = psToVec start
-  psToVec vs    = [ vs Map.! p | p <- ps ]
+  psToVec vs    = mapLookup "psToVec" vs <$> ps
   psFromVec vs  = Map.fromList (ps `zip` vs)
 
   dt            = [ (x,(vs,s))
@@ -200,7 +202,7 @@ fitModel eqs ds scaled start =
   simWith vs = simulate eqs' vs mempty (times ds)
 
   model pvec = let ans = simWith (psFromVec pvec)
-               in \x -> values ans Map.! x
+               in mapLookup "model answer" (values ans)
 
   deriv vs =
     let pmap     = psFromVec vs
@@ -209,7 +211,7 @@ fitModel eqs ds scaled start =
         change p = fmap (/ delta)
                  $ zipAligned (-) (simWith (Map.adjust (+delta) p pmap)) here
         changes  = map change ps
-    in \x -> transpose [ values pch Map.! x | pch <- changes ]
+    in \x -> transpose [ mapLookup "deriv" (values pch) x | pch <- changes ]
 
 
   -- Transform the given eqs by specializing to all the parameters
@@ -218,3 +220,11 @@ fitModel eqs ds scaled start =
   eqs' = addParams (Map.map (Just . NumLit) start) specialized
   specialized  = specializeDiffEqs toSpecialize eqs
   toSpecialize = Map.filterWithKey (\p _ -> Map.notMember p start) (getParams eqs mempty)
+
+  mapLookup who m x = lookupPanic "fitModel" [who, "Unknown parameter: " ++ show x] m x
+
+lookupPanic :: Ord k => String -> [String] -> Map k a -> k -> a
+lookupPanic who msg m x =
+  case Map.lookup x m of
+    Just v  -> v
+    Nothing -> panic who msg
