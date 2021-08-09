@@ -9,19 +9,17 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.HashMap.Strict as HashMap
-import           Data.Maybe ( fromJust )
+import           Data.Maybe ( fromJust, mapMaybe )
 
 import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
 
 import           Language.ASKEE.Core.Expr
-import           Language.ASKEE.Core.Syntax hiding ( Event )
-
-import           Debug.Trace (trace, traceIO)
+import           Language.ASKEE.Core.Syntax
 
 -------------------------------------------------------------------------
 
-data NodeType = Event | State
+data NodeType = EventNode | StateNode
   deriving(Show, Eq, Ord)
 
 data Node =
@@ -30,35 +28,28 @@ data Node =
         }
   deriving(Show, Eq, Ord)
 
-data Edge = 
+data Edge =
   Edge { edgeSource :: Int
        , edgeTarget :: Int
        }
   deriving(Show, Eq, Ord)
 
-data Graph = 
+data Graph =
   Graph { nodes :: [Node]
         , edges :: [Edge]
         }
   deriving(Show, Eq, Ord)
-  
+
 
 stateNode :: Ident -> Node
-stateNode t = Node t State  
+stateNode t = Node t StateNode
 
 eventNode :: Ident -> Node
-eventNode t = Node t Event
-  
--- addNode :: Node -> Graph -> Graph
--- addNode n g = g { nodes = nodes g ++ n }
+eventNode t = Node t EventNode
 
--- addEdge :: Node -> Node -> Graph -> Graph
--- addEdge n1 n2 g = 
---   let i1 = fromJust $ List.elemIndex n1 (nodes g)
---       i2 = fromJust $ List.elemIndex n2 (nodes g)
---   in g { edges = edges g ++ [(i1, i2)] }
+class RenderedModel m where
+  asString :: m -> BS.ByteString
 
-  
 ---------------------------------------------------------------------------------  
 
 toNetworkGraph :: Model -> Graph
@@ -74,6 +65,7 @@ toNetworkGraph model =
     stateNodesMap = Map.fromSet stateNode stateNameSet
     eventNodesMap = Map.fromList $ map (\ev -> (ev, eventNode $ eventName ev)) (modelEvents model)
     stateDependencies e = Set.intersection stateNameSet (collectVars e)
+    eventEdges :: Event -> Set.Set (Node, Node)
     eventEdges ev =
       let evNode = eventNodesMap Map.! ev
           edgeToState st = (evNode, stateNodesMap Map.! st)
@@ -82,9 +74,69 @@ toNetworkGraph model =
           allstateDependencies = Set.unions $ map stateDependencies $ Map.elems (eventEffect ev)
           incomingEdges = Set.map edgeToEvent allstateDependencies
       in Set.union incomingEdges outGoingEdges
-      
-      
+
+toFlowGraph :: Model -> Graph
+toFlowGraph model =
+  let allNodes = Map.elems stateNodesMap ++ Map.elems eventNodesMap
+      allNodesWithIndices = Map.fromList $ zip allNodes [0..]
+      edge (n1, n2) = Edge (allNodesWithIndices Map.! n1) (allNodesWithIndices Map.! n2)
+      allEdgesRaw = Set.unions $ map eventEdges (modelEvents model)
+      allEdges = Set.toList $ Set.map edge allEdgesRaw
+  in Graph allNodes allEdges
+  where
+    stateNameSet = Set.unions $ map (Map.keysSet . eventEffect) (modelEvents model)
+    stateNodesMap = Map.fromSet stateNode stateNameSet
+    eventNodesMap = Map.fromList $ map (\ev -> (ev, eventNode $ eventName ev)) (modelEvents model)
+    eventEdges ev = Set.fromList $ mapMaybe (uncurry $ effectEdge ev) $ Map.assocs (eventEffect ev)
+      where
+        effectEdge evt _ e =
+          case e of
+            Var v :+: NumLit n | n > 0 ->
+              Just (eventNode (eventName evt), stateNode v)
+            Var v :-: NumLit n | n > 0 ->
+              Just (stateNode v, eventNode (eventName evt))
+            _ ->
+              Nothing
+
+toSimpleFlowGraph :: Model -> Graph
+toSimpleFlowGraph model =
+  let allNodes = Map.elems stateNodesMap
+      allNodesWithIndices = Map.fromList $ zip allNodes [0..]
+      edge (n1, n2) = Edge (allNodesWithIndices Map.! n1) (allNodesWithIndices Map.! n2)
+      allEdgesRaw = Set.unions $ map eventEdges (modelEvents model)
+      allEdges = Set.toList $ Set.map edge allEdgesRaw
+  in Graph allNodes allEdges
+  where
+    stateNameSet = Set.unions $ map (Map.keysSet . eventEffect) (modelEvents model)
+    stateNodesMap = Map.fromSet stateNode stateNameSet
+    eventEdges ev = effectEdges (eventEffect ev)
+      where
+        effectEdges effectMap =
+          let (increases, decreases) = classify effectMap
+              edgelst = edgeList decreases increases
+          in Set.fromList edgelst
+        classify effectMap =
+          let classifiedExprMap = Map.mapMaybe isIncrease effectMap
+              (increases, decreases) = Map.partition Prelude.id classifiedExprMap
+          in (Map.keys increases, Map.keys decreases)
+        isIncrease e =
+          case e of
+            Var _ :+: NumLit n | n > 0 -> Just True
+            Var _ :-: NumLit n | n > 0 -> Just False
+            _ -> Nothing
+        edgeList fromSet endSet =
+          [ (lNode, rNode) | l <- fromSet, let lNode = stateNodesMap Map.! l,
+                             r <- endSet, let rNode = stateNodesMap Map.! r ]
+
 -------------------------------------------------------------------------------------
+
+convertToVega :: Graph -> JSON.Value
+convertToVega g =
+  -- Load the template, convert to JSON and add our data to it  !
+  let template = JSON.decodeStrict (encodeUtf8 vegaNetworkGraphTemplate) :: Maybe JSON.Value
+      JSON.Object obj = fromJust template
+      graphValue = HashMap.insert "data" (convertToVegaData g) obj
+  in JSON.Object graphValue
 
 convertToVegaData :: Graph -> JSON.Value
 convertToVegaData g = JSON.toJSON [nodeValues, edgeValues]
@@ -103,31 +155,34 @@ convertToVegaData g = JSON.toJSON [nodeValues, edgeValues]
                     ]
         where
           nt = case nodeType node of
-                 State -> JSON.String "state"
-                 Event -> JSON.String "event"
-      convertEdge edge =  
+                 StateNode -> JSON.String "state"
+                 EventNode -> JSON.String "event"
+      convertEdge edge =
         JSON.object [ "source" .= edgeSource edge
                     , "target" .= edgeTarget edge
-                    ]    
-                    
-convertToVega :: Graph -> JSON.Value 
-convertToVega g =
-  -- Load the template, convert to JSON and add our data to it  !
-  let template = JSON.decodeStrict (encodeUtf8 vegaNetworkGraphTemplate) :: Maybe JSON.Value 
-      JSON.Object obj = fromJust template
-      graphValue = HashMap.insert "data" (convertToVegaData g) obj
-  in JSON.Object graphValue
-  
-  
+                    , "type"   .= JSON.String (edgeType edge)
+                    ]
+
+      edgeType edge =
+        let src = nodes g !! edgeSource edge
+        in case src of { Node _ EventNode -> "out"; _ -> "in" }
+
+
 ---------------------------------------------------------------------
 
-renderModelAsNetwork :: Model -> JSON.Value 
-renderModelAsNetwork model = convertToVega (toNetworkGraph model)
-  
--- Quick helper to test things out
-renderModelAsNetworkIO :: MonadIO m => Model -> FilePath -> m ()
-renderModelAsNetworkIO model f = liftIO $ JSON.encodeFile f (renderModelAsNetwork model)
-      
+renderModelAsFlowGraphToVega :: Model -> JSON.Value
+renderModelAsFlowGraphToVega model = convertToVega (toFlowGraph model)
+
+renderModelAsFlowGraphToVegaIO :: MonadIO m => Model -> FilePath -> m ()
+renderModelAsFlowGraphToVegaIO model f = liftIO $ JSON.encodeFile f (renderModelAsFlowGraphToVega model)
+
+renderModelAsSimpleFlowGraphToVega :: Model -> JSON.Value
+renderModelAsSimpleFlowGraphToVega model = convertToVega (toSimpleFlowGraph model)
+
+renderModelAsSimpleFlowGraphToVegaIO :: MonadIO m => Model -> FilePath -> m ()
+renderModelAsSimpleFlowGraphToVegaIO model f = liftIO $ JSON.encodeFile f (renderModelAsSimpleFlowGraphToVega model)
+
+---------------------------------------------------------------------
 
 -- This really should go in to some config file somewhere!
 -- Quoting like this is remarkably ugly ..
@@ -136,7 +191,7 @@ vegaNetworkGraphTemplate = " \
  \ { \
  \   \"$schema\": \"https://vega.github.io/schema/vega/v5.json\", \
  \   \"description\": \"A network representation of a model\", \
- \   \"width\": 700, \
+ \   \"width\": 1200, \
  \   \"height\": 500, \
  \   \"padding\": 0, \
  \   \"autosize\": \"none\", \
@@ -171,22 +226,26 @@ vegaNetworkGraphTemplate = " \
  \         \"enter\": { \
  \           \"fill\": {\"scale\": \"color\", \"field\": \"type\"}, \
  \           \"stroke\": {\"value\": \"black\"}, \
- \           \"shape\": {\"signal\": \"datum.group === 1 ? 'square' : 'circle'\"}, \
- \           \"size\": {\"signal\": \"datum.type === 'event' ? nodeRadius * nodeRadius / 2 : 2 * nodeRadius * nodeRadius\"} \
+ \           \"shape\": {\"signal\": \"datum.type === 'event' ? 'square' : 'circle'\"}, \
+ \           \"size\": {\"signal\": \"datum.type === 'event' ? nodeRadius * nodeRadius / 2 : 2 * nodeRadius * nodeRadius\"}, \
+ \           \"name\": {\"field\": \"name\"}, \
+ \           \"type\": {\"field\": \"type\"}, \
+ \           \"tooltip\": [ {\"field\": \"name\"} ] \
  \         } \
  \       }, \
  \  \
  \       \"transform\": [ \
  \         { \
  \           \"type\": \"force\", \
- \           \"iterations\": 300, \
+ \           \"iterations\": 10000, \
  \           \"static\": true, \
  \           \"signal\": \"force\", \
  \           \"forces\": [ \
  \             {\"force\": \"center\", \"x\": {\"signal\": \"cx\"}, \"y\": {\"signal\": \"cy\"}}, \
  \             {\"force\": \"collide\", \"radius\": {\"signal\": \"nodeRadius\"}}, \
  \             {\"force\": \"nbody\", \"strength\": {\"signal\": \"nodeCharge\"}}, \
- \             {\"force\": \"link\", \"links\": \"link-data\", \"distance\": {\"signal\": \"linkDistance\"}} \
+ \             {\"force\": \"link\", \"links\": \"link-data\", \"distance\": {\"signal\": \"linkDistance\"}}, \
+ \             {\"force\": \"y\", \"y\": 0, \"strength\": \"0.01\" } \
  \           ] \
  \         } \
  \       ] \
@@ -197,27 +256,89 @@ vegaNetworkGraphTemplate = " \
  \       \"interactive\": false, \
  \       \"encode\": { \
  \         \"enter\": { \
- \           \"stroke\": {\"value\": \"#ccc\"}, \
- \           \"strokeWidth\": {\"value\": 2.5} \
+ \           \"stroke\": {\"signal\": \"datum.type === 'out' ? 'gray' : 'green'\"}, \
+ \           \"strokeWidth\": {\"signal\": \"datum.type === 'out' ? 2 : 3.5\"} \
  \         } \
  \       }, \
  \       \"transform\": [ \
  \         { \
  \           \"type\": \"linkpath\", \
  \           \"require\": {\"signal\": \"force\"}, \
- \           \"shape\": \"curve\", \
+ \           \"shape\": \"line\", \
  \           \"sourceX\": \"datum.source.x\", \"sourceY\": \"datum.source.y\", \
  \           \"targetX\": \"datum.target.x\", \"targetY\": \"datum.target.y\" \
  \         } \
  \       ] \
  \     }, \
  \     { \
+ \    \"encode\": { \
+ \        \"enter\": { \
+ \            \"size\": { \"value\": 250}, \
+ \            \"base\": { \"signal\": \"datum\" } \
+ \        } \
+ \    }, \
+ \    \"transform\": [ \
+ \        { \
+ \          \"shape\": \"line\", \
+ \          \"sourceX\": \"dummyTX\", \
+ \          \"sourceY\": \"dummySY\", \
+ \          \"targetX\": \"dummyTX\", \
+ \          \"targetY\": \"dummyTY\", \
+ \          \"require\": { \"signal\": \"force\" }, \
+ \          \"type\": \"linkpath\" \
+ \        }, \
+ \        { \
+ \          \"type\": \"formula\", \
+ \          \"expr\": \"(datum.base.target.x + datum.base.source.x) / 2\", \
+ \          \"as\": \"x\" \
+ \        }, \
+ \        { \
+ \          \"type\": \"formula\", \
+ \          \"expr\": \"(datum.base.target.y + datum.base.source.y) / 2\", \
+ \          \"as\": \"y\" \
+ \        }, \
+ \        { \
+ \          \"type\": \"formula\", \
+ \          \"expr\": \"180 * atan((datum.base.target.y - datum.base.source.y) / (datum.base.target.x - datum.base.source.x)) / PI\", \
+ \          \"as\": \"angle\" \
+ \        }, \
+ \        { \
+ \          \"type\": \"formula\", \
+ \          \"expr\": \"datum.base.target.x > datum.base.source.x ? 'triangle-right' : 'triangle-left'\", \
+ \          \"as\": \"shape\" \
+ \        } \
+ \    ], \
+ \      \"from\": { \"data\": \"link-data\" }, \
+ \      \"type\": \"symbol\", \
+ \      \"name\": \"arrows\", \
+ \      \"zindex\": 4 \
+ \    }, \
+ \    { \
+ \       \"zindex\": 2, \
+ \       \"encode\": { \
+ \         \"enter\": { \
+ \           \"y\": { \"field \":  \"y\"}, \
+ \           \"x\": { \"field \":  \"x\"}, \
+ \           \"fill\": { \"value\":  \"white\"}, \
+ \           \"fontSize\": { \"value\": 20}, \
+ \           \"fontWeight\": { \"value\":  \"bold\"}, \
+ \           \"baseline\": { \"value\":  \"middle\"}, \
+ \           \"align\": { \"value\":  \"center\"}, \
+ \           \"text\": { \"signal\":  \"datum.type === 'event' ? '' : datum.name[0]\"}, \
+ \           \"tooltip\": [{ \"field\":  \"name\"}] \
+ \        } \
+ \      }, \
+ \       \"from\": { \"data\":  \"nodes\"}, \
+ \       \"type\":  \"text\" \
+ \    }, \
+ \    { \
  \       \"type\": \"text\", \
  \       \"from\": {\"data\": \"nodes\"}, \
  \       \"zindex\": 2, \
  \       \"encode\": { \
  \         \"enter\": { \
- \           \"text\": {\"field\": \"datum.name\"}, \
+ \           \"text\": { \"signal\": \"datum.type === 'event' ? '' : datum.name[0] \"}, \
+ \           \"tooltip\": [ {\"field\": \"name\"} ], \
  \           \"x\": {\"field\": \"x\"}, \
  \           \"y\": {\"field\": \"y\"}, \
  \           \"align\": {\"value\": \"center\"}, \
