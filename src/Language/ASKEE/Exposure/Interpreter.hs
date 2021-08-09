@@ -624,13 +624,26 @@ interpretSeries vs label opts =
        { Plot.plotSeriesLabel = label
        , Plot.plotSeriesData  = vs'
        , Plot.plotSeriesStyle = style
-       , Plot.plotColor       = Nothing
+       , Plot.plotColor       = color
        }
   where
     style =
       case Map.lookup "style" opts of
         Just (VString s) -> interpStyle $ CI.mk s
         _                -> Plot.Line
+
+    color =
+      case Map.lookup "color" opts of
+        Just (VString s)
+          -> Just $ Plot.ColorScheme $ CI.foldedCase $ CI.mk s
+        Just (VArray arr)
+          |  Just range <- traverse asString arr
+          -> Just $ Plot.ColorRange range
+        _ -> Nothing
+
+    asString :: Value -> Maybe Text
+    asString (VString s) = Just s
+    asString _           = Nothing
 
     interpStyle :: CI Text -> PlotStyle
     interpStyle "points"  = Plot.Points

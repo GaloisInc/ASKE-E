@@ -180,13 +180,22 @@ def format_plot(title, series, vs, vs_label):
                           s['label']: s['data'][vi],
                           'series': s['label'] })
 
-    layers = [ { "mark": s['style'],
-                 "encoding": {
-                     "x": {"field": vs_label, "type": "quantitative"},
-                     "y": {"field": s['label'], "type": "quantitative"},
-                     "color": {"field": "series", "type": "nominal"}
-                 }
-                } for s in series ]
+    layers = []
+    for s in series:
+        layer_color = {"field": "series", "type": "nominal"}
+        series_color = s['color']
+        if isinstance(series_color, str):
+            layer_color['scale'] = {'scheme': series_color}
+        elif isinstance(series_color, list):
+            layer_color['scale'] = {'range': series_color}
+
+        layers.append({ "mark": s['style'],
+                        "encoding": {
+                            "x": {"field": vs_label, "type": "quantitative"},
+                            "y": {"field": s['label'], "type": "quantitative"},
+                            "color": layer_color
+                        }
+                      })
 
     out = {
         'application/vnd.vegalite.v4+json': {

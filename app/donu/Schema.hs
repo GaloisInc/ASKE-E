@@ -497,10 +497,11 @@ instance JS.ToJSON DonuValue where
                     , "vs_label" .= JS.toJSON xlab
                     ]
         where
-          go (PlotSeries label dat style _color) =
+          go (PlotSeries label dat style color) =
             JS.object [ "label" .= label
                       , "data"  .= JS.toJSON dat
                       , "style" .= JS.toJSON style
+                      , "color" .= JS.toJSON color
                       ]
 
       VSeries _ps -> unimplVal "<series>"
