@@ -782,7 +782,7 @@ interpretWithParams (VModelExpr (EVal m)) p =
   interpretWithParams m p
 interpretWithParams (VModel m) (VPoint p) =
   do  p' <- traverse double p
-      pure $ VModel $ Core.applyParams p' m
+      pure $ VModel $ Core.addParams p' m
 interpretWithParams m p =
   typeErrorArgs [m, p] "withParams expects a model and a point as arguments"
 
