@@ -292,11 +292,11 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (Sample 100 (SFSample d)) df e >>= interpretExpr
+        [VDFold df e, VDouble d] -> execSim (Sample 1000 (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
     FSimulate    ->
       case args of
-        [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
+        [VDFold df e] -> execSim (SimDiffEq 1000) df e >>= interpretExpr
         _ -> typeError "simulate expects a fold as its argument"
     FFit         ->
       case args of
@@ -802,7 +802,7 @@ interpretWithParams (VModelExpr (EVal m)) p =
   interpretWithParams m p
 interpretWithParams (VModel m) (VPoint p) =
   do  p' <- traverse double p
-      pure $ VModel $ Core.addParams p' m
+      pure $ VModelExpr . EVal . VModel $ Core.addParams p' m
 interpretWithParams m p =
   typeErrorArgs [m, p] "withParams expects a model and a point as arguments"
 
