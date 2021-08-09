@@ -42,6 +42,8 @@ import Witherable (Witherable(..))
 
 import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax as CoreS
+import qualified Language.ASKEE.Core.Print as CorePP
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
@@ -486,8 +488,14 @@ interpretCall fun args =
               let desc = A.describeModelInterface (Model.Core m)
                   showVal (Just v0) = MB.describeValue v0
                   showVal Nothing = "--"
-                  row sp p = VString <$> [A.portName p, sp, MB.describeValueType (A.portValueType p), showVal (A.portDefault p)]
-                  rows = (row "input" <$> A.modelInputs desc) ++ (row "output" <$> A.modelOutputs desc)
+                  inputRow p = VString <$> [A.portName p, "parameter", MB.describeValueType (A.portValueType p), showVal (A.portDefault p)]
+                  outputRowVal p =
+                    case Map.lookup (A.portName p) (CoreS.modelInitState m) <|> Map.lookup (A.portName p) (CoreS.modelLets m) of
+                      Nothing -> "--"
+                      Just e  -> Text.pack . show $ CorePP.ppExpr e
+
+                  outputRow p = VString <$> [A.portName p, "parameter", MB.describeValueType (A.portValueType p), outputRowVal p]
+                  rows = (inputRow <$> A.modelInputs desc) ++ (outputRow <$> A.modelOutputs desc)
 
               pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
         _ -> typeError "describe expects one argument"
