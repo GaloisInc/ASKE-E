@@ -234,6 +234,11 @@ def format_scatter(xlab, ylabs, xs, ysss):
     # }
     return out
 
+def format_vega(vega):
+    return {
+        "application/vnd.vega.v5+json": vega,
+        'text/plain' : json.dumps(vega)
+    }
 
 def format_latex(orig_latex):
     """
@@ -321,6 +326,10 @@ def format_resp_value(v):
 
         if ty == 'table':
             return format_table(val['labels'], val['rows'])
+
+        if ty == 'vega':
+            return format_vega(val)
+
 
     return { 'text/plain': json.dumps(v) }
 

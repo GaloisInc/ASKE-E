@@ -55,6 +55,7 @@ import qualified Language.ASKEE.DEQ.Simulate as DEQ
 import           Language.ASKEE.ESL.Convert ( modelAsCore )
 import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
+import qualified Language.ASKEE.Core.ModelVisualization as CoreViz
 
 import qualified Language.ASKEE.Exposure.Plot as Plot
 import Language.ASKEE.Exposure.Plot (PlotStyle)
@@ -502,6 +503,15 @@ interpretCall fun args =
 
               pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
         _ -> typeError "describe expects one argument"
+
+    FDisplayModelGraph ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let graph = CoreViz.renderModelAsFlowGraphToVega m
+              pure $ VVega (JSON.encode graph)
+
+        _ -> typeError "displayModelGraph expects one argument"
 
 
 

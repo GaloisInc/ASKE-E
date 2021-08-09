@@ -33,6 +33,8 @@ ppValue v = case v of
          , let x = (sz * fromIntegral bin) + lo :: Double
          , let y = x + sz :: Double
          ]
+  VSeries {}           -> text "<data series>"
+  VVega {}             -> text "<vega viz>"
   where
     notImplemented :: String -> a
     notImplemented what = error ("ppValue: not implemented: " <> what)

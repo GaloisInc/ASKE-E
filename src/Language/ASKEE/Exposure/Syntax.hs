@@ -12,6 +12,7 @@ import Data.Map(Map)
 import Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import Language.ASKEE.Latex.Syntax (Latex)
+import Data.ByteString.Lazy(ByteString)
 
 type Ident  = Text
 data Stmt
@@ -67,6 +68,7 @@ data Value
                      -- The outer list should be equal in length to the list of
                      -- header labels. Each of the inner lists should be of
                      -- equal length to each other.
+  | VVega ByteString
   deriving (Show, Eq, Ord, Generic, NFData)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
@@ -115,6 +117,7 @@ data FunctionName
   | FWithParams
   | FLoadPNC
   | FDescribeModel
+  | FDisplayModelGraph
   deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
@@ -166,6 +169,7 @@ prefixFunctionName ident =
     "withParams"  -> Right FWithParams
     "modelSkillRank" -> Right FSkillRank
     "series"      -> Right FSeries
+    "displayModelGraph" -> Right FDisplayModelGraph
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

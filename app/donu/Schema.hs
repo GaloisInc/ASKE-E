@@ -535,6 +535,10 @@ instance JS.ToJSON DonuValue where
 
       VSampledData{} -> unimplVal "<sampledData>"
       VPoint m       -> typedPrim "point" (JS.toJSON . DonuValue <$> m)
+      VVega v ->
+        case JS.decode v of
+          Nothing -> unimplVal "<vega viz bug>"
+          Just viz -> typed "vega" viz
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
