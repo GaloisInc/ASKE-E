@@ -113,6 +113,8 @@ data FunctionName
   | FTable
   | FSimplify
   | FWithParams
+  | FLoadPNC
+  | FDescribeModel
   deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
@@ -139,6 +141,8 @@ prefixFunctionName ident =
   case T.unpack ident of
     "loadESL"     -> Right FLoadEasel
     "loadCSV"     -> Right FLoadCSV
+    "loadPNC"     -> Right FLoadPNC
+    "describeModel" -> Right FDescribeModel
     "join"        -> Right FJoin
     "P"           -> Right FProb
     "mean"        -> Right FMean

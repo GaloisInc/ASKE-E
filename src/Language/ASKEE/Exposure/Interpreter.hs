@@ -469,6 +469,32 @@ interpretCall fun args =
         [m, p] -> interpretWithParams m p
         _      -> typeError "withParams expects two arguments"
 
+    FLoadPNC ->
+      case args of
+        [s] ->
+          do  path <- str s
+              src <- Text.toStrict . Text.decodeUtf8 <$> getFile (Text.unpack path)
+              let pncE = Model.parseModel MB.GrometPncType src >>= Model.toCore
+              case pncE of
+                Left err -> throw (Text.pack err)
+                Right pnc -> pure $ VModel pnc
+        _ -> typeError "loadPNC expects one argument"
+    FDescribeModel ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let desc = A.describeModelInterface (Model.Core m)
+                  showVal (Just v0) = MB.describeValue v0
+                  showVal Nothing = "--"
+                  row sp p = VString <$> [A.portName p, sp, MB.describeValueType (A.portValueType p), showVal (A.portDefault p)]
+                  rows = (row "input" <$> A.modelInputs desc) ++ (row "output" <$> A.modelOutputs desc)
+
+              pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
+        _ -> typeError "describe expects one argument"
+
+
+
+
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)
 
