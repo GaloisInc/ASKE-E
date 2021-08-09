@@ -494,7 +494,7 @@ interpretCall fun args =
                       Nothing -> "--"
                       Just e  -> Text.pack . show $ CorePP.ppExpr e
 
-                  outputRow p = VString <$> [A.portName p, "parameter", MB.describeValueType (A.portValueType p), outputRowVal p]
+                  outputRow p = VString <$> [A.portName p, "state", MB.describeValueType (A.portValueType p), outputRowVal p]
                   rows = (inputRow <$> A.modelInputs desc) ++ (outputRow <$> A.modelOutputs desc)
 
               pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
