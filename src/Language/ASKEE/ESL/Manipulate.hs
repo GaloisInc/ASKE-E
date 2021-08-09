@@ -80,7 +80,7 @@ compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
 
 -- | To declare states `s1` of the first argument to this function (`model1`) 
 -- and `s2` of the second (`model2`) shared, include in this function's `Map` 
--- (`share`) the entry `(s2, s1)`.
+-- (`share`) the entry `(s1, s2)`.
 --
 -- Before attempting to `join`, this function will suffix `model1` variables
 -- that won't be affected by `join`ing with `pref1`, and likewise with `model2`.
@@ -90,10 +90,10 @@ compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
 -- `model2` are propagated according to some rules:
 --
 -- > if 'v' is a state variable in 'model2':
--- >     if 'v' is in 'share':
--- >         replace it with its corresponding value
+-- >     if 'v' is a value in 'share':
+-- >         replace it with its corresponding key
 -- > else if 'v' is any variable in 'model2':
--- >     if 'v' is also any variable in 'model1' (post-suffixing):
+-- >     if 'v' is also any variable in 'model1' (post-prefixing):
 -- >         replace it with a freshened version of its original name
 -- > else:
 -- >     no change
@@ -107,12 +107,14 @@ compose stateShare m1 m2 stop1 start2 = join stateShare "" "" m1' m2'
 -- differently, it follows that the unions will differ depending on which 
 -- variable of a pair is overwritten.
 join :: Map Text Text -> Text -> Text -> Model -> Model -> Model
-join share pref1 pref2 model1 model2 =
-  Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents []
-  -- TODO propagate metadata somehow?
+join share pref1 pref2 model1 model2
+  | Map.size share' /= Map.size share = undefined
+  | otherwise =
+    Model (modelName model1 <> "_" <> modelName model2) newDecls newEvents []
+    -- TODO propagate metadata somehow?
   where
-    m1DontRename = Set.fromList (Map.elems share)
-    m2DontRename = Map.keysSet share
+    m1DontRename = Set.fromList (Map.elems share')
+    m2DontRename = Map.keysSet share'
     model1' = renameModelVarsWith (\t -> if t `Set.member` m1DontRename then t else pref1 <> t) model1
     model2' = renameModelVarsWith (\t -> if t `Set.member` m2DontRename then t else pref2 <> t) model2
 
@@ -125,7 +127,7 @@ join share pref1 pref2 model1 model2 =
     nonSharedStates = 
       [ (v, e) 
       | (v, e) <- stateDecls (modelDecls model2')
-      , v `Map.notMember` share 
+      , v `Map.notMember` share'
       ]
 
     renameDecls mkDecl decls =
@@ -143,7 +145,7 @@ join share pref1 pref2 model1 model2 =
       map (renameEventVarsWith renameMaybe) (modelEvents model2')
 
     renameMaybe t =
-      case share Map.!? t of
+      case share' Map.!? t of
         Just t' -> t'
         Nothing -> freshenMaybe t
       
@@ -152,6 +154,8 @@ join share pref1 pref2 model1 model2 =
       | otherwise = t
 
     m1vars = modelVars model1'
+    
+    share' = Map.fromList [ (y, x) | (x, y) <- Map.toList share ]
 
 -- | All variables in a model
 modelVars :: Model -> Set Text
