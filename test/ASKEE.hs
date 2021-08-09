@@ -59,6 +59,17 @@ series1' =
                 ]
              }
 
+series1Extra :: DataSeries Double
+series1Extra =
+  DataSeries { times = [0,30,60,90,120]
+             , values = Map.fromList
+                [ ("I",[3,570.9758710681082,177.87795797377797,53.663601453388395,16.17524903479719])
+                , ("S",[997,16.03663576555767,0.2688016239687885,7.747202089688689e-2,5.323898868597058e-2])
+                , ("R",[0,412.9874931663346,821.8532404022534,946.258926525715,983.771511976517])
+                , ("E",[0,1,2,3,4])
+                ]
+             }
+
 -- Generated via GSL simulation with beta=0.5
 series2 :: DataSeries Double
 series2 =
@@ -293,6 +304,11 @@ tests =
                                   , ("gamma", (0.02, 0.06))
                                   ]
                                   series1'
+    , testCase "Basic parameter fitting (extra data)" $
+        testFitParam (Inline sir) [ ("s_initial", (995.0, 1000.0))
+                                  , ("gamma", (0.02, 0.06))
+                                  ]
+                                  series1Extra
     , testCase "Basic SIR discrete event simulation test" $ testSimulateEslDiscrete (Inline sirSansParameters) 0 120 30 series3
     , testCase "State-to-state flow schematic" $ testAsSchematicGraph s2s
     , testCase "State-to-event flow schematic" $ testAsSchematicGraph s2e

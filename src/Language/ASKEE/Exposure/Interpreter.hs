@@ -300,8 +300,8 @@ interpretCall fun args =
         _ -> typeError "simulate expects a fold as its argument"
     FFit         ->
       case args of
-        (m:series:params) ->
-          interpretFit m series params
+        [m,VPoint datas,VArray params] ->
+          interpretFit m datas params
         _ ->
           typeError "fit expects a model, a data series, and a sequence of parameter names"
     FAt          ->
@@ -652,11 +652,18 @@ interpretSeries vs label opts =
     interpStyle "line"    = Plot.Line
     interpStyle _         = Plot.Line
 
-interpretFit :: Value -> Value -> [Value] -> Eval Value
+interpretFit :: Value -> Map Text Value -> [Value] -> Eval Value
 interpretFit mv ds ps =
   do m   <- Model.Core <$> model mv
      ps' <- traverse str ps
-     ds' <- timedPointsAsSeries =<< array value ds
+     ds' <- traverse (array double) ds
+     dataSeries <-
+       case Map.lookup "time" ds' of
+         Nothing ->
+           throw "fit() data requires a 'time' series"
+         Just ts ->
+           let rest = Map.delete "time" ds'
+           in pure $ DS.DataSeries ts rest
      case Model.toDeqs m of
        Left err ->
          throw $ Text.pack err
@@ -665,7 +672,7 @@ interpretFit mv ds ps =
                 ifaceErrs = A.paramsNotExistErrors (Set.fromList ps') iface
             case ifaceErrs of
               [] ->
-                do let (res, _) = DEQ.fitModel deq ds' mempty $ Map.fromList (zip ps' (repeat 0))
+                do let (res, _) = DEQ.fitModel deq dataSeries mempty $ Map.fromList (zip ps' (repeat 0))
                        vals = VPoint $ Map.map (VDouble . fst) res
                        errs = VPoint $ Map.map (VDouble . snd) res
                    return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
