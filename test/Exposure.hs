@@ -215,7 +215,11 @@ tests =
           exprAssertion2WithStmts
             [ "sir = " <> loadSirEaselExpr
             , "series = simulate(sir at [0..120 by 30])"
-            , "ps = fit(sir, series, \"i_initial\")"
+            , "T = time(series)"
+            , "vs = value(series)"
+            , "ps = fit(sir, "
+                    ++ "{{time=T, S=vs.S, I=vs.I, R=vs.R}}, "
+                    ++ "[\"i_initial\"])"
             ] "ps.values.i_initial" "ps.errors.i_initial" $ \val1 val2 ->
             case (val1, val2) of
               (VDouble _, VDouble _) -> pure ()
@@ -223,10 +227,15 @@ tests =
       , testCase "Param fitting (failure)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           const () <$>
-            assertStmtsFail [ "sir = " <> loadSirEaselExpr
-                            , "series = simulate(sir at [0..120 by 30])"
-                            , "ps = fit(sir, series, \"I_initial\")"
-                            ]
+            assertStmtsFail
+            [ "sir = " <> loadSirEaselExpr
+            , "series = simulate(sir at [0..120 by 30])"
+            , "T = time(series)"
+            , "vs = value(series)"
+            , "ps = fit(sir, "
+                    ++ "{{time=T, S=vs.S, I=vs.I, R=vs.R}}, "
+                    ++ "[\"I_initial\"])"
+            ]
       , testCase "Join (bad model args)" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           void $ assertStmtsFail
