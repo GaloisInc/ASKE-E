@@ -194,6 +194,7 @@ fitModel eqs ds scaled start =
 
   dt            = [ (x,(vs,s))
                   | (x,vs) <- Map.toList (values ds)
+                  , Map.member x (deqRates eqs')
                   , let s = case Map.lookup x scaled of
                               Nothing -> 1
                               Just m  -> 1 / m
