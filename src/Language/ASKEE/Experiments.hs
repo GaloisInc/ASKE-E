@@ -25,15 +25,15 @@ mkInfectedData :: FilePath -> IO ()
 mkInfectedData out =
   do  sir <- ASKEE.loadESLFrom ASKEE.EaselType (ASKEE.FromFile "modelRepo/easel/sir-meta.easel")
       seird <- ASKEE.loadESLFrom ASKEE.EaselType (ASKEE.FromFile "modelRepo/easel/seird_hosp.easel")
-      let double_epi = MP.join (Map.singleton "S" "Susceptible") "ep1_" "ep2_" seird sir
+      let double_epi = MP.join (Map.singleton "S" "Susceptible") "ep1_" "ep2_" sir seird
 
       double_epi_deq <- Error.throwLeft Error.ConversionError (Model.toDeqs $ Model.Easel double_epi)
-      let params = Map.fromList [("ep2_beta", 0.5)]
+      let params = Map.fromList [("ep1_beta", 0.5), ("ep1_S_init", 996), ("ep2_beta", 2)]
       let double_epi_series = Sim.simulate double_epi_deq params Set.empty [1,2..120]
 
-      let Just infected = Map.lookup "ep2_I" (DS.values double_epi_series)
+      let Just infected = Map.lookup "ep1_I" (DS.values double_epi_series)
       let infectedNoise = fromInteger . floor  <$> Utils.withUniformNoise (Random.mkStdGen 1) infected 0.2
-      let ds' = double_epi_series { DS.values = Map.singleton "Infected" infectedNoise }
+      let ds' = double_epi_series { DS.values = Map.singleton "I" infectedNoise }
 
       DS.saveDataSeries out ds'
 

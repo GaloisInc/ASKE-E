@@ -200,6 +200,8 @@ def format_plot(title, series, vs, vs_label):
     out = {
         'application/vnd.vegalite.v4+json': {
             '$schema': vega_lite_schema,
+            'width': 800,
+            'height': 600,
             'description':'',
             'data': { "values": vals},
             'layer': layers
