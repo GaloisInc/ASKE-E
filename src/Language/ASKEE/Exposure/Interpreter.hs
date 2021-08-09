@@ -21,6 +21,8 @@ import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
 import Control.Applicative((<|>), Alternative(..))
+import qualified Data.CaseInsensitive as CI
+import Data.CaseInsensitive (CI)
 import Data.Foldable(traverse_)
 import qualified Data.List.Extra as List
 import qualified Data.Map as Map
@@ -55,6 +57,7 @@ import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
 import qualified Language.ASKEE.Exposure.Plot as Plot
+import Language.ASKEE.Exposure.Plot (PlotStyle)
 import Language.ASKEE.Exposure.Syntax
 
 data ExposureInfo = ExposureInfo
@@ -626,13 +629,14 @@ interpretSeries vs label opts =
   where
     style =
       case Map.lookup "style" opts of
-        Just (VString s) -> interpStyle s
+        Just (VString s) -> interpStyle $ CI.mk s
         _                -> Plot.Line
 
+    interpStyle :: CI Text -> PlotStyle
     interpStyle "points"  = Plot.Points
     interpStyle "circles" = Plot.Circles
     interpStyle "squares" = Plot.Squares
-    interpStyle "Line"    = Plot.Line
+    interpStyle "line"    = Plot.Line
     interpStyle _         = Plot.Line
 
 interpretFit :: Value -> Value -> [Value] -> Eval Value
