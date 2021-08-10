@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Exposure (tests) where
 
+import Control.Exception (SomeException, try)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
 import Data.Foldable (traverse_)
@@ -73,7 +75,21 @@ assertStmtsFail stmtStrs = do
   return env
 
 emptyEvalRead :: EvalRead
-emptyEvalRead = mkEvalReadEnv LBS.readFile LBS.writeFile
+emptyEvalRead = mkEvalReadEnv rd wr
+  where
+    wr f d =
+      do res <- try (LBS.writeFile f d)
+         case res of
+           Left (_ :: SomeException) ->
+             pure $ Left "write failed"
+           Right t -> pure $ Right t
+
+    rd f =
+      do res <- try (LBS.readFile f)
+         case res of
+           Left (_ :: SomeException) ->
+             pure $ Left "read failed"
+           Right t -> pure $ Right t
 
 exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2 = exprAssertion2WithStmts []
@@ -292,5 +308,9 @@ tests =
             case v of
               VArray vs -> traverse_ assertDouble vs
               _         -> failure
+
+      , testCase "Load missing files" $ do
+          void $ assertStmtsFail ["loadCSV(\"path/to/nothing.csv\")"]
+          void $ assertStmtsFail ["loadESL(\"path/to/nothing.easel\")"]
       ]
     ]

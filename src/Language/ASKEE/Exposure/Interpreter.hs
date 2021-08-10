@@ -147,9 +147,9 @@ data EvalRead = EvalRead
   , erGetFileFn   :: EvalReadFileFn
   }
 
-type EvalReadFileFn  = FilePath -> IO LBS.ByteString
-type EvalWriteFileFn = FilePath -> LBS.ByteString -> IO ()
-
+type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
+type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
+type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
 
 mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
 mkEvalReadEnv rd wr = EvalRead
@@ -183,12 +183,18 @@ throw = Except.throwError
 putFile :: FilePath -> LBS.ByteString  -> Eval ()
 putFile f contents =
   do putF <- RWS.asks erPutFileFn
-     io $ putF f contents
+     res  <- io $ putF f contents
+     case res of
+       Left err -> throw err
+       Right _  -> pure ()
 
 getFile :: FilePath -> Eval LBS.ByteString
 getFile f =
   do getF <- RWS.asks erGetFileFn
-     io $ getF f
+     res  <- io $ getF f
+     case res of
+       Left err -> throw err
+       Right t  -> pure t
 
 notImplemented :: Text -> Eval a
 notImplemented what = throw ("not implemented: " <> what)

@@ -30,6 +30,7 @@ import qualified Language.ASKEE.Exposure.Print as Exposure
 import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 import Logo (displayLogo)
+import Data.String (fromString)
 
 main :: IO ()
 main = do
@@ -243,7 +244,7 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env   <- gets champEnv
   stmts <- gets champBatchedStmts
-  let er = Exposure.mkEvalReadEnv LBS.readFile LBS.writeFile
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err ->
@@ -252,3 +253,19 @@ executeBatchedStmts = do
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
   putEnv env'
   clearBatchedStmts
+
+champWriteFile :: Exposure.EvalWriteFileFn
+champWriteFile f d =
+  do res <- try (LBS.writeFile f d)
+     case res of
+       Left (x :: SomeException) ->
+         pure $ Left (fromString $ displayException x)
+       Right t -> pure $ Right t
+
+champReadFile :: Exposure.EvalReadFileFn
+champReadFile f =
+  do res <- try (LBS.readFile f)
+     case res of
+       Left (x :: SomeException) ->
+         pure $ Left (fromString $ displayException x)
+       Right t -> pure $ Right t
