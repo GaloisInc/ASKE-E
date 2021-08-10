@@ -50,6 +50,7 @@ import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
 import           Language.ASKEE.Core.Convert ( coreAsModel )
+import qualified Language.ASKEE.Core.ModelVisualization as CoreViz
 import qualified Language.ASKEE.CPP as CPP
 import qualified Language.ASKEE.DEQ.Simulate as DEQ
 import           Language.ASKEE.ESL.Convert ( modelAsCore )
@@ -488,8 +489,11 @@ interpretCall fun args =
               let pncE = Model.parseModel MB.GrometPncType src >>= Model.toCore
               case pncE of
                 Left err -> throw (Text.pack err)
-                Right pnc -> pure $ VModel pnc
+                Right pnc ->
+                  let (pnc', _) = Core.legalize pnc
+                  in  (pure . VModelExpr . EVal . VModel) pnc'
         _ -> typeError "loadPNC expects one argument"
+
     FDescribeModel ->
       case args of
         [v] ->
@@ -509,8 +513,15 @@ interpretCall fun args =
               pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
         _ -> typeError "describe expects one argument"
 
-
-
+    FModelGraph ->
+      case args of
+        [v] ->
+          do  m <- model v
+              esvg <- liftIO $ CoreViz.renderModelAsFlowGraphToRawImageIO m CoreViz.ImageSvg
+              case esvg of
+                Left err -> throw err
+                Right svg -> pure $ VSVG svg
+        _ -> typeError "modelGraph expects one argument"
 
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)

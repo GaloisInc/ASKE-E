@@ -12,6 +12,7 @@ import json
 import websocket
 import threading
 import queue
+import base64
 
 #------------------------------------------------------------------------------
 # Config
@@ -305,6 +306,14 @@ def format_timed(v):
         'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
     }
 
+def format_svg(v):
+
+    return {
+        "image/svg+xml": str(base64.b64decode(v), "utf8")
+    }
+
+
+
 def format_resp_value(v):
     if isinstance(v, dict):
         ty = v['type']
@@ -342,6 +351,9 @@ def format_resp_value(v):
 
         if ty == 'table':
             return format_table(val['labels'], val['rows'])
+
+        if ty == 'svg':
+            return format_svg(val)
 
     return { 'text/plain': json.dumps(v) }
 

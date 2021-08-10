@@ -17,6 +17,9 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Data.Maybe(fromMaybe, maybeToList)
 import Data.Functor(($>))
+import qualified Data.Text.Encoding as Encoding
+import qualified Data.ByteString.Base64.Lazy as Base64
+
 
 import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
@@ -536,6 +539,7 @@ instance JS.ToJSON DonuValue where
 
       VSampledData{} -> unimplVal "<sampledData>"
       VPoint m       -> typedPrim "point" (JS.toJSON . DonuValue <$> m)
+      VSVG bs        -> typedPrim "svg" $ Encoding.decodeUtf8 (Lazy.toStrict $ Base64.encode bs)
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value

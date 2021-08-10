@@ -33,6 +33,8 @@ ppValue v = case v of
          , let x = (sz * fromIntegral bin) + lo :: Double
          , let y = x + sz :: Double
          ]
+  VSVG{}                -> text "<svg output>"
+  VSeries{}             -> text "<graph series>"
   where
     notImplemented :: String -> a
     notImplemented what = error ("ppValue: not implemented: " <> what)

@@ -245,6 +245,7 @@ executable donu
                       , vector
                       , websockets-snap
                       , websockets
+                      , base64-bytestring
 
   default-language:     Haskell2010
   ghc-options:          -Wall -threaded

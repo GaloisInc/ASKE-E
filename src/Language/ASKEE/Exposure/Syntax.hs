@@ -8,6 +8,7 @@ import Control.DeepSeq (NFData)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Map(Map)
+import Data.ByteString.Lazy(ByteString)
 
 import Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
@@ -67,6 +68,7 @@ data Value
                      -- The outer list should be equal in length to the list of
                      -- header labels. Each of the inner lists should be of
                      -- equal length to each other.
+  | VSVG ByteString
   deriving (Show, Eq, Ord, Generic, NFData)
 
 -- sir = loadESL("model.esl") -> VModelExpr (EVal (VModel ....) )
@@ -115,6 +117,7 @@ data FunctionName
   | FWithParams
   | FLoadPNC
   | FDescribeModel
+  | FModelGraph
   deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
@@ -143,6 +146,7 @@ prefixFunctionName ident =
     "loadCSV"     -> Right FLoadCSV
     "loadPNC"     -> Right FLoadPNC
     "describeModel" -> Right FDescribeModel
+    "modelGraph"  -> Right FModelGraph
     "join"        -> Right FJoin
     "P"           -> Right FProb
     "mean"        -> Right FMean
