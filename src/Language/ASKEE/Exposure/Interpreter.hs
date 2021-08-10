@@ -147,9 +147,9 @@ data EvalRead = EvalRead
   , erGetFileFn   :: EvalReadFileFn
   }
 
-type EvalReadFileFn  = FilePath -> IO (Either Text LBS.ByteString)
-type EvalWriteFileFn = FilePath -> LBS.ByteString -> IO (Either Text ())
-
+type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
+type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
+type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
 
 mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
 mkEvalReadEnv rd wr = EvalRead

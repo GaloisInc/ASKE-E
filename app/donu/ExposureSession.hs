@@ -101,7 +101,7 @@ exposureServerLoop c = go Exposure.initialEnv
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
-readClientFile :: Connection -> FilePath -> IO (Either Text.Text LBS.ByteString)
+readClientFile :: Connection -> Exposure.EvalReadFileFn
 readClientFile c f =
   do sendTextData c (ReadFile f)
      msg <- receiveData c
@@ -116,7 +116,7 @@ readClientFile c f =
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
-writeClientFile :: Connection -> FilePath -> LBS.ByteString -> IO (Either Text.Text ())
+writeClientFile :: Connection -> Exposure.EvalWriteFileFn
 writeClientFile c f bs =
   do sendTextData c (WriteFile f bs)
      msg <- receiveData c
