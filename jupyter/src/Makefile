@@ -2,8 +2,8 @@ PIPENV_RUN=pipenv run
 
 reinstall:
 	${PIPENV_RUN} jupyter kernelspec uninstall -f askee_kernel || true
-	pipenv install
 	${PIPENV_RUN} jupyter kernelspec install askee_kernel --user
+	pipenv install
 
 .PHONY: lab
 lab:

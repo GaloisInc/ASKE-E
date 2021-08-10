@@ -12,12 +12,14 @@ services:
       - "./src:/build/src"
     ports:
       - "8000:8000"
+    expose:
+      - "localhost:8000:8000"
     networks:
       - donu-network
     environment:
       # This should be the same as the name of the service serving
       # AlgebraicJulia functionality
-      DONU_AJ_HOSTNAME: algebraic-julia
+      ASKE_AJ_HOSTNAME: algebraic-julia
 
   algebraic-julia:
     build: ASKE-E-Simulation-WG/AlgebraicPetri-Stratification
@@ -27,6 +29,17 @@ services:
       - "localhost:8001:8001"
     networks:
       - donu-network
+
+  jupyter:
+    build: jupyter
+    ports: 
+      - "8888:8888"
+    networks:
+      - donu-network
+    environment:
+      # This should be the same as the name of the service serving
+      # donu functionality
+      ASKE_DONU_HOSTNAME: donu
 
 volumes:
   models:

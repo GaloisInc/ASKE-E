@@ -40,7 +40,7 @@ queryServer' payload =
         ExitFailure n -> die (AlgebraicJuliaError $ unlines ["Failed to interact with AlgebraicJulia", stdout, stderr, "Exit code "<>show n])
 
   where
-    hostname = fromMaybe "localhost" <$> lookupEnv "DONU_AJ_HOSTNAME"
+    hostname = fromMaybe "localhost" <$> lookupEnv "ASKE_AJ_HOSTNAME"
 
 queryServerForValue :: FromJSON a => Value -> IO (Maybe a)
 queryServerForValue = fmap (decode . pack) . queryServer
