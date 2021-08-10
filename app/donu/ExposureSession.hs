@@ -36,9 +36,10 @@ data ExposureServerMessage =
 
 -- | Messages sent by client
 data ExposureClientMessage =
-    RunProgram [Exposure.Stmt] -- ^ Ask the server to run some code
+    RunProgram [Exposure.Stmt]  -- ^ Ask the server to run some code
   | FileContents LBS.ByteString -- ^ Provide file contents
-  | Error LBS.ByteString -- ^ This is actually an error deciphering a client message
+  | WroteFile
+  | Error LBS.ByteString        -- ^ This includes errors deciphering client messages
   deriving Show
 
 -- | The main entry point into a websocket-based Exposure session
@@ -96,21 +97,31 @@ exposureServerLoop c = go Exposure.initialEnv
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
-readClientFile :: Connection -> FilePath -> IO LBS.ByteString
+readClientFile :: Connection -> FilePath -> IO (Either Text.Text LBS.ByteString)
 readClientFile c f =
   do sendTextData c (ReadFile f)
      msg <- receiveData c
      case msg of
        FileContents contents ->
-         pure contents
+         pure $ Right contents
+       Error err ->
+         pure $ Left (TL.toStrict $ TL.decodeUtf8 err)
        _ ->
          error $ "readClientFile: expecting FileContents but received "
               ++ show msg
 
 -- | The implementation of @getFileFn@ for Exposure. This implementation sends a
 -- message to the client to fetch a file.
-writeClientFile :: Connection -> FilePath -> LBS.ByteString -> IO ()
-writeClientFile c f bs = sendTextData c (WriteFile f bs)
+writeClientFile :: Connection -> FilePath -> LBS.ByteString -> IO (Either Text.Text ())
+writeClientFile c f bs =
+  do sendTextData c (WriteFile f bs)
+     msg <- receiveData c
+     case msg of
+       WroteFile -> pure (Right ())
+       Error err -> pure (Left (TL.toStrict $ TL.decodeUtf8 err))
+       _ ->
+         error $ "writeClientfile: expecting WroteFile but received "
+              ++ show msg
 
 -- Instances for serializing/deserializing protocol messages ---------
 
@@ -158,6 +169,13 @@ instance JS.FromJSON ExposureClientMessage where
                do contents <- o.:"contents"
                   let bs = TL.encodeUtf8 contents
                   pure $ FileContents bs
+
+             "wrote-file" ->
+               pure WroteFile
+
+             "error" ->
+               do msg <- o.: "message"
+                  pure $ Error (fromString msg)
 
              _ -> pure $ Error "Unrecognized command"
 
