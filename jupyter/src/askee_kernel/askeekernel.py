@@ -57,12 +57,22 @@ def exposure_protocol(app, req_q, resp_q, to_kernel_q):
             resp = json.loads(resp_q.get())
 
             if resp['type'] == 'read-file':
-                with open(resp['path']) as f:
-                    app.send(json.dumps({'type':'file-contents', 'contents': f.read()}))
+                try:
+                    with open(resp['path']) as f:
+                        app.send(json.dumps({'type':'file-contents', 'contents': f.read()}))
+                except FileNotFoundError:
+                    app.send(json.dumps({'type':'error', 'message': 'File not found'}))
+                except Exception as e:
+                    app.send(json.dumps({'type':'error', 'message': str(e)}))
 
             elif resp['type'] == 'write-file':
-                with open(resp['path'], 'w+') as f:
-                    f.write(resp['contents'])
+                try:
+                    with open(resp['path'], 'w+') as f:
+                        f.write(resp['contents'])
+                except FileNotFoundError:
+                    app.send(json.dumps({'type':'error', 'message': 'File not found'}))
+                except Exception as e:
+                    app.send(json.dumps({'type':'error', 'message': str(e)}))
 
             elif resp['type'] == 'success':
                 break
