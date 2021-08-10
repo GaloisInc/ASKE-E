@@ -19,7 +19,7 @@ import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
 
 import           System.Exit ( ExitCode(ExitSuccess) )
-import           System.IO.Temp ( withSystemTempFile )
+import           System.IO.Temp ( withSystemTempFile, emptySystemTempFile )
 import           System.IO ( hClose )
 import qualified System.Process as Proc
 
@@ -403,23 +403,20 @@ generateDotText g =
     valueText (GVValString s) = T.snoc (T.cons '"' s) '"'
     valueText (GVValFloat f) = T.pack (show f)
     idText i = unId i
-    nodeText n = T.concat [ "node "
-                          , wrappedAttrsText (augmentedNodeAttrMap n)
-                          , ";" 
-                          , idText (gvNodeId n)
-                          , ";"
-                          ]
-    edgeText e = T.concat [ idText (gvEdgeStart e)
-                          , " -> "  
-                          , idText (gvEdgeEnd e)
-                          , " "
-                          , wrappedAttrsText (gvEdgeAttr e)
-                          , ";"
-                          ]
-    graphContents = T.concat [ attrsText " ;\n" (gvGraphAttr g)
-                             , T.intercalate "\n" (map nodeText $ gvGraphNodes g)
-                             , T.intercalate "\n" (map edgeText $ gvGraphEdges g)
-                             ]
+    nodeText n = T.intercalate " "  [ "node"
+                                    , wrappedAttrsText (augmentedNodeAttrMap n)
+                                    , ";" 
+                                    , idText (gvNodeId n)
+                                    ]
+    edgeText e = T.intercalate " " [ idText (gvEdgeStart e)
+                                   , "->"  
+                                   , idText (gvEdgeEnd e)
+                                   , wrappedAttrsText (gvEdgeAttr e)
+                                   ]
+    graphContents = T.intercalate " ;\n" [ attrsText " ;\n" (gvGraphAttr g)
+                                         , T.intercalate " ;\n" (map nodeText $ gvGraphNodes g)
+                                         , T.intercalate " ;\n" (map edgeText $ gvGraphEdges g)
+                                         ]
     augmentedNodeAttrMap n = Map.insert "label" (GVValString $ gvNodeLabel n) $ gvNodeAttr n
     wrappedAttrsText attrMap = wrapped "[" "]" (attrsText ", " attrMap)
     wrapped l r s = T.concat [l, s, r]
@@ -498,6 +495,14 @@ renderGraphToImage g iType f =
       ImagePng -> "png"
       ImageJpg -> "jpg"
       ImageSvg -> "svg"
+      
+renderGraphToRawImage :: MonadIO m => Graph -> ImageType -> m (Either Text BS.ByteString)
+renderGraphToRawImage g iType = do
+  destFile <- liftIO $ emptySystemTempFile "model.output"
+  perhapsResult <- renderGraphToImage g iType destFile
+  case perhapsResult of
+    Right () -> liftIO $ Right <$> BS.readFile destFile
+    Left t   -> return $ Left t
 
 
 renderModelAsFlowGraphToDot :: Model -> Text
@@ -509,6 +514,9 @@ renderModelAsFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderModelAsFl
 renderModelAsFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
 renderModelAsFlowGraphToImageIO model iType f = renderGraphToImage (toFlowGraph model) iType f
 
+renderModelAsFlowGraphToRawImageIO :: MonadIO m => Model -> ImageType -> m (Either Text BS.ByteString)
+renderModelAsFlowGraphToRawImageIO model iType = renderGraphToRawImage (toFlowGraph model) iType
+
 
 renderModelAsSimpleFlowGraphToDot :: Model -> Text
 renderModelAsSimpleFlowGraphToDot model = generateDotText $ convertToDot $ toSimpleFlowGraph model
@@ -518,3 +526,6 @@ renderModelAsSimpleFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderMod
 
 renderModelAsSimpleFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
 renderModelAsSimpleFlowGraphToImageIO model iType f = renderGraphToImage (toSimpleFlowGraph model) iType f
+
+renderModelAsSimpleFlowGraphToRawImageIO :: MonadIO m => Model -> ImageType -> m (Either Text BS.ByteString)
+renderModelAsSimpleFlowGraphToRawImageIO model iType = renderGraphToRawImage (toSimpleFlowGraph model) iType
