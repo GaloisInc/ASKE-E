@@ -18,6 +18,7 @@ import           Data.Maybe ( fromJust, mapMaybe )
 import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
 
+import           System.Directory ( removeFile )
 import           System.Exit ( ExitCode(ExitSuccess) )
 import           System.IO.Temp ( withSystemTempFile, emptySystemTempFile )
 import           System.IO ( hClose )
@@ -501,7 +502,10 @@ renderGraphToRawImage g iType = do
   destFile <- liftIO $ emptySystemTempFile "model.output"
   perhapsResult <- renderGraphToImage g iType destFile
   case perhapsResult of
-    Right () -> liftIO $ Right <$> BS.readFile destFile
+    Right () -> do
+      dta <- liftIO $ Right <$> BS.readFile destFile
+      liftIO $ removeFile destFile
+      return dta
     Left t   -> return $ Left t
 
 
