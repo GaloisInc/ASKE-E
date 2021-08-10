@@ -1,6 +1,10 @@
 {-# Language PatternSynonyms, ApplicativeDo, RankNTypes #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.Core.Expr where
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Data.Text ( Text )
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -13,6 +17,7 @@ import Data.Functor.Identity (runIdentity)
 import qualified Data.Functor.Const as Const
 
 import Language.ASKEE.Panic (panic)
+import qualified Language.ASKEE.Expr as Expr
 
 type Ident = Text
 
@@ -26,18 +31,18 @@ data Expr =
   | Var Ident
   | If Expr Expr Expr
   | Fail String
-    deriving (Show,Eq, Ord)
+    deriving (Show,Eq,Ord,Generic,NFData)
 
 data Op1 = Not | Neg | Exp | Log
-  deriving (Show,Eq,Ord)
+  deriving (Show,Eq,Ord,Generic,NFData)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
-  deriving (Show,Eq,Ord)
+  deriving (Show,Eq,Ord,Generic,NFData)
 
 data Literal =
     Num Double
   | Bool Bool
-    deriving (Show,Eq,Ord)
+    deriving (Show,Eq,Ord,Generic,NFData)
 
 
 --------------------------------------------------------------------------------
@@ -286,7 +291,7 @@ instance TraverseExprs Expr where
       Literal {}   -> pure expr
       Op1 op e     -> Op1 op <$> f e
       Op2 op e1 e2 -> Op2 op <$> f e1 <*> f e2
-      Var {}       -> pure expr
+      Var {}       -> f expr
       If e1 e2 e3  -> If <$> f e1 <*> f e2 <*> f e3
       Fail {}      -> pure expr
 
@@ -325,3 +330,37 @@ orderDecls = fst . partOrderDecls Set.empty
 
 
 
+asExpr :: Expr -> Expr.Expr
+asExpr expr =
+  case expr of
+    Literal l -> doLit l
+    Op1 op1 e1 -> doOp1 op1 e1
+    Op2 op2 e1 e2 -> doOp2 op2 e1 e2
+    Var i -> Expr.Var i
+    If p t f -> Expr.If (asExpr p) (asExpr t) (asExpr f)
+    Fail err -> error err
+
+  where
+    doLit l =
+      case l of
+        Num d -> Expr.LitD d
+        Bool b -> Expr.LitB b
+
+    doOp1 op1 e1 =
+      case op1 of
+        Not -> Expr.Not (asExpr e1)
+        Neg -> Expr.Neg (asExpr e1)
+        Exp -> Expr.Exp (asExpr e1)
+        Log -> Expr.Log (asExpr e1)
+
+    doOp2 op2 e1 e2 =
+      case op2 of
+        Add -> Expr.Add (asExpr e1) (asExpr e2)
+        Mul -> Expr.Mul (asExpr e1) (asExpr e2)
+        Sub -> Expr.Sub (asExpr e1) (asExpr e2)
+        Div -> Expr.Div (asExpr e1) (asExpr e2)
+        Lt -> Expr.LT (asExpr e1) (asExpr e2)
+        Leq -> Expr.LTE (asExpr e1) (asExpr e2)
+        Eq -> Expr.EQ (asExpr e1) (asExpr e2)
+        And -> Expr.And (asExpr e1) (asExpr e2)
+        Or -> Expr.Or (asExpr e1) (asExpr e2)

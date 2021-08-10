@@ -81,8 +81,8 @@ def WIS_alpha(m, y, alphas, F):
     for alpha in alphas:
         w_k = alpha/2
 
-        u = quantile(alpha/2, F)
-        l = quantile(1 - alpha/2, F)
+        l = quantile(alpha/2, F)
+        u = quantile(1 - alpha/2, F)
 
         interval_score = IS_alpha(u, l, alpha, y)
 

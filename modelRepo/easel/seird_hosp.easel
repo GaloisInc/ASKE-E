@@ -53,7 +53,7 @@ model SEIRS_Hospitalization_Death:
       Infected = Infected + 1
 
   event Hospitalize:
-    rate: sigma * Exposed * pHosp - gamma - Hospitalized - dh * Hospitalized
+    rate: sigma * Exposed * pHosp - gamma * Hospitalized - dh * Hospitalized
     effect:
       Exposed = Exposed - 1
       Hospitalized = Hospitalized + 1

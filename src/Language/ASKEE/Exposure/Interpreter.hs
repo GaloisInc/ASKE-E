@@ -4,10 +4,16 @@
 {-# Language OverloadedStrings #-}
 {-# Language LambdaCase #-}
 {-# Language TupleSections #-}
+{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
+import Control.Monad (unless, foldM, when)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -15,29 +21,44 @@ import qualified Control.Monad.State as State
 import qualified Control.Monad.RWS as RWS
 import qualified Control.Monad.Except as Except
 import Control.Applicative((<|>), Alternative(..))
+import qualified Data.CaseInsensitive as CI
+import Data.CaseInsensitive (CI)
 import Data.Foldable(traverse_)
+import qualified Data.List.Extra as List
 import qualified Data.Map as Map
 import Data.Map(Map)
 import Data.Maybe(isJust, catMaybes)
 import Data.Text(Text)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as Text
-import qualified Data.Text.IO as Text
+import qualified Data.Text.Lazy.Encoding as Text
+import qualified Data.Text.Lazy as Text (toStrict)
+import Data.Function (on)
 import Data.Set(Set)
-import Data.List (transpose)
+import Data.List (transpose, sort, sortBy, groupBy)
 import qualified Data.Set as Set
 import qualified Data.Vector.Storable as VS
 import qualified Numeric.GSL.Interpolation as Interpolation
 import Witherable (Witherable(..))
 
 
+import qualified Language.ASKEE as A
 import qualified Language.ASKEE.Core as Core
+import qualified Language.ASKEE.Core.Syntax as CoreS
+import qualified Language.ASKEE.Core.Print as CorePP
 import qualified Language.ASKEE.Model as Model
 import qualified Language.ASKEE.Model.Basics as MB
 import qualified Language.ASKEE.DataSeries as DS
+import           Language.ASKEE.Core.Convert ( coreAsModel )
+import qualified Language.ASKEE.Core.ModelVisualization as CoreViz
 import qualified Language.ASKEE.CPP as CPP
 import qualified Language.ASKEE.DEQ.Simulate as DEQ
+import           Language.ASKEE.ESL.Convert ( modelAsCore )
+import           Language.ASKEE.ESL.Manipulate ( join )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
+import qualified Language.ASKEE.Exposure.Plot as Plot
+import Language.ASKEE.Exposure.Plot (PlotStyle)
 import Language.ASKEE.Exposure.Syntax
 
 data ExposureInfo = ExposureInfo
@@ -48,14 +69,11 @@ runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
-evalStmts :: [Stmt] -> Env -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalStmts stmts env = evalLoop env stmts
-
 initialEnv :: Env
 initialEnv = Env Map.empty
 
-evalLoop :: Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
-evalLoop env stmts = go emptyEvalRead
+evalLoop :: EvalRead -> Env -> [Stmt] -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
+evalLoop evr env stmts = go evr
   where
     go :: EvalRead -> IO (Either Text ([DisplayValue], [StmtEff]), Env)
     go m =
@@ -83,7 +101,9 @@ simulate vs =
 -- eval monad
 newtype Env = Env
   { envTopLevelVars :: Map Ident Value
-  }
+  } deriving (Generic)
+    deriving newtype NFData
+
 data EvalWrite = EvalWrite
   { ewDeps :: Set Value
   , ewDisplay :: [DisplayValue]
@@ -124,13 +144,26 @@ suspend v
 data EvalRead = EvalRead
   { erPrecomputed :: Map Value Value
   , erLocalVars   :: Map Ident Value
+  , erPutFileFn   :: EvalWriteFileFn
+  , erGetFileFn   :: EvalReadFileFn
   }
 
-emptyEvalRead :: EvalRead
-emptyEvalRead = EvalRead Map.empty Map.empty
+type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
+type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
+type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
+
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
+mkEvalReadEnv rd wr = EvalRead
+  { erPrecomputed = Map.empty
+  , erLocalVars   = Map.empty
+  , erPutFileFn   = wr
+  , erGetFileFn   = rd
+  }
+
 
 data StmtEff =
   StmtEffBind Ident Value
+  deriving (Generic, NFData)
 
 newtype Eval a = Eval { unEval :: Except.ExceptT Text (RWS.RWST EvalRead EvalWrite Env IO) a }
   deriving newtype ( Functor, Applicative, Monad, MonadIO
@@ -148,6 +181,22 @@ io = liftIO
 throw :: Text -> Eval a
 throw = Except.throwError
 
+putFile :: FilePath -> LBS.ByteString  -> Eval ()
+putFile f contents =
+  do putF <- RWS.asks erPutFileFn
+     res  <- io $ putF f contents
+     case res of
+       Left err -> throw err
+       Right _  -> pure ()
+
+getFile :: FilePath -> Eval LBS.ByteString
+getFile f =
+  do getF <- RWS.asks erGetFileFn
+     res  <- io $ getF f
+     case res of
+       Left err -> throw err
+       Right t  -> pure t
+
 notImplemented :: Text -> Eval a
 notImplemented what = throw ("not implemented: " <> what)
 
@@ -161,21 +210,11 @@ getVarValue i =
 
 bindTopLevelVar :: Ident -> Value -> Eval ()
 bindTopLevelVar i v =
-  do  mbV <- State.gets (Map.lookup i . envTopLevelVars)
-      case mbV of
-        Nothing ->
-          State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+  State.modify (\env -> env { envTopLevelVars = Map.insert i v (envTopLevelVars env) })
 
 withLocalVar :: Ident -> Value -> Eval a -> Eval a
-withLocalVar i v thing =
-  do  localEnv    <- Reader.asks erLocalVars
-      topLevelEnv <- State.gets envTopLevelVars
-      case Map.lookup i localEnv <|> Map.lookup i topLevelEnv of
-        Nothing -> Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) }) thing
-        Just _ ->
-          throw ("variable " <> i <> " is already bound here")
+withLocalVar i v =
+  Reader.local (\er -> er { erLocalVars = Map.insert i v (erLocalVars er) })
 
 -------------------------------------------------------------------------------
 
@@ -211,10 +250,7 @@ interpretExpr e0 =
     -- TODO: will we also need suspend for this?
     EMember e lab ->
       do  v <- interpretExpr e
-          case v of
-            -- TODO: typecheck model expr
-            VModelExpr m -> pure $ VModelExpr (EMember m lab)
-            _ -> mem v lab
+          fmap VModelExpr (EMember . EVal . VModel <$> model v <*> pure lab) <|> mem v lab
 
     EList es ->
       do  vs <- interpretExpr `traverse` es
@@ -229,6 +265,10 @@ interpretExpr e0 =
               pure $ VArray $ map VDouble [startD, startD + stepD .. stopD]
             _ -> typeErrorArgs [start', stop', step'] "all values in a range should be doubles"
 
+    EPoint binds ->
+      do  binds' <- traverse (traverse interpretExpr) binds
+          pure $ VPoint $ Map.fromList binds'
+
 interpretDisplayExpr :: DisplayExpr -> Eval ()
 interpretDisplayExpr (DisplayScalar scalar) = do
   v <- interpretExpr scalar
@@ -238,7 +278,7 @@ interpretDisplayExpr (DisplayScalar scalar) = do
 interpretCall :: FunctionName -> [Value] -> Eval Value
 interpretCall fun args =
   case fun of
-    FAdd         -> compilable (binarith (+))
+    FAdd         -> compilable add
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
     FDiv         -> compilable (binarith (/))
@@ -259,12 +299,18 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (Sample 100 (SFSample d)) df e >>= interpretExpr
+        [VDFold df e, VDouble d] -> execSim (Sample 1000 (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
     FSimulate    ->
       case args of
-        [VDFold df e] -> execSim (SimDiffEq 100) df e >>= interpretExpr
+        [VDFold df e] -> execSim (SimDiffEq 1000) df e >>= interpretExpr
         _ -> typeError "simulate expects a fold as its argument"
+    FFit         ->
+      case args of
+        [m,VPoint datas,VArray params] ->
+          interpretFit m datas params
+        _ ->
+          typeError "fit expects a model, a data series, and a sequence of parameter names"
     FAt          ->
       case args of
         [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
@@ -283,22 +329,36 @@ interpretCall fun args =
     FLoadEasel   ->
       case args of
         [VString path] ->
-          do  eitherVal <-
-                io $
-                  do  src <- Text.readFile (Text.unpack path)
-                      let m = Model.parseModel MB.EaselType src >>= Model.toCore
-                      pure (VModelExpr . EVal . VModel <$> m)
-              case eitherVal of
+          do  src <- Text.toStrict . Text.decodeUtf8 <$> getFile (Text.unpack path)
+              let m = Model.parseModel MB.EaselType src >>= Model.toCore
+              case VModelExpr . EVal . VModel <$> m of
                 Left err -> throw (Text.pack err)
-                Right m -> pure m
+                Right mdl -> pure mdl
         _ -> typeError "loadESL expects a single string argument"
 
     FLoadCSV ->
       case args of
         [VString path] ->
-          do ds <- io $ DS.parseDataSeriesFromFile $ Text.unpack path
-             pure $ VModelExpr $ EVal $ VDataSeries ds
+          do csv <- getFile (Text.unpack path)
+             case DS.parseDataSeries csv of
+               Left err -> throw (Text.pack err)
+               Right ds -> pure $ seriesAsPoints ds
         _ -> typeError "loadCSV expects a single string argument"
+
+    FJoin ->
+      case args of
+        [ VArray sm1, VArray sm2, VArray ss] | Just ss' <- twoStrsM `traverse` ss ->
+            case (sm1, sm2) of
+              ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
+                pure $
+                VModel $
+                modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
+              _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
+          | otherwise -> typeError "all variable joins must be two-element arrays of strings"
+        _ -> typeError $ "join expects two [suffix, model] lists and a list of variables to join" <> Text.pack (show args)
+      where
+        twoStrsM (VArray [VString s1, VString s2]) = Just (s1, s2)
+        twoStrsM _ = Nothing
 
     FMean ->
       case args of
@@ -355,8 +415,14 @@ interpretCall fun args =
 
     FPlot ->
       case args of
-        v1:v2:v3:rest -> interpretPlot v1 v2 v3 rest
+        [VString title, VArray series, VArray times, VString timeLabel] ->
+          interpretPlot title series times timeLabel
         _   -> typeError "plot expects an array of points"
+
+    FSeries ->
+      case args of
+        [VArray vs, VString title, VPoint options] -> interpretSeries vs title options
+        _ -> typeError "series expects data, a title, and options"
 
     FScatter ->
       case args of
@@ -378,7 +444,87 @@ interpretCall fun args =
         [vPredicted, vActual] -> interpretMeanError abs vPredicted vActual
         _                     -> typeError "mae expects two arguments"
 
+    FSkillRank ->
+      case args of
+        [vsample, valphas, vactual] -> interpretModelSkillRank vsample valphas vactual
+        _                     -> typeError "modelSkillRank expects three arguments"
+
+    FTable ->
+      case args of
+        [VArray labels, VArray columns] ->
+          do  labels'  <- traverse str labels
+              columns' <- traverse (array pure) columns
+              let numLabels  = length labels'
+                  numColumns = length columns'
+              unless (numLabels == numColumns) $
+                throw $ "Expected " <> Text.pack (show numLabels)
+                                    <> "columns, received "
+                                    <> Text.pack (show numColumns)
+              unless (List.allSame (map length columns')) $
+                throw "Columns must all have the same number of elements"
+              pure $ VTable labels' columns'
+        _ -> typeError "table expects a list of labels and a list of columns as arguments"
+
+    FSimplify ->
+      case args of
+        [VModel m, VArray arr] ->
+          do  states <-
+                case strings arr of
+                  Just ss -> pure ss
+                  Nothing ->
+                    typeError "simplify's list of states must be string literals"
+              pure $ VModel (Core.pruneModel (Set.fromList states) m)
+        _ -> typeError "simplify expects a model and a list of states"
+
+    FWithParams ->
+      case args of
+        [m, p] -> interpretWithParams m p
+        _      -> typeError "withParams expects two arguments"
+
+    FLoadPNC ->
+      case args of
+        [s] ->
+          do  path <- str s
+              src <- Text.toStrict . Text.decodeUtf8 <$> getFile (Text.unpack path)
+              let pncE = Model.parseModel MB.GrometPncType src >>= Model.toCore
+              case pncE of
+                Left err -> throw (Text.pack err)
+                Right pnc ->
+                  let (pnc', _) = Core.legalize pnc
+                  in  (pure . VModelExpr . EVal . VModel) pnc'
+        _ -> typeError "loadPNC expects one argument"
+
+    FDescribeModel ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let desc = A.describeModelInterface (Model.Core m)
+                  showVal (Just v0) = MB.describeValue v0
+                  showVal Nothing = "--"
+                  inputRow p = VString <$> [A.portName p, "parameter", MB.describeValueType (A.portValueType p), showVal (A.portDefault p)]
+                  outputRowVal p =
+                    case Map.lookup (A.portName p) (CoreS.modelInitState m) <|> Map.lookup (A.portName p) (CoreS.modelLets m) of
+                      Nothing -> "--"
+                      Just e  -> Text.pack . show $ CorePP.ppExpr e
+
+                  outputRow p = VString <$> [A.portName p, "state", MB.describeValueType (A.portValueType p), outputRowVal p]
+                  rows = (inputRow <$> A.modelInputs desc) ++ (outputRow <$> A.modelOutputs desc)
+
+              pure $ VTable ["Name", "State/Param", "Data Type", "Value"] (transpose rows)
+        _ -> typeError "describe expects one argument"
+
+    FModelGraph ->
+      case args of
+        [v] ->
+          do  m <- model v
+              esvg <- liftIO $ CoreViz.renderModelAsFlowGraphToRawImageIO m CoreViz.ImageSvg
+              case esvg of
+                Left err -> throw err
+                Right svg -> pure $ VSVG svg
+        _ -> typeError "modelGraph expects one argument"
+
   where
+    strings = mapM (\case VString s -> Just s; _ -> Nothing)
 
     doubleArraySummarize f v =
       do  v' <- array double v
@@ -392,6 +538,37 @@ interpretCall fun args =
 
     asMexprArg (VModelExpr e) = e
     asMexprArg v = EVal v
+
+    add = do
+      l1 <- lincmpAdd
+      l2 <- liftLeftBin (binarithMb (+))
+      l3 <- liftRightBin (binarithMb (+))
+      case l1 <|> l2 <|> l3 of
+        Just v  -> pure v
+        Nothing -> throw "Cannot do addition on these values"
+
+    lincmpAdd =
+      case args of
+        [l, r] -> go l r
+        _      -> pure Nothing
+      where
+        go :: Value -> Value -> Eval (Maybe Value)
+        go (VDouble d1) (VDouble d2) =
+          pure $ Just $ VDouble (d1 + d2)
+        go (VTimed v1 t1) (VTimed v2 t2)
+          | t1 == t2
+          = do  v <- go v1 v2
+                pure $ fmap (\x -> VTimed x t1) v
+          | otherwise
+          = throw $ Text.unlines [ "Mismatched times"
+                                 , "t1: " <> Text.pack (show t1)
+                                 , "t2: " <> Text.pack (show t2)
+                                 ]
+        go a1@VArray{} a2@VArray{} =
+          do  a  <- parallelArrays value a1 a2
+              a' <- traverse (uncurry go) a
+              pure $ fmap VArray $ sequenceA a'
+        go _ _ = pure Nothing
 
     liftLeftBin f =
       case args of
@@ -445,21 +622,104 @@ interpretCall fun args =
         then pure $ VModelExpr (ECall fun (asMexprArg <$> args))
         else orElse
 
+interpretPlot :: Text -> [Value] -> [Value] -> Text -> Eval Value
+interpretPlot title series xs xLabel =
+  do series' <- traverse plotSeries series
+     xs'     <- traverse double xs
+     pure $ VPlot $ Plot.Plot
+       { Plot.plotTitle = title
+       , Plot.plotSeries = series'
+       , Plot.plotVs = xs'
+       , Plot.plotVsLabel = xLabel
+       }
+
+
+interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
+interpretSeries vs label opts =
+  do vs' <- traverse double vs
+     pure $ VSeries $ Plot.PlotSeries
+       { Plot.plotSeriesLabel = label
+       , Plot.plotSeriesData  = vs'
+       , Plot.plotSeriesStyle = style
+       , Plot.plotColor       = color
+       }
+  where
+    style =
+      case Map.lookup "style" opts of
+        Just (VString s) -> interpStyle $ CI.mk s
+        _                -> Plot.Line
+
+    color =
+      case Map.lookup "color" opts of
+        Just (VString s)
+          -> Just $ Plot.ColorScheme $ CI.foldedCase $ CI.mk s
+        Just (VArray arr)
+          |  Just range <- traverse asString arr
+          -> Just $ Plot.ColorRange range
+        _ -> Nothing
+
+    asString :: Value -> Maybe Text
+    asString (VString s) = Just s
+    asString _           = Nothing
+
+    interpStyle :: CI Text -> PlotStyle
+    interpStyle "points"  = Plot.Points
+    interpStyle "circles" = Plot.Circles
+    interpStyle "squares" = Plot.Squares
+    interpStyle "line"    = Plot.Line
+    interpStyle _         = Plot.Line
+
+interpretFit :: Value -> Map Text Value -> [Value] -> Eval Value
+interpretFit mv ds ps =
+  do m   <- Model.Core <$> model mv
+     ps' <- traverse str ps
+     ds' <- traverse (array double) ds
+     dataSeries <-
+       case Map.lookup "time" ds' of
+         Nothing ->
+           throw "fit() data requires a 'time' series"
+         Just ts ->
+           let rest = Map.delete "time" ds'
+           in pure $ DS.DataSeries ts rest
+     case Model.toDeqs m of
+       Left err ->
+         throw $ Text.pack err
+       Right deq ->
+         do let iface     = A.describeModelInterface m
+                ifaceErrs = A.paramsNotExistErrors (Set.fromList ps') iface
+            case ifaceErrs of
+              [] ->
+                do let (res, _) = DEQ.fitModel deq dataSeries mempty $ Map.fromList (zip ps' (repeat 0))
+                       vals = VPoint $ Map.map (VDouble . fst) res
+                       errs = VPoint $ Map.map (VDouble . snd) res
+                   return $ VPoint $ Map.fromList [ ("values", vals), ("errors", errs) ]
+              _ ->
+                throw (Text.unlines ifaceErrs)
+
 interpretInterpolate :: Value -> Value -> Eval Value
 interpretInterpolate (VModelExpr (EVal arg1)) arg2 =
   interpretInterpolate arg1 arg2
-interpretInterpolate (VDataSeries (DS.DataSeries{DS.times = oldTimes, DS.values = oldValueMap}))
-                     (VArray points) =
-  do pointDs <- getDoubleValue `traverse` points
-     pure $ VDataSeries $ DS.DataSeries
-       { DS.times = pointDs
-       , DS.values = Map.map (\oldValues ->
-                               map (Interpolation.evaluateV Interpolation.Linear
-                                                            (VS.fromList oldTimes)
-                                                            (VS.fromList oldValues))
-                                   pointDs)
-                             oldValueMap
-       }
+interpretInterpolate arr@(VArray vs) (VArray points) =
+  do pointDs  <- getDoubleValue `traverse` points
+     oldTimes <- array double =<< mem arr "time"
+
+     let buildMap m (VPoint pt) =
+           do pt' <- traverse double pt
+              pure $ Map.unionWith (++) m (pure <$> pt')
+         buildMap _ _ =
+           throw "Expected array of points"
+
+     grouped <- foldM buildMap mempty vs
+     let interpolated =
+           Map.map (\oldValues ->
+                      map (Interpolation.evaluateV Interpolation.Linear
+                                                   (VS.fromList oldTimes)
+                                                   (VS.fromList oldValues))
+                          pointDs)
+                   grouped
+
+     let unMapped = transpose [ [ (i, VDouble d) | d <- ds ] | (i, ds) <- Map.toList interpolated ]
+     pure $ VArray (VPoint . Map.fromList <$> unMapped)
 interpretInterpolate arg1 arg2 =
   typeErrorArgs [arg1, arg2] "interpolate expects a data series and an array as arguments"
 
@@ -467,8 +727,6 @@ interpretHistogram :: Value -> Value -> Eval Value
 interpretHistogram (VModelExpr e) nBins =
   do v <- interpretExpr e
      interpretHistogram v nBins
-interpretHistogram (VDataSeries ds) nBins =
-  interpretHistogram (seriesAsPoints ds) nBins
 interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
      nBins <- case n of
@@ -502,19 +760,6 @@ interpretHistogram (VArray vs) n =
     incBin (Just c) = Just (c + 1)
 interpretHistogram vs n =
   typeErrorArgs [vs, n] "interpretHistogram"
-
-interpretPlot :: Value -> Value -> Value -> [Value] -> Eval Value
-interpretPlot xs yss xlab optLabels =
-  do labels <- traverse str optLabels
-     xlab'  <- str xlab
-     xs'    <- array double xs
-     yss'   <- array (array double) yss
-
-     let rest   = take needed ["y" <> Text.pack (show i) | i <- [length yss'..]]
-         needed = length yss'  - length labels
-
-     return $ VPlot xlab' (labels ++ rest) xs' (transpose yss')
-
 
 interpretScatter :: Value -> Value -> Value -> [Value] -> Eval Value
 interpretScatter xs ysss xlab optLabels =
@@ -569,6 +814,15 @@ interpretMeanError f vPredicted vActual =
     meanError :: [(Double, Double)] -> Value
     meanError pas = VDouble $ mean $ map (\(p, a) -> f (p - a)) pas
 
+interpretWithParams :: Value -> Value -> Eval Value
+interpretWithParams (VModelExpr (EVal m)) p =
+  interpretWithParams m p
+interpretWithParams (VModel m) (VPoint p) =
+  do  p' <- traverse double p
+      pure $ VModelExpr . EVal . VModel $ Core.addParams p' m
+interpretWithParams m p =
+  typeErrorArgs [m, p] "withParams expects a model and a point as arguments"
+
 typeErrorArgs :: [Value] -> Text -> Eval a
 typeErrorArgs _args msg = throw $ Text.unlines
   [ "type error: " <> msg
@@ -619,6 +873,7 @@ runSimExpr how t e0 =
     EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
     EList es -> EList <$> runSimExpr how t `traverse` es
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
+    EPoint es -> EPoint <$> traverse (traverse (runSimExpr how t)) es
 
 runSim :: SimMethod -> Double -> Core.Model -> Eval Value
 runSim (Sample delta sf) t mdl =
@@ -639,13 +894,147 @@ runSim (SimDiffEq delta) t mdl =
       do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
          pure $ seriesAsPoints series
 
+interpretWIS :: Value -> Value -> Value -> Eval Value
+interpretWIS samples alphas pt =
+  do samples' <- array double samples
+     alphas'  <- array double alphas
+     pt'      <- double pt
+     pure $ VDouble $ wis samples' alphas' pt'
+
+interpretModelSkillRank :: Value -> Value -> Value -> Eval Value
+interpretModelSkillRank modelObsSamples alphas truth =
+  do modelObsSamples' <- array (array (array double)) modelObsSamples
+     alphas'          <- array double alphas
+     truth'           <- array double truth
+
+     when (any (wrongNumberObservations (length truth')) modelObsSamples') $
+       throw "can't compute skill rank with mismatched numbers of observations"
+
+     when (any hasEmptyObservations modelObsSamples') $
+       throw "can't compute skill rank with an empty observation"
+
+     pure $ VArray (VDouble <$> skillRank modelObsSamples' alphas' truth')
+  where
+    hasEmptyObservations :: [[Double]] -> Bool
+    hasEmptyObservations obss = any null obss
+
+    wrongNumberObservations n obs = length obs /= n
+
+-- The first parameter is a list of samples indexed by (model number,
+-- observation number, sample number). The second param is a list of alphas
+-- Third param is the "ground truth", i.e. a list of values indexed by
+-- observation number. Returns a list of ranks (value in [0,1]) indexed by model
+-- number (higher is better)
+skillRank :: [[[Double]]] -> [Double] -> [Double] -> [Double]
+skillRank modelObservations alphas truth =
+  -- Returns the _mean_ of the ranks across all observations for a given model
+  [ mean (Map.findWithDefault [0.0] mi ranksByModel)
+  | mi <- [0..n-1]
+  ]
+  where
+    -- Group all of the per-observation ranks by model.
+    ranksByModel =
+      foldr (\(mi, r) -> Map.insertWith (++) mi [r]) mempty rankedByObservation
+
+    -- Given all scores (indexed by model and observation number), For each
+    -- observation assign each model a rank, (lower rank means lower interval
+    -- score for that observation)
+    rankedByObservation =
+      assignRanks =<< byObservation
+
+    byObservation =
+        groupBy ((==)`on`obsNo)
+      $ sortBy (compare`on`obsNo) wmi
+
+    assignRanks :: [(Int, Int, Double)] -> [(Int, Double)]
+    assignRanks obsScores =
+      [ (modelNo s, rank (fromIntegral r))
+      | s <- sortBy (compare`on`score) obsScores
+      | r <- [(1::Int)..]
+      ]
+
+    rank :: Double -> Double
+    rank r = 1.0 - ((r - 1.0)/(fromIntegral n - 1))
+
+    n = length modelObservations
+
+    -- Calculate WIS for all models mi and all observations
+    wmi = concat [ goModel mi m | m <- modelObservations | mi <- [0..] ]
+
+    obsNo (_,i,_)    = i
+    modelNo (mi,_,_) = mi
+    score (_,_,s)    = s
+
+    -- for model mi:
+    -- for each observation i
+    -- calculate the WIS at i.
+    goModel :: Int -> [[Double]] -> [(Int, Int, Double)]
+    goModel mi obsSamples =
+      [ (mi, i, wis obs alphas y) | obs <- obsSamples | y <- truth | i <- [0..] ]
+
+
+-- | Weighted interval score for a given set of samples, alphas and observation.
+-- Implementation based on
+-- <https://github.com/GaloisInc/ASKE-E/blob/main/docs/metrics/weighted_interval_score.py>
+wis :: [Double] -> [Double] -> Double -> Double
+wis vals alphas y =
+  (1/(k + 0.5)) * (w0 * abs (y-m) + agg_interval)
+  where
+    k = fromIntegral (length alphas - 1)
+    w0 = 0.5
+    go a = -- w_k
+           (a/2)
+           -- interval score
+         * intervalScoreAlpha (quant (a/2))
+                              (quant (1 - (a/2)))
+                              a
+                              y
+    agg_interval = sum (go <$> alphas)
+
+    m     = quant 0.5
+    quant = quantile vals'
+    vals' = sort vals
+
+-- The first argument should be non-empty and sorted in increasing order
+-- Performs the equivalent of `numpy.quantile` with `interpolation='lower'` when
+-- the quantile lies between two data points.
+quantile :: [a] -> Double -> a
+quantile sortedData q = sortedData !! safe
+  where
+    safe   = max 0 (min needed (length sortedData - 1))
+    needed = floorDoubleInt (q * fromIntegral (length sortedData))
+
+intervalScoreAlpha :: Double -> Double -> Double -> Double -> Double
+intervalScoreAlpha l u alpha y =
+    (u-l) -- Penalize wide interval
+  + (w*(l-y)) `onlyIf` (y < l) -- Penalize a "too-high" lower bound
+  + (w*(y-u)) `onlyIf` (y > u) -- Penalize a "too-low" upper bound
+  where
+    w = 2/alpha
+
+    onlyIf e p
+      | p         = e
+      | otherwise = 0
+
 seriesAsPoints :: DS.DataSeries Double -> Value
 seriesAsPoints ds = VArray (pointToValue <$> DS.toDataPoints ds)
   where
     pointToValue p =
-      let vals = VPoint (VDouble <$> DS.ptValues p)
-      in VTimed vals (DS.ptTime p)
+      let m    = VDouble <$> DS.ptValues p
+          t    = DS.ptTime p
+      in  VTimed (VPoint m) t
 
+timedPointsAsSeries :: [Value] -> Eval (DS.DataSeries Double)
+timedPointsAsSeries vs =
+  do (ts, m) <- foldM go ([], mempty) (reverse vs)
+     pure $ DS.DataSeries ts m
+  where
+    go (ts, ptMap) v =
+      do (p, t) <- timed withPoint v
+         pure (t:ts, Map.unionWith (++) p ptMap)
+
+    withPoint (VPoint pt) = traverse (fmap pure . double) pt
+    withPoint _ = throw "Expected point of doubles"
 
 getArrayContents :: Value -> Eval [Value]
 getArrayContents v =
@@ -693,6 +1082,7 @@ atSimple lst t =
   case lst of
     []     -> Nothing
     (e, t'):_ | t <= t' -> Just e
+    [(e, _)] -> Just e
     _:lst' -> atSimple lst' t
 
 atPoint :: [Value] -> Double -> Eval Value
@@ -714,8 +1104,9 @@ atPoint vs t =
                else go r val
 
 mem :: Value -> Ident -> Eval Value
-mem v0 l = liftPrim getMem v0
+mem v0 l = chooseLift getMem nope v0
   where
+    nope = throw $ "cannot find member '" <> l <> "' in value"
     getMem v =
       case v of
         VPoint p ->
@@ -742,6 +1133,19 @@ count p = go 0
 chooseOr :: [Eval a] -> Eval a -> Eval a
 chooseOr e r = foldr (<|>) r e
 
+model :: Value -> Eval Core.Model
+model v =
+  case v of
+    VModel m -> pure m
+    VModelExpr (EVal v') -> model v'
+    _ -> throw "Expecting model"
+
+plotSeries :: Value -> Eval (Plot.PlotSeries [Double])
+plotSeries v =
+  case v of
+    VSeries ps -> pure ps
+    _ -> throw "Expecting plot series"
+
 array :: (Value -> Eval a) -> Value ->  Eval [a]
 array f v0 =
   case v0 of
@@ -767,7 +1171,7 @@ str :: Value -> Eval Text
 str v0 =
   case v0 of
     VString t -> pure t
-    _ -> throw "Expecting number"
+    _ -> throw "Expecting string"
 
 timed :: (Value -> Eval a) -> Value ->  Eval (a, Double)
 timed f v0 =

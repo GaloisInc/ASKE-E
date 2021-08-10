@@ -7,18 +7,83 @@ import json
 from typing import Dict
 import traceback
 import tabulate
-import requests
 from ipykernel.kernelbase import Kernel
+import json
+import websocket
+import threading
+import queue
+import base64
 
 #------------------------------------------------------------------------------
 # Config
 #------------------------------------------------------------------------------
-DONU_ADDRESS = "http://localhost:8000"
+DONU_WS_ADDRESS = "ws://localhost:8000/:exposure"
 vega_lite_schema = "https://vega.github.io/schema/vega-lite/v4.json"
+
 
 # -----------------------------------------------------------------------------
 # Donu client
 # -----------------------------------------------------------------------------
+
+def on_message(resp_q):
+    """
+    This just adds any websocket messages to our
+    internal response queue so that they can be
+    processed by the protocol thread
+    """
+    def go(app, msg):
+        resp_q.put(msg)
+    return go
+
+def on_open(req_q, resp_q, kernel_q):
+    """
+    Starts the protocol thread on connect
+    """
+    def go(app):
+        threading.Thread(target=exposure_protocol, args=[app, req_q, resp_q, kernel_q]).start()
+    return go
+
+def exposure_protocol(app, req_q, resp_q, to_kernel_q):
+    """
+    Implements the exposure protocol for the client.
+    This looks like:
+    1. Client sends code to donu for evaluation
+    2. On response,
+      a. the response is a request for a file: we read the file and send it back, go to 2
+      b. the response is a success or failure: enqueue the response on the kernel queue.
+    """
+    while True:
+        app.send(req_q.get())
+        while True:
+            resp = json.loads(resp_q.get())
+
+            if resp['type'] == 'read-file':
+                try:
+                    with open(resp['path']) as f:
+                        app.send(json.dumps({'type':'file-contents', 'contents': f.read()}))
+                except FileNotFoundError:
+                    app.send(json.dumps({'type':'error', 'message': 'File not found'}))
+                except Exception as e:
+                    app.send(json.dumps({'type':'error', 'message': str(e)}))
+
+            elif resp['type'] == 'write-file':
+                try:
+                    with open(resp['path'], 'w+') as f:
+                        f.write(resp['contents'])
+                except FileNotFoundError:
+                    app.send(json.dumps({'type':'error', 'message': 'File not found'}))
+                except Exception as e:
+                    app.send(json.dumps({'type':'error', 'message': str(e)}))
+
+            elif resp['type'] == 'success':
+                break
+
+            elif resp['type'] == 'failure':
+                break
+
+            else:
+                raise Exception(resp)
+        to_kernel_q.put(resp)
 
 class Donu:
     """
@@ -26,42 +91,29 @@ class Donu:
     """
     # pylint: disable=too-few-public-methods
     def __init__(self, addr:str):
-        self.sess = requests.Session()
-        self.address = addr
+        self.request_q = queue.Queue()
+        self.response_q = queue.Queue()
+        self.kernel_q = queue.Queue()
+        self.app = websocket.WebSocketApp(
+            addr,
+            on_message=on_message(self.response_q),
+            on_open=on_open(self.request_q, self.response_q, self.kernel_q)
+        )
+        self.app_thread = threading.Thread(target=self.app.run_forever)
+        self.app_thread.start()
 
-    def request(self, req:Dict) -> Dict:
+    def execute_code(self, code:str) -> Dict:
         """
-        POST a request to the connected Donu session.
-        req should conform to Donu's API
+        Send a message to the protocol thread to execute a new Donu stmt. Returns a JSON response
+        indicating success or failure
         """
-        response = self.sess.post(self.address, json.dumps(req))
-        try:
-            return json.loads(response.text)
-        except Exception as ex:
-            raise Exception("Call to donu failed - response text: " + response.text) from ex
+        self.request_q.put(json.dumps({'type':'run-program', 'code':code}))
+        response = self.kernel_q.get()
+        return response
+
 # -----------------------------------------------------------------------------
 #  Kernel
 # -----------------------------------------------------------------------------
-def parse_code(code:str):
-    """
-    This returns the command that we should send to 'donu'. Normally this is just
-    'execute-exposure', but we might also be given a 'magic' to reset the REPL
-    state
-    """
-    cmd = None
-
-    if re.match(r'\%clear', code) is not None:
-        cmd = {
-            'command' : 'clear-exposure-state',
-        }
-    else:
-        cmd = {
-            'command' : 'execute-exposure-code',
-            'code': code
-        }
-
-    return cmd
-
 def format_data_series(time, values):
     """
     Returns a vega light chart + a textual representation
@@ -128,29 +180,41 @@ def format_histogram(lo, _hi, sz, bins):
 
     return out
 
-def format_plot(xlab, ylabs, xs, yss):
+def format_plot(title, series, vs, vs_label):
     """
     Returns a vega light chart + a textual representation
     """
     vals = []
-    for (t, ys) in enumerate(yss):
-        for (yi,ylab) in enumerate(ylabs):
-            vals.append({ xlab: xs[t], ylab: ys[yi], "series": ylab })
+    for (vi,v) in enumerate(vs):
+        for s in series:
+            vals.append({ vs_label: v,
+                          s['label']: s['data'][vi],
+                          'series': s['label'] })
 
-    layers = [ { "mark": "line",
-                 "encoding": {
-                     "x": {"field": xlab, "type": "quantitative"},
-                     "y": {"field": ylab, "type": "quantitative"},
-                     "color": {"field": "series", "type": "nominal"}
-                 }
-                } for ylab in ylabs ]
+    layers = []
+    for s in series:
+        layer_color = {"field": "series", "type": "nominal"}
+        series_color = s['color']
+        if isinstance(series_color, str):
+            layer_color['scale'] = {'scheme': series_color}
+        elif isinstance(series_color, list):
+            layer_color['scale'] = {'range': series_color}
+
+        layers.append({ "mark": s['style'],
+                        "encoding": {
+                            "x": {"field": vs_label, "type": "quantitative"},
+                            "y": {"field": s['label'], "type": "quantitative"},
+                            "color": layer_color
+                        }
+                      })
 
     out = {
         'application/vnd.vegalite.v4+json': {
             '$schema': vega_lite_schema,
+            'width': 800,
+            'height': 600,
             'description':'',
             'data': { "values": vals},
-            'mark': 'point',
             'layer': layers
         },
     }
@@ -205,6 +269,51 @@ def format_latex(orig_latex):
     """
     return "$$ \n" + ''.join(w+" \\\\\n" for w in orig_latex.splitlines()) + "$$"
 
+
+def format_table(labels, rows):
+    """
+    TODO RGS: Docs
+    """
+    def mk_md_row(cells):
+        row  = "|"
+        row += "|".join(cells)
+        return row + "|"
+
+    md = []
+    md.append(mk_md_row(labels))
+    md.append(mk_md_row(["---" for i in range(len(labels))]))
+    for row in rows:
+        md.append(mk_md_row(str(e['value']) for e in row))
+
+    out = {
+        'text/markdown': "\n".join(md)
+    }
+    return out
+
+def format_array(arr):
+    def get_one(v):
+        formatted = format_resp_value(v)
+        return formatted['text/plain']
+
+    return {
+        'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
+    }
+
+def format_timed(v):
+    formatted = format_resp_value(v['value'])
+    time      = format_resp_value(v['time'])
+    return {
+        'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
+    }
+
+def format_svg(v):
+
+    return {
+        "image/svg+xml": str(base64.b64decode(v), "utf8")
+    }
+
+
+
 def format_resp_value(v):
     if isinstance(v, dict):
         ty = v['type']
@@ -216,11 +325,17 @@ def format_resp_value(v):
         if ty == 'double':
             return { 'text/plain': json.dumps(val) }
 
+        if ty == 'timed':
+            return format_timed(val)
+
         if ty == 'plot':
-            return format_plot(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+            return format_plot(val['title'], val['series'], val['vs'], val['vs_label'])
 
         if ty == 'scatter':
             return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
+
+        if ty == 'array':
+            return format_array(val)
 
         if ty == 'data-series':
             return format_data_series(val['time'], val['values'])
@@ -233,6 +348,12 @@ def format_resp_value(v):
 
         if ty == 'latex':
             return { 'text/latex': format_latex(val) }
+
+        if ty == 'table':
+            return format_table(val['labels'], val['rows'])
+
+        if ty == 'svg':
+            return format_svg(val)
 
     return { 'text/plain': json.dumps(v) }
 
@@ -252,7 +373,7 @@ class ASKEEKernel(Kernel):
         'file_extension': '.txt',
     }
     banner = "ASKE-E Kernel - TODO (come up with a better name)"
-    donu   = Donu(DONU_ADDRESS)
+    donu   = Donu(DONU_WS_ADDRESS)
 
     def do_execute(self, code:str, silent:bool, store_history=True, user_expressions=None,
                    allow_stdin=False):
@@ -261,12 +382,9 @@ class ASKEEKernel(Kernel):
         by sending a request to Donu.
         """
         try:
-            parsed = parse_code(code)
-            resp   = self.execute_donu_cmd(parsed)
+            resp   = self.execute_donu_cmd(code)
             # Resp should be a list of things to display
-            # lines = "\n".join([format_resp_value(r) for r in resp])
             lines = [format_resp_value(r) for r in resp]
-            # output = { 'text/plain': lines }
 
             if not silent:
                 for output in lines:
@@ -295,12 +413,12 @@ class ASKEEKernel(Kernel):
 
     def execute_donu_cmd(self, cmd):
         if cmd is not None:
-            resp = self.donu.request(cmd)
-            if resp['status'] == 'success':
-                return resp['result']
-            if resp['status'] == 'error':
-                return ["Error: %s" % resp['error']]
-            raise Exception("Unexpected response status %s" % resp['status'])
+            resp = self.donu.execute_code(cmd)
+            if resp['type'] == 'success':
+                return resp['displays']
+            if resp['type'] == 'failure':
+                return [{'type':'string', 'value':"Error: %s" % resp['message']}]
+            raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
     def run_as_main():

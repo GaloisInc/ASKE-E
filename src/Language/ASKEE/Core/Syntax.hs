@@ -3,14 +3,20 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.ASKEE.Core.Syntax where
 
+import           GHC.Generics (Generic)
+import           Control.DeepSeq (NFData)
 import           Data.Map  ( Map )
 import qualified Data.Map  as Map
+import           Data.Set (Set)
 import qualified Data.Set  as Set
-import qualified Data.Text as Text
 import           Data.Text ( Text )
+import qualified Data.Text as Text
 
 import Language.ASKEE.Core.Expr
 
@@ -30,7 +36,7 @@ data Model =
           -- (parameters, lets, states, events)
           -- Model level metadata is under the empty identifier ""
         }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 
 data Event =
@@ -39,7 +45,7 @@ data Event =
         , eventWhen   :: Expr
         , eventEffect :: Map Ident Expr
         }
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 
 
@@ -121,20 +127,20 @@ addParams parameters = addParams' parameters'
 -- identifiers, and also record the mapping of new names to old
 -- TODO rename things in metadata as well?
 legalize :: Model -> (Model, Map Text Ident)
-legalize m@Model{..} = 
+legalize m@Model{..} =
   ( m'
-  , Map.unions $ 
-    map flipMap 
+  , Map.unions $
+    map flipMap
     [stateRenaming, paramRenaming, letRenaming, eventRenaming]
   )
   where
-    m' = subst $ m 
+    m' = subst $ m
       { modelEvents    = freshEventDecls
       , modelParams    = freshParamDecls
       , modelLets      = freshLetDecls
       , modelInitState = freshStateDecls }
 
-    subst = 
+    subst =
       mapExprs $
       substExpr $
       Map.map Var (Map.unions [stateRenaming, paramRenaming, letRenaming])
@@ -156,3 +162,69 @@ legalize m@Model{..} =
     freshening = map (Text.pack . show) [1::Integer ..]
 
     flipMap = Map.fromList . map (\(a, b) -> (b, a)) . Map.toList
+
+-- | Prune the model to only include events influencing or influenced by,
+-- directly or indirectly, the specified state variables, and the parameters
+-- and let bindings necessary to let those events fire.
+pruneModel :: Set Ident -> Model -> Model
+pruneModel states model@Model{..} =
+  model
+    { modelLets = relevantLets
+    , modelEvents = relevantEvents
+    , modelParams = relevantParams
+    , modelInitState = relevantStates
+    , modelMeta = relevantMeta }
+  where
+    relevantVariables = Set.unions $ map collectVarsDeref relevantEvents
+    relevantSources = 
+      Set.unions $ 
+      Set.map (maybe mempty collectVarsDeref . dereference) relevantVariables 
+
+    dereference v =
+      case (modelInitState Map.!? v, modelParams Map.!? v) of
+        (Just x, _) -> Just x
+        (_, Just x) -> x
+        _ -> Nothing
+    
+    restrict what = 
+      Map.restrictKeys what (relevantVariables `Set.union` relevantSources)
+
+    relevantParams = restrict modelParams
+    relevantLets   = restrict modelLets
+    relevantStates = restrict modelInitState
+    relevantMeta   = restrict modelMeta
+
+    overlaps s1 s2 = not (Set.disjoint s1 s2)
+
+    relevantEvents = pruneRelevantVia modelEvents states
+
+    pruneRelevantVia events vars =
+      case events of
+        (e:es) ->
+          let iVars = influencingVars e
+              eVars = affectedVars e
+              newVars = vars `Set.union` iVars
+          in  if vars `overlaps` eVars && vars /= newVars
+                then pruneRelevantVia modelEvents newVars
+                else pruneRelevantVia es          vars
+        [] -> filter (\e -> affectedVars e `overlaps` vars) modelEvents
+
+    -- Collect the variables that influence execution of an event
+    influencingVars Event{..} =
+      collectVarsDeref eventRate `Set.union` 
+      collectVarsDeref eventWhen
+
+    affectedVars Event{..} =
+      Set.unions $ map (collectVarsDeref . Var) (Map.keys eventEffect)
+
+    -- Collect any variables that appear in `thing`, recursively dereferencing
+    -- through any let-bound variables mentioned
+    collectVarsDeref :: TraverseExprs t => t -> Set Ident
+    collectVarsDeref thing =
+      let vars = collectVars thing
+          for = flip Set.map
+      in  Set.unions $
+            for vars \v ->
+              case modelLets Map.!? v of
+                Just e -> Set.insert v (collectVarsDeref e)
+                Nothing -> Set.singleton v

@@ -27,6 +27,8 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 ']'      { Located _ _ Lexer.CloseB     }
 '{'      { Located _ _ Lexer.OpenC      }
 '}'      { Located _ _ Lexer.CloseC     }
+'{{'     { Located _ _ Lexer.OpenCC     }
+'}}'     { Located _ _ Lexer.CloseCC    }
 '=>'     { Located _ _ Lexer.LambdaArr  }
 '..'     { Located _ _ Lexer.DotDot     }
 REAL     { Located _ _ (Lexer.LitD $$)  }
@@ -103,6 +105,7 @@ expr : IDENT                            { EVar $1 }
      | expr '.' IDENT                   { EMember $1 $3 }
      | '[' commaSepExprs0 ']'           { EList $2 }
      | '[' expr '..' expr 'by' expr ']' { EListRange $2 $4 $6 }
+     | '{{' pointBinds0 '}}'            { EPoint $2 }
 
 infixExpr :: { Expr }
 infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
@@ -138,6 +141,17 @@ commaSepExprs0 : {- empty -}    { [] }
 commaSepExprs1 :: { [Expr] }
 commaSepExprs1 : expr                    { [$1]    }
                | expr ',' commaSepExprs1 { ($1:$3) }
+
+pointBinds0 :: { [(Ident, Expr)] }
+pointBinds0 : {- empty -} { [] }
+            | pointBinds1 { $1 }
+
+pointBinds1 :: { [(Ident, Expr)] }
+pointBinds1 : pointBind                 { [$1]    }
+            | pointBind ',' pointBinds1 { ($1:$3) }
+
+pointBind :: { (Ident, Expr) }
+pointBind : IDENT '=' expr { ($1, $3) }
 
 {
 parseError :: [Located Lexer.Token] -> Either String a

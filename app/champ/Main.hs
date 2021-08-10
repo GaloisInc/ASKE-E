@@ -11,6 +11,7 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable
 import qualified Data.List.Extra as L
 import Data.Maybe
@@ -29,6 +30,7 @@ import qualified Language.ASKEE.Exposure.Print as Exposure
 import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 import Logo (displayLogo)
+import Data.String (fromString)
 
 main :: IO ()
 main = do
@@ -142,7 +144,8 @@ loop = do
       res <- lift $ try $ runCommand $ L.trim input
       case res of
         Left (exc :: SomeException) -> do
-          liftIO $ putStrLn (show exc)
+          liftIO $ putStrLn $ "Caught exception: " ++ show exc
+          lift clearBatchedStmts
           loop
         Right keepGoing -> when keepGoing loop
   where
@@ -241,12 +244,28 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env   <- gets champEnv
   stmts <- gets champBatchedStmts
-  (res, env') <- liftIO $ Exposure.evalLoop env (toList stmts)
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile
+  (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
-    Left err             -> do
+    Left err ->
       liftIO $ T.putStrLn err
-      clearBatchedStmts
-    Right (dvs, _) -> do
+    Right (dvs, _) ->
       traverse_ (liftIO . print . Exposure.ppValue . Exposure.unDisplayValue) dvs
   putEnv env'
   clearBatchedStmts
+
+champWriteFile :: Exposure.EvalWriteFileFn
+champWriteFile f d =
+  do res <- try (LBS.writeFile f d)
+     case res of
+       Left (x :: SomeException) ->
+         pure $ Left (fromString $ displayException x)
+       Right t -> pure $ Right t
+
+champReadFile :: Exposure.EvalReadFileFn
+champReadFile f =
+  do res <- try (LBS.readFile f)
+     case res of
+       Left (x :: SomeException) ->
+         pure $ Left (fromString $ displayException x)
+       Right t -> pure $ Right t

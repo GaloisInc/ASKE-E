@@ -1,7 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Exposure (tests) where
 
+import Control.Exception (SomeException, try)
+import qualified Data.ByteString.Lazy as LBS
 import Data.Bifunctor (Bifunctor(..))
+import Data.Foldable (traverse_)
+import Data.Functor ( void )
 import qualified Data.Text as Text
 import Data.Text (Text)
 import System.FilePath ((</>))
@@ -12,6 +17,7 @@ import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
+
 import Paths_aske_e (getDataDir)
 
 assertLeft :: Either a b -> IO ()
@@ -47,7 +53,7 @@ exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertio
 exprAssertionWithStmts stmtStrs actualExprStr k = do
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)              <- evalStmts stmts initialEnv
+  (lr, env)              <- evalLoop emptyEvalRead initialEnv stmts
   (_, _)                 <- assertRightText lr
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
@@ -55,13 +61,35 @@ exprAssertionWithStmts stmtStrs actualExprStr k = do
 
 exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
-  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)  <- evalStmts stmts initialEnv
-  assertLeft lr
+  env        <- assertStmtsFail stmtStrs
   (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
+
+assertStmtsFail :: [String] -> IO Env
+assertStmtsFail stmtStrs = do
+  stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
+  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
+  assertLeft lr
+  return env
+
+emptyEvalRead :: EvalRead
+emptyEvalRead = mkEvalReadEnv rd wr
+  where
+    wr f d =
+      do res <- try (LBS.writeFile f d)
+         case res of
+           Left (_ :: SomeException) ->
+             pure $ Left "write failed"
+           Right t -> pure $ Right t
+
+    rd f =
+      do res <- try (LBS.readFile f)
+         case res of
+           Left (_ :: SomeException) ->
+             pure $ Left "read failed"
+           Right t -> pure $ Right t
 
 exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2 = exprAssertion2WithStmts []
@@ -71,7 +99,7 @@ exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
   stmts             <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   expr1             <- assertRightStr $ lexAndParseExpr exprStr1
   expr2             <- assertRightStr $ lexAndParseExpr exprStr2
-  (lr, env)         <- evalStmts stmts initialEnv
+  (lr, env)         <- evalLoop emptyEvalRead initialEnv stmts
   (_, _)            <- assertRightText lr
   (errOrVal1, _, _) <- runEval emptyEvalRead env $ interpretExpr expr1
   (errOrVal2, _, _) <- runEval emptyEvalRead env $ interpretExpr expr2
@@ -83,6 +111,14 @@ getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
   dataDir <- getDataDir
   pure $ "loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")"
+
+assertDouble :: Value -> IO ()
+assertDouble VDouble{} = pure ()
+assertDouble v         = assertFailure $ "Expected a double, received: " ++ show v
+
+assertTimedArray :: Value -> IO ()
+assertTimedArray (VTimed VArray{} _) = pure ()
+assertTimedArray v                    = assertFailure $ "Expected a timed array, received: " ++ show v
 
 tests :: Tasty.TestTree
 tests =
@@ -181,5 +217,100 @@ tests =
                          "mae([1, 2, 3], 4)"         $ \val1 val2 -> val1 @=? val2
           exprAssertion2 "mae(1,         [4, 5, 6])"
                          "mae([1, 1, 1], [4, 5, 6])" $ \val1 val2 -> val1 @=? val2
+      , testCase "String with whitespace" $ do
+          exprAssertion "\"Hello World\"" $ \actualVal ->
+            actualVal @?= VString "Hello World"
+      , testCase "Name shadowing" $ do
+          exprAssertionWithStmts
+            [ "x = 3.0"
+            , "x = 5.0"
+            , "x"
+            ] "x" $ \v -> v @?= VDouble 5.0
+      , testCase "Param fitting (success)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertion2WithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "series = simulate(sir at [0..120 by 30])"
+            , "T = time(series)"
+            , "vs = value(series)"
+            , "ps = fit(sir, "
+                    ++ "{{time=T, S=vs.S, I=vs.I, R=vs.R}}, "
+                    ++ "[\"i_initial\"])"
+            ] "ps.values.i_initial" "ps.errors.i_initial" $ \val1 val2 ->
+            case (val1, val2) of
+              (VDouble _, VDouble _) -> pure ()
+              _ -> assertFailure "fit did not return a point with expected shape"
+      , testCase "Param fitting (failure)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          const () <$>
+            assertStmtsFail
+            [ "sir = " <> loadSirEaselExpr
+            , "series = simulate(sir at [0..120 by 30])"
+            , "T = time(series)"
+            , "vs = value(series)"
+            , "ps = fit(sir, "
+                    ++ "{{time=T, S=vs.S, I=vs.I, R=vs.R}}, "
+                    ++ "[\"I_initial\"])"
+            ]
+      , testCase "Join (bad model args)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          void $ assertStmtsFail
+            [ "sir = "<>loadSirEaselExpr
+            , "join(sir, sir, [])" ]
+      , testCase "Join (bad share args)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          void $ assertStmtsFail
+            [ "sir = "<>loadSirEaselExpr
+            , "join([\"_1\", sir], [\"_2\", sir], [\"S\", \"S\"])" ]
+      , testCase "Join (success)" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+            [ "sir = "<>loadSirEaselExpr
+            ] "join([\"_1\", sir], [\"_2\", sir], [[\"S\", \"S\"]])" $ \v ->
+                case v of
+                  VModel _ -> pure ()
+                  x -> assertFailure $ "joining didn't produce a model, instead a "<>show x
+      , testCase "Model Skill Ranking" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          exprAssertionWithStmts
+           [ "sir = "<>loadSirEaselExpr
+           , "sir1 = withParams(sir, {{beta=0.5}})"
+           , "sir2 = withParams(sir, {{beta=0.6}})"
+           , "times = [50.0, 100.0, 150.0]"
+           , "ground_truth = value(sample(sir.I at times, 100))"
+           , "sir1_samples = value(sample(sir1.I at times, 100))"
+           , "sir2_samples = value(sample(sir2.I at times, 100))"
+           , "ranking = modelSkillRank([sir1_samples, ground_truth, sir2_samples], [0.02, 0.1, 0.8], mean(ground_truth))"
+           ] "ranking" $ \v ->
+            case v of
+              VArray [r1, r2, r3] ->
+                do assertBool "Ground Truth should be better than sir1" (r2 > r1)
+                   assertBool "sir1 should be better than sir2" (r1 > r3)
+              _ -> assertFailure $ "modelSkillRank didn't produce a three element array"
+      , testCase "Linear combination of samples" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+          let failure = assertFailure "Linear combination of samples did not return an array"
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "is1 = sample(sir.I at [0, 30, 60], 1)"
+            , "is2 = sample(sir.I at [0, 30, 60], 1)"
+            ] "3 * is1 + 5 * is2" $ \v ->
+            case v of
+              VArray vs -> traverse_ assertTimedArray vs
+              _         -> failure
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "is1 = sample(sir.I at 60, 1)"
+            , "is2 = sample(sir.I at 60, 1)"
+            ] "3 * is1 + 5 * is2" $ \v ->
+            case v of
+              VArray vs -> traverse_ assertDouble vs
+              _         -> failure
+
+      , testCase "Load missing files" $ do
+          void $ assertStmtsFail ["loadCSV(\"path/to/nothing.csv\")"]
+          void $ assertStmtsFail ["loadESL(\"path/to/nothing.easel\")"]
       ]
     ]

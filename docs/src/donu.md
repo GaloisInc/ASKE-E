@@ -117,9 +117,9 @@ Example:
 **Response:**
 
 
-| Field   | Type    | Description                                                       |
-|---------|---------|-------------------------------------------------------------------|
-| models  | list    | list of "model-def++" objects of the same form as returned by `list-models` |
+| Description                                                                 |
+|-----------------------------------------------------------------------------|
+| list of "model-def++" objects of the same form as returned by `list-models` |
 
 Example:
 
@@ -183,50 +183,58 @@ Example:
 
 **Response:**
 
+| Description                  |
+|------------------------------|
+| A list of simulation results |
+
+Simulation result schema:
+
 | Field            | Type                             | Description                                                       |
 |------------------|----------------------------------|-------------------------------------------------------------------|
 | times            | list of number                   | series of times used in simulation                                |
-| values           | list of result series object     | values of state varaibles                                         |
+| values           | result series object             | values of state variables                                         |
 
-Each object in `result` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
+Each object in `values` is structured such that each key is the name of a model variable `V` and each value is a list `l` such that `V` has the value `l[x]` at time `times[x]`.
 
 Example:
 
 ```JSON
 {
   "status": "success",
-  "result": {
-    "values": {
-      "I": [
-        3,
-        396.20766691080604,
-        119.33588838987737,
-        35.943279530151585,
-        10.825907756942332
-      ],
-      "S": [
-        997,
-        0.0012550867795002216,
-        2.4726152151230926e-06,
-        3.7868257221162325e-07,
-        2.151977671793774e-07
-      ],
-      "R": [
+  "result": [
+    {
+      "values": {
+        "I": [
+          3,
+          396.20766691080604,
+          119.33588838987737,
+          35.943279530151585,
+          10.825907756942332
+        ],
+        "S": [
+          997,
+          0.0012550867795002216,
+          2.4726152151230926e-06,
+          3.7868257221162325e-07,
+          2.151977671793774e-07
+        ],
+        "R": [
+          0,
+          603.7910780024147,
+          880.6641091375077,
+          964.0567200911661,
+          989.1740920278602
+        ]
+      },
+      "times": [
         0,
-        603.7910780024147,
-        880.6641091375077,
-        964.0567200911661,
-        989.1740920278602
+        30,
+        60,
+        90,
+        120
       ]
-    },
-    "times": [
-      0,
-      30,
-      60,
-      90,
-      120
-    ]
-  }
+    }
+  ]
 }
 ```
 
@@ -587,12 +595,158 @@ command = {
 The result, if successful, is a `model-def` object with the new file in the `source` field.
 
 Example:
+
 ```JSON
 {
   "status": "success",
   "result": {
     "source": { "model": "sir.easel" },
     "type": "easel"
+  }
+}
+```
+
+### `list-datasets` List available datasets
+
+**Request:**
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"list-datasets"`|
+
+Example:
+
+```JSON
+{
+  "command": "list-datasets"
+}
+```
+
+**Response:**
+
+| Description                     |
+|---------------------------------|
+| A list of dataset descriptions. |
+
+```JSON
+{
+  "status": "success",
+  "result": [
+    {
+      "source": {
+        "model": "example.json"
+      },
+      "name": "Example Data",
+      "description": "Example data drawn from SIR model"
+    },
+    {
+      "source": {
+        "model": "sir_noise.json"
+      },
+      "name": "SIR Infected with Noise",
+      "description": "Infected values from SIR model with added noise"
+    },
+    {
+      "source": {
+        "model": "sir_sample.json"
+      },
+      "name": "Sample SIR Data",
+      "description": "Sample data generated from a SIR model"
+    }
+  ]
+}
+```
+
+### `get-dataset` Get a dataset
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"get-dataset"`  |
+| source           | datasource               | Datasource for model (e.g. from `list-datasets`)                    |
+
+**Request:**
+
+Example:
+
+```JSON
+{
+  "command": "get-dataset",
+  "source": {"model": "example.json"}
+}
+```
+
+**Response:**
+
+Dataset schema:
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| name             | string                   | Display name of this dataset                                        |
+| description      | string                   | Human readable description for this data set                        |
+| columns          | array of column          | List of columns (see column schema)                                 |
+
+Column schema:
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| name             | string                   | Name of this column                                                 |
+| description      | string                   | Human readable description for this column                          |
+| values           | array of numbers         | Data values                                                         |
+
+Example:
+
+```JSON
+{
+  "status": "success",
+  "result": {
+    "name": "Example Data",
+    "description": "Example data drawn from SIR model",
+    "columns": [
+      {
+        "values": [
+          3,
+          570.9758710681087,
+          177.8779579737781,
+          53.66360145338841,
+          16.175249034797183
+        ],
+        "name": "I",
+        "description": "Infected Population"
+      },
+      {
+        "values": [
+          0,
+          412.987493166334,
+          821.8532404022537,
+          946.2589265257153,
+          983.7715119765173
+        ],
+        "name": "R",
+        "description": "Recovered Population"
+      },
+      {
+        "values": [
+          997,
+          16.036635765557786,
+          0.2688016239687889,
+          0.07747202089688701,
+          0.05323898868597068
+        ],
+        "name": "S",
+        "description": "Susceptible Population"
+      },
+      {
+        "values": [
+          0,
+          30,
+          60,
+          90,
+          120
+        ],
+        "name": "time",
+        "description": "Time (in days)"
+      }
+    ]
   }
 }
 ```

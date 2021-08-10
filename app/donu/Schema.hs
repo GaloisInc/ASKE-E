@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Schema where
 
+import qualified Data.List as List
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set(Set)
@@ -16,6 +17,9 @@ import Data.Text(Text)
 import qualified Data.Text as Text
 import Data.Maybe(fromMaybe, maybeToList)
 import Data.Functor(($>))
+import qualified Data.Text.Encoding as Encoding
+import qualified Data.ByteString.Base64.Lazy as Base64
+
 
 import qualified Data.Aeson as JS
 import           Data.Aeson ((.=))
@@ -24,6 +28,7 @@ import SchemaJS
 import           Language.ASKEE
 import           Language.ASKEE.ESL.Print (printModel)
 import           Language.ASKEE.Exposure.Syntax
+import           Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import           Language.ASKEE.Latex.Print (printLatex)
 
@@ -43,8 +48,8 @@ data Input =
   | UploadModel UploadModelCommand
   | DescribeModelInterface DescribeModelInterfaceCommand
   | QueryModels QueryModelsCommand
-  | ExecuteExposureCode ExecuteExposureCodeCommand
-  | ResetExposureState ResetExposureStateCommand
+  | ListDataSets ListDataSetsCommand
+  | GetDataSet GetDataSetCommand
     deriving Show
 
 instance HasSpec Input where
@@ -60,8 +65,8 @@ instance HasSpec Input where
          <!> (UploadModel <$> anySpec)
          <!> (DescribeModelInterface <$> anySpec)
          <!> (QueryModels <$> anySpec)
-         <!> (ExecuteExposureCode <$> anySpec)
-         <!> (ResetExposureState <$> anySpec)
+         <!> (ListDataSets <$> anySpec)
+         <!> (GetDataSet <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -457,31 +462,6 @@ instance HasSpec QueryModelsCommand where
         queryText <- reqSection' "text" textSpec "Text to search"
         pure QueryModelsCommand { .. }
 
--------------------------------------------------------------------------------
--- TODO RGS: Document all of this
-
-newtype ExecuteExposureCodeCommand = ExecuteExposureCodeCommand
-  { executeExposureCode :: Text -- ^ The exposure program to parse and execute
-  }
-  deriving Show
-
-instance HasSpec ExecuteExposureCodeCommand where
-  anySpec =
-    sectionsSpec "execute-exposure-code"
-    do  reqSection' "command" (jsAtom "execute-exposure-code")
-                    "Execute an Exposure command"
-        executeExposureCode <- reqSection' "code" textSpec "The code to execute"
-        pure ExecuteExposureCodeCommand{..}
-
-newtype ResetExposureStateCommand = ResetExposureStateCommand ()
-  deriving Show
-
-instance HasSpec ResetExposureStateCommand where
-  anySpec =
-    sectionsSpec "clear-exposure" $
-      do reqSection' "command" (jsAtom "clear-exposure-state") "Reset the current session's interpreter state"
-         pure $ ResetExposureStateCommand ()
-
 -- | Wrapper for Value to control precisely how these are passed
 -- to clients of Donu
 newtype DonuValue =
@@ -504,12 +484,6 @@ instance JS.ToJSON DonuValue where
                     , "value" .= JS.toJSON (DonuValue v)
                     ]
 
-      VDataSeries ds ->
-        typed "data-series" $
-          JS.object [ "time"   .= JS.toJSON (times ds)
-                    , "values" .= JS.toJSON (values ds)
-                    ]
-
       VHistogram low hi sz bins ->
         typed "histogram" $
           JS.object [ "min" .= JS.toJSON low
@@ -518,19 +492,35 @@ instance JS.ToJSON DonuValue where
                     , "bins" .= JS.toJSON bins
                     ]
 
-      VPlot xlab ylabs xs yss ->
+      VPlot (Plot title seriess xs xlab) ->
         typed "plot" $
-          JS.object [ "xlabel"  .= JS.toJSON xlab
-                    , "ylabels" .= JS.toJSON ylabs
-                    , "xs"      .= JS.toJSON xs
-                    , "yss"      .= JS.toJSON yss
+          JS.object [ "title" .= title
+                    , "series" .= JS.toJSON (go <$> seriess)
+                    , "vs" .= JS.toJSON xs
+                    , "vs_label" .= JS.toJSON xlab
                     ]
+        where
+          go (PlotSeries label dat style color) =
+            JS.object [ "label" .= label
+                      , "data"  .= JS.toJSON dat
+                      , "style" .= JS.toJSON style
+                      , "color" .= JS.toJSON color
+                      ]
+
+      VSeries _ps -> unimplVal "<series>"
+
       VScatter xlab ylabs xs yss ->
         typed "scatter" $
           JS.object [ "xlabel"  .= JS.toJSON xlab
                     , "ylabels" .= JS.toJSON ylabs
                     , "xs"      .= JS.toJSON xs
                     , "yss"     .= JS.toJSON yss
+                    ]
+
+      VTable labels columns ->
+        typed "table" $
+          JS.object [ "labels" .= JS.toJSON labels
+                    , "rows"   .= JS.toJSON (List.transpose (map (map DonuValue) columns))
                     ]
 
       VArray vs ->
@@ -547,7 +537,9 @@ instance JS.ToJSON DonuValue where
       VSFold {}      -> unimplVal "<sfold>"
       VSuspended     -> unimplVal "<suspended>"
 
-      _ -> error "TBD"
+      VSampledData{} -> unimplVal "<sampledData>"
+      VPoint m       -> typedPrim "point" (JS.toJSON . DonuValue <$> m)
+      VSVG bs        -> typedPrim "svg" $ Encoding.decodeUtf8 (Lazy.toStrict $ Base64.encode bs)
 
     where
       typedPrim :: JS.ToJSON a => Text -> a -> JS.Value
@@ -560,3 +552,39 @@ instance JS.ToJSON DonuValue where
 
       unimplVal :: String -> JS.Value
       unimplVal str = typedPrim "string" str
+
+-------------------------------------------------------------------------------
+-- datasets
+
+newtype GetDataSetCommand = GetDataSetCommand
+  { getDataSetCommandDataSource :: DataSource
+  }
+  deriving Show
+
+instance HasSpec GetDataSetCommand where
+  anySpec =
+    sectionsSpec "get-dataset"
+    do  reqSection' "command"  (jsAtom "get-dataset")
+                    "Get dataset JSON"
+
+        getDataSetCommandDataSource <- reqSection' "source" dataSource "Data source"
+
+        pure $ GetDataSetCommand { .. }
+
+dataSetDescToJSON :: DataSetDescription -> JS.Value
+dataSetDescToJSON dd =
+  JS.object [ "source" .= dataSourceToJSON (dataSetDescSource dd)
+            , "name"   .= dataSetDescName dd
+            , "description" .= dataSetDescDescription dd
+            ]
+
+data ListDataSetsCommand = ListDataSetsCommand
+  deriving Show
+
+instance HasSpec ListDataSetsCommand where
+  anySpec =
+    sectionsSpec "list-datasets"
+    do  reqSection' "command"  (jsAtom "list-datasets")
+                    "List available datasets"
+
+        pure ListDataSetsCommand

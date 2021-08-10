@@ -6,6 +6,7 @@ import Control.Monad     ( when, unless, void )
 import           Data.Text ( Text )
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
+import qualified Data.Text.Encoding as Encoding
 
 import Language.ASKEE.Error ( die, ASKEEError(StorageError) )
 import Language.ASKEE.Model.Basics ( ModelType(..), allModelTypes )
@@ -14,6 +15,9 @@ import Language.ASKEE.Gromet(grometText,convertCoreToGromet)
 
 import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
+import qualified Data.Aeson as JSON
+import qualified Language.ASKEE.DataSet as DSet
+import qualified Data.ByteString.Lazy as BS
 
 type ModelName = Text
 
@@ -36,6 +40,12 @@ data ModelDef =
              , modelDefType   :: ModelType
              }
   deriving (Eq, Show)
+
+data DataSetDescription = DataSetDescription
+  { dataSetDescSource      :: DataSource
+  , dataSetDescName        :: Text
+  , dataSetDescDescription :: Maybe Text
+  }
 
 initStorage :: FilePath -> IO ()
 initStorage baseDirectory = mapM_ make dirs
@@ -136,3 +146,45 @@ formatLocation mt =
     GrometFnetType -> "gromet-fnet"
     GrometPncType -> "gromet-pnc"
     RNetType  -> "rnet"
+
+-------------------------------------------------------------------------------
+
+initDataStorage :: FilePath -> IO ()
+initDataStorage = Directory.createDirectoryIfMissing True
+
+listDataSets :: FilePath -> IO [DataSetDescription]
+listDataSets path =
+  do  files <- Directory.listDirectory path
+      concat <$> (display `traverse` files)
+  where
+    display file =
+      do  v <- JSON.eitherDecodeFileStrict (path </> file)
+          case v of
+            Left _ -> pure []
+            Right ds ->
+              pure
+              [ DataSetDescription { dataSetDescSource = FromStore (Text.pack file)
+                                   , dataSetDescName = DSet.dataSetName ds
+                                   , dataSetDescDescription = DSet.dataSetDescription ds
+                                   }
+              ]
+
+loadDataSet :: FilePath -> DataSource -> IO DSet.DataSet
+loadDataSet baseDir source =
+  case source of
+    Inline t ->
+      case JSON.eitherDecode' (BS.fromStrict $ Encoding.encodeUtf8 t) of
+        Left err -> die (StorageError $ "Could not parse input as storage JSON: " <> err)
+        Right ds -> pure ds
+    FromFile f -> fromFile f
+    FromStore n ->
+      do  files <- Directory.listDirectory baseDir
+          if Text.unpack n `elem` files
+            then fromFile (baseDir </> Text.unpack n)
+            else die (StorageError $ "Data set not found: " <> Text.unpack n)
+  where
+    fromFile f =
+      do  ds <- JSON.eitherDecodeFileStrict' f
+          case ds of
+            Left err -> die (StorageError $ "Could not parse storage file: " <> err)
+            Right ds' -> pure ds'
