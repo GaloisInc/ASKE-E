@@ -8,8 +8,9 @@ services:
     volumes:
       - "./modelRepo:/build/modelRepo"
 
-      # Propagate local changes inside the container
-      - "./src:/build/src"
+      # Uncomment to propagate local changes to the container for quicker
+      # development:
+      # - "./src:/build/src"
     ports:
       - "8000:8000"
     expose:
