@@ -18,10 +18,16 @@ COPY app app
 COPY test test
 
 
+##############################################################################
+# Build everything
+
 FROM base AS build
 
 RUN cabal v2-build all
 
+
+##############################################################################
+# Run `donu`
 
 FROM base AS donu-execute
 
@@ -30,8 +36,13 @@ EXPOSE 8000
 ENTRYPOINT cabal exec donu
 
 
+##############################################################################
+# Extract `donu` to the directory `target` on the host machine
+
 FROM base AS donu-extract
 
+# ARG lets you provide envionment variables at build time, but this seemingly
+# duplicative ENV is needed to propagate those variables to runtime
 ARG DONU_EXTRACT_DIR
 ENV DONU_EXTRACT_DIR=${DONU_EXTRACT_DIR}
 
@@ -40,6 +51,9 @@ RUN cabal v2-build donu
 RUN mkdir -p /${DONU_EXTRACT_DIR}
 ENTRYPOINT cp `cabal exec which donu` /${DONU_EXTRACT_DIR}
 
+
+##############################################################################
+# Run tests
 
 FROM build AS test
 
