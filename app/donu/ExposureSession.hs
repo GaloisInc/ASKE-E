@@ -85,6 +85,10 @@ exposureServerLoop c = go Exposure.initialEnv
           -- This is the toplevel, so we don't expect any filecontents
           do sendTextData c (Failure "Unexpected FileContents message")
              return env
+        WroteFile{} ->
+          -- This is the toplevel, so we don't expect any WroteFiles
+          do sendTextData c (Failure "Unexpected WroteFile message")
+             return env
         Error err ->
           do sendTextData c $ Failure $ TL.toStrict $ TL.decodeUtf8 err
              return env
