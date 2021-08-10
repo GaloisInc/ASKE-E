@@ -1,9 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Language.ASKEE.Core.ModelVisualization where
 
 import           Control.Monad.IO.Class
 
-import           Data.Text  ( Text )
+import           Data.Text  ( Text ) 
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import           Data.Text.Encoding ( encodeUtf8 )
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Map as Map
@@ -13,6 +17,11 @@ import           Data.Maybe ( fromJust, mapMaybe )
 
 import           Data.Aeson( (.=) )
 import qualified Data.Aeson as JSON
+
+import           System.Exit ( ExitCode(ExitSuccess) )
+import           System.IO.Temp ( withSystemTempFile )
+import           System.IO ( hClose )
+import qualified System.Process as Proc
 
 import           Language.ASKEE.Core.Expr
 import           Language.ASKEE.Core.Syntax
@@ -352,3 +361,160 @@ vegaNetworkGraphTemplate = " \
  \   ] \
  \ } \
  \ "
+
+---------------------------------------------------------------------
+
+newtype GVId = GVId { unId :: Text }  
+  deriving(Show, Eq, Ord)
+
+data GVValue = GVValInt Int | GVValFloat Double | GVValString Text
+  deriving(Show, Eq, Ord)
+
+data GVNode = GVNode { gvNodeId    :: GVId
+                     , gvNodeLabel :: Text
+                     , gvNodeAttr  :: Map.Map Text GVValue
+                     }
+  deriving(Show, Eq, Ord)
+
+data GVEdge = GVEdge { gvEdgeStart :: GVId
+                     , gvEdgeEnd   :: GVId
+                     , gvEdgeAttr  :: Map.Map Text GVValue
+                     }
+  deriving(Show, Eq, Ord)
+
+data GVDiGraph = GVDiGraph { gvGraphId    :: GVId 
+                           , gvGraphAttr  :: Map.Map Text GVValue
+                           , gvGraphNodes :: [GVNode]
+                           , gvGraphEdges :: [GVEdge]
+                           }
+  deriving(Show, Eq, Ord)
+
+
+generateDotText :: GVDiGraph -> Text
+generateDotText g =
+  T.concat [ "digraph "
+           , idText (gvGraphId g)
+           , wrapped " {\n" "\n}" graphContents
+           ]
+  where
+    attrsText sep attrMap = T.intercalate sep $ map attrText $ Map.assocs attrMap
+    attrText (key, value) = T.concat [key, "=", valueText value]
+    valueText (GVValInt i) = T.pack (show i)
+    valueText (GVValString s) = T.snoc (T.cons '"' s) '"'
+    valueText (GVValFloat f) = T.pack (show f)
+    idText i = unId i
+    nodeText n = T.concat [ "node "
+                          , wrappedAttrsText (augmentedNodeAttrMap n)
+                          , ";" 
+                          , idText (gvNodeId n)
+                          , ";"
+                          ]
+    edgeText e = T.concat [ idText (gvEdgeStart e)
+                          , " -> "  
+                          , idText (gvEdgeEnd e)
+                          , " "
+                          , wrappedAttrsText (gvEdgeAttr e)
+                          , ";"
+                          ]
+    graphContents = T.concat [ attrsText " ;\n" (gvGraphAttr g)
+                             , T.intercalate "\n" (map nodeText $ gvGraphNodes g)
+                             , T.intercalate "\n" (map edgeText $ gvGraphEdges g)
+                             ]
+    augmentedNodeAttrMap n = Map.insert "label" (GVValString $ gvNodeLabel n) $ gvNodeAttr n
+    wrappedAttrsText attrMap = wrapped "[" "]" (attrsText ", " attrMap)
+    wrapped l r s = T.concat [l, s, r]
+
+---------------------------------------------------------------------
+
+convertToDot :: Graph -> GVDiGraph
+convertToDot g =
+  let gvGraphId = GVId "Model"
+      gvGraphAttr = Map.fromList [ ("size", GVValInt 8)
+                                 , ("layout", GVValString "dot")
+                                 , ("fontsize", GVValInt 20)
+                                 , ("rankdir", GVValString "LR")
+                                 ]
+      gvGraphNodes = zipWith makeGVNode (nodes g) [0..]
+      gvGraphEdges = map makeGVEdge (edges g)
+  in GVDiGraph{..}    
+  where
+    makeGVNode n i =
+      let gvNodeId = nodeId i
+          gvNodeLabel = case nodeType n of
+            EventNode -> ""
+            StateNode -> maybe "" (T.singleton . fst) $ T.uncons (nodeName n)
+          gvNodeAttr = nodeAttr n
+      in GVNode{..}      
+    makeGVEdge e =
+      let gvEdgeStart = nodeId (edgeSource e)
+          gvEdgeEnd = nodeId (edgeTarget e) 
+          gvEdgeAttr = Map.fromList [ ("color", GVValString "darkslategray4")
+                                    , ("penwidth", GVValFloat 2.5)
+                                    , ("arrowsize", GVValFloat 0.5)
+                                    ]
+      in GVEdge{..}  
+    nodeAttr n = case nodeType n of 
+      EventNode -> Map.fromList [ ("shape", GVValString "square")
+                                , ("width", GVValFloat 0.2)
+                                , ("style", GVValString "filled")
+                                , ("fillcolor", GVValString "orange")
+                                , ("penwidth", GVValFloat 1.5)
+                                ]
+      StateNode -> Map.fromList [ ("shape", GVValString "circle")
+                                , ("width", GVValFloat 0.5)
+                                , ("style", GVValString "filled")
+                                , ("fillcolor", GVValString "blue4")
+                                , ("fontcolor", GVValString "white")
+                                , ("fontname", GVValString "Arial")
+                                , ("penwidth", GVValFloat 1.5)
+                                ]
+    nodeId :: Int -> GVId
+    nodeId i = GVId $ T.cons 'n' (T.pack $ show i)
+
+-----------------------------------------------------------------------
+
+data ImageType = ImagePng | ImageJpg | ImageSvg 
+  deriving (Eq, Ord, Show)
+
+renderGraphToImage :: MonadIO m => Graph -> ImageType -> FilePath -> m (Either Text ())
+renderGraphToImage g iType f = 
+  liftIO (withSystemTempFile "model.dot" renderToImage)
+  where
+    renderToImage srcPath handle = writeDotFile handle >> execGraphViz srcPath f
+    writeDotFile handle = do 
+      T.hPutStrLn handle $ generateDotText $ convertToDot g
+      hClose handle
+    execGraphViz :: FilePath -> FilePath -> IO (Either Text ())  
+    execGraphViz sourceFile destFile = do
+      let params = [ "-T", imageType iType
+                   , "-o", destFile
+                   , sourceFile
+                   ]
+      (code, _, err) <- Proc.readProcessWithExitCode "dot" params ""
+      return $ case code of
+        ExitSuccess -> Right ()
+        _           -> Left (T.pack err)
+    imageType t = T.unpack $ case t of
+      ImagePng -> "png"
+      ImageJpg -> "jpg"
+      ImageSvg -> "svg"
+
+
+renderModelAsFlowGraphToDot :: Model -> Text
+renderModelAsFlowGraphToDot model = generateDotText $ convertToDot $ toFlowGraph model
+
+renderModelAsFlowGraphToDotIO :: MonadIO m => Model -> FilePath -> m ()
+renderModelAsFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderModelAsFlowGraphToDot model
+
+renderModelAsFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
+renderModelAsFlowGraphToImageIO model iType f = renderGraphToImage (toFlowGraph model) iType f
+
+
+renderModelAsSimpleFlowGraphToDot :: Model -> Text
+renderModelAsSimpleFlowGraphToDot model = generateDotText $ convertToDot $ toSimpleFlowGraph model
+
+renderModelAsSimpleFlowGraphToDotIO :: MonadIO m => Model -> FilePath -> m ()
+renderModelAsSimpleFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderModelAsSimpleFlowGraphToDot model
+
+renderModelAsSimpleFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
+renderModelAsSimpleFlowGraphToImageIO model iType f = renderGraphToImage (toSimpleFlowGraph model) iType f
