@@ -293,9 +293,7 @@ interpretCall fun args =
     FOr          -> compilable (bincmpBool (||))
     FProb        ->
       case args of
-        [VArray vs] -> do
-          vs' <- traverse getBoolValue vs
-          pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        [v] -> interpretProb v
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
@@ -632,6 +630,16 @@ interpretPlot title series xs xLabel =
        , Plot.plotVs = xs'
        , Plot.plotVsLabel = xLabel
        }
+
+interpretProb :: Value -> Eval Value
+interpretProb = chooseLift go (throw "exepecting a collection of booleans")
+  where
+    go arr =
+      case arr of
+        VArray vs ->
+          do vs' <- traverse getBoolValue vs
+             pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        _ -> throw "P() expects a collection of booleans"
 
 
 interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
