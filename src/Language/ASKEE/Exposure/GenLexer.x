@@ -53,6 +53,8 @@ tokens :-
 <0> "false"     { atomic BoolFalse }
 <0> "true"      { atomic BoolTrue  }
 <0> "at"        { atomic At        }
+<0> "peak"      { atomic Peak      }
+<0> "over"      { atomic Over      }
 <0> "by"        { atomic By        }
 
 <0> "define"   { defineModel }

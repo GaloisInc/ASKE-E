@@ -13,7 +13,7 @@ import qualified Data.Aeson as JSON
 
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, foldM, when)
+import Control.Monad (unless, foldM, when, filterM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -322,6 +322,12 @@ interpretCall fun args =
           VArray <$> traverse (\v -> atPoint v d) vs'
         [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
+        -- 'at peak' forms
+        [VModelExpr e, VString i, times@(VArray _)] ->
+          do times' <- array double times
+             pure $ VDFold (DFAtPeak i times') e
+        [VSampledData vs, VString i, _] ->
+          atPeak vs i
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -862,12 +868,14 @@ execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
       case df of
         DFAt d -> d
         DFAtMany d -> maximum d
+        DFAtPeak _ d -> maximum d
         DFIn _ end -> end
 
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
+        DFAtPeak i ds -> ECall FAt [e1, EVal $ VString i, EVal $ VArray (VDouble <$> ds)]
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
       case how of
@@ -1094,6 +1102,22 @@ atPoints vals times =
             chooseLift f (typeErrorArgs [vals] "atPoints expects samples or an array of timed values") vals'
   where
     atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
+
+atPeak :: [Value] -> Ident -> Eval Value
+atPeak samples i =
+  VArray <$> traverse perSample samples
+  where
+    perSample :: Value -> Eval Value
+    perSample s =
+      do s' <- array value s
+         io $ print s'
+         ds <- traverse (`mem`i) s'
+         ds' <- fmap fst <$> traverse (timed double) ds
+         io $ print ds'
+         let m = maximum ds'
+         head <$> filterM (\pt ->
+           do (val, _) <- timed double =<< pt `mem` i
+              pure $ val >= m) s'
 
 atSimple :: [(a, Double)] -> Double -> Maybe a
 atSimple lst t =
