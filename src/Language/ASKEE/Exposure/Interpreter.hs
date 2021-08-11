@@ -465,13 +465,14 @@ interpretCall fun args =
 
     FSimplify ->
       case args of
-        [VModel m, VArray arr] ->
-          do  states <-
+        [v, VArray arr] ->
+          do  m <- model v
+              states <-
                 case strings arr of
                   Just ss -> pure ss
                   Nothing ->
                     typeError "simplify's list of states must be string literals"
-              pure $ VModel (Core.pruneModel (Set.fromList states) m)
+              pure . VModelExpr . EVal $ VModel (Core.pruneModel (Set.fromList states) m)
         _ -> typeError "simplify expects a model and a list of states"
 
     FWithParams ->
@@ -515,7 +516,7 @@ interpretCall fun args =
       case args of
         [v] ->
           do  m <- model v
-              esvg <- liftIO $ CoreViz.renderModelAsFlowGraphToRawImageIO m CoreViz.ImageSvg
+              esvg <- liftIO $ CoreViz.renderModelAsSimpleFlowGraphToRawImageIO m CoreViz.ImageSvg
               case esvg of
                 Left err -> throw err
                 Right svg -> pure $ VSVG svg
