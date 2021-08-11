@@ -291,19 +291,20 @@ def format_table(labels, rows):
     return out
 
 def format_array(arr):
-    def get_one(v):
-        formatted = format_resp_value(v)
-        return formatted['text/plain']
-
     return {
-        'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
+        'text/plain': '[' + ', '.join([formatted_text(el) for el in arr]) + ']'
     }
 
 def format_timed(v):
-    formatted = format_resp_value(v['value'])
-    time      = format_resp_value(v['time'])
     return {
-        'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
+        'text/plain': formatted_text(v['value']) + ' @ ' + formatted_text(v['time'])
+    }
+
+def format_point(pt):
+    def format_one(k,v):
+        return k + '=' + formatted_text(v)
+    return {
+        'text/plain': '{{' + ', '.join([format_one(k,v) for k,v in pt.items()]) + '}}'
     }
 
 def format_svg(v):
@@ -313,6 +314,9 @@ def format_svg(v):
     }
 
 
+def formatted_text(v):
+    formatted = format_resp_value(v)
+    return formatted['text/plain']
 
 def format_resp_value(v):
     if isinstance(v, dict):
@@ -330,6 +334,9 @@ def format_resp_value(v):
 
         if ty == 'plot':
             return format_plot(val['title'], val['series'], val['vs'], val['vs_label'])
+
+        if ty == 'point':
+            return format_point(val)
 
         if ty == 'scatter':
             return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
