@@ -457,6 +457,7 @@ convertToDot g =
                                 , ("style", GVValString "filled")
                                 , ("fillcolor", GVValString "orange")
                                 , ("penwidth", GVValFloat 1.5)
+                                , ("tooltip", GVValString $ nodeName n)
                                 ]
       StateNode -> Map.fromList [ ("shape", GVValString "circle")
                                 , ("width", GVValFloat 0.5)
@@ -465,6 +466,7 @@ convertToDot g =
                                 , ("fontcolor", GVValString "white")
                                 , ("fontname", GVValString "Arial")
                                 , ("penwidth", GVValFloat 1.5)
+                                , ("tooltip", GVValString $ nodeName n)
                                 ]
     nodeId :: Int -> GVId
     nodeId i = GVId $ T.cons 'n' (T.pack $ show i)
