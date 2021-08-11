@@ -117,6 +117,7 @@ data FunctionName
   | FWithParams
   | FLoadPNC
   | FDescribeModel
+  | FModelSize
   | FModelGraph
   deriving (Show, Eq, Ord, Generic, NFData)
 
@@ -146,6 +147,7 @@ prefixFunctionName ident =
     "loadCSV"     -> Right FLoadCSV
     "loadPNC"     -> Right FLoadPNC
     "describeModel" -> Right FDescribeModel
+    "modelSize"   -> Right FModelSize
     "modelGraph"  -> Right FModelGraph
     "join"        -> Right FJoin
     "P"           -> Right FProb

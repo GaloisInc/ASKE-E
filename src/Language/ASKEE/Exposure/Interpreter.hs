@@ -522,6 +522,15 @@ interpretCall fun args =
                 Right svg -> pure $ VSVG svg
         _ -> typeError "modelGraph expects one argument"
 
+    FModelSize ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let sizeStr = "states: " <> (Text.pack . show  . length) (CoreS.modelStateVars m)
+                            <> "   events: " <> (Text.pack . show . length) (CoreS.modelEvents m)
+              pure $ VString sizeStr
+        _ -> typeError "modelSize expects one argument"
+
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)
 
