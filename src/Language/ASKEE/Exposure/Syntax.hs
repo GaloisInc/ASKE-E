@@ -100,6 +100,7 @@ data FunctionName
   | FLoadCSV
   | FJoin
   | FCompose
+  | FEnsemble
   | FMean
   | FInterpolate
   | FHistogram
@@ -153,6 +154,7 @@ prefixFunctionName ident =
     "modelGraph"  -> Right FModelGraph
     "join"        -> Right FJoin
     "compose"     -> Right FCompose
+    "ensemble"    -> Right FEnsemble
     "P"           -> Right FProb
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
