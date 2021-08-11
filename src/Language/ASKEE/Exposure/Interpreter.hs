@@ -355,6 +355,8 @@ interpretCall fun args =
             case (sm1, sm2) of
               ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
                 pure $
+                VModelExpr $
+                EVal $
                 VModel $
                 modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
               _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
@@ -1239,6 +1241,12 @@ timedLift f v =
     e ->
       do  e' <- f e
           pure (e', id)
+
+
+asModelExprValue :: Value -> Eval Value
+asModelExprValue v =
+  do  m <- model v
+      (pure . VModelExpr . EVal . VModel) m
 
 -------------------------------------------------------------------------------
 -- lifts
