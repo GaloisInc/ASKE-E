@@ -132,6 +132,7 @@ data FunctionWithLambdaName
 data DynamicalFold =
     DFAt Double
   | DFAtMany [Double]
+  | DFAtPeak Ident [Double]
   | DFIn Double Double
   deriving (Show, Eq, Ord, Generic, NFData)
 
