@@ -1,6 +1,7 @@
 FROM haskell:8.10.4 as base
 
 RUN apt-get update && apt-get install -y \
+    graphviz \
     libblas-dev \
     libgsl-dev \
     liblapack-dev \
