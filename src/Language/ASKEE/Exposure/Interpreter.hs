@@ -1110,10 +1110,8 @@ atPeak samples i =
     perSample :: Value -> Eval Value
     perSample s =
       do s' <- array value s
-         io $ print s'
          ds <- traverse (`mem`i) s'
          ds' <- fmap fst <$> traverse (timed double) ds
-         io $ print ds'
          let m = maximum ds'
          head <$> filterM (\pt ->
            do (val, _) <- timed double =<< pt `mem` i
