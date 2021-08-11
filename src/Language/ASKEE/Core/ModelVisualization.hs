@@ -427,8 +427,7 @@ generateDotText g =
 convertToDot :: Graph -> GVDiGraph
 convertToDot g =
   let gvGraphId = GVId "Model"
-      gvGraphAttr = Map.fromList [ ("size", GVValInt 8)
-                                 , ("layout", GVValString "dot")
+      gvGraphAttr = Map.fromList [ ("layout", GVValString "dot")
                                  , ("fontsize", GVValInt 20)
                                  , ("rankdir", GVValString "LR")
                                  ]
