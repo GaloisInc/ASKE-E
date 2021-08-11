@@ -55,7 +55,7 @@ import qualified Language.ASKEE.CPP as CPP
 import qualified Language.ASKEE.DEQ.Simulate as DEQ
 import           Language.ASKEE.ESL ( parseExpr )
 import           Language.ASKEE.ESL.Convert ( modelAsCore )
-import           Language.ASKEE.ESL.Manipulate ( join, compose )
+import           Language.ASKEE.ESL.Manipulate ( join, compose, ensemble, CombinationStrategy(..) )
 import           Language.ASKEE.Latex.Syntax (Latex(..))
 
 import qualified Language.ASKEE.Exposure.Plot as Plot
@@ -379,9 +379,22 @@ interpretCall fun args =
         [ VArray ss, VModelExpr (EVal (VModel m1)), VModelExpr (EVal (VModel m2)), VString s ]
           | Right e <- parseExpr s
           , Just ss' <- twoStrsM `traverse` ss -> 
-              pure $ VModel $ modelAsCore (compose (Map.fromList ss') (coreAsModel m1) (coreAsModel m2) e e)
-        _ -> typeError $ "compose expects two models and a changeover expression, represented as a string"
+              pure $ 
+              VModelExpr $
+              EVal $
+              VModel $ modelAsCore (compose (Map.fromList ss') (coreAsModel m1) (coreAsModel m2) e e)
+        _ -> typeError "compose expects two models and a changeover expression, represented as a string"
 
+    FEnsemble ->
+      case args of
+        [ VArray wms ] | Just wms' <- weightedModelM `traverse` wms -> 
+          pure $
+          VModelExpr $
+          EVal $
+          VModel $
+          modelAsCore $ ensemble [(coreAsModel m, w) | (m, w) <- wms' ] Average
+          
+        _ -> typeError "ensemble expects two model/weight pairs"
     FMean ->
       case args of
         [v] -> chooseLift (doubleArraySummarize mean) (typeError "mean") v
@@ -560,6 +573,9 @@ interpretCall fun args =
     
     twoStrsM (VArray [VString s1, VString s2]) = Just (s1, s2)
     twoStrsM _ = Nothing
+
+    weightedModelM (VArray [VModelExpr (EVal (VModel m)), VDouble d]) = Just (m, d)
+    weightedModelM _ = Nothing
 
     doubleArraySummarize f v =
       do  v' <- array double v
