@@ -1,48 +1,49 @@
-parameter Ip_0 = 500000
-parameter S_0 = 6300000
-parameter E_0 = 100
-parameter I_0 = 50
-let N = Ip_0 + S_0 + E_0 + I_0
+model seirp:
+  parameter Ip_0 = 500000
+  parameter S_0 = 6300000
+  parameter E_0 = 100
+  parameter I_0 = 50
+  let N = Ip_0 + S_0 + E_0 + I_0
 
-parameter r = 0.6929
-parameter rp = 0.4808
-parameter alpha = 0.47
-parameter sigma = 0.461
-parameter beta = 0.103
+  parameter r = 0.6929
+  parameter rp = 0.4808
+  parameter alpha = 0.47
+  parameter sigma = 0.461
+  parameter beta = 0.103
 
-state S = S_0
-state I = I_0
-state Ip = Ip_0
-state E = E_0
-state R = 0
-state Rp = 0
+  state S = S_0
+  state I = I_0
+  state Ip = Ip_0
+  state E = E_0
+  state R = 0
+  state Rp = 0
 
-event Expose:
-  rate: r * (S * I) / N
-  effect:
-    E = E + 1
-    S = S - 1
+  event Expose:
+    rate: r * (S * I) / N
+    effect:
+      E = E + 1
+      S = S - 1
 
-event InfectP:
-  rate: rp * (S * Ip) / N
-  effect:
-    S = S - 1
-    Ip = Ip + 1
+  event InfectP:
+    rate: rp * (S * Ip) / N
+    effect:
+      S = S - 1
+      Ip = Ip + 1
 
-event Infect:
-  rate: beta * E
-  effect:
-    E = E - 1
-    I = I + 1
+  event Infect:
+    rate: beta * E
+    effect:
+      E = E - 1
+      I = I + 1
 
-event Recover:
-  rate: alpha * I
-  effect:
-    R = R + 1
-    I = I - 1
+  event Recover:
+    rate: alpha * I
+    effect:
+      R = R + 1
+      I = I - 1
 
-event RecoverP:
-  rate: sigma * Ip
-  effect:
-    Ip = Ip - 1
-    Rp = Rp + 1
+  event RecoverP:
+    rate: sigma * Ip
+    effect:
+      Ip = Ip - 1
+      Rp = Rp + 1
