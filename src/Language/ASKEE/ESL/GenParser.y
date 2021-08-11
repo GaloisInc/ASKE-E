@@ -19,7 +19,7 @@ import Prelude hiding (Ordering(..))
 }
 
 %name parseModel Model
-
+%name parseExpr Exp
 
 %tokentype {Located Lexer.Token}
 %error {parseError}

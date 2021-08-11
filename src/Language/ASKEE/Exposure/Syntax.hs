@@ -99,6 +99,7 @@ data FunctionName
   | FLoadEasel
   | FLoadCSV
   | FJoin
+  | FCompose
   | FMean
   | FInterpolate
   | FHistogram
@@ -151,6 +152,7 @@ prefixFunctionName ident =
     "modelSize"   -> Right FModelSize
     "modelGraph"  -> Right FModelGraph
     "join"        -> Right FJoin
+    "compose"     -> Right FCompose
     "P"           -> Right FProb
     "mean"        -> Right FMean
     "interpolate" -> Right FInterpolate
