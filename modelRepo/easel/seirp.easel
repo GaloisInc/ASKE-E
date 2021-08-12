@@ -1,3 +1,4 @@
+model SEIRP:
 parameter Ip_0 = 500000
 parameter S_0 = 6300000
 parameter E_0 = 100
