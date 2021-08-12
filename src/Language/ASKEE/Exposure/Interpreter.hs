@@ -60,12 +60,14 @@ import           Language.ASKEE.Latex.Syntax (Latex(..))
 import qualified Language.ASKEE.Exposure.Plot as Plot
 import Language.ASKEE.Exposure.Plot (PlotStyle)
 import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.Python
 
 data ExposureInfo = ExposureInfo
   deriving Show
 
 runEval :: EvalRead -> Env -> Eval a -> IO (Either Text a, Env, EvalWrite)
-runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
+runEval evRead env ev =
+  RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
@@ -146,18 +148,20 @@ data EvalRead = EvalRead
   , erLocalVars   :: Map Ident Value
   , erPutFileFn   :: EvalWriteFileFn
   , erGetFileFn   :: EvalReadFileFn
+  , erPyHandle    :: Maybe PythonHandle
   }
 
 type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
 type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
 type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
 
-mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
-mkEvalReadEnv rd wr = EvalRead
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> Maybe PythonHandle -> EvalRead
+mkEvalReadEnv rd wr hdl = EvalRead
   { erPrecomputed = Map.empty
   , erLocalVars   = Map.empty
   , erPutFileFn   = wr
   , erGetFileFn   = rd
+  , erPyHandle    = hdl
   }
 
 
@@ -278,6 +282,7 @@ interpretDisplayExpr (DisplayScalar scalar) = do
 interpretCall :: FunctionName -> [Value] -> Eval Value
 interpretCall fun args =
   case fun of
+    FPython      -> callPython args
     FAdd         -> compilable add
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
@@ -921,6 +926,19 @@ runSim (SimDiffEq delta) t mdl =
     Right deqs ->
       do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
          pure $ seriesAsPoints series
+
+callPython :: [Value] -> Eval Value
+callPython args =
+  case args of
+    VString f : args' ->
+      do ~(Just py) <- Reader.asks erPyHandle
+         res <- liftIO $ evaluate py f args'
+         case res of
+           Success v -> pure v
+           Failure e -> Except.throwError e
+
+    _ ->
+      throw "python() requires at least a function name"
 
 interpretWIS :: Value -> Value -> Value -> Eval Value
 interpretWIS samples alphas pt =
