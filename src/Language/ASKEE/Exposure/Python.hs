@@ -18,8 +18,10 @@ import           Data.Text (Text)
 import           GHC.Exts (toList)
 import           System.IO (Handle, hFlush, hGetLine)
 import           System.Process
+import           System.FilePath ((</>))
 
 import           Language.ASKEE.Exposure.Syntax
+import           Paths_aske_e
 
 -- | The result of evaluating an external function call
 data PythonResult
@@ -37,11 +39,13 @@ data PythonHandle = PythonHandle
 -- single interaction with the Exposure interpreter.
 withPythonHandle ::
   MonadIO m =>
-  FilePath -> [FilePath] -> (PythonHandle -> m a) -> m a
-withPythonHandle driver pluginpaths act =
-  do hdl <- liftIO $
+  [FilePath] -> (PythonHandle -> m a) -> m a
+withPythonHandle pluginpaths act =
+  do driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
+     ourExts <- liftIO $ getDataFileName ("exposure" </> "extensions")
+     hdl <- liftIO $
               createProcess
-                (proc "python3" (driver : pluginpaths))
+                (proc "python3" (driver : pluginpaths ++ [ourExts]))
                   { std_out = CreatePipe
                   , std_in  = CreatePipe
                   }

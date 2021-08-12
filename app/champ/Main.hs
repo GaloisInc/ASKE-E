@@ -34,7 +34,6 @@ import qualified Language.ASKEE.Exposure.Syntax as Exposure
 import Logo (displayLogo)
 import Data.String (fromString)
 import System.Directory.Internal.Prelude (isDoesNotExistError)
-import Paths_aske_e
 
 main :: IO ()
 main = do
@@ -54,17 +53,14 @@ champ opts = do
   champConfigDir <- getXdgDirectory XdgConfig "champ"
   createDirectoryIfMissing True champConfigDir
 
-  interpProg <- getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
-  ourExts    <- getDataFileName ("exposure" </> "extensions")
-  let extDirs = optPyExts opts
-             ++ [ourExts]
-
   let launchREPL =
         runInputT defaultSettings
                     {historyFile = Just $ champConfigDir </> "history" }
         $ withInterrupt loop
 
-  withPythonHandle interpProg extDirs $ \hdl ->
+  let extDirs = optPyExts opts
+
+  withPythonHandle extDirs $ \hdl ->
     case optBatchFile opts of
       Just batchFile ->
         evalChampT initialState { champPyHandle = Just hdl } $ do
