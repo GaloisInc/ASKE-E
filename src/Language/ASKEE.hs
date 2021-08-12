@@ -585,15 +585,26 @@ listAllModelsWithMetadata =
           _ -> pure @IO $ pure @MetaAnn m
 
 queryModels :: Text -> IO [MetaAnn ModelDef]
-queryModels query = listAllModelsWithMetadata >>= filterM match_model
+queryModels query = do
+  allModels <- listAllModelsWithMetadata
+  if query == "*"
+    then return allModels
+    else filterM match_model allModels
   where
     match_model metaAnnModel = do
       (toplevelMetaData, model) <- loadModelFromDef metaAnnModel
       let mInterface = describeModelInterface model
-          match_result = match_metadata_values (map snd toplevelMetaData) ||
+          match_result = match_source (metaValue metaAnnModel) ||
+                         match_metadata_values (map snd toplevelMetaData) ||
                          match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
                          match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
       return match_result
+    match_source modeldef =
+      let sourceText = case modelDefSource modeldef of
+                         FromFile s -> Text.pack s
+                         FromStore txt -> txt
+                         Inline _ -> ""
+      in match_wildcard query sourceText
     match_metadata_values values = any (match_wildcard query) values
     loadModelFromDef metaAnnModel = do
       let ModelDef {..} = metaValue metaAnnModel
