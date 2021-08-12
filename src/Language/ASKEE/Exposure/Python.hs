@@ -50,6 +50,8 @@ withPythonHandle driver pluginpaths act =
          do res <- act $ PythonHandle stdout stdin
             liftIO $ terminateProcess ph
             return res
+       _ ->
+         error "Error starting Python interpreter"
 
 -- | This is the entrypoint that marshalls the Values to the python interpreter
 evaluate :: PythonHandle -> Text -> [Value] -> IO PythonResult
@@ -77,6 +79,9 @@ encodePython v =
     VPoint pt  -> JS.object [ k JS..= encodePython v' | (k,v') <- Map.toList pt ]
     VString s  -> JS.toJSON s
 
+    _          ->
+      error $ "Unimplemented encoding from Exposure to Python for: " ++ show v
+
 newtype PythonValue = PythonValue { unPython :: Value }
 
 instance JS.FromJSON PythonResult where
@@ -87,6 +92,8 @@ instance JS.FromJSON PythonResult where
            Success . unPython <$> v JS..: "value"
          "failure" ->
            Failure <$> v JS..: "message"
+         _ ->
+           error ("Unexpected JSON response type: '" ++ ty ++ "'")
   parseJSON v =
     error (show v)
 
@@ -107,3 +114,6 @@ instance JS.FromJSON PythonValue where
 
   parseJSON (JS.Bool b) =
     pure . PythonValue . VBool $ b
+
+  parseJSON JS.Null =
+    error "Python returned 'null'"
