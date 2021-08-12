@@ -103,7 +103,7 @@ Example:
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
 | command          | string                   | The literal `"query-models"`|
-| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model level metadata (as returned by `list-models`) as well as parameter and measure metadata values for a match.|
+| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model source name, model level metadata (both, as returned by `list-models`) as well as parameter and measure metadata values for a match.|
 
 Example:
 
