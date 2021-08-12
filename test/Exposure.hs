@@ -18,7 +18,7 @@ import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
-import Paths_aske_e (getDataDir)
+import Language.ASKEE.Exposure.Python (withPythonHandle)
 
 assertLeft :: Either a b -> IO ()
 assertLeft (Left _)  = pure ()
@@ -50,12 +50,15 @@ exprAssertion :: String -> (Value -> Assertion) -> Assertion
 exprAssertion = exprAssertionWithStmts []
 
 exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
-exprAssertionWithStmts stmtStrs actualExprStr k = do
+exprAssertionWithStmts = exprAssertionWithStmts' emptyEvalRead
+
+exprAssertionWithStmts' :: EvalRead -> [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithStmts' er stmtStrs actualExprStr k = do
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)              <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)              <- evalLoop er initialEnv stmts
   (_, _)                 <- assertRightText lr
-  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  (errOrActualVal, _, _) <- runEval er env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
@@ -75,7 +78,7 @@ assertStmtsFail stmtStrs = do
   return env
 
 emptyEvalRead :: EvalRead
-emptyEvalRead = mkEvalReadEnv rd wr
+emptyEvalRead = mkEvalReadEnv rd wr Nothing
   where
     wr f d =
       do res <- try (LBS.writeFile f d)
@@ -87,7 +90,8 @@ emptyEvalRead = mkEvalReadEnv rd wr
     rd f =
       do res <- try (LBS.readFile f)
          case res of
-           Left (_ :: SomeException) ->
+           Left (ex :: SomeException) -> do
+             print ex
              pure $ Left "read failed"
            Right t -> pure $ Right t
 
@@ -107,10 +111,15 @@ exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
   val2              <- assertRightText errOrVal2
   k val1 val2
 
+exprAssertWithPython :: String -> (Value -> Assertion) -> Assertion
+exprAssertWithPython expr k  = do
+  withPythonHandle [] $ \hdl ->
+    exprAssertionWithStmts' emptyEvalRead { erPyHandle = Just hdl } [] expr k
+
 getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
-  dataDir <- getDataDir
-  pure $ "loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")"
+  let dataFile = "modelRepo" </> "easel" </> "sir.easel"
+  pure $ "loadESL(\"" ++ dataFile ++ "\")"
 
 assertDouble :: Value -> IO ()
 assertDouble VDouble{} = pure ()
@@ -313,5 +322,9 @@ tests =
       , testCase "Load missing files" $ do
           void $ assertStmtsFail ["loadCSV(\"path/to/nothing.csv\")"]
           void $ assertStmtsFail ["loadESL(\"path/to/nothing.easel\")"]
+
+      , testCase "Call Python extension" $ do
+          exprAssertWithPython "@id(5.0 + 5.0)" $ \v ->
+            v @?= VDouble 10.0
       ]
     ]
