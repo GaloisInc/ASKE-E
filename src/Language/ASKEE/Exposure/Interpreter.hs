@@ -931,12 +931,15 @@ callPython :: [Value] -> Eval Value
 callPython args =
   case args of
     VString f : args' ->
-      do ~(Just py) <- Reader.asks erPyHandle
-         res <- liftIO $ evaluate py f args'
-         case res of
-           Success v -> pure v
-           Failure e -> Except.throwError e
-
+      do pyh <- Reader.asks erPyHandle
+         case pyh of
+           Just py ->
+             do res <- liftIO $ evaluate py f args'
+                case res of
+                  Success v -> pure v
+                  Failure e -> Except.throwError e
+           Nothing ->
+             throw "python() backend not supported by this client"
     _ ->
       throw "python() requires at least a function name"
 
