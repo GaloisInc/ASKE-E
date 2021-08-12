@@ -24,6 +24,7 @@ import System.Console.Haskeline
 import System.Directory
 import System.FilePath
 
+import Language.ASKEE.Exposure.Python (withPythonHandle, PythonHandle)
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureStmt, parseExposureStmts)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
@@ -33,6 +34,7 @@ import qualified Language.ASKEE.Exposure.Syntax as Exposure
 import Logo (displayLogo)
 import Data.String (fromString)
 import System.Directory.Internal.Prelude (isDoesNotExistError)
+import Paths_aske_e
 
 main :: IO ()
 main = do
@@ -52,27 +54,34 @@ champ opts = do
   champConfigDir <- getXdgDirectory XdgConfig "champ"
   createDirectoryIfMissing True champConfigDir
 
+  interpProg <- getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
+  ourExts    <- getDataFileName ("exposure" </> "extensions")
+  let extDirs = optPyExts opts
+             ++ [ourExts]
+
   let launchREPL =
         runInputT defaultSettings
                     {historyFile = Just $ champConfigDir </> "history" }
         $ withInterrupt loop
 
-  case optBatchFile opts of
-    Just batchFile ->
-      evalChampT initialState $ do
-        loadAndBatchProgramCmd batchFile
-        executeBatchedStmts
-        when (optInteractive opts) launchREPL
+  withPythonHandle interpProg extDirs $ \hdl ->
+    case optBatchFile opts of
+      Just batchFile ->
+        evalChampT initialState { champPyHandle = Just hdl } $ do
+          loadAndBatchProgramCmd batchFile
+          executeBatchedStmts
+          when (optInteractive opts) launchREPL
 
-    Nothing -> do
-      displayLogo (optColor opts) (optUnicode opts)
-      evalChampT initialState launchREPL
+      Nothing -> do
+        displayLogo (optColor opts) (optUnicode opts)
+        evalChampT initialState { champPyHandle = Just hdl } launchREPL
 
 data Options = Options
   { optColor   :: Bool
   , optUnicode :: Bool
   , optInteractive :: Bool
   , optBatchFile :: Maybe FilePath
+  , optPyExts  :: [FilePath]
   } deriving Show
 
 optionsParser :: Opt.Parser Options
@@ -90,6 +99,11 @@ optionsParser = Options
   <*> (Opt.optional . Opt.strArgument)
         (  Opt.metavar "FILE"
         <> Opt.help "Run the exposure program provided and exit" )
+  <*> Opt.many
+      ( Opt.strOption
+         (  Opt.long "py-dir"
+         <> Opt.help "Directory containing Exposure extension modules"
+         <> Opt.metavar "DIRECTORY" ))
 
 data Input
   = FailedInput
@@ -100,6 +114,7 @@ data ChampState = ChampState
   { champEnv          :: Exposure.Env
   , champBatchedStmts :: Seq Exposure.Stmt
   , champMultiline    :: Maybe (Seq String)
+  , champPyHandle     :: Maybe PythonHandle
     -- ^ 'Nothing' means multiline mode is not active.
     -- @'Just' lines@ means multiline mode is active, with @lines@ being the
     -- lines of code that have been entered thus far.
@@ -110,6 +125,7 @@ initialState = ChampState
   { champEnv          = Exposure.initialEnv
   , champBatchedStmts = Seq.empty
   , champMultiline    = Nothing
+  , champPyHandle     = Nothing
   }
 
 putEnv :: Exposure.Env -> ChampM ()
@@ -303,9 +319,10 @@ batchExposureStmtNoMultiline code =
 
 executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
-  env   <- gets champEnv
-  stmts <- gets champBatchedStmts
-  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile
+  env      <- gets champEnv
+  stmts    <- gets champBatchedStmts
+  pyHandle <- gets champPyHandle
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile pyHandle
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err ->
