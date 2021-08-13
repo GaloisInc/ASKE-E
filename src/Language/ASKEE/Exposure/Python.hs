@@ -22,6 +22,8 @@ import           System.FilePath ((</>))
 
 import           Language.ASKEE.Exposure.Syntax
 import           Paths_aske_e
+import System.Directory (getDirectoryContents)
+import Control.Monad (forM)
 
 -- | The result of evaluating an external function call
 data PythonResult
@@ -41,7 +43,19 @@ withPythonHandle ::
   MonadIO m =>
   [FilePath] -> (PythonHandle -> m a) -> m a
 withPythonHandle pluginpaths act =
-  do driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
+  do
+     d <- liftIO $ getDataDir
+     contents <- liftIO $ getDirectoryContents d
+     liftIO $ forM contents $ \c ->
+       putStrLn c
+     contents <- liftIO $ getDirectoryContents (d </> "exposure")
+     liftIO $ forM contents $ \c ->
+       putStrLn c
+     contents <- liftIO $ getDirectoryContents (d </> "exposure" </> "pyinterp")
+     liftIO $ forM contents $ \c ->
+       putStrLn c
+
+     driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
      ourExts <- liftIO $ getDataFileName ("exposure" </> "extensions")
      hdl <- liftIO $
               createProcess
