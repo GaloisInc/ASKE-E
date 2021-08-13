@@ -261,7 +261,7 @@ quitCmd = pure ()
 
 loadAndBatchProgramCmd :: FilePath -> ChampM ()
 loadAndBatchProgramCmd f = do
-  do mstmts <- handle handleIOExc (loadStatements f)
+  do mstmts <- catch (loadStatements f) handleIOExc
      case mstmts of
        Left err    -> liftIO $ putStrLn err
        Right stmts -> traverse_ batchStmt stmts
