@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 module Main (main) where
 
+import qualified Control.Exception as X
 import Control.Applicative ((<**>))
 import Control.Monad (replicateM_, when)
 import Control.Monad.Catch
@@ -261,7 +262,7 @@ quitCmd = pure ()
 
 loadAndBatchProgramCmd :: FilePath -> ChampM ()
 loadAndBatchProgramCmd f = do
-  do mstmts <- catch (loadStatements f) handleIOExc
+  do mstmts <- liftIO $ X.catch (loadStatements f) handleIOExc
      case mstmts of
        Left err    -> liftIO $ putStrLn err
        Right stmts -> traverse_ batchStmt stmts
@@ -272,9 +273,9 @@ loadAndBatchProgramCmd f = do
       | otherwise =
         pure $ Left $ "Error loading '" ++ f ++ "'."
 
-loadStatements :: FilePath -> ChampM (Either String [Exposure.Stmt])
+loadStatements :: FilePath -> IO (Either String [Exposure.Stmt])
 loadStatements f = do
-  code <- liftIO $ readFile f
+  code <- readFile f
   pure (lexExposure code >>= parseExposureStmts)
 
 batchExposureStmt :: String -> ChampM ()
