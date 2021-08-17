@@ -30,7 +30,9 @@ apiKey = "kojzLVi21XrcHVJ4f7M82L0g"
 
 apiHeaders :: Map String String
 apiHeaders =
-  Map.fromList [ ("apikey", apiKey) ]
+  Map.fromList [ ("apikey", apiKey)
+               , ("Content-Type", "application/json")
+               ]
 
 simulateFnet :: SimulationRequest -> IO (DS.LabeledDataSeries Double)
 simulateFnet req =
@@ -59,7 +61,7 @@ parseResponse val =
 
     errMsg :: (Text, JSON.Object) -> Text
     errMsg o =
-      case objKey o "error" >>= text of
+      case objKey o "message" >>= text of
         Right e -> e
         Left _ -> "unspecified error"
 
@@ -100,7 +102,7 @@ instance JSON.ToJSON SimulationRequest where
           , "source" .= JSON.String (Encoding.decodeUtf8 $ LBS.toStrict (JSON.encode simReqModel))
           ]
       , "start" .= simReqStart
-      , "stop" .= simReqEnd
+      , "end" .= simReqEnd
       , "step" .= simReqStep
       , "domain_parameter" .= simReqDomainParam
       , "parameters" .= simReqParams
