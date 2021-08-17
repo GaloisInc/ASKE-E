@@ -6,6 +6,7 @@ module Language.ASKEE.Exposure.Python (
   , evaluate
   , PythonHandle
   , PythonResult(..)
+  , PythonValue(..)
   ) where
 
 import           Control.Monad.IO.Class
@@ -22,12 +23,10 @@ import           System.FilePath ((</>))
 
 import           Language.ASKEE.Exposure.Syntax
 import           Paths_aske_e
-import System.Directory (getDirectoryContents)
-import Control.Monad (forM)
 
 -- | The result of evaluating an external function call
 data PythonResult
-  = Success Value
+  = Success PythonValue
   | Failure Text
   deriving (Eq, Show, Ord)
 
@@ -89,13 +88,15 @@ encodePython v =
       error $ "Unimplemented encoding from Exposure to Python for: " ++ show v
 
 newtype PythonValue = PythonValue { unPython :: Value }
+  deriving (Eq, Show, Ord)
+
 
 instance JS.FromJSON PythonResult where
   parseJSON (JS.Object v) =
     do ty <- v JS..: "type"
        case ty :: String of
          "success" ->
-           Success . unPython <$> v JS..: "value"
+           Success <$> v JS..: "value"
          "failure" ->
            Failure <$> v JS..: "message"
          _ ->

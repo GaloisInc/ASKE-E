@@ -936,7 +936,7 @@ callPython args =
            Just py ->
              do res <- liftIO $ evaluate py f args'
                 case res of
-                  Success v -> pure v
+                  Success v -> pure $ unPython v
                   Failure e -> Except.throwError e
            Nothing ->
              throw "python() backend not supported by this client"
