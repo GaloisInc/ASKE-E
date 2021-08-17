@@ -13,7 +13,7 @@ import qualified Data.Aeson as JSON
 
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, foldM, when)
+import Control.Monad (unless, foldM, when, filterM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -293,9 +293,7 @@ interpretCall fun args =
     FOr          -> compilable (bincmpBool (||))
     FProb        ->
       case args of
-        [VArray vs] -> do
-          vs' <- traverse getBoolValue vs
-          pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        [v] -> interpretProb v
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
@@ -324,6 +322,12 @@ interpretCall fun args =
           VArray <$> traverse (\v -> atPoint v d) vs'
         [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
+        -- 'at peak' forms
+        [VModelExpr e, VString i, times@(VArray _)] ->
+          do times' <- array double times
+             pure $ VDFold (DFAtPeak i times') e
+        [VSampledData vs, VString i, _] ->
+          atPeak vs i
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -351,6 +355,8 @@ interpretCall fun args =
             case (sm1, sm2) of
               ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
                 pure $
+                VModelExpr $
+                EVal $
                 VModel $
                 modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
               _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
@@ -524,6 +530,15 @@ interpretCall fun args =
                 Right svg -> pure $ VSVG svg
         _ -> typeError "modelGraph expects one argument"
 
+    FModelSize ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let sizeStr = "states: " <> (Text.pack . show  . length) (CoreS.modelStateVars m)
+                            <> "   events: " <> (Text.pack . show . length) (CoreS.modelEvents m)
+              pure $ VString sizeStr
+        _ -> typeError "modelSize expects one argument"
+
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)
 
@@ -633,6 +648,16 @@ interpretPlot title series xs xLabel =
        , Plot.plotVs = xs'
        , Plot.plotVsLabel = xLabel
        }
+
+interpretProb :: Value -> Eval Value
+interpretProb = chooseLift go (throw "exepecting a collection of booleans")
+  where
+    go arr =
+      case arr of
+        VArray vs ->
+          do vs' <- traverse getBoolValue vs
+             pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        _ -> throw "P() expects a collection of booleans"
 
 
 interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
@@ -845,12 +870,14 @@ execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
       case df of
         DFAt d -> d
         DFAtMany d -> maximum d
+        DFAtPeak _ d -> maximum d
         DFIn _ end -> end
 
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
+        DFAtPeak i ds -> ECall FAt [e1, EVal $ VString i, EVal $ VArray (VDouble <$> ds)]
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
       case how of
@@ -1078,6 +1105,20 @@ atPoints vals times =
   where
     atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
 
+atPeak :: [Value] -> Ident -> Eval Value
+atPeak samples i =
+  VArray <$> traverse perSample samples
+  where
+    perSample :: Value -> Eval Value
+    perSample s =
+      do s' <- array value s
+         ds <- traverse (`mem`i) s'
+         ds' <- fmap fst <$> traverse (timed double) ds
+         let m = maximum ds'
+         head <$> filterM (\pt ->
+           do (val, _) <- timed double =<< pt `mem` i
+              pure $ val >= m) s'
+
 atSimple :: [(a, Double)] -> Double -> Maybe a
 atSimple lst t =
   case lst of
@@ -1200,6 +1241,12 @@ timedLift f v =
     e ->
       do  e' <- f e
           pure (e', id)
+
+
+asModelExprValue :: Value -> Eval Value
+asModelExprValue v =
+  do  m <- model v
+      (pure . VModelExpr . EVal . VModel) m
 
 -------------------------------------------------------------------------------
 -- lifts

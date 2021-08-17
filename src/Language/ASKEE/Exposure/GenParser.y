@@ -51,6 +51,8 @@ IDENT    { Located _ _ (Lexer.Ident $$) }
 'true'   { Located _ _ Lexer.BoolTrue   }
 '.'      { Located _ _ Lexer.Dot        }
 'at'     { Located _ _ Lexer.At         }
+'peak'   { Located _ _ Lexer.Peak       }
+'over'   { Located _ _ Lexer.Over       }
 'by'     { Located _ _ Lexer.By         }
 'define' { Located _ _ Lexer.Define     }
 'end'    { Located _ _ Lexer.End        }
@@ -122,6 +124,7 @@ infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
           | expr 'or'  expr { ECall FOr  [$1, $3] }
           | 'not' expr      { ECall FNot [$2]     }
           | expr 'at' expr  { ECall FAt  [$1, $3] }
+          | expr 'at' 'peak' IDENT 'over' expr { ECall FAt [$1, EVal (VString $4), $6] }
 
 dispExpr :: { DisplayExpr }
 dispExpr : expr { DisplayScalar $1 }

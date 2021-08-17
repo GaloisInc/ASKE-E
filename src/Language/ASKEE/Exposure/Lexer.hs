@@ -39,5 +39,7 @@ data Token
   | BoolTrue
   | Dot
   | At
+  | Peak
+  | Over
   | By
   deriving Show
