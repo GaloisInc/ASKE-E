@@ -762,10 +762,12 @@ Example:
 | parameters       | list of string           | Parameters to try to find values for                                |
 | data             | dataseries               | Data series to fit against (see below)                              |
 
+Data series:
+
 | Field            | Type                     | Description                                                         |
 |------------------|--------------------------|---------------------------------------------------------------------|
 | values           | object                   | Keys are model variable names, values are lists of points           |
-| times            | list od numbers          | Corresponding times for the data points                             |
+| times            | list of numbers          | Corresponding times for the data points                             |
 
 Each value of the `values` object should be an array of the same length as `times`.
 
