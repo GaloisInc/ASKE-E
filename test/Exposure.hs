@@ -269,6 +269,7 @@ tests =
             ] "join([\"_1\", sir], [\"_2\", sir], [[\"S\", \"S\"]])" $ \v ->
                 case v of
                   VModel _ -> pure ()
+                  VModelExpr (EVal (VModel _)) -> pure ()
                   x -> assertFailure $ "joining didn't produce a model, instead a "<>show x
       , testCase "Model Skill Ranking" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
