@@ -1,8 +1,11 @@
 -- |
 {-# Language OverloadedStrings #-}
 {-# Language OverloadedLists #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Language.ASKEE.Exposure.Python (
-    withPythonHandle
+    newPythonHandle
+  , closePythonHandle
+  , withPythonHandle
   , evaluate
   , PythonHandle
   , PythonResult(..)
@@ -23,6 +26,8 @@ import           System.FilePath ((</>))
 
 import           Language.ASKEE.Exposure.Syntax
 import           Paths_aske_e
+import qualified Control.Exception as X
+import Control.Monad.Catch
 
 -- | The result of evaluating an external function call
 data PythonResult
@@ -33,15 +38,23 @@ data PythonResult
 data PythonHandle = PythonHandle
   { pyStdout :: Handle
   , pyStdin  :: Handle
+  , pyProc   :: ProcessHandle
   }
 
 -- | Starts a new interpreter. This can be used by clients to persist an
 -- interpreter across the lifetime of the client, which may be longer than a
 -- single interaction with the Exposure interpreter.
 withPythonHandle ::
-  MonadIO m =>
+  (MonadIO m, MonadMask m) =>
   [FilePath] -> (PythonHandle -> m a) -> m a
-withPythonHandle pluginpaths act =
+withPythonHandle pluginpaths =
+  bracket (newPythonHandle pluginpaths)
+          closePythonHandle
+
+newPythonHandle ::
+  MonadIO m =>
+  [FilePath] -> m PythonHandle
+newPythonHandle pluginpaths =
   do driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
      ourExts <- liftIO $ getDataFileName ("exposure" </> "extensions")
      hdl <- liftIO $
@@ -52,11 +65,12 @@ withPythonHandle pluginpaths act =
                   }
      case hdl of
        (Just stdin, Just stdout, _, ph) ->
-         do res <- act $ PythonHandle stdout stdin
-            liftIO $ terminateProcess ph
-            return res
+         pure $ PythonHandle stdout stdin ph
        _ ->
          error "Error starting Python interpreter"
+
+closePythonHandle :: MonadIO m => PythonHandle -> m ()
+closePythonHandle hdl = liftIO $ terminateProcess (pyProc hdl)
 
 -- | This is the entrypoint that marshalls the Values to the python interpreter
 evaluate :: PythonHandle -> Text -> [Value] -> IO PythonResult
