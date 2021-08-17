@@ -750,3 +750,60 @@ Example:
   }
 }
 ```
+
+### `fit-measure` Estimate model parameters
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"fit-measure"`  |
+| definition       | model-def                | Datasource for model (e.g. from `list-datasets`)                    |
+| parameters       | list of string           | Parameters to try to find values for                                |
+| data             | dataseries               | Data series to fit against (see below)                              |
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| values           | object                   | Keys are model variable names, values are lists of points           |
+| times            | list od numbers          | Corresponding times for the data points                             |
+
+Each value of the `values` object should be an array of the same length as `times`.
+
+**Request**
+
+```json
+{
+  "command": "fit-measures",
+  "definition": {
+    "type": "easel",
+    "source": { "model": "sir-meta.easel" }
+  },
+  "parameters": ["beta", "gamma"],
+  "data": {
+    "values": {
+      "I": [
+        3, 74.78758342604473, 623.3137065799646, 761.227660031603, 641.3487163757723, 526.5677251792523,
+        431.297586129131, 353.1478923294002, 289.1402682575921, 236.73013719570082, 193.81898629689385,
+        158.6858700205345, 129.92114428227376, 106.37050988809484, 87.08884901094167, 71.30234380846396,
+        58.37743746622634, 47.7954138770176, 39.131582481945436, 32.03823518720198, 26.23069221742839,
+        21.47587722450436, 17.582963280246798, 14.395714419465202, 11.786215392681438
+      ]
+    },
+    "times": [
+      0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120
+    ]
+  }
+}
+```
+
+**Response**
+
+The `result` field contains a object whose keys are parameter names and whose values are the estimated parameter values
+
+```json
+{
+  "status": "success",
+  "result": {
+    "gamma": 4.0000000000252035e-2,
+    "beta": 0.6999999999997466
+  }
+}
+```

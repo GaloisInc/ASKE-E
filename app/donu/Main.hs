@@ -167,6 +167,13 @@ handleRequest r =
     GetDataSet GetDataSetCommand {..} ->
       succeed <$> liftIO (loadDataSet getDataSetCommandDataSource)
 
+    FitMeasures FitMeasuresCommand { .. } ->
+      succeed <$> liftIO (fitModelToMeasureData (modelDefType fitMeasureModel)
+                                                (modelDefSource fitMeasureModel)
+                                                fitMeasureParams
+                                                fitMeasureData)
+
+
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result
     succeed = SuccessResult

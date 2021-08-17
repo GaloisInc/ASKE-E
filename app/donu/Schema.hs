@@ -50,6 +50,7 @@ data Input =
   | QueryModels QueryModelsCommand
   | ListDataSets ListDataSetsCommand
   | GetDataSet GetDataSetCommand
+  | FitMeasures FitMeasuresCommand
     deriving Show
 
 instance HasSpec Input where
@@ -67,6 +68,7 @@ instance HasSpec Input where
          <!> (QueryModels <$> anySpec)
          <!> (ListDataSets <$> anySpec)
          <!> (GetDataSet <$> anySpec)
+         <!> (FitMeasures <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -180,6 +182,18 @@ dataSource =
        pure (FromStore f)
   <!>
     Inline <$> anySpec
+
+
+mapSpec :: HasSpec a => ValueSpec (Map Text a)
+mapSpec =  Map.fromList <$> assocSpec anySpec
+
+dataSeries :: ValueSpec (DataSeries Double)
+dataSeries =
+  sectionsSpec "data-series" $
+    do  times <- reqSection "times" ""
+        values <- reqSection' "values" mapSpec "map of data"
+        pure $ DataSeries { .. }
+
 
 helpHTML :: Lazy.ByteString
 helpHTML = docsJSON (anySpec :: ValueSpec Input)
@@ -588,3 +602,30 @@ instance HasSpec ListDataSetsCommand where
                     "List available datasets"
 
         pure ListDataSetsCommand
+
+-------------------------------------------------------------------------------
+-- fit measures
+
+data FitMeasuresCommand = FitMeasuresCommand
+  { fitMeasureModel :: ModelDef
+  , fitMeasureData :: DataSeries Double
+  , fitMeasureParams :: [Text]
+  }
+  deriving Show
+
+
+instance HasSpec FitMeasuresCommand where
+  anySpec =
+    sectionsSpec "fit-measures"
+    do  reqSection' "command" (jsAtom "fit-measures")
+                    "Estimate paramters based on measure data"
+
+        fitMeasureModel <- reqSection' "definition" modelDef "Specification of the source model"
+        fitMeasureData <- reqSection' "data" dataSeries "Data against which to estimate parameters"
+        fitMeasureParams <- reqSection "parameters" "Parameters to fit"
+
+        pure $ FitMeasuresCommand { .. }
+
+
+
+

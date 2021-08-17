@@ -35,6 +35,7 @@ module Language.ASKEE
   
   , stratifyModel
   , fitModelToData
+  , fitModelToMeasureData
   , Core.asSchematicGraph
   , convertModelString
 
@@ -344,6 +345,19 @@ stratifyModel format source connectionGraph statesJSON stratificationType =
       Stratify.stratifyModel model connGraph vertexMap states stratificationType
   
 
+fitModelToMeasureData ::
+  ModelType {- ^ the model's type -} ->
+  DataSource {- ^ the model's source -} ->
+  [Text] {- ^ parameters to fit -} ->
+  DataSeries Double {- ^ the data -} ->
+  IO (Map Text Double)
+fitModelToMeasureData ty modelSrc params fitData =
+  do  eqs <- loadDiffEqsFrom ty modelSrc
+      let paramMap = Map.fromList (initialValueMapping eqs <$> params)
+      let (fit, _) = DEQ.fitModel eqs fitData Map.empty paramMap
+      pure (fst <$> fit)
+  where
+    initialValueMapping deq n = (n, fromMaybe 0 (DEQ.paramValue n deq))
 
 fitModelToData ::
   ModelType {- ^ the model's type -}-> 
