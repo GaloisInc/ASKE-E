@@ -12,6 +12,8 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Reader.Class (MonadReader, asks)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable
 import qualified Data.List.Extra as L
@@ -63,14 +65,14 @@ champ opts = do
   withPythonHandle extDirs $ \hdl ->
     case optBatchFile opts of
       Just batchFile ->
-        evalChampT (initialState hdl) $ do
+        evalChampT (initialEnv hdl) initialState $ do
           loadAndBatchProgramCmd batchFile
           executeBatchedStmts
           when (optInteractive opts) launchREPL
 
       Nothing -> do
         displayLogo (optColor opts) (optUnicode opts)
-        evalChampT (initialState hdl) launchREPL
+        evalChampT (initialEnv hdl) initialState launchREPL
 
 data Options = Options
   { optColor   :: Bool
@@ -113,16 +115,19 @@ data ChampState = ChampState
     -- ^ 'Nothing' means multiline mode is not active.
     -- @'Just' lines@ means multiline mode is active, with @lines@ being the
     -- lines of code that have been entered thus far.
-  , champPyHandle     :: PythonHandle
   }
 
-initialState :: PythonHandle -> ChampState
-initialState pyHandle = ChampState
+newtype ChampEnv = ChampEnv { champPyHandle :: PythonHandle }
+
+initialState :: ChampState
+initialState = ChampState
   { champEnv          = Exposure.initialEnv
   , champBatchedStmts = Seq.empty
   , champMultiline    = Nothing
-  , champPyHandle     = pyHandle
   }
+
+initialEnv :: PythonHandle -> ChampEnv
+initialEnv py = ChampEnv { champPyHandle = py }
 
 putEnv :: Exposure.Env -> ChampM ()
 putEnv env = modify $ \s -> s{champEnv = env}
@@ -156,16 +161,17 @@ stopMultiline = do
      }
   batchExposureStmtNoMultiline linez
 
-newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
+newtype ChampM a = ChampM { unChampM :: ReaderT ChampEnv (StateT ChampState IO) a }
   deriving newtype ( Functor, Applicative, Monad
                    , MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState
+                   , MonadReader ChampEnv
 #if !(MIN_VERSION_haskeline(0,8,0))
                    , MonadException
 #endif
                    )
 
-evalChampT :: ChampState -> ChampM a -> IO a
-evalChampT st c = evalStateT (unChampM c) st
+evalChampT :: ChampEnv -> ChampState -> ChampM a -> IO a
+evalChampT env st c = evalStateT (runReaderT (unChampM c) env) st
 
 loop :: InputT ChampM ()
 loop = do
@@ -317,7 +323,7 @@ executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
   env      <- gets champEnv
   stmts    <- gets champBatchedStmts
-  pyHandle <- gets champPyHandle
+  pyHandle <- asks champPyHandle
   let er = Exposure.mkEvalReadEnv champReadFile champWriteFile (Just pyHandle)
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
