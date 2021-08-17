@@ -37,10 +37,10 @@ fnetInterface root =
       icV <- objLookup interface "initial_conditions" >>= arr
       ics <- text `traverse` icV
 
-      let params = ics ++ vars
+      let params = ics ++ states
 
       paramPorts <- varToPort variableInfo `traverse` params
-      statePorts <- varToPort variableInfo `traverse` states
+      statePorts <- varToPort variableInfo `traverse` vars
 
       pure
         MI.ModelInterface { MI.modelInputs = paramPorts
@@ -60,7 +60,9 @@ fnetInterface root =
               Nothing -> Left ("could not parse value type '" <> tyValue <> "'")
               Just v -> Right v
 
-          pure MI.Port { MI.portName = uid
+          portUid <- objLookup var "proxy_state" >>= text
+
+          pure MI.Port { MI.portName = portUid
                        , MI.portValueType = ty
                        , MI.portDefault = Nothing
                        , MI.portMeta = metaMap

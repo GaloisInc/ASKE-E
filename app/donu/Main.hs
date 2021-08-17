@@ -7,6 +7,7 @@ import Control.Monad.State
 
 import           Control.Exception.Lifted (try, SomeException)
 import           Control.Applicative ((<|>))
+import qualified Data.Map as Map
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
@@ -79,7 +80,12 @@ handleRequest r =
   liftIO (print r) >>
   case r of
     Simulate SimulateCommand{..} ->
-      do  ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) simParameterValues simOutputs
+      do  let params =
+                case simDomainParam of
+                  Nothing -> simParameterValues
+                  Just domainParamName -> Map.insert domainParamName 0 simParameterValues
+
+          ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) params simOutputs
           case ifaceErrs of
             [] ->
               do  res <- liftIO $ simulateModel
