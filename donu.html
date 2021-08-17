@@ -753,6 +753,52 @@ as a hint to group related parameters.</p>
   }
 }
 </code></pre>
+<h3 id="fit-measure-estimate-model-parameters"><a class="header" href="#fit-measure-estimate-model-parameters"><code>fit-measure</code> Estimate model parameters</a></h3>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;fit-measure&quot;</code></td></tr>
+<tr><td>definition</td><td>model-def</td><td>Datasource for model (e.g. from <code>list-datasets</code>)</td></tr>
+<tr><td>parameters</td><td>list of string</td><td>Parameters to try to find values for</td></tr>
+<tr><td>data</td><td>dataseries</td><td>Data series to fit against (see below)</td></tr>
+</tbody></table>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>values</td><td>object</td><td>Keys are model variable names, values are lists of points</td></tr>
+<tr><td>times</td><td>list od numbers</td><td>Corresponding times for the data points</td></tr>
+</tbody></table>
+<p>Each value of the <code>values</code> object should be an array of the same length as <code>times</code>.</p>
+<p><strong>Request</strong></p>
+<pre><code class="language-json">{
+  &quot;command&quot;: &quot;fit-measures&quot;,
+  &quot;definition&quot;: {
+    &quot;type&quot;: &quot;easel&quot;,
+    &quot;source&quot;: { &quot;model&quot;: &quot;sir-meta.easel&quot; }
+  },
+  &quot;parameters&quot;: [&quot;beta&quot;, &quot;gamma&quot;],
+  &quot;data&quot;: {
+    &quot;values&quot;: {
+      &quot;I&quot;: [
+        3, 74.78758342604473, 623.3137065799646, 761.227660031603, 641.3487163757723, 526.5677251792523,
+        431.297586129131, 353.1478923294002, 289.1402682575921, 236.73013719570082, 193.81898629689385,
+        158.6858700205345, 129.92114428227376, 106.37050988809484, 87.08884901094167, 71.30234380846396,
+        58.37743746622634, 47.7954138770176, 39.131582481945436, 32.03823518720198, 26.23069221742839,
+        21.47587722450436, 17.582963280246798, 14.395714419465202, 11.786215392681438
+      ]
+    },
+    &quot;times&quot;: [
+      0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120
+    ]
+  }
+}
+</code></pre>
+<p><strong>Response</strong></p>
+<p>The <code>result</code> field contains a object whose keys are parameter names and whose values are the estimated parameter values</p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;result&quot;: {
+    &quot;gamma&quot;: 4.0000000000252035e-2,
+    &quot;beta&quot;: 0.6999999999997466
+  }
+}
+</code></pre>
 
                     </main>
 
