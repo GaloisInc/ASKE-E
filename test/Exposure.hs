@@ -19,6 +19,7 @@ import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
 import Language.ASKEE.Exposure.Python (withPythonHandle)
+import Paths_aske_e (getDataDir)
 
 assertLeft :: Either a b -> IO ()
 assertLeft (Left _)  = pure ()
@@ -118,8 +119,8 @@ exprAssertWithPython expr k  = do
 
 getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
-  let dataFile = "modelRepo" </> "easel" </> "sir.easel"
-  pure $ "loadESL(\"" ++ dataFile ++ "\")"
+  dataDir <- getDataDir
+  pure $ "loadESL(\"" ++ (dataDir </> "modelRepo/easel/sir.easel") ++ "\")"
 
 assertDouble :: Value -> IO ()
 assertDouble VDouble{} = pure ()
