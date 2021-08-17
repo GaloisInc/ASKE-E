@@ -51,20 +51,27 @@ champ :: Options -> IO ()
 champ opts = do
   champConfigDir <- getXdgDirectory XdgConfig "champ"
   createDirectoryIfMissing True champConfigDir
+
+  let launchREPL =
+        runInputT defaultSettings
+                    {historyFile = Just $ champConfigDir </> "history" }
+        $ withInterrupt loop
+
   case optBatchFile opts of
     Just batchFile ->
       evalChampT initialState $ do
         loadAndBatchProgramCmd batchFile
         executeBatchedStmts
+        when (optInteractive opts) launchREPL
+
     Nothing -> do
       displayLogo (optColor opts) (optUnicode opts)
-      evalChampT initialState
-        $ runInputT defaultSettings{historyFile = Just $ champConfigDir </> "history" }
-        $ withInterrupt loop
+      evalChampT initialState launchREPL
 
 data Options = Options
   { optColor   :: Bool
   , optUnicode :: Bool
+  , optInteractive :: Bool
   , optBatchFile :: Maybe FilePath
   } deriving Show
 
@@ -76,10 +83,13 @@ optionsParser = Options
   <*> (fmap not . Opt.switch)
       (  Opt.long "no-unicode"
       <> Opt.help "Print the champ logo without Unicode" )
-  <*> (Opt.optional . Opt.strOption)
-        (  Opt.long "batch-file"
-        <> Opt.short 'b'
-        <> Opt.help "Run the script provided and exit" )
+  <*> Opt.switch
+      (  Opt.long "interactive"
+      <> Opt.short 'i'
+      <> Opt.help "Run an interactive session after running an exposure file" )
+  <*> (Opt.optional . Opt.strArgument)
+        (  Opt.metavar "FILE"
+        <> Opt.help "Run the exposure program provided and exit" )
 
 data Input
   = FailedInput
