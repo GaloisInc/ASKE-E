@@ -147,6 +147,7 @@ library
                       , containers
                       , deepseq
                       , directory
+                      , exceptions
                       , extra
                       , filepath
                       , hmatrix
