@@ -63,14 +63,14 @@ champ opts = do
   withPythonHandle extDirs $ \hdl ->
     case optBatchFile opts of
       Just batchFile ->
-        evalChampT initialState { champPyHandle = Just hdl } $ do
+        evalChampT (initialState hdl) $ do
           loadAndBatchProgramCmd batchFile
           executeBatchedStmts
           when (optInteractive opts) launchREPL
 
       Nothing -> do
         displayLogo (optColor opts) (optUnicode opts)
-        evalChampT initialState { champPyHandle = Just hdl } launchREPL
+        evalChampT (initialState hdl) launchREPL
 
 data Options = Options
   { optColor   :: Bool
@@ -110,18 +110,18 @@ data ChampState = ChampState
   { champEnv          :: Exposure.Env
   , champBatchedStmts :: Seq Exposure.Stmt
   , champMultiline    :: Maybe (Seq String)
-  , champPyHandle     :: Maybe PythonHandle
     -- ^ 'Nothing' means multiline mode is not active.
     -- @'Just' lines@ means multiline mode is active, with @lines@ being the
     -- lines of code that have been entered thus far.
+  , champPyHandle     :: PythonHandle
   }
 
-initialState :: ChampState
-initialState = ChampState
+initialState :: PythonHandle -> ChampState
+initialState pyHandle = ChampState
   { champEnv          = Exposure.initialEnv
   , champBatchedStmts = Seq.empty
   , champMultiline    = Nothing
-  , champPyHandle     = Nothing
+  , champPyHandle     = pyHandle
   }
 
 putEnv :: Exposure.Env -> ChampM ()
@@ -318,7 +318,7 @@ executeBatchedStmts = do
   env      <- gets champEnv
   stmts    <- gets champBatchedStmts
   pyHandle <- gets champPyHandle
-  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile pyHandle
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile (Just pyHandle)
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err ->
