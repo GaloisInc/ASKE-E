@@ -1,9 +1,9 @@
 model SEIRP:
-parameter Ip_0 = 500000
-parameter S_0 = 6300000
-parameter E_0 = 100
-parameter I_0 = 50
-let N = Ip_0 + S_0 + E_0 + I_0
+  parameter Ip_0 = 500000
+  parameter S_0 = 6300000
+  parameter E_0 = 100
+  parameter I_0 = 50
+  let N = Ip_0 + S_0 + E_0 + I_0
 
   parameter r = 0.6929
   parameter rp = 0.4808
