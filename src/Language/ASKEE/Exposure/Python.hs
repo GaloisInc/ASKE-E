@@ -43,19 +43,7 @@ withPythonHandle ::
   MonadIO m =>
   [FilePath] -> (PythonHandle -> m a) -> m a
 withPythonHandle pluginpaths act =
-  do
-     d <- liftIO $ getDataDir
-     contents <- liftIO $ getDirectoryContents d
-     liftIO $ forM contents $ \c ->
-       putStrLn c
-     contents <- liftIO $ getDirectoryContents (d </> "exposure")
-     liftIO $ forM contents $ \c ->
-       putStrLn c
-     contents <- liftIO $ getDirectoryContents (d </> "exposure" </> "pyinterp")
-     liftIO $ forM contents $ \c ->
-       putStrLn c
-
-     driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
+  do driver  <- liftIO $ getDataFileName ("exposure" </> "pyinterp" </> "pyinterp.py")
      ourExts <- liftIO $ getDataFileName ("exposure" </> "extensions")
      hdl <- liftIO $
               createProcess
