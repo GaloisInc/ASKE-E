@@ -148,14 +148,14 @@ data EvalRead = EvalRead
   , erLocalVars   :: Map Ident Value
   , erPutFileFn   :: EvalWriteFileFn
   , erGetFileFn   :: EvalReadFileFn
-  , erPyHandle    :: Maybe PythonHandle
+  , erPyHandle    :: PythonHandle
   }
 
 type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
 type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
 type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
 
-mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> Maybe PythonHandle -> EvalRead
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> PythonHandle -> EvalRead
 mkEvalReadEnv rd wr hdl = EvalRead
   { erPrecomputed = Map.empty
   , erLocalVars   = Map.empty
@@ -931,15 +931,11 @@ callPython :: [Value] -> Eval Value
 callPython args =
   case args of
     VString f : args' ->
-      do pyh <- Reader.asks erPyHandle
-         case pyh of
-           Just py ->
-             do res <- liftIO $ evaluate py f args'
-                case res of
-                  Success v -> pure $ unPython v
-                  Failure e -> Except.throwError e
-           Nothing ->
-             throw "python() backend not supported by this client"
+      do py <- Reader.asks erPyHandle
+         res <- liftIO $ evaluate py f args'
+         case res of
+           Success v -> pure $ unPython v
+           Failure e -> Except.throwError e
     _ ->
       throw "python() requires at least a function name"
 

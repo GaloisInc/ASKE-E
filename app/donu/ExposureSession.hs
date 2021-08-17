@@ -98,7 +98,7 @@ exposureServerLoop c pyh = go Exposure.initialEnv
              return env
 
     eval = Exposure.evalLoop evr
-    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c) (Just pyh)
+    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c) pyh
 
     onExcept :: ConnectionException -> IO ()
     onExcept _ce = return ()

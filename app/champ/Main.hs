@@ -324,7 +324,7 @@ executeBatchedStmts = do
   env      <- gets champEnv
   stmts    <- gets champBatchedStmts
   pyHandle <- asks champPyHandle
-  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile (Just pyHandle)
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile pyHandle
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err ->
