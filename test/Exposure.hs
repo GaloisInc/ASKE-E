@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ImplicitParams #-}
 module Exposure (tests) where
 
 import Control.Exception (SomeException, try)
@@ -18,7 +19,7 @@ import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
-import Language.ASKEE.Exposure.Python (withPythonHandle)
+import Language.ASKEE.Exposure.Python (newPythonHandle, closePythonHandle, PythonHandle)
 import Paths_aske_e (getDataDir)
 
 assertLeft :: Either a b -> IO ()
@@ -42,19 +43,21 @@ lexAndParseStmt s = do
   lexed <- lexExposure s
   parseExposureStmt lexed
 
-exprShouldEvalTo :: String -> Value -> Assertion
+exprShouldEvalTo ::
+  (?getEvalRead :: IO EvalRead) => String -> Value -> Assertion
 exprShouldEvalTo actualExprStr expectedVal =
   exprAssertion actualExprStr $ \actualVal ->
     actualVal @?= expectedVal
 
-exprAssertion :: String -> (Value -> Assertion) -> Assertion
+exprAssertion ::
+  (?getEvalRead :: IO EvalRead) => String -> (Value -> Assertion) -> Assertion
 exprAssertion = exprAssertionWithStmts []
 
-exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
-exprAssertionWithStmts = exprAssertionWithStmts' emptyEvalRead
 
-exprAssertionWithStmts' :: EvalRead -> [String] -> String -> (Value -> Assertion) -> Assertion
-exprAssertionWithStmts' er stmtStrs actualExprStr k = do
+exprAssertionWithStmts ::
+  (?getEvalRead :: IO EvalRead) => [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithStmts stmtStrs actualExprStr k = do
+  er                     <- ?getEvalRead
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
   (lr, env)              <- evalLoop er initialEnv stmts
@@ -63,23 +66,26 @@ exprAssertionWithStmts' er stmtStrs actualExprStr k = do
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
-exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithFailingStmts ::
+  (?getEvalRead :: IO EvalRead) => [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
+  er         <- ?getEvalRead
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
   env        <- assertStmtsFail stmtStrs
-  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  (errOrActualVal, _, _) <- runEval er env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
-assertStmtsFail :: [String] -> IO Env
+assertStmtsFail :: (?getEvalRead :: IO EvalRead) => [String] -> IO Env
 assertStmtsFail stmtStrs = do
+  er         <- ?getEvalRead
   stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
-  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)  <- evalLoop er initialEnv stmts
   assertLeft lr
   return env
 
-emptyEvalRead :: EvalRead
-emptyEvalRead = mkEvalReadEnv rd wr Nothing
+emptyEvalRead :: PythonHandle -> EvalRead
+emptyEvalRead = mkEvalReadEnv rd wr
   where
     wr f d =
       do res <- try (LBS.writeFile f d)
@@ -96,26 +102,26 @@ emptyEvalRead = mkEvalReadEnv rd wr Nothing
              pure $ Left "read failed"
            Right t -> pure $ Right t
 
-exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2 ::
+  (?getEvalRead :: IO EvalRead) =>
+  String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2 = exprAssertion2WithStmts []
 
-exprAssertion2WithStmts :: [String] -> String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2WithStmts ::
+  (?getEvalRead :: IO EvalRead) =>
+  [String] -> String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
+  er                <- ?getEvalRead
   stmts             <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   expr1             <- assertRightStr $ lexAndParseExpr exprStr1
   expr2             <- assertRightStr $ lexAndParseExpr exprStr2
-  (lr, env)         <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)         <- evalLoop er initialEnv stmts
   (_, _)            <- assertRightText lr
-  (errOrVal1, _, _) <- runEval emptyEvalRead env $ interpretExpr expr1
-  (errOrVal2, _, _) <- runEval emptyEvalRead env $ interpretExpr expr2
+  (errOrVal1, _, _) <- runEval er env $ interpretExpr expr1
+  (errOrVal2, _, _) <- runEval er env $ interpretExpr expr2
   val1              <- assertRightText errOrVal1
   val2              <- assertRightText errOrVal2
   k val1 val2
-
-exprAssertWithPython :: String -> (Value -> Assertion) -> Assertion
-exprAssertWithPython expr k  = do
-  withPythonHandle [] $ \hdl ->
-    exprAssertionWithStmts' emptyEvalRead { erPyHandle = Just hdl } [] expr k
 
 getLoadSirEaselExpr :: IO String
 getLoadSirEaselExpr = do
@@ -131,7 +137,14 @@ assertTimedArray (VTimed VArray{} _) = pure ()
 assertTimedArray v                    = assertFailure $ "Expected a timed array, received: " ++ show v
 
 tests :: Tasty.TestTree
-tests =
+tests = Tasty.withResource acquire release $ \getEvalRead ->
+          let ?getEvalRead = getEvalRead in makeTests
+  where
+    acquire = emptyEvalRead <$> newPythonHandle []
+    release = closePythonHandle . erPyHandle
+
+makeTests :: (?getEvalRead :: IO EvalRead) => Tasty.TestTree
+makeTests =
   Tasty.testGroup "Exposure API Tests"
     [ Tasty.testGroup "Interpreter tests"
       [ testCase "Addition" $
@@ -325,7 +338,7 @@ tests =
           void $ assertStmtsFail ["loadESL(\"path/to/nothing.easel\")"]
 
       , testCase "Call Python extension" $ do
-          exprAssertWithPython "@id(5.0 + 5.0)" $ \v ->
+          exprAssertion "@id(5.0 + 5.0)" $ \v ->
             v @?= VDouble 10.0
       ]
     ]
