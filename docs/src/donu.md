@@ -753,6 +753,8 @@ Example:
 
 ### `fit-measure` Estimate model parameters
 
+**Request**
+
 | Field            | Type                     | Description                                                         |
 |------------------|--------------------------|---------------------------------------------------------------------|
 | command          | string                   | Command - for this operation it will be the string `"fit-measure"`  |
@@ -767,7 +769,7 @@ Example:
 
 Each value of the `values` object should be an array of the same length as `times`.
 
-**Request**
+Example:
 
 ```json
 {
@@ -797,6 +799,8 @@ Each value of the `values` object should be an array of the same length as `time
 **Response**
 
 The `result` field contains a object whose keys are parameter names and whose values are the estimated parameter values
+
+Example:
 
 ```json
 {
