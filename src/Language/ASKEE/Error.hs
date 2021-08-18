@@ -14,6 +14,7 @@ data ASKEEError =
   | NotImplementedError String
   | AlgebraicJuliaError String
   | HttpCallException String
+  | ComparisonError String
   deriving (Show)
 
 instance Exception ASKEEError

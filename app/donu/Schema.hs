@@ -51,6 +51,7 @@ data Input =
   | ListDataSets ListDataSetsCommand
   | GetDataSet GetDataSetCommand
   | FitMeasures FitMeasuresCommand
+  | CompareModels ServeComparisonCommand
     deriving Show
 
 instance HasSpec Input where
@@ -69,6 +70,7 @@ instance HasSpec Input where
          <!> (ListDataSets <$> anySpec)
          <!> (GetDataSet <$> anySpec)
          <!> (FitMeasures <$> anySpec)
+         <!> (CompareModels <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -626,6 +628,21 @@ instance HasSpec FitMeasuresCommand where
 
         pure $ FitMeasuresCommand { .. }
 
+-------------------------------------------------------------------------------
+-- Serve model comparisons
 
+data ServeComparisonCommand = ServeComparisonCommand
+  { compModelSource :: ModelDef
+  , compModelTarget :: ModelDef
+  }
+  deriving (Show)
 
-
+instance HasSpec ServeComparisonCommand where
+  anySpec =
+    sectionsSpec "serve-comparison"
+    do  reqSection' "command" (jsAtom "compare-models")
+                    "Serve a pregenerated model comparison, when one exists"
+        compModelSource <- reqSection' "source" modelDef "Source of comparison"
+        compModelTarget <- reqSection' "target" modelDef "Target of comparison"
+        
+        pure $ ServeComparisonCommand { .. }

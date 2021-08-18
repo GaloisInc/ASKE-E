@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Storage.Internal where
 
-import Control.Monad     ( when, unless, void )
+import Control.Monad     ( when, unless, void, forM )
 
 import           Data.Text ( Text )
 import qualified Data.Text as Text
@@ -17,7 +17,7 @@ import qualified System.Directory as Directory
 import           System.FilePath  ( (</>), pathSeparator )
 import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.DataSet as DSet
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy.Char8 as BS
 
 type ModelName = Text
 
@@ -188,3 +188,24 @@ loadDataSet baseDir source =
           case ds of
             Left err -> die (StorageError $ "Could not parse storage file: " <> err)
             Right ds' -> pure ds'
+
+--------------------------------------------------------------------------------
+
+initComparisonStorage :: FilePath -> IO ()
+initComparisonStorage = Directory.createDirectoryIfMissing True
+
+loadComparison :: FilePath -> DataSource -> IO Text
+loadComparison baseDirectory source =
+  case source of
+    Inline t -> pure t
+    FromFile f -> Text.readFile f
+    FromStore n ->
+      do  files <- Directory.listDirectory baseDirectory
+          if Text.unpack n `elem` files
+            then Text.readFile (baseDirectory </> Text.unpack n)
+            else die (StorageError $ "Comparison not found: " <> Text.unpack n)
+
+listComparisons :: FilePath -> IO [Text]
+listComparisons baseDirectory =
+  do  files <- Directory.listDirectory baseDirectory
+      forM files $ loadComparison baseDirectory . FromStore . Text.pack

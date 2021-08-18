@@ -13,6 +13,7 @@ module Language.ASKEE.Model
   , toGrometFnet
   , parseModel
   , printModel
+  , modelUID
   ) where
 
 import Data.Text(Text)
@@ -213,3 +214,13 @@ printModel m =
     printJson v = BS.unpack $ JSON.encode v
 
 
+modelUID :: Model -> Either String Text
+modelUID m =
+  case m of
+    Easel esl -> Right $ ESL.modelName esl
+    Deq _ -> Left "differential equations have no UID"
+    Core core -> Right $ Core.modelName core
+    RNet _ -> Left "reaction networks have no UID"
+    GrometPrt _ -> Left "don't know how to find PRT gromet UID" -- TODO
+    GrometPnc gromet -> Right $ GPNC.pncUID gromet
+    GrometFnet gromet -> FNET.fnetUID gromet

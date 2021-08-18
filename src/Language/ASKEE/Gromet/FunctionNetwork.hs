@@ -111,3 +111,12 @@ fnetInterface root =
         Right a -> Just a
 
 
+fnetUID :: FunctionNetwork -> Either String Text
+fnetUID fnet =
+  case fnet of
+    JSON.Object o -> 
+      case HashMap.lookup "uid" o of
+        Just (JSON.String t) -> Right t
+        Just _ -> Left "FNet gromet's UID wasn't a string"
+        Nothing -> Left "FNet gromet didn't contain UID at key \"uid\" - this gromet is ill-formed"
+    _ -> Left "internal error: FNet gromet represented as something other than a JSON object"
