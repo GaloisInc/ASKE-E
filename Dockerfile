@@ -15,6 +15,7 @@ RUN cabal v2-build --only-dependencies
 
 COPY src src
 COPY app app
+COPY dataRepo dataRepo
 
 
 FROM base AS build
