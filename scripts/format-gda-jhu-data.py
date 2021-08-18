@@ -39,7 +39,7 @@ for file_path in datafiles:
         }
         for label, content in df.items():
             data["columns"].append(
-                {"label": label, "description": label, "values": content.to_list()}
+                {"name": label, "description": label, "values": content.to_list()}
             )
 
         with open(
