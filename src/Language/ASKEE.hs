@@ -93,10 +93,6 @@ import qualified Data.Text.IO               as Text
 import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.ESL.Manipulate         ( compose
-                                                       , join
-                                                       , ensemble
-                                                       , CombinationStrategy(..) )
 import           Language.ASKEE.CPP.Pretty             ( Doc )
 import qualified Language.ASKEE.Core                   as Core
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
