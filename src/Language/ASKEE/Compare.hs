@@ -6,7 +6,6 @@ module Language.ASKEE.Compare where
 
 import qualified Data.Aeson                 as JSON
 import qualified Data.ByteString.Lazy.Char8 as BS
-import           Data.List                  ( find )
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
 import           Data.Text                  ( Text )
@@ -35,9 +34,15 @@ loadComparisonBySourceUID source =
       comps' <- case comps of
         Left err -> die (ComparisonError $ "Failed to parse a comparison file: "<>err)
         Right cs -> pure cs
-      case find (\Comparison{..} -> compareSource == source) comps' of
-        Nothing -> die (ComparisonError $ "No comparison found for source UID "<>Text.unpack source)
-        Just c -> pure c
+      case filter (\Comparison{..} -> compareSource == source) comps' of
+        [] -> die (ComparisonError $ "No comparison found for source UID "<>Text.unpack source)
+        cs -> pure $ foldl1 unionComparisons cs
+
+  where
+    unionComparisons c1 c2 = Comparison
+      { compareSource = compareSource c1
+      , compareTargets = Map.unionWith (<>) (compareTargets c1) (compareTargets c2)
+      }
 
 compareModels :: UID -> UID -> IO [VariableMapping]
 compareModels source target =
