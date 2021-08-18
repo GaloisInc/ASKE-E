@@ -38,7 +38,9 @@ for file_path in datafiles:
             "columns": [],
         }
         for label, content in df.items():
-            data["columns"].append({"label": label, "values": content.to_list()})
+            data["columns"].append(
+                {"label": label, "description": label, "values": content.to_list()}
+            )
 
         with open(
             join("./dataRepo/", f"{org}-Infections-{state}.json"), "w"
