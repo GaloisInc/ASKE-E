@@ -173,7 +173,7 @@ modelDef :: ValueSpec ModelDef
 modelDef =
   sectionsSpec "model-def"
     do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
-        modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
+        modelDefType <- reqSection "type" "model type"
         pure ModelDef { .. }
 
 dataSource :: ValueSpec DataSource
