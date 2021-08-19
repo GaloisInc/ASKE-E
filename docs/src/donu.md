@@ -845,7 +845,7 @@ Example:
 
 **Response**
 
-The `result` field contains a list of variable-to-variable mappings, with keys being variables in the source model and values being variables in the target model.
+The `result` field contains a list of variable-to-variable mappings, with keys being variables in the source model and values being variables in the target model. The list is in no particular order.
 
 Example:
 ```json
