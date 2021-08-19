@@ -646,15 +646,20 @@ modelMetadata model = case model of
   Core Core.Model{..}  -> withName modelName Map.empty
   Deq _                -> Map.empty
   RNet _               -> Map.empty
-  GrometPrt Gromet{..} -> withName grometName grometMeta 
+  GrometPrt Gromet{..} -> withName grometName grometMeta
   GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
-  GrometFnet m                  -> Map.empty
+  GrometFnet m                  -> fnetMetadata m
   where
     recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
     withName n meta = Map.insertWith (++) "name" [n] meta
-  
-  
-
+    fnetMetadata m = either (const Map.empty) fnetInfoToMetaMap $ FNet.fnetInfo m
+    fnetInfoToMetaMap info =
+      case FNet.fiModelLevelMeta info of
+        Just meta -> Map.fromList [ ("name", [FNet.fmlmName meta])
+                                  , ("description", [FNet.fmlmDescription meta])
+                                  ]
+        Nothing   -> Map.empty
+          
 --------------------------------------------------------------------------------
 
 describeModelInterface :: Model -> ModelInterface
