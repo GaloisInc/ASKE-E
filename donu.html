@@ -802,6 +802,51 @@ as a hint to group related parameters.</p>
   }
 }
 </code></pre>
+<h2 id="compare-models"><a class="header" href="#compare-models">Compare models</a></h2>
+<p>Compare two models, if possible.</p>
+<p>(At the moment, &quot;if possible&quot; means that we've already performed a comparison of these two models and stored the result - live comparison isn't currently supported.)</p>
+<p><strong>Request</strong></p>
+<table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td>command</td><td>string</td><td>Command - for this operation it will be the string <code>&quot;compare-models&quot;</code></td></tr>
+<tr><td>source</td><td>model-def</td><td>Source of the model acting as the comparison &quot;source&quot;</td></tr>
+<tr><td>target</td><td>model-def</td><td>Source of the model acting as the comparison &quot;target&quot;</td></tr>
+</tbody></table>
+<p>Example:</p>
+<pre><code class="language-json">{
+    &quot;command&quot;: &quot;compare-models&quot;,
+    &quot;source&quot;: {
+        &quot;type&quot;: &quot;gromet-pnc&quot;,
+        &quot;source&quot;: {&quot;model&quot;: &quot;SimpleSIR_metadata_gromet_PetriNetClassic.json&quot;}
+    },
+    &quot;target&quot;: {
+        &quot;type&quot;: &quot;gromet-pnc&quot;,
+        &quot;source&quot;: {&quot;model&quot;: &quot;chime+.json&quot;}
+    }
+}
+</code></pre>
+<p><strong>Response</strong></p>
+<p>The <code>result</code> field contains a list of variable-to-variable mappings, with keys being variables in the source model and values being variables in the target model. The list is in no particular order.</p>
+<p>Example:</p>
+<pre><code class="language-json">{
+    &quot;status&quot;: &quot;success&quot;,
+    &quot;result&quot;: [
+        {
+            &quot;J:I&quot;: &quot;J:I_U&quot;,
+            &quot;J:S&quot;: &quot;J:S&quot;,
+            &quot;J:R&quot;: &quot;J:R&quot;,
+            &quot;J:gamma&quot;: &quot;J:rec_u&quot;,
+            &quot;J:beta&quot;: &quot;J:inf_uu&quot;
+        },
+        {
+            &quot;J:I&quot;: &quot;J:I_V&quot;,
+            &quot;J:S&quot;: &quot;J:V&quot;,
+            &quot;J:R&quot;: &quot;J:R&quot;,
+            &quot;J:gamma&quot;: &quot;J:rec_v&quot;,
+            &quot;J:beta&quot;: &quot;J:inf_vv&quot;
+        }
+    ]
+}
+</code></pre>
 
                     </main>
 
