@@ -12,8 +12,21 @@ import qualified Language.ASKEE.Model.Basics as MB
 
 type FunctionNetwork = JSON.Value
 
-fnetInterface :: JSON.Value -> Either Text MI.ModelInterface
-fnetInterface root =
+data FNetModelLevelMeta = FNetModelLevelMeta
+  { fmlmName :: Text
+  , fmlmDescription :: Text
+  }
+
+data FNetInfo = FNetInfo
+  { fiInterface :: MI.ModelInterface
+  , fiModelLevelMeta :: Maybe FNetModelLevelMeta
+  }
+
+fnetInterface:: JSON.Value -> Either Text MI.ModelInterface
+fnetInterface v = fiInterface <$> fnetInfo v
+
+fnetInfo :: JSON.Value -> Either Text FNetInfo
+fnetInfo root =
   do  metas <- objLookup root "metadata" >>= arr
       let mbInterface = listToMaybe  [m | m <- metas
                                         , Just "ModelInterface" == try (objLookup m "metadata_type" >>= text)
@@ -42,11 +55,29 @@ fnetInterface root =
       paramPorts <- varToPort variableInfo `traverse` params
       statePorts <- varToPort variableInfo `traverse` vars
 
+      let descMlm = getDesc metas
       pure
-        MI.ModelInterface { MI.modelInputs = paramPorts
-                          , MI.modelOutputs = statePorts
-                          }
+        FNetInfo
+          { fiInterface =
+             MI.ModelInterface { MI.modelInputs = paramPorts
+                               , MI.modelOutputs = statePorts
+                               }
+          , fiModelLevelMeta = descMlm
+          }
   where
+    getDesc metas = try (find nameDesc metas)
+
+    nameDesc :: JSON.Value -> Either Text FNetModelLevelMeta
+    nameDesc md =
+      do  mdTy <- objLookup md "metadata_type"
+          if mdTy == "ModelDescription"
+            then Right ()
+            else Left ("Not a description metadata" :: Text)
+          name <- objLookup md "name" >>= text
+          desc <- objLookup md "description" >>= text
+          pure $ FNetModelLevelMeta name desc
+
+
     varToPort vars uid =
       do  var <- findUid vars uid
           tyValue <- objLookup var "type" >>= text
@@ -81,7 +112,7 @@ fnetInterface root =
 
     find f as  =
       case as of
-        [] -> Left "could not find required value"
+        [] -> Left ("could not find required value" :: Text)
         a:as' ->
           case try (f a) of
             Nothing -> find f as'
