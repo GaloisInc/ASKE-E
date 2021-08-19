@@ -95,6 +95,7 @@ import qualified Data.Text.Encoding         as Text
 import qualified Language.ASKEE.ESL                    as ESL
 import           Language.ASKEE.CPP.Pretty             ( Doc )
 import qualified Language.ASKEE.Core                   as Core
+import qualified Language.ASKEE.Core.Syntax            as Core
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
                                                        , gnuPlotScript
@@ -103,7 +104,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic)
+import           Language.ASKEE.Gromet                 ( Gromet(..), PetriNetClassic(..))
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -606,6 +607,7 @@ queryModels query = do
       let mInterface = describeModelInterface model
           match_result = match_source (metaValue metaAnnModel) ||
                          match_metadata_values (map snd toplevelMetaData) ||
+                         match_metadata_values (modelMetaDataValues $ modelMetadata model) ||
                          match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
                          match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
       return match_result
@@ -621,6 +623,7 @@ queryModels query = do
       model <- loadModel modelDefType modelDefSource
       return (metaData metaAnnModel, model)
     portMetaDataValues ports = concat $ concatMap (Map.elems . portMeta) ports
+    modelMetaDataValues meta = concat $ Map.elems meta
     match_wildcard pat s
       | Text.null pat        = Text.null s
       | Text.head pat == '*' = handleStar
@@ -636,6 +639,21 @@ queryModels query = do
           not (Text.null s) &&
           Char.toLower (Text.head s) == Char.toLower (Text.head pat) &&
           match_wildcard (Text.tail pat) (Text.tail s)
+          
+modelMetadata :: Model -> Map Text [Text]
+modelMetadata model = case model of
+  Easel ESL.Model{..}  -> withName modelName $ recastListOfPairs modelMeta
+  Core Core.Model{..}  -> withName modelName Map.empty
+  Deq _                -> Map.empty
+  RNet _               -> Map.empty
+  GrometPrt Gromet{..} -> withName grometName grometMeta 
+  GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
+  GrometFnet m                  -> Map.empty
+  where
+    recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
+    withName n meta = Map.insertWith (++) "name" [n] meta
+  
+  
 
 --------------------------------------------------------------------------------
 

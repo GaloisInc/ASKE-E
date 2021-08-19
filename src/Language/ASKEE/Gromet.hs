@@ -1,7 +1,7 @@
 module Language.ASKEE.Gromet 
   ( module G
   , grometText
-  , PetriNetClassic
+  , PetriNetClassic(..)
   ) where
 
 import Language.ASKEE.Gromet.Syntax as G
