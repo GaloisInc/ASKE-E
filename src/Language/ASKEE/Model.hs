@@ -217,9 +217,9 @@ printModel m =
 modelUID :: Model -> Either String Text
 modelUID m =
   case m of
-    Easel esl -> Right $ ESL.modelName esl
+    Easel _ -> Left "easel models have no UID"
     Deq _ -> Left "differential equations have no UID"
-    Core core -> Right $ Core.modelName core
+    Core _ -> Left "core models have no UID"
     RNet _ -> Left "reaction networks have no UID"
     GrometPrt _ -> Left "don't know how to find PRT gromet UID" -- TODO
     GrometPnc gromet -> Right $ GPNC.pncUID gromet
