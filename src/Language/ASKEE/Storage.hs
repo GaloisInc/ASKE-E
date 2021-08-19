@@ -9,6 +9,10 @@ module Language.ASKEE.Storage
   , listDataSets
   , loadDataSet
 
+  , initComparisonStorage
+  , loadComparison
+  , listComparisons
+
   , Storage.DataSource(..)
   , Storage.ModelDef(..)
   , Storage.DataSetDescription(..)
@@ -19,6 +23,9 @@ import           Data.Text ( Text )
 import           Language.ASKEE.Model.Basics ( ModelType(..) )
 import qualified Language.ASKEE.Storage.Internal as Storage
 import qualified Language.ASKEE.DataSet as DataSet
+
+-------------------------------------------------------------------------------
+-- Models
 
 initStorage :: IO ()
 initStorage = Storage.initStorage modelBaseDirectory
@@ -38,6 +45,9 @@ listAllModels = Storage.listAllModels modelBaseDirectory
 modelBaseDirectory :: FilePath
 modelBaseDirectory = "modelRepo"
 
+-------------------------------------------------------------------------------
+-- Data
+
 listDataSets :: IO [Storage.DataSetDescription]
 listDataSets = Storage.listDataSets dataBaseDirectory
 
@@ -52,3 +62,18 @@ loadDataSet = Storage.loadDataSet dataBaseDirectory
 dataBaseDirectory :: FilePath
 dataBaseDirectory = "dataRepo"
 
+
+------------------------------------------------------------------------------
+-- Comparisons
+
+initComparisonStorage :: IO ()
+initComparisonStorage = Storage.initComparisonStorage comparisonBaseDirectory
+
+loadComparison :: Storage.DataSource -> IO Text
+loadComparison = Storage.loadComparison comparisonBaseDirectory
+
+listComparisons :: IO [Text]
+listComparisons = Storage.listComparisons comparisonBaseDirectory
+
+comparisonBaseDirectory :: FilePath
+comparisonBaseDirectory = "comparisonRepo"

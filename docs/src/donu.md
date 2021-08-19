@@ -813,3 +813,59 @@ Example:
   }
 }
 ```
+
+## Compare models
+
+Compare two models, if possible.
+
+(At the moment, "if possible" means that we've already performed a comparison of these two models and stored the result - live comparison isn't currently supported.)
+
+**Request**
+
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"compare-models"` |
+| source           | model-def                | Source of the model acting as the comparison "source"                 |
+| target           | model-def                | Source of the model acting as the comparison "target"                 |
+
+Example:
+```json
+{
+    "command": "compare-models",
+    "source": {
+        "type": "gromet-pnc",
+        "source": {"model": "SimpleSIR_metadata_gromet_PetriNetClassic.json"}
+    },
+    "target": {
+        "type": "gromet-pnc",
+        "source": {"model": "chime+.json"}
+    }
+}
+```
+
+**Response**
+
+The `result` field contains a list of variable-to-variable mappings, with keys being variables in the source model and values being variables in the target model. The list is in no particular order.
+
+Example:
+```json
+{
+    "status": "success",
+    "result": [
+        {
+            "J:I": "J:I_U",
+            "J:S": "J:S",
+            "J:R": "J:R",
+            "J:gamma": "J:rec_u",
+            "J:beta": "J:inf_uu"
+        },
+        {
+            "J:I": "J:I_V",
+            "J:S": "J:V",
+            "J:R": "J:R",
+            "J:gamma": "J:rec_v",
+            "J:beta": "J:inf_vv"
+        }
+    ]
+}
+```

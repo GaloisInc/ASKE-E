@@ -52,8 +52,11 @@ module Language.ASKEE
   , Storage.listDataSets
   , Storage.loadDataSet
   , Storage.initDataStorage
+  , Storage.initComparisonStorage
   , Storage.DataSetDescription(..)
   , queryModels
+
+  , compareModels
 
   , describeModelType
 
@@ -93,9 +96,10 @@ import qualified Data.Text.IO               as Text
 import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.CPP.Pretty             ( Doc )
+import qualified Language.ASKEE.Compare                as Compare
 import qualified Language.ASKEE.Core                   as Core
 import qualified Language.ASKEE.Core.Syntax            as Core
+import           Language.ASKEE.CPP.Pretty             ( Doc )
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
                                                        , gnuPlotScript
@@ -117,6 +121,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
+                                                       , modelUID
                                                        , Model (..) )
 import           Language.ASKEE.Model.Basics           ( ModelType(..)
                                                        , describeModelType )
@@ -591,8 +596,8 @@ listAllModelsWithMetadata =
       forM models \m@ModelDef{..} ->
         case modelDefType of
           EaselType -> 
-            do  ESL.Model{..} <- loadESL modelDefSource
-                pure $ MetaAnn { metaData = meta modelName, metaValue = m }
+            do  esl <- loadESL modelDefSource
+                pure $ MetaAnn { metaData = meta (ESL.modelName esl), metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
 
 queryModels :: Text -> IO [MetaAnn ModelDef]
@@ -676,3 +681,13 @@ describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterf
       case model of
         GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
         _ -> Nothing
+
+--------------------------------------------------------------------------------
+
+compareModels :: ModelType -> DataSource -> ModelType -> DataSource -> IO [Map Text Text]
+compareModels sourceSource sourceFormat targetSource targetFormat =
+  do  ms <- loadModel sourceSource sourceFormat
+      mt <- loadModel targetSource targetFormat
+      suid <- either (die . ValidationError . ("error determining UID of source: "<>)) pure (modelUID ms)
+      tuid <- either (die . ValidationError . ("error determining UID of target: "<>)) pure (modelUID mt)
+      Compare.compareModels suid tuid

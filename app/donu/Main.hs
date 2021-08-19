@@ -66,6 +66,7 @@ main :: IO ()
 main =
   do initStorage
      initDataStorage
+     initComparisonStorage
      runDonu
 
 showHelp :: Snap.Snap ()
@@ -178,6 +179,13 @@ handleRequest r =
                                                 (modelDefSource fitMeasureModel)
                                                 fitMeasureParams
                                                 fitMeasureData)
+    
+    CompareModels ServeComparisonCommand { .. } ->
+      succeed <$> liftIO (compareModels (modelDefType compModelSource) 
+                                        (modelDefSource compModelSource)
+                                        (modelDefType compModelTarget) 
+                                        (modelDefSource compModelTarget))
+                                        
 
 
   where

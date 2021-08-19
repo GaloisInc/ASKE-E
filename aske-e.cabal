@@ -110,6 +110,7 @@ library
 
 
                         -- General
+                        Language.ASKEE.Compare
                         Language.ASKEE.Convert
                         Language.ASKEE.DataSeries
                         Language.ASKEE.Error
