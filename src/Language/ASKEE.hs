@@ -75,6 +75,15 @@ module Language.ASKEE
   , ModelInterface(..)
   , Port(..)
   , describeModelInterface
+
+    -- * Error measurement
+  , DataError.DataErrorSummary(..)
+  , DataError.MeasureErrorSummary(..)
+  , DataError.MeasureErrorRequest(..)
+  , DataError.MeasureErrorData(..)
+  , DataError.Interpolation(..)
+  , DataError.ErrorMeasurement(..)
+  , DataError.computeError
   ) where
 
 import Control.Exception ( try, SomeException(..) )
@@ -144,6 +153,7 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        )
 import qualified Language.ASKEE.Storage                as Storage
 import qualified Language.ASKEE.Automates.Client       as Automates
+import qualified Language.ASKEE.DataError              as DataError
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =

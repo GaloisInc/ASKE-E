@@ -31,6 +31,7 @@ import           Language.ASKEE.Exposure.Syntax
 import           Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import           Language.ASKEE.Latex.Print (printLatex)
+import qualified Language.ASKEE.DataError as DE
 
 -------------------------------------------------------------------------------
 -- Input
@@ -52,6 +53,7 @@ data Input =
   | GetDataSet GetDataSetCommand
   | FitMeasures FitMeasuresCommand
   | CompareModels ServeComparisonCommand
+  | MeasureError MeasureErrorCommand
     deriving Show
 
 instance HasSpec Input where
@@ -71,6 +73,7 @@ instance HasSpec Input where
          <!> (GetDataSet <$> anySpec)
          <!> (FitMeasures <$> anySpec)
          <!> (CompareModels <$> anySpec)
+         <!> (MeasureError <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -646,3 +649,47 @@ instance HasSpec ServeComparisonCommand where
         compModelTarget <- reqSection' "target" modelDef "Target of comparison"
         
         pure $ ServeComparisonCommand { .. }
+
+-------------------------------------------------------------------------------
+-- Measure error
+
+newtype MeasureErrorCommand = MeasureErrorCommand { mecUnwrap :: DE.MeasureErrorRequest }
+  deriving Show
+
+medDataPair :: ValueSpec ([Double], [Double])
+medDataPair =
+  sectionsSpec "med-data-pair"
+  do  values <- reqSection "values" "Variable values"
+      times <- reqSection "times" "Associated times"
+      pure (values, times)
+
+measureErrorDataSpec :: ValueSpec DE.MeasureErrorData
+measureErrorDataSpec =
+  sectionsSpec "measure-error-data"
+  do  observed <- reqSection' "observed" medDataPair "Observed data"
+      predicted <- reqSection' "predicted" medDataPair "Predicted data"
+      medName <- reqSection "uid" "Name of measure"
+      pure DE.MeasureErrorData  { medName = medName
+                                , medObserved = fst observed
+                                , medObservedTimes = snd observed
+                                , medPredicted = fst predicted
+                                , medPredictedTimes = snd predicted
+                                }
+
+instance HasSpec MeasureErrorCommand where
+  anySpec =
+    sectionsSpec "measure-error"
+    do  reqSection' "command" (jsAtom "measure-error") "Compute and summarize error"
+        mbInterp <- optSection "interp-model" "Interpolation model (defaults to 'linear')"
+        mbErrorMeas <- optSection "error-model" "Error summary method (defaults to 'L2')"
+        merMeasures <- reqSection' "measures" (listSpec measureErrorDataSpec) "Measure data"
+
+        pure $
+          MeasureErrorCommand
+          DE.MeasureErrorRequest
+          {  merErrorMeasurement =  fromMaybe DE.L2Norm (mbErrorMeas >>= DE.parseErrorMeasurement)
+          ,  merInterpolation = fromMaybe DE.Linear (mbInterp >>= DE.parseInterpolationMethod)
+          ,  merMeasures = merMeasures
+          }
+
+

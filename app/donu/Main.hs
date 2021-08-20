@@ -186,7 +186,8 @@ handleRequest r =
                                         (modelDefType compModelTarget) 
                                         (modelDefSource compModelTarget))
                                         
-
+    MeasureError (MeasureErrorCommand req) ->
+      succeed' (computeError req)
 
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result

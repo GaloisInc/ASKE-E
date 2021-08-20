@@ -127,6 +127,7 @@ library
                         Language.ASKEE.HTTPClient
                         Language.ASKEE.Automates.Client
                         Language.ASKEE.DataSet
+                        Language.ASKEE.DataError
 
                         Language.ASKEE.Utils
 
