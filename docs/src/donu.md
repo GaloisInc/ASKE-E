@@ -872,8 +872,52 @@ Example:
 
 ## `compute-error` Error Measurement
 
-
 **Request:**
+
+```json
+{
+  "command": "compute-error",
+  "interp-model": "linear",
+  "error-model": "L2",
+  "measures": [
+    {
+      "uid": "J:I",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,1,2,2,3,3]
+      }
+    },
+    {
+      "uid": "J:J",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1,3,5],
+        "values": [1,2,3]
+      }
+    },
+    {
+      "uid": "J:K",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1.5,3.5,5.5],
+        "values": [1,2,3]
+      }
+    }
+  ]
+}
+```
+
+**Response:**
 
 ```json
 {
@@ -900,34 +944,3 @@ Example:
   }
 }
 ```
-
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "result": {
-    "measures": [
-      {
-        "error_ind": [ 0, 1, 1, 2, 2, 3 ],
-        "uid": "J:I",
-        "error_total": 19
-      },
-      {
-        "error_ind": [ 0, 1, 2 ],
-        "uid": "J:J",
-        "error_total": 5
-      },
-      {
-        "error_ind": [ 0.5, 1.5, 2.5 ],
-        "uid": "J:J",
-        "error_total": 8.75
-      }
-    ],
-    "error_total": 32.75
-  }
-}
-```
-
-
