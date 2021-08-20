@@ -186,7 +186,7 @@ handleRequest r =
                                         (modelDefType compModelTarget) 
                                         (modelDefSource compModelTarget))
                                         
-    MeasureError (MeasureErrorCommand req) ->
+    MeasureError (ComputeErrorCommand req) ->
       succeed' (computeError req)
 
   where

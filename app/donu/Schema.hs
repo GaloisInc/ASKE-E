@@ -53,7 +53,7 @@ data Input =
   | GetDataSet GetDataSetCommand
   | FitMeasures FitMeasuresCommand
   | CompareModels ServeComparisonCommand
-  | MeasureError MeasureErrorCommand
+  | MeasureError ComputeErrorCommand
     deriving Show
 
 instance HasSpec Input where
@@ -653,19 +653,19 @@ instance HasSpec ServeComparisonCommand where
 -------------------------------------------------------------------------------
 -- Measure error
 
-newtype MeasureErrorCommand = MeasureErrorCommand { mecUnwrap :: DE.MeasureErrorRequest }
+newtype ComputeErrorCommand = ComputeErrorCommand { mecUnwrap :: DE.MeasureErrorRequest }
   deriving Show
 
 medDataPair :: ValueSpec ([Double], [Double])
 medDataPair =
-  sectionsSpec "med-data-pair"
+  sectionsSpec "compute-error-data-pair"
   do  values <- reqSection "values" "Variable values"
       times <- reqSection "times" "Associated times"
       pure (values, times)
 
 measureErrorDataSpec :: ValueSpec DE.MeasureErrorData
 measureErrorDataSpec =
-  sectionsSpec "measure-error-data"
+  sectionsSpec "compute-error-data"
   do  observed <- reqSection' "observed" medDataPair "Observed data"
       predicted <- reqSection' "predicted" medDataPair "Predicted data"
       medName <- reqSection "uid" "Name of measure"
@@ -676,16 +676,16 @@ measureErrorDataSpec =
                                 , medPredictedTimes = snd predicted
                                 }
 
-instance HasSpec MeasureErrorCommand where
+instance HasSpec ComputeErrorCommand where
   anySpec =
-    sectionsSpec "measure-error"
-    do  reqSection' "command" (jsAtom "measure-error") "Compute and summarize error"
+    sectionsSpec "compute-error"
+    do  reqSection' "command" (jsAtom "compute-error") "Compute and summarize error"
         mbInterp <- optSection "interp-model" "Interpolation model (defaults to 'linear')"
         mbErrorMeas <- optSection "error-model" "Error summary method (defaults to 'L2')"
         merMeasures <- reqSection' "measures" (listSpec measureErrorDataSpec) "Measure data"
 
         pure $
-          MeasureErrorCommand
+          ComputeErrorCommand
           DE.MeasureErrorRequest
           {  merErrorMeasurement =  fromMaybe DE.L2Norm (mbErrorMeas >>= DE.parseErrorMeasurement)
           ,  merInterpolation = fromMaybe DE.Linear (mbInterp >>= DE.parseInterpolationMethod)

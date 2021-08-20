@@ -8,6 +8,8 @@ import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.Model.Interface as MI
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
+import qualified Data.Maybe as Maybe
+
 import qualified Language.ASKEE.Model.Basics as MB
 
 type FunctionNetwork = JSON.Value
@@ -16,11 +18,13 @@ data FNetModelLevelMeta = FNetModelLevelMeta
   { fmlmName :: Text
   , fmlmDescription :: Text
   }
+  deriving Show
 
 data FNetInfo = FNetInfo
   { fiInterface :: MI.ModelInterface
   , fiModelLevelMeta :: Maybe FNetModelLevelMeta
   }
+  deriving Show
 
 fnetInterface:: JSON.Value -> Either Text MI.ModelInterface
 fnetInterface v = fiInterface <$> fnetInfo v
@@ -53,7 +57,7 @@ fnetInfo root =
       let params = ics ++ states
 
       paramPorts <- varToPort variableInfo `traverse` params
-      statePorts <- varToPort variableInfo `traverse` vars
+      let statePorts = Maybe.catMaybes (try . varToPort variableInfo <$> vars)
 
       let descMlm = getDesc metas
       pure

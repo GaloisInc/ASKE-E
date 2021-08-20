@@ -16,7 +16,7 @@ ssh $USRHST -t "sudo systemctl stop donu.service"
 DONU=`cabal exec -- which donu`
 echo "Deploying $VERSION..."
 scp "$DONU" $USRHST:$DIR/donu
-scp -r "modelRepo" $USRHST:$DIR
+#scp -r "modelRepo" $USRHST:$DIR
 ssh $USRHST "echo $VERSION > $DIR/VERSION"
 
 echo "Starting Donu..."
