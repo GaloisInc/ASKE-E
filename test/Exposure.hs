@@ -332,6 +332,27 @@ makeTests =
             case v of
               VArray vs -> traverse_ assertDouble vs
               _         -> failure
+      , testCase "Expression indexing" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+
+          exprAssertion "[0.0, 1.0][1]" $ \v ->
+            v @?= VDouble 1.0
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir[\"I\"] at 1.0)" $ \v ->
+            case v of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Simulate of indexed expr returned wrong type"
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "r = simulate(sir at 1.0)"
+            ] "r[\"I\"]" $ \v ->
+            case v of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Index of simulate returned wrong type"
+
 
       , testCase "Load missing files" $ do
           void $ assertStmtsFail ["loadCSV(\"path/to/nothing.csv\")"]

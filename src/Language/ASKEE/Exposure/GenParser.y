@@ -107,6 +107,7 @@ expr : IDENT                            { EVar $1 }
                                               ; pure (ECallWithLambda funName $3 $6 $8) }}
      | infixExpr                        { $1 }
      | expr '.' IDENT                   { EMember $1 $3 }
+     | expr '[' expr ']'                { EIndex $1 $3 }
      | '[' commaSepExprs0 ']'           { EList $2 }
      | '[' expr '..' expr 'by' expr ']' { EListRange $2 $4 $6 }
      | '{{' pointBinds0 '}}'            { EPoint $2 }

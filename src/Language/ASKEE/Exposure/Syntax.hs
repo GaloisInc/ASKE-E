@@ -35,6 +35,7 @@ data Expr
   | ECall FunctionName [Expr]
   | ECallWithLambda FunctionWithLambdaName [Expr] Ident Expr
   | EMember Expr Ident
+  | EIndex Expr Expr
   | EList [Expr]
   | EListRange Expr Expr Expr
   | EPoint [(Ident, Expr)]

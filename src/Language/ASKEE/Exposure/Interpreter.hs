@@ -256,6 +256,11 @@ interpretExpr e0 =
       do  v <- interpretExpr e
           fmap VModelExpr (EMember . EVal . VModel <$> model v <*> pure lab) <|> mem v lab
 
+    EIndex e idx ->
+      do v <- interpretExpr e
+         idx' <- interpretExpr idx
+         fmap VModelExpr (EMember . EVal . VModel <$> model v <*> str idx') <|> index v idx'
+
     EList es ->
       do  vs <- interpretExpr `traverse` es
           pure $ VArray vs
@@ -903,6 +908,7 @@ runSimExpr how t e0 =
       ECallWithLambda fname <$> (runSimExpr how t `traverse` args)
                             <*> pure lambdaVar
                             <*> (runSimExpr how t lambdaExpr)
+    EIndex e idx  -> EIndex <$> runSimExpr how t e <*> pure idx
     EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
     EList es -> EList <$> runSimExpr how t `traverse` es
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
@@ -1161,6 +1167,21 @@ atPoint vs t =
              if t' > t
                then pure v
                else go r val
+
+index :: Value -> Value -> Eval Value
+index v i =
+  identIdx <|> intIdx
+  where
+    identIdx = mem v =<< str i
+    intIdx   =
+      do v' <- array value v
+         i' <- asInt i
+         when (length v' <= i') $
+           throw "Index out of bounds"
+         pure (v' !! i')
+    asInt (VInt iv) = pure iv
+    asInt (VDouble d) = pure (floor d)
+    asInt _ = throw "Array index must be numeric"
 
 mem :: Value -> Ident -> Eval Value
 mem v0 l = chooseLift getMem nope v0
