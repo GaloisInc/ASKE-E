@@ -1,10 +1,12 @@
 {-# LANGUAGE BlockArguments #-}
-module Language.ASKEE.AlgebraicJulia.Interact where
+module Language.ASKEE.AlgebraicJulia.Interact ( queryServer ) where
 
-import Data.Aeson                 ( encode, Value, FromJSON, decode )
-import Data.ByteString.Lazy.Char8 ( unpack, pack )
+import Data.Aeson                 ( encode, Value )
+import Data.ByteString.Lazy.Char8 ( unpack )
+import qualified Data.Map as Map
 
 import Language.ASKEE.Error ( die, ASKEEError(..) )
+import Language.ASKEE.HTTPClient
 
 import System.Exit        ( ExitCode(..) )
 import System.FilePath    ( (</>) )
@@ -14,7 +16,16 @@ import System.Process     ( readProcessWithExitCode )
 -- | Send the provided Aeson `Value` to a local instance of
 -- AlgebraicJulia running as a webservice on 8001
 queryServer :: Value -> IO String
-queryServer = queryServer' . unpack . encode
+queryServer val = 
+  do  res <- postJSON' headers url val
+      pure (unpack (encode (res :: Value)))
+  where
+    headers = Map.fromList
+      [ ("Content-Type", "application/json")
+      , ("Connection", "Keep-Alive")
+      , ("Keep-Alive", "timeout=120")
+      ]
+    url = "http://localhost:8001"
 
 -- | Send the provided string-encoded JSON value to a local instance
 -- of AlgebraicJulia running as a webservice on 8001
@@ -38,9 +49,3 @@ queryServer' payload =
 
   where
     hostname = "localhost"
-
-queryServerForValue :: FromJSON a => Value -> IO (Maybe a)
-queryServerForValue = fmap (decode . pack) . queryServer
-
-queryServerForValue' :: FromJSON a => String -> IO (Maybe a)
-queryServerForValue' = fmap (decode . pack) . queryServer'
