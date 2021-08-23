@@ -6,6 +6,7 @@ module ExposureSession ( exposureServer ) where
 
 import           Control.Monad.State
 import           Control.DeepSeq
+import           System.Clock
 
 import           Snap (MonadSnap)
 
@@ -32,7 +33,7 @@ import Language.ASKEE.Exposure.Python (withPythonHandle, PythonHandle)
 data ExposureServerMessage =
     ReadFile FilePath -- ^ Instruct the client to retrieve a file's contents
   | WriteFile FilePath LBS.ByteString -- ^ Ask the client to write to a file
-  | Success [DonuValue] -- ^ Successfully evaluated program
+  | Success [DonuValue] Integer -- ^ Successfully evaluated program + process cpu time (ns)
   | Failure Text.Text -- ^ Some error occurred
 
 -- | Messages sent by client
@@ -74,7 +75,11 @@ exposureServerLoop c pyh = go Exposure.initialEnv
     onReceive msg env =
       case msg of
         RunProgram prog ->
-          do (res, env') <- X.evaluate . force =<< eval env prog
+          do start       <- getTime ProcessCPUTime
+             (res, env') <- X.evaluate . force =<< eval env prog
+             stop        <- getTime ProcessCPUTime
+             resolution  <- getRes ProcessCPUTime
+             let deltaNS    = toNanoSecs (diffTimeSpec start stop)
              -- We want to force any exceptions (such as bugs in the interpreter)
              -- before sending the response, otherwise the connection will be closed
              -- and we don't want that, now do we?
@@ -83,7 +88,7 @@ exposureServerLoop c pyh = go Exposure.initialEnv
                  sendTextData c (Failure err)
                Right (displays, _) ->
                  do let vs = DonuValue . unDisplayValue <$> displays
-                    sendTextData c (Success vs)
+                    sendTextData c (Success vs deltaNS)
              return env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
@@ -145,9 +150,10 @@ instance JS.ToJSON ExposureServerMessage where
               , "contents" .= JS.toJSON (TL.decodeUtf8 contents)
               ]
 
-  toJSON (Success displays) =
+  toJSON (Success displays time) =
     JS.object [ "type"     .= ("success" :: String)
               , "displays" .= JS.toJSON displays
+              , "time"     .= JS.toJSON time
               ]
 
   toJSON (Failure err) =
