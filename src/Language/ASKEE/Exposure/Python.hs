@@ -12,6 +12,7 @@ module Language.ASKEE.Exposure.Python (
   , PythonValue(..)
   ) where
 
+import           Control.Monad.Catch
 import           Control.Monad.IO.Class
 import qualified Data.Aeson as JS
 import           Data.ByteString.Lazy (hPutStr)
@@ -26,8 +27,6 @@ import           System.FilePath ((</>))
 
 import           Language.ASKEE.Exposure.Syntax
 import           Paths_aske_e
-import qualified Control.Exception as X
-import Control.Monad.Catch
 
 -- | The result of evaluating an external function call
 data PythonResult
