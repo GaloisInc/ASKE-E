@@ -13,7 +13,7 @@ import qualified Data.CaseInsensitive as CI
 
 requestJSONBody :: (JSON.ToJSON from, JSON.FromJSON to) => String -> Map String String -> String -> from -> IO to
 requestJSONBody method headers url val =
-  do  manager <- HTTP.newManager TLS.tlsManagerSettings
+  do  manager <- HTTP.newManager TLS.tlsManagerSettings { HTTP.managerResponseTimeout = HTTP.responseTimeoutNone }
       reqBase <- HTTP.parseUrlThrow url
       let req = reqBase { HTTP.method = UTF8.fromString method
                         , HTTP.requestBody = HTTP.RequestBodyLBS $ JSON.encode val
