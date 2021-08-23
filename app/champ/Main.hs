@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections #-}
 module Main (main) where
 
+import qualified Control.Exception as X
 import Control.Applicative ((<**>))
 import Control.Monad (replicateM_, when)
 import Control.Monad.Catch
@@ -24,13 +25,14 @@ import System.Directory
 import System.FilePath
 
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
-import Language.ASKEE.Exposure.GenParser (parseExposureStmt)
+import Language.ASKEE.Exposure.GenParser (parseExposureStmt, parseExposureStmts)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
 import qualified Language.ASKEE.Exposure.Print as Exposure
 import qualified Language.ASKEE.Exposure.Syntax as Exposure
 
 import Logo (displayLogo)
 import Data.String (fromString)
+import System.Directory.Internal.Prelude (isDoesNotExistError)
 
 main :: IO ()
 main = do
@@ -47,16 +49,30 @@ main = do
 
 champ :: Options -> IO ()
 champ opts = do
-  displayLogo (optColor opts) (optUnicode opts)
   champConfigDir <- getXdgDirectory XdgConfig "champ"
   createDirectoryIfMissing True champConfigDir
-  evalChampT initialState
-    $ runInputT defaultSettings{historyFile = Just $ champConfigDir </> "history" }
-    $ withInterrupt loop
+
+  let launchREPL =
+        runInputT defaultSettings
+                    {historyFile = Just $ champConfigDir </> "history" }
+        $ withInterrupt loop
+
+  case optBatchFile opts of
+    Just batchFile ->
+      evalChampT initialState $ do
+        loadAndBatchProgramCmd batchFile
+        executeBatchedStmts
+        when (optInteractive opts) launchREPL
+
+    Nothing -> do
+      displayLogo (optColor opts) (optUnicode opts)
+      evalChampT initialState launchREPL
 
 data Options = Options
   { optColor   :: Bool
   , optUnicode :: Bool
+  , optInteractive :: Bool
+  , optBatchFile :: Maybe FilePath
   } deriving Show
 
 optionsParser :: Opt.Parser Options
@@ -67,6 +83,13 @@ optionsParser = Options
   <*> (fmap not . Opt.switch)
       (  Opt.long "no-unicode"
       <> Opt.help "Print the champ logo without Unicode" )
+  <*> Opt.switch
+      (  Opt.long "interactive"
+      <> Opt.short 'i'
+      <> Opt.help "Run an interactive session after running an exposure file" )
+  <*> (Opt.optional . Opt.strArgument)
+        (  Opt.metavar "FILE"
+        <> Opt.help "Run the exposure program provided and exit" )
 
 data Input
   = FailedInput
@@ -160,17 +183,17 @@ loop = do
 
 runCommand :: String -> ChampM Bool
 runCommand command =
-  case command of
-    ""  -> pure True
-    ":" -> pure True
-    builtinCmd@(':':builtinCmdName) -> do
+  case words command of
+    [""]  -> pure True
+    [":"] -> pure True
+    builtinCmd@(':':builtinCmdName) : rest -> do
       let possibleBuiltins = filter (\c -> any (builtinCmdName `L.isPrefixOf`)
                                                (commandNames c))
                                     builtins
       case possibleBuiltins of
         []        -> do liftIO $ putStrLn $ "Unknown command: " ++ builtinCmd
                         pure True
-        [builtin] -> commandAction builtin
+        [builtin] -> execCommand builtin rest
         (_:_)     -> do liftIO $ putStrLn $ unlines
                           [ builtinCmd ++ " is ambiguous, it could mean one of:"
                           , "\t" ++ L.intercalate ", "
@@ -184,26 +207,46 @@ runCommand command =
 data Command = Command
   { commandNames  :: [String]
   , commandHelp   :: String
-  , commandAction :: ChampM Bool
+  , commandAction :: CommandAction
   }
+
+data CommandAction =
+    NoArg (ChampM Bool)
+  | StringArg (String -> ChampM Bool)
+
+execCommand :: Command -> [String] -> ChampM Bool
+execCommand cmd args =
+  case (commandAction cmd, args) of
+    (NoArg act, [])  -> act
+    (StringArg act, [s]) -> act s
+    _ -> do liftIO $ putStrLn cmdErr
+            return True
+  where
+    cmdErr | NoArg _ <- commandAction cmd
+           = "Command does not take any arguments"
+           | otherwise
+           = "Command takes exactly one argument"
 
 builtins :: [Command]
 builtins =
   [ Command ["?", "help"]
             "Display brief descriptions of each command."
-            (keepGoing helpCmd)
+            (NoArg $ keepGoing helpCmd)
   , Command ["q", "quit"]
             "Exit the REPL."
-            (stop quitCmd)
+            (NoArg $ stop quitCmd)
+  , Command ["l", "load"]
+            "Load and batch a file."
+            (StringArg (keepGoing . loadAndBatchProgramCmd))
   , Command ["e", "exec"]
             "Execute the batched statements."
-            (keepGoing executeBatchedStmts)
+            (NoArg $ keepGoing executeBatchedStmts)
   , Command ["{", "startmulti"]
             "Start multiline mode."
-            (keepGoing startMultiline)
+            (NoArg $ keepGoing startMultiline)
   , Command ["}", "stopmulti"]
             "Stop multiline mode."
-            (keepGoing stopMultiline)
+            (NoArg $ keepGoing stopMultiline)
   ]
   where
     keepGoing :: ChampM () -> ChampM Bool
@@ -226,6 +269,24 @@ helpCmd = traverse_ (liftIO . showHelp) builtins
 
 quitCmd :: ChampM ()
 quitCmd = pure ()
+
+loadAndBatchProgramCmd :: FilePath -> ChampM ()
+loadAndBatchProgramCmd f = do
+  do mstmts <- liftIO $ X.catch (loadStatements f) handleIOExc
+     case mstmts of
+       Left err    -> liftIO $ putStrLn err
+       Right stmts -> traverse_ batchStmt stmts
+  where
+    handleIOExc ex
+      | isDoesNotExistError ex =
+        pure $ Left $ "'" ++ f ++ "' does not exist."
+      | otherwise =
+        pure $ Left $ "Error loading '" ++ f ++ "'."
+
+loadStatements :: FilePath -> IO (Either String [Exposure.Stmt])
+loadStatements f = do
+  code <- readFile f
+  pure (lexExposure code >>= parseExposureStmts)
 
 batchExposureStmt :: String -> ChampM ()
 batchExposureStmt code = do
