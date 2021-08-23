@@ -793,7 +793,6 @@ interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
      nBins <- case n of
                    VInt i    -> pure i
-                   VDouble d -> pure $ floorDoubleInt d
                    _ -> typeErrorArgs [n] "second argument of histogram must be a positive integer"
      let maxVal   = maximum ds
          minVal   = minimum ds
@@ -1208,8 +1207,7 @@ index v i =
            throw "Index out of bounds"
          pure (v' !! i')
     asInt (VInt iv) = pure iv
-    asInt (VDouble d) = pure (floor d)
-    asInt _ = throw "Array index must be numeric"
+    asInt _ = throw "Array index must be an integer"
 
 mem :: Value -> Ident -> Eval Value
 mem v0 l = chooseLift getMem nope v0
