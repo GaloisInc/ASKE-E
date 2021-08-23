@@ -11,6 +11,7 @@ extra-source-files:  README.md
                    , modelRepo/easel/sir-no-parameters.easel
                    , modelRepo/deq/sir.deq
                    , modelRepo/gromet-pnc/seir.json
+                   , exposure/**/*.py
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
@@ -78,6 +79,7 @@ library
                         Language.ASKEE.Exposure.Plot
                         Language.ASKEE.Exposure.Print
                         Language.ASKEE.Exposure.Syntax
+                        Language.ASKEE.Exposure.Python
 
                         Language.ASKEE.Gromet
                         Language.ASKEE.Gromet.FromEasel
@@ -132,6 +134,7 @@ library
                         Language.ASKEE.Utils
 
   other-modules:        Language.ASKEE.Experiments
+                        Paths_aske_e
 
   build-depends:        base >=4.13.0.0 && <5
                       , aeson
@@ -144,6 +147,7 @@ library
                       , containers
                       , deepseq
                       , directory
+                      , exceptions
                       , extra
                       , filepath
                       , hmatrix

@@ -12,6 +12,8 @@ import Control.Monad.Catch
 import Control.Monad.IO.Class (MonadIO(..))
 import Control.Monad.State.Strict (MonadState(..), StateT(..), evalStateT, gets, modify)
 import Control.Monad.Trans.Class (MonadTrans(..))
+import Control.Monad.Reader (ReaderT, runReaderT)
+import Control.Monad.Reader.Class (MonadReader, asks)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Foldable
 import qualified Data.List.Extra as L
@@ -24,6 +26,7 @@ import System.Console.Haskeline
 import System.Directory
 import System.FilePath
 
+import Language.ASKEE.Exposure.Python (withPythonHandle, PythonHandle)
 import Language.ASKEE.Exposure.GenLexer (lexExposure)
 import Language.ASKEE.Exposure.GenParser (parseExposureStmt, parseExposureStmts)
 import qualified Language.ASKEE.Exposure.Interpreter as Exposure
@@ -57,22 +60,26 @@ champ opts = do
                     {historyFile = Just $ champConfigDir </> "history" }
         $ withInterrupt loop
 
-  case optBatchFile opts of
-    Just batchFile ->
-      evalChampT initialState $ do
-        loadAndBatchProgramCmd batchFile
-        executeBatchedStmts
-        when (optInteractive opts) launchREPL
+  let extDirs = optPyExts opts
 
-    Nothing -> do
-      displayLogo (optColor opts) (optUnicode opts)
-      evalChampT initialState launchREPL
+  withPythonHandle extDirs $ \hdl ->
+    case optBatchFile opts of
+      Just batchFile ->
+        evalChampT (initialEnv hdl) initialState $ do
+          loadAndBatchProgramCmd batchFile
+          executeBatchedStmts
+          when (optInteractive opts) launchREPL
+
+      Nothing -> do
+        displayLogo (optColor opts) (optUnicode opts)
+        evalChampT (initialEnv hdl) initialState launchREPL
 
 data Options = Options
   { optColor   :: Bool
   , optUnicode :: Bool
   , optInteractive :: Bool
   , optBatchFile :: Maybe FilePath
+  , optPyExts  :: [FilePath]
   } deriving Show
 
 optionsParser :: Opt.Parser Options
@@ -90,6 +97,11 @@ optionsParser = Options
   <*> (Opt.optional . Opt.strArgument)
         (  Opt.metavar "FILE"
         <> Opt.help "Run the exposure program provided and exit" )
+  <*> Opt.many
+      ( Opt.strOption
+         (  Opt.long "py-dir"
+         <> Opt.help "Directory containing Exposure extension modules"
+         <> Opt.metavar "DIRECTORY" ))
 
 data Input
   = FailedInput
@@ -105,12 +117,17 @@ data ChampState = ChampState
     -- lines of code that have been entered thus far.
   }
 
+newtype ChampEnv = ChampEnv { champPyHandle :: PythonHandle }
+
 initialState :: ChampState
 initialState = ChampState
   { champEnv          = Exposure.initialEnv
   , champBatchedStmts = Seq.empty
   , champMultiline    = Nothing
   }
+
+initialEnv :: PythonHandle -> ChampEnv
+initialEnv py = ChampEnv { champPyHandle = py }
 
 putEnv :: Exposure.Env -> ChampM ()
 putEnv env = modify $ \s -> s{champEnv = env}
@@ -144,16 +161,17 @@ stopMultiline = do
      }
   batchExposureStmtNoMultiline linez
 
-newtype ChampM a = ChampM { unChampM :: StateT ChampState IO a }
+newtype ChampM a = ChampM { unChampM :: ReaderT ChampEnv (StateT ChampState IO) a }
   deriving newtype ( Functor, Applicative, Monad
                    , MonadIO, MonadThrow, MonadCatch, MonadMask, MonadState ChampState
+                   , MonadReader ChampEnv
 #if !(MIN_VERSION_haskeline(0,8,0))
                    , MonadException
 #endif
                    )
 
-evalChampT :: ChampState -> ChampM a -> IO a
-evalChampT st c = evalStateT (unChampM c) st
+evalChampT :: ChampEnv -> ChampState -> ChampM a -> IO a
+evalChampT env st c = evalStateT (runReaderT (unChampM c) env) st
 
 loop :: InputT ChampM ()
 loop = do
@@ -303,9 +321,10 @@ batchExposureStmtNoMultiline code =
 
 executeBatchedStmts :: ChampM ()
 executeBatchedStmts = do
-  env   <- gets champEnv
-  stmts <- gets champBatchedStmts
-  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile
+  env      <- gets champEnv
+  stmts    <- gets champBatchedStmts
+  pyHandle <- asks champPyHandle
+  let er = Exposure.mkEvalReadEnv champReadFile champWriteFile pyHandle
   (res, env') <- liftIO $ Exposure.evalLoop er env (toList stmts)
   case res of
     Left err ->

@@ -54,6 +54,7 @@ IDENT    { Located _ _ (Lexer.Ident $$) }
 'peak'   { Located _ _ Lexer.Peak       }
 'over'   { Located _ _ Lexer.Over       }
 'by'     { Located _ _ Lexer.By         }
+'@'      { Located _ _ Lexer.AtSymbol   }
 'define' { Located _ _ Lexer.Define     }
 'end'    { Located _ _ Lexer.End        }
 DCHR     { Located _ _ (Lexer.DefChar $$) }
@@ -98,6 +99,7 @@ expr :: { Expr }
 expr : IDENT                            { EVar $1 }
      | lit                              { EVal $1 }
      | bool                             { EVal $1 }
+     | '@' IDENT '(' commaSepExprs0 ')' { ECall FPython (EVal (VString $2) : $4) }
      | IDENT '(' commaSepExprs0 ')'     {% do { funName <- prefixFunctionName $1
                                               ; pure (ECall funName $3) }}
      | IDENT '(' commaSepExprs0 ')'

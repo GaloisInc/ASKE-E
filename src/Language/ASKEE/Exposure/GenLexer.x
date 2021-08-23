@@ -56,6 +56,7 @@ tokens :-
 <0> "peak"      { atomic Peak      }
 <0> "over"      { atomic Over      }
 <0> "by"        { atomic By        }
+<0> "@"         { atomic AtSymbol  }
 
 <0> "define"   { defineModel }
 <defNm> @ident { modelIdent }
