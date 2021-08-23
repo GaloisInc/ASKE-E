@@ -148,11 +148,11 @@ makeTests =
   Tasty.testGroup "Exposure API Tests"
     [ Tasty.testGroup "Interpreter tests"
       [ testCase "Addition" $
-          "4 + 2" `exprShouldEvalTo` VDouble 6
+          "4 + 2" `exprShouldEvalTo` VInt 6
       , testCase "Subtraction" $
-          "4 - 2" `exprShouldEvalTo` VDouble 2
+          "4 - 2" `exprShouldEvalTo` VInt 2
       , testCase "Multiplication" $
-          "4 * 2" `exprShouldEvalTo` VDouble 8
+          "4 * 2" `exprShouldEvalTo` VInt 8
       , testCase "Division" $
           "4 / 2" `exprShouldEvalTo` VDouble 2
       , testCase "Greater than" $
@@ -178,7 +178,7 @@ makeTests =
             [ "x = 42"
             , "y = 22"
             ] "x + y" $ \actualVal ->
-            actualVal @?= VDouble 64
+            actualVal @?= VInt 64
       , testCase "loadESL should return a VModel" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
           exprAssertion loadSirEaselExpr $ \modelVal ->
@@ -219,7 +219,7 @@ makeTests =
             [ "x = 42"
             , "notDefined"
             ] "x" $ \actualVal ->
-            actualVal @?= VDouble 42
+            actualVal @?= VInt 42
       , testCase "filter" $
           "filter([1 .. 10 by 1]) { x => x > 8 }" `exprShouldEvalTo` VArray [VDouble 9, VDouble 10]
       , testCase "MSE/MAE of identical results" $ do

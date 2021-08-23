@@ -4,6 +4,7 @@ import Data.Text (Text)
 
 data Token
   = EOF
+  | LitI Int
   | LitD Double
   | LitS Text
   | Define
