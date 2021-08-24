@@ -24,11 +24,11 @@ import           ExposureSession
 
 runDonu :: IO ()
 runDonu =
-  Snap.quickHttpServe $
-    Snap.route [ ("/help", showHelp)
-               , ("/:exposure", exposureHandler)
-               , ("/", endpoint)
-               ]
+  do  Snap.httpServe conf $
+        Snap.route [ ("/help", showHelp)
+                  , ("/:exposure", exposureHandler)
+                  , ("/", endpoint)
+                  ]
   where
     endpoint =
      do let limit = 8 * 1024 * 1024    -- 8 megs
@@ -51,6 +51,7 @@ runDonu =
                 Snap.writeLBS (JS.encode out)
           Left ex -> errorWith 500 (show (ex :: SomeException))
 
+    conf = Snap.setDefaultTimeout (5 * 60) Snap.defaultConfig
 
 
 errorWith :: Int -> String -> Snap.Snap ()
