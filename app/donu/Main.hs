@@ -24,7 +24,8 @@ import           ExposureSession
 
 runDonu :: IO ()
 runDonu =
-  do  Snap.httpServe conf $
+  do  conf' <- Snap.commandLineConfig conf
+      Snap.httpServe conf' $
         Snap.route [ ("/help", showHelp)
                   , ("/:exposure", exposureHandler)
                   , ("/", endpoint)
