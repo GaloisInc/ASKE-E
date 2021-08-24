@@ -534,7 +534,7 @@ interpretCall fun args =
       case args of
         [v] ->
           do  m <- model v
-              esvg <- liftIO $ CoreViz.renderModelAsSimpleFlowGraphToRawImageIO m CoreViz.ImageSvg
+              esvg <- liftIO $ CoreViz.renderModelAsSimpleFlowGraphToRawImageIO (CoreViz.MVConfig CoreViz.MVNoIndirectEdges) m CoreViz.ImageSvg
               case esvg of
                 Left err -> throw err
                 Right svg -> pure $ VSVG svg
