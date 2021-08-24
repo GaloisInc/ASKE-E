@@ -1,0 +1,40 @@
+model SIRH:
+    state S = 997
+    state I = 3
+    state H = 0
+    state R = 0
+
+    parameter beta = 0.4
+    parameter gamma = 0.04
+    parameter delta = 0.01
+    parameter epsilon = 0.02
+
+    let N = S + I + H + R
+
+    event Infect:
+        rate:
+            beta * S * I / N
+        effect:
+            S -= 1
+            I += 1
+
+    event Hospitalize:
+        rate:
+            delta * I
+        effect:
+            I -= 1
+            H += 1
+
+    event RecoverI:
+        rate:
+            gamma * I
+        effect:
+            I -= 1
+            R += 1
+
+    event RecoverH:
+        rate:
+            epsilon * H
+        effect:
+            H -= 1
+            R += 1
