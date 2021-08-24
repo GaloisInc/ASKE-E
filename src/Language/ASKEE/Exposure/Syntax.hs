@@ -119,6 +119,7 @@ data FunctionName
   | FDescribeModel
   | FModelSize
   | FModelGraph
+  | FPython
   deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
@@ -173,6 +174,7 @@ prefixFunctionName ident =
     "withParams"  -> Right FWithParams
     "modelSkillRank" -> Right FSkillRank
     "series"      -> Right FSeries
+    "python"  -> Right FPython
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

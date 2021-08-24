@@ -26,6 +26,7 @@ import qualified Language.ASKEE.Exposure.GenParser as Exposure
 import Schema
 import Data.String (fromString)
 import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.Python (withPythonHandle, PythonHandle)
 
 -- | Messages sent by the server
 data ExposureServerMessage =
@@ -44,12 +45,15 @@ data ExposureClientMessage =
 
 -- | The main entry point into a websocket-based Exposure session
 exposureServer :: MonadSnap m => m ()
-exposureServer = runWebSocketsSnap (acceptRequest >=> exposureServerLoop)
+exposureServer = runWebSocketsSnap (acceptRequest >=> runExposureServer)
+  where
+    runExposureServer c =
+      withPythonHandle [] $ exposureServerLoop c
 
 -- | The main server loop, the toplevel of which waits for programs to try and
 -- run in the exposure interpreter.
-exposureServerLoop :: Connection -> IO ()
-exposureServerLoop c = go Exposure.initialEnv
+exposureServerLoop :: Connection -> PythonHandle -> IO ()
+exposureServerLoop c pyh = go Exposure.initialEnv
   where
     go env =
       do msg <- X.try (receiveData c)
@@ -94,7 +98,7 @@ exposureServerLoop c = go Exposure.initialEnv
              return env
 
     eval = Exposure.evalLoop evr
-    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
+    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c) pyh
 
     onExcept :: ConnectionException -> IO ()
     onExcept _ce = return ()

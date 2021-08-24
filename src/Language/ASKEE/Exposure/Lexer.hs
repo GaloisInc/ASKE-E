@@ -42,4 +42,5 @@ data Token
   | Peak
   | Over
   | By
+  | AtSymbol
   deriving Show
