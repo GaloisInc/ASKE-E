@@ -1,0 +1,60 @@
+model SEIRS_Hospitalization_Death:
+  state Exposed = 0.0
+  state Infected = 1.0
+  state Hospitalized = 0.0
+  state Recovered = 0.0
+  state Dead = 0.0
+  state Susceptible = 500.0
+
+  let population = Susceptible + Infected + Exposed + Recovered + Hospitalized
+  let nu = 0.4
+  let sigma = 0.6
+  let gamma = 0.333
+  let pHosp = 0.2
+  let d = 0.005
+  let dh = 0.05
+  let di = 0.01
+  parameter beta = 0.8
+
+  event Expose:
+    rate: beta * Infected * Susceptible / population - sigma * Exposed - d * Exposed
+    effect:
+      Susceptible = Susceptible - 1
+      Exposed = Exposed + 1
+
+  event InfectedRecover:
+    rate: gamma * Infected - nu * Recovered - d * Recovered
+    effect:
+      Infected = Infected - 1
+      Recovered = Recovered + 1
+
+  event HospitalizedRecover:
+    rate: gamma * Hospitalized - nu * Recovered - d * Recovered
+    effect:
+      Hospitalized = Hospitalized - 1
+      Recovered = Recovered + 1
+
+  event InfectedDie:
+    rate: di * Infected
+    effect:
+      Infected = Infected - 1
+      Dead = Dead + 1
+
+  event HospitalizedDie:
+    rate: dh * Hospitalized
+    effect:
+      Hospitalized = Hospitalized - 1
+      Dead = Dead + 1
+
+  event Infect:
+    rate: sigma * Exposed * (1.0 - pHosp) - gamma * Infected - di * Infected
+    effect:
+      Exposed = Exposed - 1
+      Infected = Infected + 1
+
+  event Hospitalize:
+    rate: sigma * Exposed * pHosp - gamma * Hospitalized - dh * Hospitalized
+    effect:
+      Exposed = Exposed - 1
+      Hospitalized = Hospitalized + 1
+
