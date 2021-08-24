@@ -6,6 +6,9 @@ import qualified Data.Aeson as JSON
 import Data.Aeson((.=))
 
 
+l2norm :: [(Double,Double)] -> Double
+l2norm l =  sqrt . sum $ (^(2::Integer)) . uncurry (-) <$> l
+
 interpolateJoinPointsLinear :: [(Double, Double)] -> [(Double, Double)] -> [((Double, Double), Double)]
 interpolateJoinPointsLinear d when =
   case (d, when) of
@@ -31,12 +34,10 @@ parseInterpolationMethod t =
     "linear" -> Just Linear
     _ -> Nothing
 
-measureError :: ErrorMeasurement -> [Double] -> Double
-measureError m errs =
+measureError :: ErrorMeasurement -> [(Double,Double)] -> Double
+measureError m d =
   case m of
-    L2Norm -> sum $ sq <$> errs
-  where
-    sq a = a * a
+    L2Norm -> l2norm d
 
 computeError :: MeasureErrorRequest -> DataErrorSummary
 computeError mer =
@@ -44,15 +45,19 @@ computeError mer =
                      , desTotal = totalError
                      }
   where
-    totalError = summarize $ concat (cesError <$> columns)
+    totalError = mean (cesTotal <$> columns)
     columns = column <$> merMeasures mer
-    summarize = measureError (merErrorMeasurement mer)
     observed ed = medObserved ed `zip` medObservedTimes ed
     predicted ed = medPredicted ed `zip` medPredictedTimes ed
+    mean m = sum m / fromIntegral (length m)
     column ed =
       let joinedData = fst <$> interpolateJoinPointsLinear (predicted ed) (observed ed)
-          errors = uncurry (-) <$> joinedData
-          byVar = summarize errors
+          errors = absDiff <$> joinedData
+          absDiff = abs . uncurry (-)
+          observedPoints = snd <$> joinedData
+          observedMean = mean observedPoints
+          meanDiff = absDiff <$> observedPoints `zip` repeat observedMean
+          byVar = sum errors / sum meanDiff
       in ColumnErrorSummary (medName ed) byVar errors
 
 data ErrorMeasurement =
