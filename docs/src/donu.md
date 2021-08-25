@@ -158,7 +158,7 @@ Example:
 | end              | number                   | End time of the simulation                                          | 
 | step             | number                   | Simulation time step size                                           | 
 | seed             | integer                  | (optional) Seed for random number generation/event selection        | Only valid when `sim-type` is `discrete`
-| domain-parameter | string                   | (optional) Independent variable over which start/step/end varies    | Not yet supported, and only valid when simulating function networks
+| domain_parameter | string                   | (optional) Independent variable over which start/step/end varies    | Required (and only valid) when simulating function networks
 | parameters       | dict                     | (optional) Parameter values/initial conditions for the simulation   | When `sim-type` is `aj`, parameters specified neither here nor in the model will default to 0
 | outputs          | list                     | Restrict model output to these values                               | Leave empty to output all variables
 

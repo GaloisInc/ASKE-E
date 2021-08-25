@@ -274,8 +274,8 @@ instance HasSpec SimulateCommand where
 
         simDomainParam <-
           optSection
-            "domain-parameter"
-            "Domain parameter (for function network gromets, not yet supported)"
+            "domain_parameter"
+            "Domain parameter (for function network gromets)"
 
         simParameterValues <- maybe Map.empty Map.fromList <$>
           optSection'
