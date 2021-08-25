@@ -4,12 +4,14 @@ module Language.ASKEE.Gromet.FunctionNetwork where
 
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Text(Text)
+import qualified Data.Text as Text
 import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.Model.Interface as MI
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
 import Data.Maybe(listToMaybe)
 import qualified Data.Maybe as Maybe
+import Control.Applicative((<|>))
 
 import qualified Language.ASKEE.Model.Basics as MB
 
@@ -93,8 +95,10 @@ fnetInfo root =
           let metaMap = Map.fromList (Maybe.catMaybes [mbDesc, mbName])
 
           ty <-
-            case MB.parseValueType tyValue of
-              Nothing -> Left ("could not parse value type '" <> tyValue <> "'")
+            case MB.parseValueType tyValue <|> mbSeq tyValue of
+              Nothing ->
+
+                Left ("could not parse value type '" <> tyValue <> "'")
               Just v -> Right v
 
           portUid <- objLookup var "proxy_state" >>= text
@@ -110,6 +114,11 @@ fnetInfo root =
 
     obj (JSON.Object o) = Right o
     obj _ = Left "expecting object"
+
+    mbSeq t =
+      case Text.toLower t of
+        "sequence" -> pure MB.Real
+        _ -> Nothing
 
     metaDesc o =
       do  desc <- objLookup o "variable_definition"
