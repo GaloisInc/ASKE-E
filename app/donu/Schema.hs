@@ -631,7 +631,7 @@ instance HasSpec FitMeasuresCommand where
         fitMeasureParams <- reqSection "parameters" "Parameters to fit"
         fitMeasureParamValues <- maybe Map.empty Map.fromList <$>
                                     optSection'
-                                      "parameters_values"
+                                      "parameter_values"
                                       (assocSpec anySpec)
                                       "Fix these values for model parameters"
 
