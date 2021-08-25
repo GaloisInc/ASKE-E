@@ -77,7 +77,7 @@ main =
               equations <- A.loadDiffEqsFrom modelType (A.FromFile modelFile)
               dataFile <- exactlyOne "data file" (dataFiles opts)
               ds <- A.parseDataSeriesFromFile dataFile
-              ifaceErrs <- A.checkFitArgs modelType (A.FromFile modelFile) ps
+              ifaceErrs <- A.checkFitArgs modelType (A.FromFile modelFile) Map.empty ps
               case ifaceErrs of
                 [] ->
                   do (fit, work) <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)

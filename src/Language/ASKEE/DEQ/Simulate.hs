@@ -24,9 +24,12 @@ import Language.ASKEE.Panic (panic)
 import qualified Numeric.LinearAlgebra.Data as LinAlg
 import qualified Numeric.GSL.ODE            as ODE
 import qualified Numeric.GSL.Fitting        as Fit
+import qualified Numeric.GSL                as GSL
 import Data.Text (Text)
 import qualified Data.Text as Text
 
+dontCrashOnFitFailure :: IO ()
+dontCrashOnFitFailure = GSL.setErrorHandlerOff
 
 evalDiffEqs ::
   [Ident] -> [Expr] -> Double -> [Double] -> [Double]
