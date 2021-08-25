@@ -78,8 +78,7 @@ exposureServerLoop c pyh = go Exposure.initialEnv
           do start       <- getTime ProcessCPUTime
              (res, env') <- X.evaluate . force =<< eval env prog
              stop        <- getTime ProcessCPUTime
-             resolution  <- getRes ProcessCPUTime
-             let deltaNS    = toNanoSecs (diffTimeSpec start stop)
+             let deltaNS  = toNanoSecs (diffTimeSpec start stop)
              -- We want to force any exceptions (such as bugs in the interpreter)
              -- before sending the response, otherwise the connection will be closed
              -- and we don't want that, now do we?
