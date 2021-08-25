@@ -2,7 +2,9 @@ name: github pages
 
 on:
   push:
-    branches: [main]
+    branches: 
+      - main
+      - demo/hmi-stakeholder-orig
   workflow_dispatch:
 
 jobs:
