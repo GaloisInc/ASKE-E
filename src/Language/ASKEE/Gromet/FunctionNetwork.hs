@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 module Language.ASKEE.Gromet.FunctionNetwork where
 
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Text(Text)
-import Data.Maybe(listToMaybe, maybeToList)
 import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.Model.Interface as MI
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
+import Data.Maybe(listToMaybe)
 import qualified Data.Maybe as Maybe
 
 import qualified Language.ASKEE.Model.Basics as MB
@@ -87,8 +88,9 @@ fnetInfo root =
           tyValue <- objLookup var "type" >>= text
           let mbDesc = try $ do metas <- objLookup var "metadata" >>= arr
                                 find metaDesc metas
+          let mbName = ("name",) . (:[])  <$> try (objLookup var "name" >>= text)
 
-          let metaMap = Map.fromList (maybeToList mbDesc)
+          let metaMap = Map.fromList (Maybe.catMaybes [mbDesc, mbName])
 
           ty <-
             case MB.parseValueType tyValue of
@@ -112,7 +114,7 @@ fnetInfo root =
     metaDesc o =
       do  desc <- objLookup o "variable_definition"
           descText <- text desc
-          pure ("Description", [descText])
+          pure ("Description" :: Text, [descText])
 
     find f as  =
       case as of
