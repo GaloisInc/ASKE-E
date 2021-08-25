@@ -432,13 +432,13 @@ class ASKEEKernel(Kernel):
     def execute_donu_cmd(self, cmd):
         if cmd is not None:
             resp = self.donu.execute_code(cmd)
+            time = None
             if resp['type'] == 'success':
-                time = None
                 if DEBUG_TIME and 'time' in resp:
                     time = {'text/plain': f"Command took {resp['time']/1000000} ms."}
                 return (resp['displays'], time)
             if resp['type'] == 'failure':
-                return ([{'type':'string', 'value':"Error: %s" % resp['message']}], [])
+                return ([{'type':'string', 'value':"Error: %s" % resp['message']}], time)
             raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
