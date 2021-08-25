@@ -13,6 +13,13 @@ import websocket
 import threading
 import queue
 import base64
+import os
+
+# -----------------------------------------------------------------------------
+# Flags that control diagnostic/debugging features
+# -----------------------------------------------------------------------------
+DEBUG_ENV_VAR = "ASKEE_DEBUG"
+DEBUG_TIME = False
 
 #------------------------------------------------------------------------------
 # Config
@@ -389,13 +396,17 @@ class ASKEEKernel(Kernel):
         by sending a request to Donu.
         """
         try:
-            resp   = self.execute_donu_cmd(code)
+            resp, time  = self.execute_donu_cmd(code)
             # Resp should be a list of things to display
             lines = [format_resp_value(r) for r in resp]
 
             if not silent:
                 for output in lines:
                     self.send_response(self.iopub_socket, "display_data", {"data": output, "metadata": {}})
+
+            if not silent:
+                if time is not None:
+                    self.send_response(self.iopub_socket, "display_data", {"data": time, "metadata": {}})
 
             return {
                 'status': 'ok',
@@ -421,13 +432,22 @@ class ASKEEKernel(Kernel):
     def execute_donu_cmd(self, cmd):
         if cmd is not None:
             resp = self.donu.execute_code(cmd)
+            time = None
             if resp['type'] == 'success':
-                return resp['displays']
+                if DEBUG_TIME and 'time' in resp:
+                    time = {'text/plain': f"Command took {resp['time']/1000000} ms."}
+                return (resp['displays'], time)
             if resp['type'] == 'failure':
-                return [{'type':'string', 'value':"Error: %s" % resp['message']}]
+                return ([{'type':'string', 'value':"Error: %s" % resp['message']}], time)
             raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
     def run_as_main():
         from ipykernel.kernelapp import IPKernelApp
+
+        debug = os.getenv(DEBUG_ENV_VAR)
+        if debug == '1':
+            global DEBUG_TIME
+            DEBUG_TIME = True
+
         IPKernelApp.launch_instance(kernel_class=ASKEEKernel)

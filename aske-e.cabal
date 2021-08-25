@@ -229,6 +229,7 @@ executable donu
                       , aske-e
                       , bytestring
                       , cereal
+                      , clock
                       , config-schema
                       , config-value
                       , containers
