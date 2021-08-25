@@ -36,6 +36,7 @@ module Language.ASKEE
   , stratifyModel
   , fitModelToData
   , fitModelToMeasureData
+  , DEQ.dontCrashOnFitFailure
   , Core.asSchematicGraph
   , convertModelString
 
@@ -360,14 +361,20 @@ stratifyModel format source connectionGraph statesJSON stratificationType =
 fitModelToMeasureData ::
   ModelType {- ^ the model's type -} ->
   DataSource {- ^ the model's source -} ->
+  Map Text Double {- ^ fixed params -} ->
   [Text] {- ^ parameters to fit -} ->
   DataSeries Double {- ^ the data -} ->
   IO (Map Text Double)
-fitModelToMeasureData ty modelSrc params fitData =
-  do  eqs <- loadDiffEqsFrom ty modelSrc
-      let paramMap = Map.fromList (initialValueMapping eqs <$> params)
-      let (fit, _) = DEQ.fitModel eqs fitData Map.empty paramMap
-      pure (fst <$> fit)
+fitModelToMeasureData ty modelSrc paramValues params fitData =
+  do  errs <- checkFitArgs ty modelSrc paramValues params (Just fitData)
+      case errs of
+        [] ->
+          do  eqs <- loadDiffEqsFrom ty modelSrc
+              let paramMap = Map.fromList (initialValueMapping eqs <$> params)
+                  eqs' = DEQ.applyParams paramValues eqs
+                  (fit, _) = DEQ.fitModel eqs' fitData paramValues paramMap
+              pure (fst <$> fit)
+        _ -> die (ValidationError $ Text.unpack (Text.unlines errs))
   where
     initialValueMapping deq n = (n, fromMaybe 0 (DEQ.paramValue n deq))
 
@@ -422,11 +429,21 @@ checkSimArgs mt ds params outs =
 checkFitArgs ::
   ModelType ->
   DataSource ->
+  Map Text Double ->
   [Text] ->
+  Maybe (DataSeries a) ->
   IO [Text]
-checkFitArgs mt ds params =
+checkFitArgs mt ds paramVals params fitData =
   checkInterfaceRequirements mt ds
-    [ paramsNotExistErrors (Set.fromList params) ]
+    ([ paramsNotExistErrors allParams
+     , unspecifiedValueErrors allParams
+     ] ++ outputs)
+  where
+    outputs =
+      case fitData of
+        Nothing -> []
+        Just fd -> [outputsNotExistErrors (Map.keysSet $ values fd)]
+    allParams = Set.union (Set.fromList params) (Map.keysSet paramVals)
 
 paramsNotExistErrors :: Set Text -> ModelInterface -> [Text]
 paramsNotExistErrors params iface =

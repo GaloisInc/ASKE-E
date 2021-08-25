@@ -615,6 +615,7 @@ data FitMeasuresCommand = FitMeasuresCommand
   { fitMeasureModel :: ModelDef
   , fitMeasureData :: DataSeries Double
   , fitMeasureParams :: [Text]
+  , fitMeasureParamValues :: Map Text Double
   }
   deriving Show
 
@@ -628,6 +629,11 @@ instance HasSpec FitMeasuresCommand where
         fitMeasureModel <- reqSection' "definition" modelDef "Specification of the source model"
         fitMeasureData <- reqSection' "data" dataSeries "Data against which to estimate parameters"
         fitMeasureParams <- reqSection "parameters" "Parameters to fit"
+        fitMeasureParamValues <- maybe Map.empty Map.fromList <$>
+                                    optSection'
+                                      "parameter_values"
+                                      (assocSpec anySpec)
+                                      "Fix these values for model parameters"
 
         pure $ FitMeasuresCommand { .. }
 

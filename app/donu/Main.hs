@@ -24,7 +24,8 @@ import           ExposureSession
 
 runDonu :: IO ()
 runDonu =
-  do  conf' <- Snap.commandLineConfig conf
+  do  liftIO dontCrashOnFitFailure
+      conf' <- Snap.commandLineConfig conf
       Snap.httpServe conf' $
         Snap.route [ ("/help", showHelp)
                   , ("/:exposure", exposureHandler)
@@ -123,7 +124,7 @@ handleRequest r =
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) fitParams
+      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) Map.empty fitParams Nothing
          case ifaceErrs of
            [] ->
              do (res, _) <-
@@ -179,6 +180,7 @@ handleRequest r =
     FitMeasures FitMeasuresCommand { .. } ->
       succeed <$> liftIO (fitModelToMeasureData (modelDefType fitMeasureModel)
                                                 (modelDefSource fitMeasureModel)
+                                                fitMeasureParamValues
                                                 fitMeasureParams
                                                 fitMeasureData)
     
