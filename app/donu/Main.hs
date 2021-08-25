@@ -124,7 +124,7 @@ handleRequest r =
           pure $ asResult converted
 
     Fit FitCommand{..} ->
-      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) Map.empty fitParams
+      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) Map.empty fitParams Nothing
          case ifaceErrs of
            [] ->
              do (res, _) <-

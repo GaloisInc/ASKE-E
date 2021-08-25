@@ -366,7 +366,7 @@ fitModelToMeasureData ::
   DataSeries Double {- ^ the data -} ->
   IO (Map Text Double)
 fitModelToMeasureData ty modelSrc paramValues params fitData =
-  do  errs <- checkFitArgs ty modelSrc paramValues params
+  do  errs <- checkFitArgs ty modelSrc paramValues params (Just fitData)
       case errs of
         [] ->
           do  eqs <- loadDiffEqsFrom ty modelSrc
@@ -431,13 +431,18 @@ checkFitArgs ::
   DataSource ->
   Map Text Double ->
   [Text] ->
+  Maybe (DataSeries a) ->
   IO [Text]
-checkFitArgs mt ds paramVals params =
+checkFitArgs mt ds paramVals params fitData =
   checkInterfaceRequirements mt ds
-    [ paramsNotExistErrors allParams
-    , unspecifiedValueErrors allParams
-    ]
+    ([ paramsNotExistErrors allParams
+     , unspecifiedValueErrors allParams
+     ] ++ outputs)
   where
+    outputs =
+      case fitData of
+        Nothing -> []
+        Just fd -> [outputsNotExistErrors (Map.keysSet $ values fd)]
     allParams = Set.union (Set.fromList params) (Map.keysSet paramVals)
 
 paramsNotExistErrors :: Set Text -> ModelInterface -> [Text]
