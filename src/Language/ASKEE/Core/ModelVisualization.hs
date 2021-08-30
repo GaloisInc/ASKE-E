@@ -213,12 +213,13 @@ convertToVegaData g = JSON.toJSON [nodeValues, edgeValues]
                  StateNode -> JSON.String "state"
                  EventNode -> JSON.String "event"
       convertEdge edge =
-        JSON.object [ "source" .= edgeSource edge
-                    , "target" .= edgeTarget edge
-                    , "type"   .= JSON.String (edgeType edge)
+        JSON.object [ "source"   .= edgeSource edge
+                    , "target"   .= edgeTarget edge
+                    , "type"     .= JSON.String (edgeDir edge)
+                    , "edgetype" .= JSON.String (if edgeType edge == DirectEdge then "direct" else "indirect")
                     ]
 
-      edgeType edge =
+      edgeDir edge =
         let src = nodes g !! edgeSource edge
         in case src of { Node _ EventNode -> "out"; _ -> "in" }
 
@@ -249,7 +250,7 @@ vegaNetworkGraphTemplate = " \
  \   \"width\": 1200, \
  \   \"height\": 500, \
  \   \"padding\": 0, \
- \   \"autosize\": \"none\", \
+ \   \"autosize\": \"pad\", \
  \  \
  \   \"signals\": [ \
  \     { \"name\": \"cx\", \"update\": \"width / 2\" }, \
@@ -312,7 +313,8 @@ vegaNetworkGraphTemplate = " \
  \       \"encode\": { \
  \         \"enter\": { \
  \           \"stroke\": {\"signal\": \"datum.type === 'out' ? 'gray' : 'green'\"}, \
- \           \"strokeWidth\": {\"signal\": \"datum.type === 'out' ? 2 : 3.5\"} \
+ \           \"strokeWidth\": {\"signal\": \"datum.type === 'out' ? 2 : 3.5\"}, \
+ \           \"strokeDash\": {\"signal\": \"datum.edgetype === 'indirect' ? [5,5] : []\"} \
  \         } \
  \       }, \
  \       \"transform\": [ \
