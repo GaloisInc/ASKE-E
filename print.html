@@ -404,7 +404,7 @@ for the ASKE-E program.</p>
 <tr><td>end</td><td>number</td><td>End time of the simulation</td><td></td></tr>
 <tr><td>step</td><td>number</td><td>Simulation time step size</td><td></td></tr>
 <tr><td>seed</td><td>integer</td><td>(optional) Seed for random number generation/event selection</td><td>Only valid when <code>sim-type</code> is <code>discrete</code></td></tr>
-<tr><td>domain_parameter</td><td>string</td><td>(optional) Independent variable over which start/step/end varies</td><td>Required (and only valid) when simulating function networks</td></tr>
+<tr><td>domain-parameter</td><td>string</td><td>(optional) Independent variable over which start/step/end varies</td><td>Not yet supported, and only valid when simulating function networks</td></tr>
 <tr><td>parameters</td><td>dict</td><td>(optional) Parameter values/initial conditions for the simulation</td><td>When <code>sim-type</code> is <code>aj</code>, parameters specified neither here nor in the model will default to 0</td></tr>
 <tr><td>outputs</td><td>list</td><td>Restrict model output to these values</td><td>Leave empty to output all variables</td></tr>
 </tbody></table>
