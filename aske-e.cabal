@@ -52,6 +52,7 @@ library
                         Language.ASKEE.DEQ.Print
                         Language.ASKEE.DEQ.Simulate
                         Language.ASKEE.DEQ.Syntax
+                        Language.ASKEE.DEQ.Convert
 
                         Language.ASKEE.ESL
                         Language.ASKEE.ESL.Check
