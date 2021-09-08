@@ -1,6 +1,8 @@
 module Language.ASKEE.ABM 
   ( parseABM
   , printABM
+  , lexABM
+  , abmToModel
   , Model(..) )
   where
 
@@ -10,6 +12,7 @@ import Language.ASKEE.ABM.Syntax
 import Language.ASKEE.ABM.GenLexer
 import qualified Language.ASKEE.ABM.GenParser as Parse
 import Language.ASKEE.ABM.Print
+import Language.ASKEE.ABM.Translate
 
 parseABM :: Text -> Either String Model
 parseABM txt = 

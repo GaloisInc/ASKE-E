@@ -157,7 +157,7 @@ import           Language.ASKEE.Storage                ( initStorage
 import qualified Language.ASKEE.Storage                as Storage
 import qualified Language.ASKEE.Automates.Client       as Automates
 import qualified Language.ASKEE.DataError              as DataError
-import qualified Language.ASKEE.ABM.Syntax as ABM
+import qualified Language.ASKEE.ABM as ABM
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
