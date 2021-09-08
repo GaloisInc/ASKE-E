@@ -6,6 +6,7 @@ module ExposureSession ( exposureServer ) where
 
 import           Control.Monad.State
 import           Control.DeepSeq
+import           System.Clock
 
 import           Snap (MonadSnap)
 
@@ -26,12 +27,13 @@ import qualified Language.ASKEE.Exposure.GenParser as Exposure
 import Schema
 import Data.String (fromString)
 import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.Python (withPythonHandle, PythonHandle)
 
 -- | Messages sent by the server
 data ExposureServerMessage =
     ReadFile FilePath -- ^ Instruct the client to retrieve a file's contents
   | WriteFile FilePath LBS.ByteString -- ^ Ask the client to write to a file
-  | Success [DonuValue] -- ^ Successfully evaluated program
+  | Success [DonuValue] Integer -- ^ Successfully evaluated program + process cpu time (ns)
   | Failure Text.Text -- ^ Some error occurred
 
 -- | Messages sent by client
@@ -44,12 +46,15 @@ data ExposureClientMessage =
 
 -- | The main entry point into a websocket-based Exposure session
 exposureServer :: MonadSnap m => m ()
-exposureServer = runWebSocketsSnap (acceptRequest >=> exposureServerLoop)
+exposureServer = runWebSocketsSnap (acceptRequest >=> runExposureServer)
+  where
+    runExposureServer c =
+      withPythonHandle [] $ exposureServerLoop c
 
 -- | The main server loop, the toplevel of which waits for programs to try and
 -- run in the exposure interpreter.
-exposureServerLoop :: Connection -> IO ()
-exposureServerLoop c = go Exposure.initialEnv
+exposureServerLoop :: Connection -> PythonHandle -> IO ()
+exposureServerLoop c pyh = go Exposure.initialEnv
   where
     go env =
       do msg <- X.try (receiveData c)
@@ -70,7 +75,10 @@ exposureServerLoop c = go Exposure.initialEnv
     onReceive msg env =
       case msg of
         RunProgram prog ->
-          do (res, env') <- X.evaluate . force =<< eval env prog
+          do start       <- getTime ProcessCPUTime
+             (res, env') <- X.evaluate . force =<< eval env prog
+             stop        <- getTime ProcessCPUTime
+             let deltaNS  = toNanoSecs (diffTimeSpec start stop)
              -- We want to force any exceptions (such as bugs in the interpreter)
              -- before sending the response, otherwise the connection will be closed
              -- and we don't want that, now do we?
@@ -79,7 +87,7 @@ exposureServerLoop c = go Exposure.initialEnv
                  sendTextData c (Failure err)
                Right (displays, _) ->
                  do let vs = DonuValue . unDisplayValue <$> displays
-                    sendTextData c (Success vs)
+                    sendTextData c (Success vs deltaNS)
              return env'
         FileContents{} ->
           -- This is the toplevel, so we don't expect any filecontents
@@ -94,7 +102,7 @@ exposureServerLoop c = go Exposure.initialEnv
              return env
 
     eval = Exposure.evalLoop evr
-    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c)
+    evr  = Exposure.mkEvalReadEnv (readClientFile c) (writeClientFile c) pyh
 
     onExcept :: ConnectionException -> IO ()
     onExcept _ce = return ()
@@ -141,9 +149,10 @@ instance JS.ToJSON ExposureServerMessage where
               , "contents" .= JS.toJSON (TL.decodeUtf8 contents)
               ]
 
-  toJSON (Success displays) =
+  toJSON (Success displays time) =
     JS.object [ "type"     .= ("success" :: String)
               , "displays" .= JS.toJSON displays
+              , "time"     .= JS.toJSON time
               ]
 
   toJSON (Failure err) =

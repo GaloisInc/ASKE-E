@@ -17,6 +17,7 @@ import           Data.Text (Text)
 import           Language.ASKEE.Core.Expr ( traverseExprs
                                           , mapExprs
                                           , substExpr
+                                          , asConst
                                           , TraverseExprs
                                           , Ident
                                           , Expr(..))
@@ -54,3 +55,11 @@ applyParams' su = dropParams . mapExprs (substExpr su)
 
 addParams :: Map Ident (Maybe Expr) -> DiffEqs -> DiffEqs
 addParams ps eqs = eqs { deqParams = ps }
+
+paramValue :: Text -> DiffEqs -> Maybe Double
+paramValue t deq =
+  do  valMb <- Map.lookup t (deqParams deq)
+      val <- valMb
+      asConst val
+
+

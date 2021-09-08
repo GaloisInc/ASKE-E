@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ImplicitParams #-}
 module Exposure (tests) where
 
 import Control.Exception (SomeException, try)
@@ -18,6 +19,7 @@ import Language.ASKEE.Exposure.GenParser (parseExposureExpr, parseExposureStmt)
 import Language.ASKEE.Exposure.Interpreter
 import Language.ASKEE.Exposure.Syntax
 
+import Language.ASKEE.Exposure.Python (newPythonHandle, closePythonHandle, PythonHandle)
 import Paths_aske_e (getDataDir)
 
 assertLeft :: Either a b -> IO ()
@@ -41,40 +43,48 @@ lexAndParseStmt s = do
   lexed <- lexExposure s
   parseExposureStmt lexed
 
-exprShouldEvalTo :: String -> Value -> Assertion
+exprShouldEvalTo ::
+  (?getEvalRead :: IO EvalRead) => String -> Value -> Assertion
 exprShouldEvalTo actualExprStr expectedVal =
   exprAssertion actualExprStr $ \actualVal ->
     actualVal @?= expectedVal
 
-exprAssertion :: String -> (Value -> Assertion) -> Assertion
+exprAssertion ::
+  (?getEvalRead :: IO EvalRead) => String -> (Value -> Assertion) -> Assertion
 exprAssertion = exprAssertionWithStmts []
 
-exprAssertionWithStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
+
+exprAssertionWithStmts ::
+  (?getEvalRead :: IO EvalRead) => [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithStmts stmtStrs actualExprStr k = do
+  er                     <- ?getEvalRead
   stmts                  <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   actualExpr             <- assertRightStr $ lexAndParseExpr actualExprStr
-  (lr, env)              <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)              <- evalLoop er initialEnv stmts
   (_, _)                 <- assertRightText lr
-  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  (errOrActualVal, _, _) <- runEval er env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
-exprAssertionWithFailingStmts :: [String] -> String -> (Value -> Assertion) -> Assertion
+exprAssertionWithFailingStmts ::
+  (?getEvalRead :: IO EvalRead) => [String] -> String -> (Value -> Assertion) -> Assertion
 exprAssertionWithFailingStmts stmtStrs actualExprStr k = do
+  er         <- ?getEvalRead
   actualExpr <- assertRightStr $ lexAndParseExpr actualExprStr
   env        <- assertStmtsFail stmtStrs
-  (errOrActualVal, _, _) <- runEval emptyEvalRead env $ interpretExpr actualExpr
+  (errOrActualVal, _, _) <- runEval er env $ interpretExpr actualExpr
   actualVal              <- assertRightText errOrActualVal
   k actualVal
 
-assertStmtsFail :: [String] -> IO Env
+assertStmtsFail :: (?getEvalRead :: IO EvalRead) => [String] -> IO Env
 assertStmtsFail stmtStrs = do
+  er         <- ?getEvalRead
   stmts      <- assertRightStr $ traverse lexAndParseStmt stmtStrs
-  (lr, env)  <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)  <- evalLoop er initialEnv stmts
   assertLeft lr
   return env
 
-emptyEvalRead :: EvalRead
+emptyEvalRead :: PythonHandle -> EvalRead
 emptyEvalRead = mkEvalReadEnv rd wr
   where
     wr f d =
@@ -87,22 +97,28 @@ emptyEvalRead = mkEvalReadEnv rd wr
     rd f =
       do res <- try (LBS.readFile f)
          case res of
-           Left (_ :: SomeException) ->
+           Left (ex :: SomeException) -> do
+             print ex
              pure $ Left "read failed"
            Right t -> pure $ Right t
 
-exprAssertion2 :: String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2 ::
+  (?getEvalRead :: IO EvalRead) =>
+  String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2 = exprAssertion2WithStmts []
 
-exprAssertion2WithStmts :: [String] -> String -> String -> (Value -> Value -> Assertion) -> Assertion
+exprAssertion2WithStmts ::
+  (?getEvalRead :: IO EvalRead) =>
+  [String] -> String -> String -> (Value -> Value -> Assertion) -> Assertion
 exprAssertion2WithStmts stmtStrs exprStr1 exprStr2 k = do
+  er                <- ?getEvalRead
   stmts             <- assertRightStr $ traverse lexAndParseStmt stmtStrs
   expr1             <- assertRightStr $ lexAndParseExpr exprStr1
   expr2             <- assertRightStr $ lexAndParseExpr exprStr2
-  (lr, env)         <- evalLoop emptyEvalRead initialEnv stmts
+  (lr, env)         <- evalLoop er initialEnv stmts
   (_, _)            <- assertRightText lr
-  (errOrVal1, _, _) <- runEval emptyEvalRead env $ interpretExpr expr1
-  (errOrVal2, _, _) <- runEval emptyEvalRead env $ interpretExpr expr2
+  (errOrVal1, _, _) <- runEval er env $ interpretExpr expr1
+  (errOrVal2, _, _) <- runEval er env $ interpretExpr expr2
   val1              <- assertRightText errOrVal1
   val2              <- assertRightText errOrVal2
   k val1 val2
@@ -121,7 +137,14 @@ assertTimedArray (VTimed VArray{} _) = pure ()
 assertTimedArray v                    = assertFailure $ "Expected a timed array, received: " ++ show v
 
 tests :: Tasty.TestTree
-tests =
+tests = Tasty.withResource acquire release $ \getEvalRead ->
+          let ?getEvalRead = getEvalRead in makeTests
+  where
+    acquire = emptyEvalRead <$> newPythonHandle []
+    release = closePythonHandle . erPyHandle
+
+makeTests :: (?getEvalRead :: IO EvalRead) => Tasty.TestTree
+makeTests =
   Tasty.testGroup "Exposure API Tests"
     [ Tasty.testGroup "Interpreter tests"
       [ testCase "Addition" $
@@ -269,6 +292,7 @@ tests =
             ] "join([\"_1\", sir], [\"_2\", sir], [[\"S\", \"S\"]])" $ \v ->
                 case v of
                   VModel _ -> pure ()
+                  VModelExpr (EVal (VModel _)) -> pure ()
                   x -> assertFailure $ "joining didn't produce a model, instead a "<>show x
       , testCase "Model Skill Ranking" $ do
           loadSirEaselExpr <- getLoadSirEaselExpr
@@ -308,9 +332,34 @@ tests =
             case v of
               VArray vs -> traverse_ assertDouble vs
               _         -> failure
+      , testCase "Expression indexing" $ do
+          loadSirEaselExpr <- getLoadSirEaselExpr
+
+          exprAssertion "[0.0, 1.0][1]" $ \v ->
+            v @?= VDouble 1.0
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr ]
+            "simulate(sir[\"I\"] at 1.0)" $ \v ->
+            case v of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Simulate of indexed expr returned wrong type"
+
+          exprAssertionWithStmts
+            [ "sir = " <> loadSirEaselExpr
+            , "r = simulate(sir at 1.0)"
+            ] "r[\"I\"]" $ \v ->
+            case v of
+              VDouble _ -> pure ()
+              _ -> assertFailure "Index of simulate returned wrong type"
+
 
       , testCase "Load missing files" $ do
           void $ assertStmtsFail ["loadCSV(\"path/to/nothing.csv\")"]
           void $ assertStmtsFail ["loadESL(\"path/to/nothing.easel\")"]
+
+      , testCase "Call Python extension" $ do
+          exprAssertion "@id(5.0 + 5.0)" $ \v ->
+            v @?= VDouble 10.0
       ]
     ]

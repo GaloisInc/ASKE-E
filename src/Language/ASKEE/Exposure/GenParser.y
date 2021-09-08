@@ -51,7 +51,10 @@ IDENT    { Located _ _ (Lexer.Ident $$) }
 'true'   { Located _ _ Lexer.BoolTrue   }
 '.'      { Located _ _ Lexer.Dot        }
 'at'     { Located _ _ Lexer.At         }
+'peak'   { Located _ _ Lexer.Peak       }
+'over'   { Located _ _ Lexer.Over       }
 'by'     { Located _ _ Lexer.By         }
+'@'      { Located _ _ Lexer.AtSymbol   }
 'define' { Located _ _ Lexer.Define     }
 'end'    { Located _ _ Lexer.End        }
 DCHR     { Located _ _ (Lexer.DefChar $$) }
@@ -96,6 +99,7 @@ expr :: { Expr }
 expr : IDENT                            { EVar $1 }
      | lit                              { EVal $1 }
      | bool                             { EVal $1 }
+     | '@' IDENT '(' commaSepExprs0 ')' { ECall FPython (EVal (VString $2) : $4) }
      | IDENT '(' commaSepExprs0 ')'     {% do { funName <- prefixFunctionName $1
                                               ; pure (ECall funName $3) }}
      | IDENT '(' commaSepExprs0 ')'
@@ -103,6 +107,7 @@ expr : IDENT                            { EVar $1 }
                                               ; pure (ECallWithLambda funName $3 $6 $8) }}
      | infixExpr                        { $1 }
      | expr '.' IDENT                   { EMember $1 $3 }
+     | expr '[' expr ']'                { EIndex $1 $3 }
      | '[' commaSepExprs0 ']'           { EList $2 }
      | '[' expr '..' expr 'by' expr ']' { EListRange $2 $4 $6 }
      | '{{' pointBinds0 '}}'            { EPoint $2 }
@@ -122,6 +127,7 @@ infixExpr : expr '+'   expr { ECall FAdd [$1, $3] }
           | expr 'or'  expr { ECall FOr  [$1, $3] }
           | 'not' expr      { ECall FNot [$2]     }
           | expr 'at' expr  { ECall FAt  [$1, $3] }
+          | expr 'at' 'peak' IDENT 'over' expr { ECall FAt [$1, EVal (VString $4), $6] }
 
 dispExpr :: { DisplayExpr }
 dispExpr : expr { DisplayScalar $1 }

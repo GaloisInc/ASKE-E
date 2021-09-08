@@ -7,6 +7,7 @@ import Control.Monad.State
 
 import           Control.Exception.Lifted (try, SomeException)
 import           Control.Applicative ((<|>))
+import qualified Data.Map as Map
 
 import qualified Data.Text as Text
 import qualified Data.Aeson as JS
@@ -65,6 +66,7 @@ main :: IO ()
 main =
   do initStorage
      initDataStorage
+     initComparisonStorage
      runDonu
 
 showHelp :: Snap.Snap ()
@@ -79,7 +81,12 @@ handleRequest r =
   liftIO (print r) >>
   case r of
     Simulate SimulateCommand{..} ->
-      do  ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) simParameterValues simOutputs
+      do  let params =
+                case simDomainParam of
+                  Nothing -> simParameterValues
+                  Just domainParamName -> Map.insert domainParamName 0 simParameterValues
+
+          ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) params simOutputs
           case ifaceErrs of
             [] ->
               do  res <- liftIO $ simulateModel
@@ -166,6 +173,21 @@ handleRequest r =
 
     GetDataSet GetDataSetCommand {..} ->
       succeed <$> liftIO (loadDataSet getDataSetCommandDataSource)
+
+    FitMeasures FitMeasuresCommand { .. } ->
+      succeed <$> liftIO (fitModelToMeasureData (modelDefType fitMeasureModel)
+                                                (modelDefSource fitMeasureModel)
+                                                fitMeasureParams
+                                                fitMeasureData)
+    
+    CompareModels ServeComparisonCommand { .. } ->
+      succeed <$> liftIO (compareModels (modelDefType compModelSource) 
+                                        (modelDefSource compModelSource)
+                                        (modelDefType compModelTarget) 
+                                        (modelDefSource compModelTarget))
+                                        
+    MeasureError (ComputeErrorCommand req) ->
+      succeed' (computeError req)
 
   where
     succeed :: (JS.ToJSON a, Show a) => a -> Result

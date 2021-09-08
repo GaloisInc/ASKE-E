@@ -328,7 +328,12 @@ partOrderDecls s0 decls =
 orderDecls :: [(Ident,Expr)] -> [(Ident,Expr)]
 orderDecls = fst . partOrderDecls Set.empty
 
-
+asConst :: Expr -> Maybe Double
+asConst e =
+  case simplifyExpr e of
+    NumLit n -> Just n
+    Op1 Neg (NumLit n) -> Just (negate n)
+    _ -> Nothing
 
 asExpr :: Expr -> Expr.Expr
 asExpr expr =

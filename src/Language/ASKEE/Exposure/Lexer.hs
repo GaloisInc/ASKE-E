@@ -39,5 +39,8 @@ data Token
   | BoolTrue
   | Dot
   | At
+  | Peak
+  | Over
   | By
+  | AtSymbol
   deriving Show

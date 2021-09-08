@@ -35,6 +35,7 @@ data Expr
   | ECall FunctionName [Expr]
   | ECallWithLambda FunctionWithLambdaName [Expr] Ident Expr
   | EMember Expr Ident
+  | EIndex Expr Expr
   | EList [Expr]
   | EListRange Expr Expr Expr
   | EPoint [(Ident, Expr)]
@@ -117,7 +118,9 @@ data FunctionName
   | FWithParams
   | FLoadPNC
   | FDescribeModel
+  | FModelSize
   | FModelGraph
+  | FPython
   deriving (Show, Eq, Ord, Generic, NFData)
 
 data FunctionWithLambdaName
@@ -131,6 +134,7 @@ data FunctionWithLambdaName
 data DynamicalFold =
     DFAt Double
   | DFAtMany [Double]
+  | DFAtPeak Ident [Double]
   | DFIn Double Double
   deriving (Show, Eq, Ord, Generic, NFData)
 
@@ -146,6 +150,7 @@ prefixFunctionName ident =
     "loadCSV"     -> Right FLoadCSV
     "loadPNC"     -> Right FLoadPNC
     "describeModel" -> Right FDescribeModel
+    "modelSize"   -> Right FModelSize
     "modelGraph"  -> Right FModelGraph
     "join"        -> Right FJoin
     "P"           -> Right FProb
@@ -170,6 +175,7 @@ prefixFunctionName ident =
     "withParams"  -> Right FWithParams
     "modelSkillRank" -> Right FSkillRank
     "series"      -> Right FSeries
+    "python"  -> Right FPython
     strIdent  -> Left $ "Unsupported prefix function name: " ++ strIdent
 
 functionWithLambdaName :: Ident -> Either String FunctionWithLambdaName

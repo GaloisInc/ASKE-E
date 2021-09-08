@@ -7,6 +7,7 @@ module Language.ASKEE.DEQ
   , applyParams
   , modelSquareError
   , computeErrorPerVar
+  , paramValue
 
   , DiffEqs
   ) where
@@ -18,7 +19,7 @@ import qualified Language.ASKEE.DEQ.GenParser as Parser
 import           Language.ASKEE.DEQ.GenLexer  ( lexDiffEqs )
 import           Language.ASKEE.DEQ.Print     ( printDiffEqs )
 import           Language.ASKEE.DEQ.Simulate  ( simulate, fitModel, modelSquareError, computeErrorPerVar )
-import           Language.ASKEE.DEQ.Syntax    ( applyParams, DiffEqs )
+import           Language.ASKEE.DEQ.Syntax    ( applyParams, paramValue, DiffEqs )
 
 parseDiffEqs :: Text -> Either String DiffEqs
 parseDiffEqs txt =

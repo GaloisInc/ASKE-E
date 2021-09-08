@@ -259,6 +259,6 @@ instance Aeson.FromJSON (LabeledDataSeries Double) where
         do  (dpName, dpValue) <- parseLabel o
             vals <- parseValues o
             pure $ LabeledDataSeries
-                    { ldsData = DataSeries vals dpValue
+                    { ldsData = DataSeries dpValue vals
                     , ldsLabel = dpName
                     }

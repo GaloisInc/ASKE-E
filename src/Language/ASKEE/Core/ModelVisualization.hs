@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 
 module Language.ASKEE.Core.ModelVisualization where
 
 import           Control.Monad.IO.Class
 
-import           Data.Text  ( Text ) 
+import           Data.Text  ( Text )
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Text.Encoding ( encodeUtf8 )
@@ -38,9 +39,13 @@ data Node =
         }
   deriving(Show, Eq, Ord)
 
+data EdgeType = DirectEdge | IndirectEdge
+  deriving(Show, Eq, Ord)
+
 data Edge =
   Edge { edgeSource :: Int
        , edgeTarget :: Int
+       , edgeType   :: EdgeType
        }
   deriving(Show, Eq, Ord)
 
@@ -57,19 +62,38 @@ stateNode t = Node t StateNode
 eventNode :: Ident -> Node
 eventNode t = Node t EventNode
 
+directEdge :: Int -> Int -> Edge
+directEdge source target = Edge source target DirectEdge
+
+indirectEdge :: Int -> Int -> Edge
+indirectEdge source target = Edge source target IndirectEdge
+
+makeGraph :: Set.Set Node -> Set.Set (Node, Node) -> Set.Set (Node, Node) -> Graph
+makeGraph nodes directEdges indirectEdges = Graph (Set.toList nodes) allEdges
+  where
+    nodesWithIndices = Map.fromList $ zip (Set.toList nodes) [0..]
+    direct = Set.map (edge DirectEdge) directEdges
+    indirect = Set.map (edge IndirectEdge) indirectEdges
+    allEdges = Set.toList $ Set.union direct indirect
+    edge edgeType (n1, n2) = Edge (nodesWithIndices Map.! n1) (nodesWithIndices Map.! n2) edgeType
+
 class RenderedModel m where
   asString :: m -> BS.ByteString
+  
+  
+data MVShowIndirectEdges = MVNoIndirectEdges | MVIndirectEdgesFull | MVIndirectEdgesMinimal
+  deriving (Eq, Ord, Show)
+
+newtype MVConfig = MVConfig { mvShowIndirectEdges :: MVShowIndirectEdges }
+  deriving (Eq, Ord, Show)
 
 ---------------------------------------------------------------------------------  
 
 toNetworkGraph :: Model -> Graph
 toNetworkGraph model =
-  let allNodes = Map.elems stateNodesMap ++ Map.elems eventNodesMap
-      allNodesWithIndices = Map.fromList $ zip allNodes [0..]
-      edge (n1, n2) = Edge (allNodesWithIndices Map.! n1) (allNodesWithIndices Map.! n2)
+  let allNodes = Set.fromList $ Map.elems stateNodesMap ++ Map.elems eventNodesMap
       allEdgesRaw = Set.unions $ map eventEdges (modelEvents model)
-      allEdges = Set.toList $ Set.map edge allEdgesRaw
-  in Graph allNodes allEdges
+  in makeGraph allNodes allEdgesRaw Set.empty
   where
     stateNameSet = Set.unions $ map (Map.keysSet . eventEffect) (modelEvents model)
     stateNodesMap = Map.fromSet stateNode stateNameSet
@@ -85,19 +109,18 @@ toNetworkGraph model =
           incomingEdges = Set.map edgeToEvent allstateDependencies
       in Set.union incomingEdges outGoingEdges
 
-toFlowGraph :: Model -> Graph
-toFlowGraph model =
-  let allNodes = Map.elems stateNodesMap ++ Map.elems eventNodesMap
-      allNodesWithIndices = Map.fromList $ zip allNodes [0..]
-      edge (n1, n2) = Edge (allNodesWithIndices Map.! n1) (allNodesWithIndices Map.! n2)
-      allEdgesRaw = Set.unions $ map eventEdges (modelEvents model)
-      allEdges = Set.toList $ Set.map edge allEdgesRaw
-  in Graph allNodes allEdges
+toFlowGraph :: MVConfig -> Model -> Graph
+toFlowGraph MVConfig{..} model =
+  let allNodes = Set.fromList $ Map.elems stateNodesMap ++ Map.elems eventNodesMap
+      dirEdgesRaw = Set.unions $ map dirEventEdges (modelEvents model)
+      indirectEdgesRaw = Set.unions $ map indirectEventEdges (modelEvents model)
+      filteredIndirectEdgesRaw = filterIndirectEdges indirectEdgesRaw dirEdgesRaw
+  in makeGraph allNodes dirEdgesRaw filteredIndirectEdgesRaw
   where
     stateNameSet = Set.unions $ map (Map.keysSet . eventEffect) (modelEvents model)
     stateNodesMap = Map.fromSet stateNode stateNameSet
     eventNodesMap = Map.fromList $ map (\ev -> (ev, eventNode $ eventName ev)) (modelEvents model)
-    eventEdges ev = Set.fromList $ mapMaybe (uncurry $ effectEdge ev) $ Map.assocs (eventEffect ev)
+    dirEventEdges ev = Set.fromList $ mapMaybe (uncurry $ effectEdge ev) $ Map.assocs (eventEffect ev)
       where
         effectEdge evt _ e =
           case e of
@@ -107,36 +130,58 @@ toFlowGraph model =
               Just (stateNode v, eventNode (eventName evt))
             _ ->
               Nothing
+    indirectEventEdges ev =
+      let evNode = eventNodesMap Map.! ev
+          sourceVars = collectVars $ eventRate ev
+          sourceVarNodes = mapMaybe (`Map.lookup` stateNodesMap) $ Set.toList sourceVars
+      in Set.fromList $ map (,evNode) sourceVarNodes
+    filterIndirectEdges indirectEdges directEdges =
+      let invertedEdges = Set.map (\(n1, n2) -> (n2, n1)) directEdges
+          allEdgesToRemove = Set.union directEdges invertedEdges
+      in case mvShowIndirectEdges of
+        MVNoIndirectEdges -> Set.empty
+        MVIndirectEdgesFull -> Set.difference indirectEdges directEdges
+        MVIndirectEdgesMinimal -> Set.difference indirectEdges allEdgesToRemove
 
-toSimpleFlowGraph :: Model -> Graph
-toSimpleFlowGraph model =
-  let allNodes = Map.elems stateNodesMap
-      allNodesWithIndices = Map.fromList $ zip allNodes [0..]
-      edge (n1, n2) = Edge (allNodesWithIndices Map.! n1) (allNodesWithIndices Map.! n2)
-      allEdgesRaw = Set.unions $ map eventEdges (modelEvents model)
-      allEdges = Set.toList $ Set.map edge allEdgesRaw
-  in Graph allNodes allEdges
+toSimpleFlowGraph :: MVConfig -> Model -> Graph
+toSimpleFlowGraph MVConfig{..} model =
+  let allNodes = Set.fromList $ Map.elems stateNodesMap
+      dirEdgesRaw = Set.unions $ map dirEventEdges (modelEvents model)
+      indirectEdgesRaw = Set.unions $ map indirectEventEdges (modelEvents model)
+      filteredIndirectEdgesRaw = filterIndirectEdges indirectEdgesRaw dirEdgesRaw
+  in makeGraph allNodes dirEdgesRaw filteredIndirectEdgesRaw
   where
     stateNameSet = Set.unions $ map (Map.keysSet . eventEffect) (modelEvents model)
     stateNodesMap = Map.fromSet stateNode stateNameSet
-    eventEdges ev = effectEdges (eventEffect ev)
-      where
-        effectEdges effectMap =
-          let (increases, decreases) = classify effectMap
-              edgelst = edgeList decreases increases
-          in Set.fromList edgelst
-        classify effectMap =
-          let classifiedExprMap = Map.mapMaybe isIncrease effectMap
-              (increases, decreases) = Map.partition Prelude.id classifiedExprMap
-          in (Map.keys increases, Map.keys decreases)
-        isIncrease e =
-          case e of
-            Var _ :+: NumLit n | n > 0 -> Just True
-            Var _ :-: NumLit n | n > 0 -> Just False
-            _ -> Nothing
-        edgeList fromSet endSet =
-          [ (lNode, rNode) | l <- fromSet, let lNode = stateNodesMap Map.! l,
-                             r <- endSet, let rNode = stateNodesMap Map.! r ]
+    dirEventEdges ev = directEffectEdges (eventEffect ev)      
+    directEffectEdges effectMap =
+      let (increases, decreases) = classify effectMap
+          edgelst = edgeList decreases increases
+      in Set.fromList edgelst
+    classify effectMap =
+      let classifiedExprMap = Map.mapMaybe isIncrease effectMap
+          (increases, decreases) = Map.partition Prelude.id classifiedExprMap
+      in (Map.keys increases, Map.keys decreases)
+    isIncrease e =
+      case e of
+        Var _ :+: NumLit n | n > 0 -> Just True
+        Var _ :-: NumLit n | n > 0 -> Just False
+        _ -> Nothing
+    edgeList fromSet endSet =
+      [ (lNode, rNode) | l <- fromSet, let lNode = stateNodesMap Map.! l,
+                         r <- endSet, let rNode = stateNodesMap Map.! r,
+                         l /= r]
+    indirectEventEdges ev = indirectEffectEdges (eventEffect ev) (eventRate ev)
+    indirectEffectEdges effectMap rateExpr =
+      let (increases, _) = classify effectMap
+          sourceVars = Set.toList $ Set.filter (`Map.member` stateNodesMap) $ collectVars rateExpr
+          edgelst = edgeList sourceVars increases
+      in Set.fromList edgelst
+    filterIndirectEdges indirectEdges directEdges =
+      case mvShowIndirectEdges of
+        MVNoIndirectEdges -> Set.empty
+        MVIndirectEdgesFull -> Set.difference indirectEdges directEdges
+        MVIndirectEdgesMinimal -> Set.difference indirectEdges directEdges
 
 -------------------------------------------------------------------------------------
 
@@ -168,29 +213,30 @@ convertToVegaData g = JSON.toJSON [nodeValues, edgeValues]
                  StateNode -> JSON.String "state"
                  EventNode -> JSON.String "event"
       convertEdge edge =
-        JSON.object [ "source" .= edgeSource edge
-                    , "target" .= edgeTarget edge
-                    , "type"   .= JSON.String (edgeType edge)
+        JSON.object [ "source"   .= edgeSource edge
+                    , "target"   .= edgeTarget edge
+                    , "type"     .= JSON.String (edgeDir edge)
+                    , "edgetype" .= JSON.String (if edgeType edge == DirectEdge then "direct" else "indirect")
                     ]
 
-      edgeType edge =
+      edgeDir edge =
         let src = nodes g !! edgeSource edge
         in case src of { Node _ EventNode -> "out"; _ -> "in" }
 
 
 ---------------------------------------------------------------------
 
-renderModelAsFlowGraphToVega :: Model -> JSON.Value
-renderModelAsFlowGraphToVega model = convertToVega (toFlowGraph model)
+renderModelAsFlowGraphToVega :: MVConfig -> Model -> JSON.Value
+renderModelAsFlowGraphToVega config model = convertToVega (toFlowGraph config model)
 
-renderModelAsFlowGraphToVegaIO :: MonadIO m => Model -> FilePath -> m ()
-renderModelAsFlowGraphToVegaIO model f = liftIO $ JSON.encodeFile f (renderModelAsFlowGraphToVega model)
+renderModelAsFlowGraphToVegaIO :: MonadIO m => MVConfig -> Model -> FilePath -> m ()
+renderModelAsFlowGraphToVegaIO config model f = liftIO $ JSON.encodeFile f (renderModelAsFlowGraphToVega config model)
 
-renderModelAsSimpleFlowGraphToVega :: Model -> JSON.Value
-renderModelAsSimpleFlowGraphToVega model = convertToVega (toSimpleFlowGraph model)
+renderModelAsSimpleFlowGraphToVega :: MVConfig -> Model -> JSON.Value
+renderModelAsSimpleFlowGraphToVega config model = convertToVega (toSimpleFlowGraph config model)
 
-renderModelAsSimpleFlowGraphToVegaIO :: MonadIO m => Model -> FilePath -> m ()
-renderModelAsSimpleFlowGraphToVegaIO model f = liftIO $ JSON.encodeFile f (renderModelAsSimpleFlowGraphToVega model)
+renderModelAsSimpleFlowGraphToVegaIO :: MonadIO m => MVConfig -> Model -> FilePath -> m ()
+renderModelAsSimpleFlowGraphToVegaIO config model f = liftIO $ JSON.encodeFile f (renderModelAsSimpleFlowGraphToVega config model)
 
 ---------------------------------------------------------------------
 
@@ -204,7 +250,7 @@ vegaNetworkGraphTemplate = " \
  \   \"width\": 1200, \
  \   \"height\": 500, \
  \   \"padding\": 0, \
- \   \"autosize\": \"none\", \
+ \   \"autosize\": \"pad\", \
  \  \
  \   \"signals\": [ \
  \     { \"name\": \"cx\", \"update\": \"width / 2\" }, \
@@ -267,7 +313,8 @@ vegaNetworkGraphTemplate = " \
  \       \"encode\": { \
  \         \"enter\": { \
  \           \"stroke\": {\"signal\": \"datum.type === 'out' ? 'gray' : 'green'\"}, \
- \           \"strokeWidth\": {\"signal\": \"datum.type === 'out' ? 2 : 3.5\"} \
+ \           \"strokeWidth\": {\"signal\": \"datum.type === 'out' ? 2 : 3.5\"}, \
+ \           \"strokeDash\": {\"signal\": \"datum.edgetype === 'indirect' ? [5,5] : []\"} \
  \         } \
  \       }, \
  \       \"transform\": [ \
@@ -365,7 +412,7 @@ vegaNetworkGraphTemplate = " \
 
 ---------------------------------------------------------------------
 
-newtype GVId = GVId { unId :: Text }  
+newtype GVId = GVId { unId :: Text }
   deriving(Show, Eq, Ord)
 
 data GVValue = GVValInt Int | GVValFloat Double | GVValString Text
@@ -383,7 +430,7 @@ data GVEdge = GVEdge { gvEdgeStart :: GVId
                      }
   deriving(Show, Eq, Ord)
 
-data GVDiGraph = GVDiGraph { gvGraphId    :: GVId 
+data GVDiGraph = GVDiGraph { gvGraphId    :: GVId
                            , gvGraphAttr  :: Map.Map Text GVValue
                            , gvGraphNodes :: [GVNode]
                            , gvGraphEdges :: [GVEdge]
@@ -406,11 +453,11 @@ generateDotText g =
     idText i = unId i
     nodeText n = T.intercalate " "  [ "node"
                                     , wrappedAttrsText (augmentedNodeAttrMap n)
-                                    , ";" 
+                                    , ";"
                                     , idText (gvNodeId n)
                                     ]
     edgeText e = T.intercalate " " [ idText (gvEdgeStart e)
-                                   , "->"  
+                                   , "->"
                                    , idText (gvEdgeEnd e)
                                    , wrappedAttrsText (gvEdgeAttr e)
                                    ]
@@ -427,14 +474,13 @@ generateDotText g =
 convertToDot :: Graph -> GVDiGraph
 convertToDot g =
   let gvGraphId = GVId "Model"
-      gvGraphAttr = Map.fromList [ ("size", GVValInt 8)
-                                 , ("layout", GVValString "dot")
+      gvGraphAttr = Map.fromList [ ("layout", GVValString "dot")
                                  , ("fontsize", GVValInt 20)
                                  , ("rankdir", GVValString "LR")
                                  ]
       gvGraphNodes = zipWith makeGVNode (nodes g) [0..]
       gvGraphEdges = map makeGVEdge (edges g)
-  in GVDiGraph{..}    
+  in GVDiGraph{..}
   where
     makeGVNode n i =
       let gvNodeId = nodeId i
@@ -442,21 +488,26 @@ convertToDot g =
             EventNode -> ""
             StateNode -> maybe "" (T.singleton . fst) $ T.uncons (nodeName n)
           gvNodeAttr = nodeAttr n
-      in GVNode{..}      
+      in GVNode{..}
     makeGVEdge e =
       let gvEdgeStart = nodeId (edgeSource e)
-          gvEdgeEnd = nodeId (edgeTarget e) 
+          gvEdgeEnd = nodeId (edgeTarget e)
+          gvStyle = case edgeType e of
+                      DirectEdge   -> "solid"
+                      IndirectEdge -> "dashed"
           gvEdgeAttr = Map.fromList [ ("color", GVValString "darkslategray4")
                                     , ("penwidth", GVValFloat 2.5)
                                     , ("arrowsize", GVValFloat 0.5)
+                                    , ("style", GVValString gvStyle)
                                     ]
-      in GVEdge{..}  
-    nodeAttr n = case nodeType n of 
+      in GVEdge{..}
+    nodeAttr n = case nodeType n of
       EventNode -> Map.fromList [ ("shape", GVValString "square")
                                 , ("width", GVValFloat 0.2)
                                 , ("style", GVValString "filled")
                                 , ("fillcolor", GVValString "orange")
                                 , ("penwidth", GVValFloat 1.5)
+                                , ("tooltip", GVValString $ nodeName n)
                                 ]
       StateNode -> Map.fromList [ ("shape", GVValString "circle")
                                 , ("width", GVValFloat 0.5)
@@ -465,24 +516,25 @@ convertToDot g =
                                 , ("fontcolor", GVValString "white")
                                 , ("fontname", GVValString "Arial")
                                 , ("penwidth", GVValFloat 1.5)
+                                , ("tooltip", GVValString $ nodeName n)
                                 ]
     nodeId :: Int -> GVId
     nodeId i = GVId $ T.cons 'n' (T.pack $ show i)
 
 -----------------------------------------------------------------------
 
-data ImageType = ImagePng | ImageJpg | ImageSvg 
+data ImageType = ImagePng | ImageJpg | ImageSvg
   deriving (Eq, Ord, Show)
 
 renderGraphToImage :: MonadIO m => Graph -> ImageType -> FilePath -> m (Either Text ())
-renderGraphToImage g iType f = 
+renderGraphToImage g iType f =
   liftIO (withSystemTempFile "model.dot" renderToImage)
   where
     renderToImage srcPath handle = writeDotFile handle >> execGraphViz srcPath f
-    writeDotFile handle = do 
+    writeDotFile handle = do
       T.hPutStrLn handle $ generateDotText $ convertToDot g
       hClose handle
-    execGraphViz :: FilePath -> FilePath -> IO (Either Text ())  
+    execGraphViz :: FilePath -> FilePath -> IO (Either Text ())
     execGraphViz sourceFile destFile = do
       let params = [ "-T", imageType iType
                    , "-o", destFile
@@ -496,7 +548,7 @@ renderGraphToImage g iType f =
       ImagePng -> "png"
       ImageJpg -> "jpg"
       ImageSvg -> "svg"
-      
+
 renderGraphToRawImage :: MonadIO m => Graph -> ImageType -> m (Either Text BS.ByteString)
 renderGraphToRawImage g iType = do
   destFile <- liftIO $ emptySystemTempFile "model.output"
@@ -509,27 +561,27 @@ renderGraphToRawImage g iType = do
     Left t   -> return $ Left t
 
 
-renderModelAsFlowGraphToDot :: Model -> Text
-renderModelAsFlowGraphToDot model = generateDotText $ convertToDot $ toFlowGraph model
+renderModelAsFlowGraphToDot :: MVConfig -> Model -> Text
+renderModelAsFlowGraphToDot config model = generateDotText $ convertToDot $ toFlowGraph config model
 
-renderModelAsFlowGraphToDotIO :: MonadIO m => Model -> FilePath -> m ()
-renderModelAsFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderModelAsFlowGraphToDot model
+renderModelAsFlowGraphToDotIO :: MonadIO m => MVConfig -> Model -> FilePath -> m ()
+renderModelAsFlowGraphToDotIO config model f = liftIO $ T.writeFile f $ renderModelAsFlowGraphToDot config model
 
-renderModelAsFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
-renderModelAsFlowGraphToImageIO model iType f = renderGraphToImage (toFlowGraph model) iType f
+renderModelAsFlowGraphToImageIO :: MonadIO m => MVConfig -> Model -> ImageType -> FilePath -> m (Either Text ())
+renderModelAsFlowGraphToImageIO config model iType f = renderGraphToImage (toFlowGraph config model) iType f
 
-renderModelAsFlowGraphToRawImageIO :: MonadIO m => Model -> ImageType -> m (Either Text BS.ByteString)
-renderModelAsFlowGraphToRawImageIO model iType = renderGraphToRawImage (toFlowGraph model) iType
+renderModelAsFlowGraphToRawImageIO :: MonadIO m => MVConfig -> Model -> ImageType -> m (Either Text BS.ByteString)
+renderModelAsFlowGraphToRawImageIO config model iType = renderGraphToRawImage (toFlowGraph config model) iType
 
 
-renderModelAsSimpleFlowGraphToDot :: Model -> Text
-renderModelAsSimpleFlowGraphToDot model = generateDotText $ convertToDot $ toSimpleFlowGraph model
+renderModelAsSimpleFlowGraphToDot :: MVConfig -> Model -> Text
+renderModelAsSimpleFlowGraphToDot config model = generateDotText $ convertToDot $ toSimpleFlowGraph config model
 
-renderModelAsSimpleFlowGraphToDotIO :: MonadIO m => Model -> FilePath -> m ()
-renderModelAsSimpleFlowGraphToDotIO model f = liftIO $ T.writeFile f $ renderModelAsSimpleFlowGraphToDot model
+renderModelAsSimpleFlowGraphToDotIO :: MonadIO m => MVConfig -> Model -> FilePath -> m ()
+renderModelAsSimpleFlowGraphToDotIO config model f = liftIO $ T.writeFile f $ renderModelAsSimpleFlowGraphToDot config model
 
-renderModelAsSimpleFlowGraphToImageIO :: MonadIO m => Model -> ImageType -> FilePath -> m (Either Text ())
-renderModelAsSimpleFlowGraphToImageIO model iType f = renderGraphToImage (toSimpleFlowGraph model) iType f
+renderModelAsSimpleFlowGraphToImageIO :: MonadIO m => MVConfig -> Model -> ImageType -> FilePath -> m (Either Text ())
+renderModelAsSimpleFlowGraphToImageIO config model iType f = renderGraphToImage (toSimpleFlowGraph config model) iType f
 
-renderModelAsSimpleFlowGraphToRawImageIO :: MonadIO m => Model -> ImageType -> m (Either Text BS.ByteString)
-renderModelAsSimpleFlowGraphToRawImageIO model iType = renderGraphToRawImage (toSimpleFlowGraph model) iType
+renderModelAsSimpleFlowGraphToRawImageIO :: MonadIO m => MVConfig -> Model -> ImageType -> m (Either Text BS.ByteString)
+renderModelAsSimpleFlowGraphToRawImageIO config model iType = renderGraphToRawImage (toSimpleFlowGraph config model) iType

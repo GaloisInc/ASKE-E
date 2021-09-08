@@ -103,7 +103,7 @@ Example:
 | Field            | Type                     | Description                                                       |
 |------------------|--------------------------|-------------------------------------------------------------------|
 | command          | string                   | The literal `"query-models"`|
-| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model level metadata (as returned by `list-models`) as well as parameter and measure metadata values for a match.|
+| text             | string                   | Text to search for. Accepts wildcards `*` and `?`. Searches through model source name, model level metadata (both, as returned by `list-models`) as well as parameter and measure metadata values for a match.|
 
 Example:
 
@@ -747,6 +747,200 @@ Example:
         "description": "Time (in days)"
       }
     ]
+  }
+}
+```
+
+### `fit-measure` Estimate model parameters
+
+**Request**
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"fit-measure"`  |
+| definition       | model-def                | Datasource for model (e.g. from `list-datasets`)                    |
+| parameters       | list of string           | Parameters to try to find values for                                |
+| data             | dataseries               | Data series to fit against (see below)                              |
+
+Data series:
+
+| Field            | Type                     | Description                                                         |
+|------------------|--------------------------|---------------------------------------------------------------------|
+| values           | object                   | Keys are model variable names, values are lists of points           |
+| times            | list of numbers          | Corresponding times for the data points                             |
+
+Each value of the `values` object should be an array of the same length as `times`.
+
+Example:
+
+```json
+{
+  "command": "fit-measures",
+  "definition": {
+    "type": "easel",
+    "source": { "model": "sir-meta.easel" }
+  },
+  "parameters": ["beta", "gamma"],
+  "data": {
+    "values": {
+      "I": [
+        3, 74.78758342604473, 623.3137065799646, 761.227660031603, 641.3487163757723, 526.5677251792523,
+        431.297586129131, 353.1478923294002, 289.1402682575921, 236.73013719570082, 193.81898629689385,
+        158.6858700205345, 129.92114428227376, 106.37050988809484, 87.08884901094167, 71.30234380846396,
+        58.37743746622634, 47.7954138770176, 39.131582481945436, 32.03823518720198, 26.23069221742839,
+        21.47587722450436, 17.582963280246798, 14.395714419465202, 11.786215392681438
+      ]
+    },
+    "times": [
+      0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120
+    ]
+  }
+}
+```
+
+**Response**
+
+The `result` field contains a object whose keys are parameter names and whose values are the estimated parameter values
+
+Example:
+
+```json
+{
+  "status": "success",
+  "result": {
+    "gamma": 4.0000000000252035e-2,
+    "beta": 0.6999999999997466
+  }
+}
+```
+
+## Compare models
+
+Compare two models, if possible.
+
+(At the moment, "if possible" means that we've already performed a comparison of these two models and stored the result - live comparison isn't currently supported.)
+
+**Request**
+
+| Field            | Type                     | Description                                                           |
+|------------------|--------------------------|-----------------------------------------------------------------------|
+| command          | string                   | Command - for this operation it will be the string `"compare-models"` |
+| source           | model-def                | Source of the model acting as the comparison "source"                 |
+| target           | model-def                | Source of the model acting as the comparison "target"                 |
+
+Example:
+```json
+{
+    "command": "compare-models",
+    "source": {
+        "type": "gromet-pnc",
+        "source": {"model": "SimpleSIR_metadata_gromet_PetriNetClassic.json"}
+    },
+    "target": {
+        "type": "gromet-pnc",
+        "source": {"model": "chime+.json"}
+    }
+}
+```
+
+**Response**
+
+The `result` field contains a list of variable-to-variable mappings, with keys being variables in the source model and values being variables in the target model. The list is in no particular order.
+
+Example:
+```json
+{
+    "status": "success",
+    "result": [
+        {
+            "J:I": "J:I_U",
+            "J:S": "J:S",
+            "J:R": "J:R",
+            "J:gamma": "J:rec_u",
+            "J:beta": "J:inf_uu"
+        },
+        {
+            "J:I": "J:I_V",
+            "J:S": "J:V",
+            "J:R": "J:R",
+            "J:gamma": "J:rec_v",
+            "J:beta": "J:inf_vv"
+        }
+    ]
+}
+```
+
+## `compute-error` Error Measurement
+
+**Request:**
+
+```json
+{
+  "command": "compute-error",
+  "interp-model": "linear",
+  "error-model": "L2",
+  "measures": [
+    {
+      "uid": "J:I",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,1,2,2,3,3]
+      }
+    },
+    {
+      "uid": "J:J",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1,3,5],
+        "values": [1,2,3]
+      }
+    },
+    {
+      "uid": "J:K",
+      "predicted": {
+        "times": [1,2,3,4,5,6],
+        "values": [1,2,3,4,5,6]
+      },
+      "observed": {
+        "times": [1.5,3.5,5.5],
+        "values": [1,2,3]
+      }
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "status": "success",
+  "result": {
+    "measures": [
+      {
+        "error_ind": [ 0, 1, 1, 2, 2, 3 ],
+        "uid": "J:I",
+        "error_total": 19
+      },
+      {
+        "error_ind": [ 0, 1, 2 ],
+        "uid": "J:J",
+        "error_total": 5
+      },
+      {
+        "error_ind": [ 0.5, 1.5, 2.5 ],
+        "uid": "J:K",
+        "error_total": 8.75
+      }
+    ],
+    "error_total": 32.75
   }
 }
 ```

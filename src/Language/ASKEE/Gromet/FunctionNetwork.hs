@@ -8,12 +8,29 @@ import qualified Data.Aeson as JSON
 import qualified Language.ASKEE.Model.Interface as MI
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
+import qualified Data.Maybe as Maybe
+
 import qualified Language.ASKEE.Model.Basics as MB
 
 type FunctionNetwork = JSON.Value
 
-fnetInterface :: JSON.Value -> Either Text MI.ModelInterface
-fnetInterface root =
+data FNetModelLevelMeta = FNetModelLevelMeta
+  { fmlmName :: Text
+  , fmlmDescription :: Text
+  }
+  deriving Show
+
+data FNetInfo = FNetInfo
+  { fiInterface :: MI.ModelInterface
+  , fiModelLevelMeta :: Maybe FNetModelLevelMeta
+  }
+  deriving Show
+
+fnetInterface:: JSON.Value -> Either Text MI.ModelInterface
+fnetInterface v = fiInterface <$> fnetInfo v
+
+fnetInfo :: JSON.Value -> Either Text FNetInfo
+fnetInfo root =
   do  metas <- objLookup root "metadata" >>= arr
       let mbInterface = listToMaybe  [m | m <- metas
                                         , Just "ModelInterface" == try (objLookup m "metadata_type" >>= text)
@@ -37,16 +54,34 @@ fnetInterface root =
       icV <- objLookup interface "initial_conditions" >>= arr
       ics <- text `traverse` icV
 
-      let params = ics ++ vars
+      let params = ics ++ states
 
       paramPorts <- varToPort variableInfo `traverse` params
-      statePorts <- varToPort variableInfo `traverse` states
+      let statePorts = Maybe.catMaybes (try . varToPort variableInfo <$> vars)
 
+      let descMlm = getDesc metas
       pure
-        MI.ModelInterface { MI.modelInputs = paramPorts
-                          , MI.modelOutputs = statePorts
-                          }
+        FNetInfo
+          { fiInterface =
+             MI.ModelInterface { MI.modelInputs = paramPorts
+                               , MI.modelOutputs = statePorts
+                               }
+          , fiModelLevelMeta = descMlm
+          }
   where
+    getDesc metas = try (find nameDesc metas)
+
+    nameDesc :: JSON.Value -> Either Text FNetModelLevelMeta
+    nameDesc md =
+      do  mdTy <- objLookup md "metadata_type"
+          if mdTy == "ModelDescription"
+            then Right ()
+            else Left ("Not a description metadata" :: Text)
+          name <- objLookup md "name" >>= text
+          desc <- objLookup md "description" >>= text
+          pure $ FNetModelLevelMeta name desc
+
+
     varToPort vars uid =
       do  var <- findUid vars uid
           tyValue <- objLookup var "type" >>= text
@@ -60,7 +95,9 @@ fnetInterface root =
               Nothing -> Left ("could not parse value type '" <> tyValue <> "'")
               Just v -> Right v
 
-          pure MI.Port { MI.portName = uid
+          portUid <- objLookup var "proxy_state" >>= text
+
+          pure MI.Port { MI.portName = portUid
                        , MI.portValueType = ty
                        , MI.portDefault = Nothing
                        , MI.portMeta = metaMap
@@ -79,7 +116,7 @@ fnetInterface root =
 
     find f as  =
       case as of
-        [] -> Left "could not find required value"
+        [] -> Left ("could not find required value" :: Text)
         a:as' ->
           case try (f a) of
             Nothing -> find f as'
@@ -109,3 +146,12 @@ fnetInterface root =
         Right a -> Just a
 
 
+fnetUID :: FunctionNetwork -> Either String Text
+fnetUID fnet =
+  case fnet of
+    JSON.Object o -> 
+      case HashMap.lookup "uid" o of
+        Just (JSON.String t) -> Right t
+        Just _ -> Left "FNet gromet's UID wasn't a string"
+        Nothing -> Left "FNet gromet didn't contain UID at key \"uid\" - this gromet is ill-formed"
+    _ -> Left "internal error: FNet gromet represented as something other than a JSON object"

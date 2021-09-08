@@ -13,7 +13,7 @@ import qualified Data.Aeson as JSON
 
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, foldM, when)
+import Control.Monad (unless, foldM, when, filterM)
 import Control.Monad.IO.Class
 import GHC.Float.RealFracMethods (floorDoubleInt)
 import qualified Control.Monad.Reader as Reader
@@ -60,12 +60,14 @@ import           Language.ASKEE.Latex.Syntax (Latex(..))
 import qualified Language.ASKEE.Exposure.Plot as Plot
 import Language.ASKEE.Exposure.Plot (PlotStyle)
 import Language.ASKEE.Exposure.Syntax
+import Language.ASKEE.Exposure.Python
 
 data ExposureInfo = ExposureInfo
   deriving Show
 
 runEval :: EvalRead -> Env -> Eval a -> IO (Either Text a, Env, EvalWrite)
-runEval evRead env ev = RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
+runEval evRead env ev =
+  RWS.runRWST (Except.runExceptT (unEval ev)) evRead env
 
 -------------------------------------------------------------------------------
 
@@ -146,18 +148,20 @@ data EvalRead = EvalRead
   , erLocalVars   :: Map Ident Value
   , erPutFileFn   :: EvalWriteFileFn
   , erGetFileFn   :: EvalReadFileFn
+  , erPyHandle    :: PythonHandle
   }
 
 type EvalIO a        = IO (Either Text a) -- ^ Either an error message or the value
 type EvalReadFileFn  = FilePath -> EvalIO LBS.ByteString
 type EvalWriteFileFn = FilePath -> LBS.ByteString -> EvalIO ()
 
-mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> EvalRead
-mkEvalReadEnv rd wr = EvalRead
+mkEvalReadEnv :: EvalReadFileFn -> EvalWriteFileFn -> PythonHandle -> EvalRead
+mkEvalReadEnv rd wr hdl = EvalRead
   { erPrecomputed = Map.empty
   , erLocalVars   = Map.empty
   , erPutFileFn   = wr
   , erGetFileFn   = rd
+  , erPyHandle    = hdl
   }
 
 
@@ -252,6 +256,11 @@ interpretExpr e0 =
       do  v <- interpretExpr e
           fmap VModelExpr (EMember . EVal . VModel <$> model v <*> pure lab) <|> mem v lab
 
+    EIndex e idx ->
+      do v <- interpretExpr e
+         idx' <- interpretExpr idx
+         fmap VModelExpr (EMember . EVal . VModel <$> model v <*> str idx') <|> index v idx'
+
     EList es ->
       do  vs <- interpretExpr `traverse` es
           pure $ VArray vs
@@ -278,6 +287,7 @@ interpretDisplayExpr (DisplayScalar scalar) = do
 interpretCall :: FunctionName -> [Value] -> Eval Value
 interpretCall fun args =
   case fun of
+    FPython      -> callPython args
     FAdd         -> compilable add
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
@@ -293,9 +303,7 @@ interpretCall fun args =
     FOr          -> compilable (bincmpBool (||))
     FProb        ->
       case args of
-        [VArray vs] -> do
-          vs' <- traverse getBoolValue vs
-          pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        [v] -> interpretProb v
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
@@ -324,6 +332,12 @@ interpretCall fun args =
           VArray <$> traverse (\v -> atPoint v d) vs'
         [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
+        -- 'at peak' forms
+        [VModelExpr e, VString i, times@(VArray _)] ->
+          do times' <- array double times
+             pure $ VDFold (DFAtPeak i times') e
+        [VSampledData vs, VString i, _] ->
+          atPeak vs i
         _ -> typeError "at expects a model and a double as its arguments"
 
     FLoadEasel   ->
@@ -351,6 +365,8 @@ interpretCall fun args =
             case (sm1, sm2) of
               ([VString s1, VModelExpr (EVal (VModel m1))], [VString s2, VModelExpr (EVal (VModel m2))]) ->
                 pure $
+                VModelExpr $
+                EVal $
                 VModel $
                 modelAsCore (join (Map.fromList ss') s1 s2 (coreAsModel m1) (coreAsModel m2) )
               _ -> typeError "all models must be specified in a list with a suffix, optionally empty"
@@ -467,13 +483,14 @@ interpretCall fun args =
 
     FSimplify ->
       case args of
-        [VModel m, VArray arr] ->
-          do  states <-
+        [v, VArray arr] ->
+          do  m <- model v
+              states <-
                 case strings arr of
                   Just ss -> pure ss
                   Nothing ->
                     typeError "simplify's list of states must be string literals"
-              pure $ VModel (Core.pruneModel (Set.fromList states) m)
+              pure . VModelExpr . EVal $ VModel (Core.pruneModel (Set.fromList states) m)
         _ -> typeError "simplify expects a model and a list of states"
 
     FWithParams ->
@@ -517,11 +534,20 @@ interpretCall fun args =
       case args of
         [v] ->
           do  m <- model v
-              esvg <- liftIO $ CoreViz.renderModelAsFlowGraphToRawImageIO m CoreViz.ImageSvg
+              esvg <- liftIO $ CoreViz.renderModelAsSimpleFlowGraphToRawImageIO (CoreViz.MVConfig CoreViz.MVNoIndirectEdges) m CoreViz.ImageSvg
               case esvg of
                 Left err -> throw err
                 Right svg -> pure $ VSVG svg
         _ -> typeError "modelGraph expects one argument"
+
+    FModelSize ->
+      case args of
+        [v] ->
+          do  m <- model v
+              let sizeStr = "states: " <> (Text.pack . show  . length) (CoreS.modelStateVars m)
+                            <> "   events: " <> (Text.pack . show . length) (CoreS.modelEvents m)
+              pure $ VString sizeStr
+        _ -> typeError "modelSize expects one argument"
 
   where
     strings = mapM (\case VString s -> Just s; _ -> Nothing)
@@ -632,6 +658,16 @@ interpretPlot title series xs xLabel =
        , Plot.plotVs = xs'
        , Plot.plotVsLabel = xLabel
        }
+
+interpretProb :: Value -> Eval Value
+interpretProb = chooseLift go (throw "exepecting a collection of booleans")
+  where
+    go arr =
+      case arr of
+        VArray vs ->
+          do vs' <- traverse getBoolValue vs
+             pure $ VDouble $ fromIntegral (count id vs') / fromIntegral (length vs)
+        _ -> throw "P() expects a collection of booleans"
 
 
 interpretSeries :: [Value] -> Text -> Map Text Value -> Eval Value
@@ -844,12 +880,14 @@ execSim how df e = unfoldS . unfoldD <$> runSimExpr how expLength e
       case df of
         DFAt d -> d
         DFAtMany d -> maximum d
+        DFAtPeak _ d -> maximum d
         DFIn _ end -> end
 
     unfoldD e1 =
       case df of
         DFAt d -> ECall FAt [e1, EVal $ VDouble d]
         DFAtMany ds -> ECall FAt [e1, EVal $ VArray (VDouble <$> ds)]
+        DFAtPeak i ds -> ECall FAt [e1, EVal $ VString i, EVal $ VArray (VDouble <$> ds)]
         DFIn start end -> ECall FIn [e1, EVal $ VDouble start, EVal $ VDouble end]
     unfoldS e1 =
       case how of
@@ -870,6 +908,7 @@ runSimExpr how t e0 =
       ECallWithLambda fname <$> (runSimExpr how t `traverse` args)
                             <*> pure lambdaVar
                             <*> (runSimExpr how t lambdaExpr)
+    EIndex e idx  -> EIndex <$> runSimExpr how t e <*> pure idx
     EMember e lab -> EMember <$> runSimExpr how t e <*> pure lab
     EList es -> EList <$> runSimExpr how t `traverse` es
     EListRange start stop step -> EListRange <$> runSimExpr how t start <*> runSimExpr how t stop <*> runSimExpr how t step
@@ -893,6 +932,18 @@ runSim (SimDiffEq delta) t mdl =
     Right deqs ->
       do let series = DEQ.simulate deqs mempty mempty [0,t/delta..t]
          pure $ seriesAsPoints series
+
+callPython :: [Value] -> Eval Value
+callPython args =
+  case args of
+    VString f : args' ->
+      do py <- Reader.asks erPyHandle
+         res <- liftIO $ evaluate py f args'
+         case res of
+           Success v -> pure $ unPython v
+           Failure e -> Except.throwError e
+    _ ->
+      throw "python() requires at least a function name"
 
 interpretWIS :: Value -> Value -> Value -> Eval Value
 interpretWIS samples alphas pt =
@@ -1077,6 +1128,20 @@ atPoints vals times =
   where
     atArrs arrA t = VTimed (VArray . catMaybes $ (`atSimple` t) <$> arrA) t
 
+atPeak :: [Value] -> Ident -> Eval Value
+atPeak samples i =
+  VArray <$> traverse perSample samples
+  where
+    perSample :: Value -> Eval Value
+    perSample s =
+      do s' <- array value s
+         ds <- traverse (`mem`i) s'
+         ds' <- fmap fst <$> traverse (timed double) ds
+         let m = maximum ds'
+         head <$> filterM (\pt ->
+           do (val, _) <- timed double =<< pt `mem` i
+              pure $ val >= m) s'
+
 atSimple :: [(a, Double)] -> Double -> Maybe a
 atSimple lst t =
   case lst of
@@ -1102,6 +1167,21 @@ atPoint vs t =
              if t' > t
                then pure v
                else go r val
+
+index :: Value -> Value -> Eval Value
+index v i =
+  identIdx <|> intIdx
+  where
+    identIdx = mem v =<< str i
+    intIdx   =
+      do v' <- array value v
+         i' <- asInt i
+         when (length v' <= i') $
+           throw "Index out of bounds"
+         pure (v' !! i')
+    asInt (VInt iv) = pure iv
+    asInt (VDouble d) = pure (floor d)
+    asInt _ = throw "Array index must be numeric"
 
 mem :: Value -> Ident -> Eval Value
 mem v0 l = chooseLift getMem nope v0
@@ -1199,6 +1279,12 @@ timedLift f v =
     e ->
       do  e' <- f e
           pure (e', id)
+
+
+asModelExprValue :: Value -> Eval Value
+asModelExprValue v =
+  do  m <- model v
+      (pure . VModelExpr . EVal . VModel) m
 
 -------------------------------------------------------------------------------
 -- lifts

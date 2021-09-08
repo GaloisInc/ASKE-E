@@ -35,6 +35,7 @@ module Language.ASKEE
   
   , stratifyModel
   , fitModelToData
+  , fitModelToMeasureData
   , Core.asSchematicGraph
   , convertModelString
 
@@ -51,8 +52,11 @@ module Language.ASKEE
   , Storage.listDataSets
   , Storage.loadDataSet
   , Storage.initDataStorage
+  , Storage.initComparisonStorage
   , Storage.DataSetDescription(..)
   , queryModels
+
+  , compareModels
 
   , describeModelType
 
@@ -71,6 +75,15 @@ module Language.ASKEE
   , ModelInterface(..)
   , Port(..)
   , describeModelInterface
+
+    -- * Error measurement
+  , DataError.DataErrorSummary(..)
+  , DataError.MeasureErrorSummary(..)
+  , DataError.MeasureErrorRequest(..)
+  , DataError.MeasureErrorData(..)
+  , DataError.Interpolation(..)
+  , DataError.ErrorMeasurement(..)
+  , DataError.computeError
   ) where
 
 import Control.Exception ( try, SomeException(..) )
@@ -92,12 +105,10 @@ import qualified Data.Text.IO               as Text
 import qualified Data.Text.Encoding         as Text
 
 import qualified Language.ASKEE.ESL                    as ESL
-import           Language.ASKEE.ESL.Manipulate         ( compose
-                                                       , join
-                                                       , ensemble
-                                                       , CombinationStrategy(..) )
-import           Language.ASKEE.CPP.Pretty             ( Doc )
+import qualified Language.ASKEE.Compare                as Compare
 import qualified Language.ASKEE.Core                   as Core
+import qualified Language.ASKEE.Core.Syntax            as Core
+import           Language.ASKEE.CPP.Pretty             ( Doc )
 import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , dataSeriesAsJSON
                                                        , gnuPlotScript
@@ -106,7 +117,7 @@ import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
                                                        , DataSeries(..) )
 import qualified Language.ASKEE.DataSeries             as DS
 import qualified Language.ASKEE.DEQ                    as DEQ
-import           Language.ASKEE.Gromet                 ( Gromet, PetriNetClassic)
+import           Language.ASKEE.Gromet                 ( Gromet(..), PetriNetClassic(..))
 import           Language.ASKEE.Error                  ( ASKEEError(..)
                                                        , throwLeft
                                                        , die )
@@ -119,6 +130,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
+                                                       , modelUID
                                                        , Model (..) )
 import           Language.ASKEE.Model.Basics           ( ModelType(..)
                                                        , describeModelType )
@@ -141,6 +153,7 @@ import           Language.ASKEE.Storage                ( initStorage
                                                        )
 import qualified Language.ASKEE.Storage                as Storage
 import qualified Language.ASKEE.Automates.Client       as Automates
+import qualified Language.ASKEE.DataError              as DataError
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
@@ -344,6 +357,19 @@ stratifyModel format source connectionGraph statesJSON stratificationType =
       Stratify.stratifyModel model connGraph vertexMap states stratificationType
   
 
+fitModelToMeasureData ::
+  ModelType {- ^ the model's type -} ->
+  DataSource {- ^ the model's source -} ->
+  [Text] {- ^ parameters to fit -} ->
+  DataSeries Double {- ^ the data -} ->
+  IO (Map Text Double)
+fitModelToMeasureData ty modelSrc params fitData =
+  do  eqs <- loadDiffEqsFrom ty modelSrc
+      let paramMap = Map.fromList (initialValueMapping eqs <$> params)
+      let (fit, _) = DEQ.fitModel eqs fitData Map.empty paramMap
+      pure (fst <$> fit)
+  where
+    initialValueMapping deq n = (n, fromMaybe 0 (DEQ.paramValue n deq))
 
 fitModelToData ::
   ModelType {- ^ the model's type -}-> 
@@ -580,26 +606,39 @@ listAllModelsWithMetadata =
       forM models \m@ModelDef{..} ->
         case modelDefType of
           EaselType -> 
-            do  ESL.Model{..} <- loadESL modelDefSource
-                pure $ MetaAnn { metaData = meta modelName, metaValue = m }
+            do  esl <- loadESL modelDefSource
+                pure $ MetaAnn { metaData = meta (ESL.modelName esl), metaValue = m }
           _ -> pure @IO $ pure @MetaAnn m
 
 queryModels :: Text -> IO [MetaAnn ModelDef]
-queryModels query = listAllModelsWithMetadata >>= filterM match_model
+queryModels query = do
+  allModels <- listAllModelsWithMetadata
+  if query == "*"
+    then return allModels
+    else filterM match_model allModels
   where
     match_model metaAnnModel = do
       (toplevelMetaData, model) <- loadModelFromDef metaAnnModel
       let mInterface = describeModelInterface model
-          match_result = match_metadata_values (map snd toplevelMetaData) ||
+          match_result = match_source (metaValue metaAnnModel) ||
+                         match_metadata_values (map snd toplevelMetaData) ||
+                         match_metadata_values (modelMetaDataValues $ modelMetadata model) ||
                          match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
                          match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
       return match_result
+    match_source modeldef =
+      let sourceText = case modelDefSource modeldef of
+                         FromFile s -> Text.pack s
+                         FromStore txt -> txt
+                         Inline _ -> ""
+      in match_wildcard query sourceText
     match_metadata_values values = any (match_wildcard query) values
     loadModelFromDef metaAnnModel = do
       let ModelDef {..} = metaValue metaAnnModel
       model <- loadModel modelDefType modelDefSource
       return (metaData metaAnnModel, model)
     portMetaDataValues ports = concat $ concatMap (Map.elems . portMeta) ports
+    modelMetaDataValues meta = concat $ Map.elems meta
     match_wildcard pat s
       | Text.null pat        = Text.null s
       | Text.head pat == '*' = handleStar
@@ -615,7 +654,27 @@ queryModels query = listAllModelsWithMetadata >>= filterM match_model
           not (Text.null s) &&
           Char.toLower (Text.head s) == Char.toLower (Text.head pat) &&
           match_wildcard (Text.tail pat) (Text.tail s)
-
+          
+modelMetadata :: Model -> Map Text [Text]
+modelMetadata model = case model of
+  Easel ESL.Model{..}  -> withName modelName $ recastListOfPairs modelMeta
+  Core Core.Model{..}  -> withName modelName Map.empty
+  Deq _                -> Map.empty
+  RNet _               -> Map.empty
+  GrometPrt Gromet{..} -> withName grometName grometMeta
+  GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
+  GrometFnet m                  -> fnetMetadata m
+  where
+    recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
+    withName n meta = Map.insertWith (++) "name" [n] meta
+    fnetMetadata m = either (const Map.empty) fnetInfoToMetaMap $ FNet.fnetInfo m
+    fnetInfoToMetaMap info =
+      case FNet.fiModelLevelMeta info of
+        Just meta -> Map.fromList [ ("name", [FNet.fmlmName meta])
+                                  , ("description", [FNet.fmlmDescription meta])
+                                  ]
+        Nothing   -> Map.empty
+          
 --------------------------------------------------------------------------------
 
 describeModelInterface :: Model -> ModelInterface
@@ -632,3 +691,13 @@ describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterf
       case model of
         GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
         _ -> Nothing
+
+--------------------------------------------------------------------------------
+
+compareModels :: ModelType -> DataSource -> ModelType -> DataSource -> IO [Map Text Text]
+compareModels sourceSource sourceFormat targetSource targetFormat =
+  do  ms <- loadModel sourceSource sourceFormat
+      mt <- loadModel targetSource targetFormat
+      suid <- either (die . ValidationError . ("error determining UID of source: "<>)) pure (modelUID ms)
+      tuid <- either (die . ValidationError . ("error determining UID of target: "<>)) pure (modelUID mt)
+      Compare.compareModels suid tuid

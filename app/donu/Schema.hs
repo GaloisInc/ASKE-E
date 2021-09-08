@@ -31,6 +31,7 @@ import           Language.ASKEE.Exposure.Syntax
 import           Language.ASKEE.Exposure.Plot
 import qualified Language.ASKEE.Core.Syntax as Core
 import           Language.ASKEE.Latex.Print (printLatex)
+import qualified Language.ASKEE.DataError as DE
 
 -------------------------------------------------------------------------------
 -- Input
@@ -50,6 +51,9 @@ data Input =
   | QueryModels QueryModelsCommand
   | ListDataSets ListDataSetsCommand
   | GetDataSet GetDataSetCommand
+  | FitMeasures FitMeasuresCommand
+  | CompareModels ServeComparisonCommand
+  | MeasureError ComputeErrorCommand
     deriving Show
 
 instance HasSpec Input where
@@ -67,6 +71,9 @@ instance HasSpec Input where
          <!> (QueryModels <$> anySpec)
          <!> (ListDataSets <$> anySpec)
          <!> (GetDataSet <$> anySpec)
+         <!> (FitMeasures <$> anySpec)
+         <!> (CompareModels <$> anySpec)
+         <!> (MeasureError <$> anySpec)
 
 instance JS.FromJSON Input where
   parseJSON v =
@@ -169,7 +176,7 @@ modelDef :: ValueSpec ModelDef
 modelDef =
   sectionsSpec "model-def"
     do  modelDefSource <- reqSection' "source" dataSource "specification of the model"
-        modelDefType <- reqSection "type" "model type - valid types are: easel, gromet(coming soon!), diff-eqs, reaction-net, latex-eqnarray"
+        modelDefType <- reqSection "type" "model type"
         pure ModelDef { .. }
 
 dataSource :: ValueSpec DataSource
@@ -180,6 +187,18 @@ dataSource =
        pure (FromStore f)
   <!>
     Inline <$> anySpec
+
+
+mapSpec :: HasSpec a => ValueSpec (Map Text a)
+mapSpec =  Map.fromList <$> assocSpec anySpec
+
+dataSeries :: ValueSpec (DataSeries Double)
+dataSeries =
+  sectionsSpec "data-series" $
+    do  times <- reqSection "times" ""
+        values <- reqSection' "values" mapSpec "map of data"
+        pure $ DataSeries { .. }
+
 
 helpHTML :: Lazy.ByteString
 helpHTML = docsJSON (anySpec :: ValueSpec Input)
@@ -588,3 +607,89 @@ instance HasSpec ListDataSetsCommand where
                     "List available datasets"
 
         pure ListDataSetsCommand
+
+-------------------------------------------------------------------------------
+-- fit measures
+
+data FitMeasuresCommand = FitMeasuresCommand
+  { fitMeasureModel :: ModelDef
+  , fitMeasureData :: DataSeries Double
+  , fitMeasureParams :: [Text]
+  }
+  deriving Show
+
+
+instance HasSpec FitMeasuresCommand where
+  anySpec =
+    sectionsSpec "fit-measures"
+    do  reqSection' "command" (jsAtom "fit-measures")
+                    "Estimate paramters based on measure data"
+
+        fitMeasureModel <- reqSection' "definition" modelDef "Specification of the source model"
+        fitMeasureData <- reqSection' "data" dataSeries "Data against which to estimate parameters"
+        fitMeasureParams <- reqSection "parameters" "Parameters to fit"
+
+        pure $ FitMeasuresCommand { .. }
+
+-------------------------------------------------------------------------------
+-- Serve model comparisons
+
+data ServeComparisonCommand = ServeComparisonCommand
+  { compModelSource :: ModelDef
+  , compModelTarget :: ModelDef
+  }
+  deriving (Show)
+
+instance HasSpec ServeComparisonCommand where
+  anySpec =
+    sectionsSpec "serve-comparison"
+    do  reqSection' "command" (jsAtom "compare-models")
+                    "Serve a pregenerated model comparison, when one exists"
+        compModelSource <- reqSection' "source" modelDef "Source of comparison"
+        compModelTarget <- reqSection' "target" modelDef "Target of comparison"
+        
+        pure $ ServeComparisonCommand { .. }
+
+-------------------------------------------------------------------------------
+-- Measure error
+
+newtype ComputeErrorCommand = ComputeErrorCommand { mecUnwrap :: DE.MeasureErrorRequest }
+  deriving Show
+
+medDataPair :: ValueSpec ([Double], [Double])
+medDataPair =
+  sectionsSpec "compute-error-data-pair"
+  do  values <- reqSection "values" "Variable values"
+      times <- reqSection "times" "Associated times"
+      pure (values, times)
+
+measureErrorDataSpec :: ValueSpec DE.MeasureErrorData
+measureErrorDataSpec =
+  sectionsSpec "compute-error-data"
+  do  observed <- reqSection' "observed" medDataPair "Observed data"
+      predicted <- reqSection' "predicted" medDataPair "Predicted data"
+      medName <- reqSection "uid" "Name of measure"
+      pure DE.MeasureErrorData  { medName = medName
+                                , medObserved = fst observed
+                                , medObservedTimes = snd observed
+                                , medPredicted = fst predicted
+                                , medPredictedTimes = snd predicted
+                                }
+
+instance HasSpec ComputeErrorCommand where
+  anySpec =
+    sectionsSpec "compute-error"
+    do  reqSection' "command" (jsAtom "compute-error") "Compute and summarize error"
+        mbInterp <- optSection "interp-model" "Interpolation model (defaults to 'linear')"
+        mbErrorMeas <- optSection "error-model" "Error summary method (defaults to 'L2')"
+        merMeasures <- reqSection' "measures" (listSpec measureErrorDataSpec) "Measure data"
+
+        pure $
+          ComputeErrorCommand
+          DE.MeasureErrorRequest
+          {  merErrorMeasurement =  fromMaybe DE.L2Norm (mbErrorMeas >>= DE.parseErrorMeasurement)
+          ,  merInterpolation = fromMaybe DE.Linear (mbInterp >>= DE.parseInterpolationMethod)
+          ,  merMeasures = merMeasures
+          }
+
+

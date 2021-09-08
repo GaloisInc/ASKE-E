@@ -15,6 +15,12 @@ import queue
 import base64
 import os
 
+# -----------------------------------------------------------------------------
+# Flags that control diagnostic/debugging features
+# -----------------------------------------------------------------------------
+DEBUG_ENV_VAR = "ASKEE_DEBUG"
+DEBUG_TIME = False
+
 #------------------------------------------------------------------------------
 # Config
 #------------------------------------------------------------------------------
@@ -293,19 +299,20 @@ def format_table(labels, rows):
     return out
 
 def format_array(arr):
-    def get_one(v):
-        formatted = format_resp_value(v)
-        return formatted['text/plain']
-
     return {
-        'text/plain': '[' + ', '.join([get_one(el) for el in arr]) + ']'
+        'text/plain': '[' + ', '.join([formatted_text(el) for el in arr]) + ']'
     }
 
 def format_timed(v):
-    formatted = format_resp_value(v['value'])
-    time      = format_resp_value(v['time'])
     return {
-        'text/plain': formatted['text/plain'] + ' @ ' + time['text/plain']
+        'text/plain': formatted_text(v['value']) + ' @ ' + formatted_text(v['time'])
+    }
+
+def format_point(pt):
+    def format_one(k,v):
+        return k + '=' + formatted_text(v)
+    return {
+        'text/plain': '{{' + ', '.join([format_one(k,v) for k,v in pt.items()]) + '}}'
     }
 
 def format_svg(v):
@@ -315,6 +322,9 @@ def format_svg(v):
     }
 
 
+def formatted_text(v):
+    formatted = format_resp_value(v)
+    return formatted['text/plain']
 
 def format_resp_value(v):
     if isinstance(v, dict):
@@ -332,6 +342,9 @@ def format_resp_value(v):
 
         if ty == 'plot':
             return format_plot(val['title'], val['series'], val['vs'], val['vs_label'])
+
+        if ty == 'point':
+            return format_point(val)
 
         if ty == 'scatter':
             return format_scatter(val['xlabel'], val['ylabels'], val['xs'], val['yss'])
@@ -384,13 +397,17 @@ class ASKEEKernel(Kernel):
         by sending a request to Donu.
         """
         try:
-            resp   = self.execute_donu_cmd(code)
+            resp, time  = self.execute_donu_cmd(code)
             # Resp should be a list of things to display
             lines = [format_resp_value(r) for r in resp]
 
             if not silent:
                 for output in lines:
                     self.send_response(self.iopub_socket, "display_data", {"data": output, "metadata": {}})
+
+            if not silent:
+                if time is not None:
+                    self.send_response(self.iopub_socket, "display_data", {"data": time, "metadata": {}})
 
             return {
                 'status': 'ok',
@@ -416,13 +433,22 @@ class ASKEEKernel(Kernel):
     def execute_donu_cmd(self, cmd):
         if cmd is not None:
             resp = self.donu.execute_code(cmd)
+            time = None
             if resp['type'] == 'success':
-                return resp['displays']
+                if DEBUG_TIME and 'time' in resp:
+                    time = {'text/plain': f"Command took {resp['time']/1000000} ms."}
+                return (resp['displays'], time)
             if resp['type'] == 'failure':
-                return [{'type':'string', 'value':"Error: %s" % resp['message']}]
+                return ([{'type':'string', 'value':"Error: %s" % resp['message']}], time)
             raise Exception("Unexpected response status %s" % resp['type'])
         return None
 
     def run_as_main():
         from ipykernel.kernelapp import IPKernelApp
+
+        debug = os.getenv(DEBUG_ENV_VAR)
+        if debug == '1':
+            global DEBUG_TIME
+            DEBUG_TIME = True
+
         IPKernelApp.launch_instance(kernel_class=ASKEEKernel)
