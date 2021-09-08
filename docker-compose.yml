@@ -22,6 +22,15 @@ services:
       # AlgebraicJulia functionality
       ASKE_AJ_HOSTNAME: algebraic-julia
 
+      # Hack: the default `Paths_aske_e.getDataDir` begins with `/root/.cabal/share`
+      # when `cabal exec donu` is used as the execution command to run `donu`,
+      # as it is in our Dockerfile. This directory doesn't exist at execution time 
+      # in the container, for some reason.
+      # This variable changes that prefix to `/build`, which is where we've
+      # (manually, in the Dockerfile) COPY'd the files `donu` wants for execution, 
+      # as listed in the cabal file's `extra-source-files` field.
+      aske_e_datadir: /build
+
   algebraic-julia:
     build: ASKE-E-Simulation-WG/AlgebraicPetri-Stratification
     volumes:
