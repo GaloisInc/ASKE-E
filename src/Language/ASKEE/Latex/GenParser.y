@@ -10,13 +10,14 @@ import qualified Data.Text  as Text
 import qualified Data.Map   as Map
 import           Data.Maybe ( mapMaybe )
 
-import Language.ASKEE.Core             ( Ident )
-import Language.ASKEE.Core.ImportASKEE ( expAsCore )
+import Language.ASKEE.Core.Expr        ( Ident )
+import Language.ASKEE.ESL.Convert      ( expAsCore )
 import Language.ASKEE.DEQ.Syntax       as Syntax
 import Language.ASKEE.Expr             as Expr
-import Language.ASKEE.Lexer            ( Located(..) )
-import Language.ASKEE.Latex.GenLexer  
+import Language.ASKEE.ESL.Lexer        ( Located(..) )
+import Language.ASKEE.Latex.GenLexer
 import Language.ASKEE.Latex.Lexer      as Lexer
+import Language.ASKEE.Latex.Syntax
 }
 
 %name        parseLatex Eqns
@@ -50,7 +51,7 @@ import Language.ASKEE.Latex.Lexer      as Lexer
 
 %%
 
-Eqns                                      :: { Syntax.DiffEqs }
+Eqns                                      :: { Latex }
   : Eqns1                                    { mkDiffEqs $1 }
 
 Eqns1                                     :: { [(EqnType, Ident, Expr)]}
@@ -62,7 +63,7 @@ Eqn                                       :: { (EqnType, Ident, Expr) }
   | SYM '=' Exp                              { (Let, $1, $3) }
   | SYMI '=' Exp                             { (Init, $1, $3) }
 
-Diff                                      :: { Ident }       
+Diff                                      :: { Ident }
   : 'd' SYM                                  { $2 }
   | SYM                                      {% fromDiff $1 }
 
@@ -97,23 +98,23 @@ fromDiff t
 
 mkInit :: Double -> Ident -> Expr -> Either String (EqnType, Ident, Expr)
 mkInit d i t
-  | d == 0 = pure (Init, i, t) 
+  | d == 0 = pure (Init, i, t)
   | otherwise = Left "only initial values at time = 0 are supported"
 
 parseError :: [Located Token] -> Either String a
-parseError [] = 
+parseError [] =
   Left $ "parse error at end of file"
-parseError ((Located lin col t):ts) = 
+parseError ((Located lin col t):ts) =
   Left $ "parse error at line "++show lin++", col "++show col++" ("++show t++")"
 
-mkDiffEqs :: [(EqnType, Ident, Expr)] -> DiffEqs
+mkDiffEqs :: [(EqnType, Ident, Expr)] -> Latex
 mkDiffEqs decls =
   let deqLets    = Map.fromList $ mapMaybe (match Let) decls
       deqRates   = Map.fromList $ mapMaybe (match Rate) decls
       deqInitial = Map.fromList $ mapMaybe (match Init) decls
-      -- deqLets    = Map.difference lets deqRates 
-      deqParams  = []
-  in  DiffEqs{..}
+      -- deqLets    = Map.difference lets deqRates
+      deqParams  = Map.empty
+  in  Latex DiffEqs{..}
 
   where
     match s (s',i,e) = if s == s' then Just (i,expAsCore e) else Nothing

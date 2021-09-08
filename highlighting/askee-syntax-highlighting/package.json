@@ -13,7 +13,7 @@
         "languages": [{
             "id": "askee",
             "aliases": ["Askee", "askee"],
-            "extensions": [".askee" ],
+            "extensions": [".easel" ],
             "configuration": "./language-configuration.json"
         }],
         "grammars": [{

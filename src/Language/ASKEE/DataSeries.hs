@@ -1,4 +1,8 @@
 {-# Language OverloadedStrings, ParallelListComp, BlockArguments #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 module Language.ASKEE.DataSeries
   ( -- * Basics
     DataSeries(..)
@@ -7,9 +11,12 @@ module Language.ASKEE.DataSeries
     -- * Saving an loading
   , parseDataSeries
   , parseDataSeriesFromFile
-  , MalformedDataSeries(..)
-  , encodeDataSeries
+  -- , MalformedDataSeries(..)
+  , dataSeriesAsCSV
+  , dataSeriesAsJSON
   , saveDataSeries
+    -- * Plotting utility
+  , gnuPlotScript
     -- * Manipulation
   , zipAlignedWithTimeAndLabel
   , zipAlignedWithTime
@@ -19,8 +26,16 @@ module Language.ASKEE.DataSeries
   , foldDataSeries
   , foldDataSeriesWithTime
   , dsLookup
+    -- * Labelled
+  , LabeledDataSeries(..)
+  , ldsFromDs
+    -- * Data points
+  , DataPoint(..)
+  , toDataPoints
   ) where
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 import Data.Text(Text)
 import Data.Text.Encoding(decodeUtf8',encodeUtf8)
 import qualified Data.Vector as Vector
@@ -30,10 +45,12 @@ import Data.List(sortBy,transpose,foldl')
 import Data.Function(on)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.ByteString.Lazy as LBS
-import Control.Exception(Exception,throwIO)
-
 import qualified Data.Csv as CSV
 import Language.ASKEE.Panic(panic)
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as AT
+import Data.Aeson((.=))
+import Language.ASKEE.Error (ASKEEError(DataSeriesError), throwLeft)
 
 -- XXX: We could use a representation that allows for easier access to
 -- particular data points.
@@ -41,6 +58,7 @@ data DataSeries a = DataSeries
   { times  :: [Double]
   , values :: Map Text [a]
   }
+  deriving (Show, Eq, Ord, Generic, NFData)
 
 instance Functor DataSeries where
   fmap f ds = ds { values = fmap f <$> values ds }
@@ -142,17 +160,11 @@ parseDataSeries bs =
 parseDataSeriesFromFile :: FilePath -> IO (DataSeries Double)
 parseDataSeriesFromFile file =
   do bs <- LBS.readFile file
-     case parseDataSeries bs of
-       Left err -> throwIO (MalformedDataSeries err)
-       Right a  -> pure a
-
-data MalformedDataSeries = MalformedDataSeries String deriving Show
-
-instance Exception MalformedDataSeries
+     throwLeft DataSeriesError (parseDataSeries bs)
 
 -- | Encode a data series to a lazy bytestring
-encodeDataSeries :: DataSeries Double -> LBS.ByteString
-encodeDataSeries xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
+dataSeriesAsCSV :: DataSeries Double -> LBS.ByteString
+dataSeriesAsCSV xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
   where
   sep = toEnum (fromEnum ',')
   hdr = Vector.fromList ("time" : map encodeUtf8 (Map.keys (values xs)))
@@ -160,10 +172,31 @@ encodeDataSeries xs = CSV.encodeByNameWith opts hdr (toDataPoints xs)
                                   , CSV.encIncludeHeader = True
                                   }
 
+-- XXX: how do we document this?
+dataSeriesAsJSON :: DataSeries Double -> Aeson.Value
+dataSeriesAsJSON ds = Aeson.object
+  [ "times" .= times ds
+  , "values" .= Aeson.object [ x Aeson..= ys | (x,ys) <- Map.toList (values ds) ]
+  ]
+
+instance Aeson.ToJSON (DataSeries Double) where
+  toJSON = dataSeriesAsJSON
+
+
+
+
+
 saveDataSeries :: FilePath -> DataSeries Double -> IO ()
-saveDataSeries file xs = LBS.writeFile file (encodeDataSeries xs)
+saveDataSeries file xs = LBS.writeFile file (dataSeriesAsCSV xs)
 
-
+gnuPlotScript :: DataSeries Double -> FilePath -> String
+gnuPlotScript ds f =
+  unlines
+    [ "set key outside"
+    , "set datafile separator \",\""
+    , "plot for [col=2:" ++ show (dsColumns ds) ++ "] " ++
+         show f ++ " using 1:col with lines title columnheader"
+    ]
 
 
 instance CSV.FromNamedRecord DataPoint where
@@ -188,3 +221,44 @@ instance CSV.ToNamedRecord DataPoint where
       $ CSV.namedField "time" (ptTime a)
       : [ CSV.namedField (encodeUtf8 l) d | (l,d) <- Map.toList (ptValues a) ]
 
+-------------------------------------------------------------------------------
+-- Labelled data source (for donu)
+
+-- DataSource labelled with name of the x-axis
+data LabeledDataSeries a = LabeledDataSeries
+  { ldsData  :: DataSeries a
+  , ldsLabel :: Text
+  }
+  deriving Show
+
+ldsFromDs :: DataSeries a -> LabeledDataSeries a
+ldsFromDs ds = LabeledDataSeries ds "times"
+
+instance Aeson.ToJSON (LabeledDataSeries Double) where
+  toJSON lds =
+    Aeson.object [ "values" .= (values . ldsData $ lds)
+                 , ldsLabel lds .= (times . ldsData $ lds)
+                 ]
+
+instance Aeson.FromJSON (LabeledDataSeries Double) where
+  parseJSON = Aeson.withObject "root" parseRoot
+    where
+      nonValuesKeys o = filter (\(n, _) -> n /= "values") (HashMap.toList o)
+
+      parseLabel o =
+        case nonValuesKeys o of
+          [(nm,val)] -> (nm,) <$> Aeson.parseJSON val
+          _ -> AT.parseFail "DataSeries does not have unique domain parameter"
+
+      parseValues o =
+        case HashMap.lookup "values" o of
+          Just v -> Aeson.parseJSON v
+          Nothing -> AT.parseFail "DataSeries does not have values"
+
+      parseRoot o =
+        do  (dpName, dpValue) <- parseLabel o
+            vals <- parseValues o
+            pure $ LabeledDataSeries
+                    { ldsData = DataSeries dpValue vals
+                    , ldsLabel = dpName
+                    }

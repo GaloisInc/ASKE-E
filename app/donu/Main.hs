@@ -1,179 +1,197 @@
-{-# Language BlockArguments, OverloadedStrings #-}
-module Main(main) where
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
+module Main ( main ) where
 
-import Data.Text(Text)
-import qualified Data.Text as Text
-import Data.Map(Map)
+import Control.Monad.State
+
+import           Control.Exception.Lifted (try, SomeException)
+import           Control.Applicative ((<|>))
 import qualified Data.Map as Map
+
+import qualified Data.Text as Text
 import qualified Data.Aeson as JS
-import Control.Monad.IO.Class(liftIO)
-import Control.Exception(throwIO, try,SomeException, Exception(..))
-import qualified Snap.Core as Snap
-import Snap.Http.Server (quickHttpServe)
 
-import Language.ASKEE
-import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.DEQ.Syntax (DiffEqs(..) )
-import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.Core.DiffEq as DiffEq
-import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Translate as Translate
-import Schema
+import qualified Snap
+import qualified Snap.Util.GZip as SnapGzip
 
-import qualified Data.ByteString.Lazy.Char8 as BS8
+import           Language.ASKEE
+
+import           Schema
+import           ExposureSession
+
+-------------------------------------------------------------------------------
+
+runDonu :: IO ()
+runDonu =
+  Snap.quickHttpServe $
+    Snap.route [ ("/help", showHelp)
+               , ("/:exposure", exposureHandler)
+               , ("/", endpoint)
+               ]
+  where
+    endpoint =
+     do let limit = 8 * 1024 * 1024    -- 8 megs
+        Snap.modifyResponse (Snap.setHeader "Access-Control-Allow-Origin" "*")
+        body <- Snap.readRequestBody limit
+        case JS.eitherDecode body of
+          Right a -> SnapGzip.withCompression (runHandler a) <|> errorWith 400 "Bad request"
+          Left err -> errorWith 400 ("Didn't recognize request: "<>err)
+
+    runHandler r =
+      do result <- try $ handleRequest r
+         case result of
+          Right out ->
+            do  let (code, msg) =
+                        case out of
+                          (FailureResult _) -> (400, "Error")
+                          _ -> (200, "OK")
+                Snap.modifyResponse (Snap.setHeader "Content-Type" "application/json")
+                Snap.modifyResponse (Snap.setResponseStatus code msg)
+                Snap.writeLBS (JS.encode out)
+          Left ex -> errorWith 500 (show (ex :: SomeException))
+
+
+
+errorWith :: Int -> String -> Snap.Snap ()
+errorWith code err =
+  do  Snap.modifyResponse (Snap.setResponseStatus code "Error")
+      let response = JS.object
+            [ "status" JS..= ("error" :: String)
+            , "error" JS..= err
+            ]
+      Snap.writeLBS (JS.encode response)
 
 main :: IO ()
-main = quickHttpServe
-  do let limit = 8 * 1024 * 1024    -- 8 megs
-     body <- Snap.readRequestBody limit
-     case JS.eitherDecode body of
-       Right a ->
-         do r <- liftIO $ try $ handleRequest a
-            case r of
-              Right ok ->
-                do Snap.modifyResponse (Snap.setResponseStatus 200 "OK")
-                   Snap.writeLBS (JS.encode ok)
-              Left err ->
-                do Snap.modifyResponse
-                              (Snap.setResponseStatus 400 "Bad request")
-                   Snap.writeText $ Text.pack $ show (err :: SomeException)
-       Left err ->
-         do Snap.writeText $ Text.pack err
-            Snap.modifyResponse (Snap.setResponseStatus 400 "Bad request")
-            -- Snap.writeLBS helpHTML
+main =
+  do initStorage
+     initDataStorage
+     initComparisonStorage
+     runDonu
+
+showHelp :: Snap.Snap ()
+showHelp = Snap.writeLBS helpHTML
 
 --------------------------------------------------------------------------------
+exposureHandler :: Snap.Snap ()
+exposureHandler = exposureServer
 
-newtype ServerError = NotImplemented String
-  deriving Show
-
-instance Exception ServerError
-notImplemented :: String -> IO a
-notImplemented what = throwIO (NotImplemented what)
-
-handleRequest :: Input -> IO Output
+handleRequest :: Input -> Snap.Snap Result
 handleRequest r =
-  print r >>
+  liftIO (print r) >>
   case r of
-    Simulate info ->
-      do eqs <- loadDiffEqs (simModelType info)
-                            (simModel info)
-                            []
-                            (simOverwrite info)
-         let times = takeWhile (<= simEnd info)
-                   $ iterate (+ simStep info)
-                   $ simStart info
-             res = ODE.simulate eqs Map.empty times
+    Simulate SimulateCommand{..} ->
+      do  let params =
+                case simDomainParam of
+                  Nothing -> simParameterValues
+                  Just domainParamName -> Map.insert domainParamName 0 simParameterValues
 
-         print eqs
-         pure (OutputData res)
+          ifaceErrs <- liftIO $ checkSimArgs (modelDefType simModel) (modelDefSource simModel) params simOutputs
+          case ifaceErrs of
+            [] ->
+              do  res <- liftIO $ simulateModel
+                    simType
+                    (modelDefType simModel)
+                    (modelDefSource simModel)
+                    simStart
+                    simEnd
+                    simStep
+                    simParameterValues
+                    simOutputs
+                    simSeed
+                    simDomainParam
+                    1
+                  succeed' res
+            errs -> pure (FailureResult (Text.unlines errs))
 
-    CheckModel cmd ->
-      do  checkResult <- checkModel (checkModelModelType cmd) (checkModelModel cmd)
+    CheckModel CheckModelCommand{..} ->
+      do  model <- liftIO $ loadModelText (modelDefType checkModelModel) (modelDefSource checkModelModel)
+          checkResult <- liftIO $ checkModel' (modelDefType checkModelModel) model
           case checkResult of
-            Nothing  -> pure $ OutputResult (SuccessResult ())
-            Just err -> pure $ OutputResult (FailureResult (Text.pack err))
+            Nothing  -> succeed' ()
+            Just err -> pure (FailureResult (Text.pack err))
 
-    ConvertModel cmd ->
-      do  eConverted <- convertModel (convertModelSourceType cmd)
-                                     (convertModelModel cmd)
-                                     (convertModelDestType cmd)
+    ConvertModel ConvertModelCommand{..} ->
+      do  converted <-
+            liftIO $
+            convertModelString
+              (modelDefType convertModelSource)
+              (modelDefSource convertModelSource)
+              convertModelDestType
+          pure $ asResult converted
 
-          pure $ OutputResult (asResult eConverted)
+    Fit FitCommand{..} ->
+      do ifaceErrs <- liftIO $ checkFitArgs (modelDefType fitModel) (modelDefSource fitModel) fitParams
+         case ifaceErrs of
+           [] ->
+             do (res, _) <-
+                  liftIO $
+                  fitModelToData
+                    (modelDefType fitModel)
+                    fitData
+                    fitParams
+                    mempty
+                    (modelDefSource fitModel)
+                succeed' (FitResult res)
+           errs -> pure (FailureResult (Text.unlines errs))
 
-    Fit info ->
-      do  eqs <- loadDiffEqs (fitModelType info)
-                             (fitModel info)
-                             (fitParams info)
-                             Map.empty
-          print eqs
-          rawData <- pack (fitData info)
-          dataSeries <- case DS.parseDataSeries rawData of
-            Right d -> pure d
-            Left err -> throwIO (DS.MalformedDataSeries err)
-          let (res, _) = ODE.fitModel eqs dataSeries Map.empty (Map.fromList (zip (fitParams info) (repeat 0)))
-          pure (FitResult res)
+    GenerateCPP (GenerateCPPCommand ModelDef{..}) ->
+      do  cpp <- liftIO $ loadCPPFrom modelDefType modelDefSource
+          succeed' (Text.pack $ show cpp)
 
-    GenerateCPP cmd ->
-      OutputResult . asResult <$> generateCPP (generateCPPModelType cmd) (generateCPPModel cmd)
-    Stratify info ->
-      do  modelInfo <- stratifyModel  (stratModel info)
-                                      (stratConnections info)
-                                      (stratStates info)
-                                      (stratType info)
-          pure $ StratificationResult modelInfo
+    Stratify StratifyCommand{..} ->
+        do  res <- liftIO $ stratifyModel (modelDefType stratModel) (modelDefSource stratModel) stratConnections stratStates stratType
+            succeed' res
 
-          
+    ListModels _ -> succeed <$> liftIO listAllModelsWithMetadata
+
+    ModelSchemaGraph (ModelSchemaGraphCommand ModelDef{..}) ->
+      do  modelSource <- liftIO $ loadCoreFrom modelDefType modelDefSource
+          case asSchematicGraph modelSource of
+            Nothing -> pure (FailureResult "model cannot be rendered as a schematic")
+            Just g -> succeed' g
+
+    UploadModel UploadModelCommand{..} ->
+      do  mdef <- liftIO $ storeModel uploadModelType uploadModelName uploadModelSource
+          succeed' mdef
+
+    GetModelSource GetModelSourceCommand{..} ->
+      do  modelString <- liftIO $ loadModelText (modelDefType getModelSource) (modelDefSource getModelSource)
+          let result = getModelSource { modelDefSource = Inline modelString }
+          succeed' result
+
+    DescribeModelInterface (DescribeModelInterfaceCommand ModelDef{..}) ->
+      do  model <- liftIO $ loadModel modelDefType modelDefSource
+          let res = describeModelInterface model
+          succeed' res
+
+    QueryModels QueryModelsCommand {..} ->
+      succeed <$> liftIO (queryModels queryText)
+
+    ListDataSets ListDataSetsCommand ->
+      succeed . fmap dataSetDescToJSON <$> liftIO listDataSets
+
+    GetDataSet GetDataSetCommand {..} ->
+      succeed <$> liftIO (loadDataSet getDataSetCommandDataSource)
+
+    FitMeasures FitMeasuresCommand { .. } ->
+      succeed <$> liftIO (fitModelToMeasureData (modelDefType fitMeasureModel)
+                                                (modelDefSource fitMeasureModel)
+                                                fitMeasureParams
+                                                fitMeasureData)
+    
+    CompareModels ServeComparisonCommand { .. } ->
+      succeed <$> liftIO (compareModels (modelDefType compModelSource) 
+                                        (modelDefSource compModelSource)
+                                        (modelDefType compModelTarget) 
+                                        (modelDefSource compModelTarget))
+                                        
+    MeasureError (ComputeErrorCommand req) ->
+      succeed' (computeError req)
+
   where
-    pack :: DataSource -> IO BS8.ByteString
-    pack ds = 
-      case ds of
-        FromFile fp -> BS8.pack <$> readFile fp
-        Inline s -> pure $ BS8.pack $ Text.unpack s
+    succeed :: (JS.ToJSON a, Show a) => a -> Result
+    succeed = SuccessResult
 
-loadDiffEqs ::
-  ModelType       {- ^ input file format -} ->
-  DataSource      {- ^ where to get the data from -} ->
-  [Text]          {- ^ parameters, if any -} ->
-  Map Text Double {- ^ overwrite these parameters -} ->
-  IO DiffEqs
-loadDiffEqs mt src ps0 overwrite =
-  fmap (DiffEq.applyParams (Core.NumLit <$> overwrite))
-  case mt of
-    Schema.DiffEqs    -> loadEquations src allParams
-    AskeeModel        -> DiffEq.asEquationSystem <$> loadCoreModel src allParams
-    ReactionNet       -> notImplemented "Reaction net simulation"
-    LatexEqnarray     -> notImplemented "Latex eqnarray simulation"
-  where
-  allParams = Map.keys overwrite ++ ps0
-
-checkModel :: ModelType -> DataSource -> IO (Maybe String)
-checkModel mt src =
-  case mt of
-    Schema.DiffEqs     -> checkUsing parseEquations src
-    Schema.AskeeModel  -> checkUsing parseModel src
-    Schema.ReactionNet -> checkUsing parseReactions src
-    Schema.LatexEqnarray -> checkUsing parseLatex src
-  where
-    checkUsing parser ds =
-      do  mbMdl <- try (parser ds)
-          case mbMdl of
-            Left (ParseError err) -> pure $ Just err
-            Right _               -> pure Nothing
-
-
-convertModel :: ModelType -> DataSource -> ModelType -> IO (Either String String)
-convertModel inputType source outputType =
-  case (inputType, outputType) of
-    (_, Schema.DiffEqs) ->
-      do  src <- loadString source
-          pure $ Translate.asDiffEqConcrete (translateSyntax inputType) src
-
-    (_, Schema.AskeeModel) ->
-      do  src <- loadString source
-          pure $ Translate.asASKEEConcrete (translateSyntax inputType) src
-
-    (_, _) ->
-      pure $ Left "Conversion is not implemented"
-  where
-    translateSyntax t =
-      case t of
-        Schema.ReactionNet -> Translate.RNet
-        Schema.AskeeModel -> Translate.ASKEE
-        Schema.DiffEqs -> Translate.DiffEq
-        Schema.LatexEqnarray -> Translate.Latex
-
-generateCPP :: ModelType -> DataSource -> IO (Either Text Text)
-generateCPP ty src =
-  case ty of
-    Schema.AskeeModel ->
-      do  mdl <- renderCppModel src
-          pure $ Right (Text.pack mdl)
-    Schema.ReactionNet ->
-      pure $ Left "Rendering reaction networks to C++ is not implemented"
-    Schema.DiffEqs ->
-      pure $ Left "Rendering diff-eq to C++ is not implemented"
-    Schema.LatexEqnarray ->
-      pure $ Left "Rendering latex eqnarray to C++ is not implemented"
-
--------------------------------------------------------------------------
+    succeed' :: (JS.ToJSON a, Show a) => a -> Snap.Snap Result
+    succeed' = pure . succeed

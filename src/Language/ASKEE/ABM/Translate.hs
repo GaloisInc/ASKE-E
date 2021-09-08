@@ -12,12 +12,21 @@ import           Data.Text ( Text )
 import qualified Language.ASKEE.ABM.Syntax as ABM
 import           Language.ASKEE.Expr
 import           Language.ASKEE.ExprTransform
-import qualified Language.ASKEE.Syntax as ESL
+import qualified Language.ASKEE.ESL.Syntax as ESL
 import Prelude hiding ( succ, fail )
 import Control.Monad.Identity ( Identity(runIdentity) )
 
 -- An attribute is something like "city" or "health"
 -- A status is something like "Portland" or "infected"
+-- import qualified Data.MultiSet as MSet
+-- import           Data.MultiSet ( MultiSet )
+-- import qualified Data.Set  as Set
+-- import           Data.Set  ( Set )
+-- import           Data.Text ( Text, pack )
+
+-- import qualified Language.ASKEE.ABM.Syntax as ABM
+-- import           Language.ASKEE.Expr
+-- import qualified Language.ASKEE.ESL.Syntax as ESL
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
@@ -27,19 +36,27 @@ newtype ESLStateVar = ESLStateVar
   deriving (Eq, Ord, Show)
 
 abmToModel :: ABM.Model -> ESL.Model
-abmToModel ABM.Model{..} = ESL.Model name (lets++states) events
+abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
+-- abmToModel ABM.Model{..} = ESL.Model name (lets++states) [] []
   where
     name = modelName
     lets = 
-      [ ESL.Let v e
+      [ pure $ ESL.Let v e
       | (v, e) <- Map.toList modelLets
       ]
-    states = map stateDecl (allStates agentAttrs)
+    states = map (pure . stateDecl) (allStates agentAttrs)
     events = concatMap (translateEvent agentAttrs) modelEvents
     agentAttrs = 
       [ (attr, statuses)
       | (attr, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
       ]
+--       [ pure $ ESL.Let (pack v) e
+--       | (v, e) <- modelLets
+--       ]
+--     states = map (pure . stateDecl) (allStates modelAgent)
+
+-- translateEvent :: ABM.Event -> [ESL.Event]
+-- translateEvent = undefined 
 
 
 translateEvent :: [(Text, [Text])] -> ABM.Event -> [ESL.Event]
@@ -307,3 +324,5 @@ search expr curr fail succ allAttrs =
             _ -> 
               -- ...and defines the attribute incorrectly
               fail
+-- mchoose :: Int -> Int -> Int
+-- mchoose n k = choose (n + k - 1) k

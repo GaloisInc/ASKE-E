@@ -1,310 +1,703 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# Language OverloadedStrings #-}
-{-# Language TemplateHaskell #-}
-{-# Language TypeApplications #-}
+module Language.ASKEE
+  ( loadDiffEqs
+  , loadDiffEqsFrom
+  , loadESL
+  , loadESLFrom
+  , loadGrometPrt
+  , loadGrometPrtFrom
+  , loadGrometPnc
+  , loadGrometPncFrom
+  , loadGrometFnet
+  , loadGrometFnetFrom
+  , loadCPPFrom
+  , loadCore
+  , loadCoreFrom
+  , loadModel
+  
+  , checkModel
+  , checkModel'
+    
+  , checkSimArgs
+  , checkFitArgs
+  , checkInterfaceRequirements
+  , paramsNotExistErrors
+  , outputsNotExistErrors
+  , unspecifiedValueErrors
+  , simulateModelGSL
+  , simulateModelAJ
+  , simulateModelDiscrete
+  , simulateModel
+  
+  , stratifyModel
+  , fitModelToData
+  , fitModelToMeasureData
+  , Core.asSchematicGraph
+  , convertModelString
 
-module Language.ASKEE where
+  , gnuPlotScript
+  , dataSeriesAsCSV
+  , dataSeriesAsJSON
+  , parseDataSeriesFromFile
 
-import Control.Exception ( Exception(..)
-                         , throwIO )
+  , initStorage
+  , listAllModels
+  , listAllModelsWithMetadata
+  , loadModelText
+  , storeModel
+  , Storage.listDataSets
+  , Storage.loadDataSet
+  , Storage.initDataStorage
+  , Storage.initComparisonStorage
+  , Storage.DataSetDescription(..)
+  , queryModels
 
-import qualified Data.Aeson                 as Aeson
-import           Data.Aeson                 ( encode
-                                            , decode
-                                            , Value(..), (.=), object )
+  , compareModels
+
+  , describeModelType
+
+  , DataSource(..)
+  , DataSeries(..)
+  , DEQ.DiffEqs
+  , MetaAnn(..)
+  , ModelDef(..)
+  , ModelType(..)
+  , SimulationType(..)
+  , Stratify.StratificationInfo(..)
+  , Stratify.StratificationType(..)
+
+
+    -- * Model Interface
+  , ModelInterface(..)
+  , Port(..)
+  , describeModelInterface
+
+    -- * Error measurement
+  , DataError.DataErrorSummary(..)
+  , DataError.MeasureErrorSummary(..)
+  , DataError.MeasureErrorRequest(..)
+  , DataError.MeasureErrorData(..)
+  , DataError.Interpolation(..)
+  , DataError.ErrorMeasurement(..)
+  , DataError.computeError
+  ) where
+
+import Control.Exception ( try, SomeException(..) )
+import Control.Monad     ( forM, filterM )
+
+import           Data.Aeson                 ( decode )
+import qualified Data.Aeson                 as JSON
+import qualified Data.ByteString.Lazy.Char8 as LBS8
+import qualified Data.ByteString.Builder    as Builder
+import qualified Data.Char                  as Char
+import           Data.Set                   ( Set )
+import qualified Data.Set                   as Set
 import           Data.Map                   ( Map )
 import qualified Data.Map                   as Map
-import           Data.Text                  ( Text
-                                            , unpack )
+import           Data.Maybe                 ( fromMaybe )
+import           Data.Text                  ( Text )
 import qualified Data.Text                  as Text
-import qualified Data.Text.IO               as TextIO
-import qualified Data.ByteString.Lazy.Char8 as B
+import qualified Data.Text.IO               as Text
+import qualified Data.Text.Encoding         as Text
 
-import qualified Language.ASKEE.ABM.GenLexer           as ABMLexer
-import qualified Language.ASKEE.ABM.GenParser          as ABMParser
-import qualified Language.ASKEE.ABM.Syntax             as ABMSyntax
-import           Language.ASKEE.APRAM.Print            ( printAPRAM )
-import           Language.ASKEE.APRAM.Translate        ( modelToAPRAM )
-import qualified Language.ASKEE.Check                  as Check
-import           Language.ASKEE.Convert
+import qualified Language.ASKEE.ESL                    as ESL
+import qualified Language.ASKEE.Compare                as Compare
 import qualified Language.ASKEE.Core                   as Core
-import qualified Language.ASKEE.DEQ.GenLexer           as DL
-import qualified Language.ASKEE.DEQ.GenParser          as DP
-import           Language.ASKEE.DEQ.Syntax             ( DiffEqs(..) )
-import           Language.ASKEE.Core.ImportASKEE       ( modelAsCore )
-import qualified Language.ASKEE.GenLexer               as AL
-import qualified Language.ASKEE.GenParser              as AP
-import qualified Language.ASKEE.Latex.GenLexer         as LL
-import qualified Language.ASKEE.Latex.GenParser        as LP
-import           Language.ASKEE.Lexer                  ( Token
-                                                       , Located )
-import qualified Language.ASKEE.Measure                as M
-import qualified Language.ASKEE.MeasureToCPP           as MG
-import qualified Language.ASKEE.ModelStratify.GeoGraph as GG
-import qualified Language.ASKEE.ModelStratify.Syntax   as MS
-import           Language.ASKEE.ModelStratify.Topology ( modelAsTopology
-                                                       , topologyAsModel
-                                                       , insertHoles
-                                                       , nameHoles )
-import qualified Language.ASKEE.RNet.GenLexer          as RL
-import qualified Language.ASKEE.RNet.GenParser         as RP
-import           Language.ASKEE.RNet.Syntax            ( ReactionNet(..) )
-import qualified Language.ASKEE.SimulatorGen           as SG
-import qualified Language.ASKEE.Syntax                 as Syntax
+import qualified Language.ASKEE.Core.Syntax            as Core
+import           Language.ASKEE.CPP.Pretty             ( Doc )
+import           Language.ASKEE.DataSeries             ( dataSeriesAsCSV
+                                                       , dataSeriesAsJSON
+                                                       , gnuPlotScript
+                                                       , parseDataSeries
+                                                       , parseDataSeriesFromFile
+                                                       , DataSeries(..) )
+import qualified Language.ASKEE.DataSeries             as DS
+import qualified Language.ASKEE.DEQ                    as DEQ
+import           Language.ASKEE.Gromet                 ( Gromet(..), PetriNetClassic(..))
+import           Language.ASKEE.Error                  ( ASKEEError(..)
+                                                       , throwLeft
+                                                       , die )
+import           Language.ASKEE.Metadata               ( MetaAnn(..) )
+import           Language.ASKEE.Model                  ( parseModel
+                                                       , printModel
+                                                       , toDeqs
+                                                       , toEasel
+                                                       , toCore
+                                                       , toGrometPnc
+                                                       , toGrometPrt
+                                                       , toGrometFnet
+                                                       , modelUID
+                                                       , Model (..) )
+import           Language.ASKEE.Model.Basics           ( ModelType(..)
+                                                       , describeModelType )
+import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
+                                                       , Port(..)
+                                                       , emptyModelInterface
+                                                       )
+import           Language.ASKEE.Panic                  ( panic )
+import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
+import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
+import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
+import qualified Language.ASKEE.Gromet.FunctionNetwork  as FNet
+import qualified Language.ASKEE.CPP                     as CPP
+import           Language.ASKEE.Storage                ( initStorage
+                                                       , listAllModels
+                                                       , loadModelText
+                                                       , DataSource(..)
+                                                       , ModelDef(..)
+                                                       , doesModelExist
+                                                       )
+import qualified Language.ASKEE.Storage                as Storage
+import qualified Language.ASKEE.Automates.Client       as Automates
+import qualified Language.ASKEE.DataError              as DataError
 
-import System.Process   ( readProcess )
-import GHC.Generics (Generic)
+loadModel :: ModelType -> DataSource -> IO Model
+loadModel format source =
+  do yes <- doesModelExist format source
+     if yes
+       then doLoadModel format source
 
-newtype ParseError      = ParseError String deriving Show
-newtype ValidationError = ValidationError String deriving Show
+       -- Special case for "virtual" PrtGromet
+       else case format of
+              GrometPrtType -> Easel <$> loadESL source
+              _ -> doLoadModel format source
+  where
+  doLoadModel fmt src =
+    do modelString <- loadModelText fmt src
+       throwLeft ParseError (parseModel fmt modelString)
 
-instance Exception ParseError
-instance Exception ValidationError
+-------------------------------------------------------------------------------
+-- ESL
 
-data DataSource =
-    FromFile FilePath
-  | Inline Text
-    deriving Show
+loadESL :: DataSource -> IO ESL.Model 
+loadESL = loadESLFrom EaselType
 
-loadString :: DataSource -> IO String
-loadString source =
-  case source of
-    FromFile file -> readFile file
-    Inline txt    -> pure (Text.unpack txt)
+loadESLFrom :: ModelType -> DataSource -> IO ESL.Model
+loadESLFrom format source =
+  do  model <- loadModel format source
+      esl <- throwLeft ConversionError (toEasel model)
+      _ <- throwLeft ValidationError (ESL.checkModel esl)
+      pure esl
 
--- | Just lex
-lexModel :: DataSource -> IO [Located Token]
-lexModel file =
-  do txt <- loadString file
-     case AL.lexModel txt of
-       Left err -> throwIO (ParseError err)
-       Right a  -> pure a
+-------------------------------------------------------------------------------
+-- Core
 
---  | Just lex and parse, throws `ParseErrror`
-parseModel :: DataSource -> IO Syntax.Model
-parseModel file =
-  do  toks <- lexModel file
-      case AP.parseModel toks of
-        Left err -> throwIO (ParseError err)
-        Right a  -> pure a
+loadCore :: DataSource -> IO Core.Model
+loadCore = loadCoreFrom EaselType
 
--- | Lex, parse, and validate a model.
-loadModel :: DataSource -> IO Syntax.Model
-loadModel file =
-  do  m <- parseModel file
-      case Check.checkModel m of
-        Left err -> throwIO (ValidationError err)
-        Right m1 -> pure m1
+loadCoreFrom :: ModelType -> DataSource -> IO Core.Model
+loadCoreFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toCore model)
 
--- | Load a model and translate it to core.
-loadCoreModel :: DataSource -> [Text] -> IO Core.Model
-loadCoreModel file ps =
-  do  model <- loadModel file
-      case modelAsCore ps model of
-        Left err -> throwIO (ValidationError err)
-        Right a  -> pure a
+-------------------------------------------------------------------------------
+-- DEQs
 
--- | Lex a set of differential equations, throwing `ParseError` on error
-lexEquations :: DataSource -> IO [Located DL.Token]
-lexEquations file =
-  do  txt <- loadString file
-      case DL.lexDEQs txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError err)
+loadDiffEqs :: DataSource -> IO DEQ.DiffEqs
+loadDiffEqs = loadDiffEqsFrom DeqType
 
--- | Lex and parse a set of differential equations, throwing `ParseError` on error
-parseEquations :: DataSource -> IO DiffEqs
-parseEquations file =
-  do  toks <- lexEquations file
-      case DP.parseDEQs toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError err)
+loadDiffEqsFrom :: ModelType -> DataSource -> IO DEQ.DiffEqs
+loadDiffEqsFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toDeqs model)
 
--- | The intended entrypoint for fetching a system of differential equations
--- `params` are the names of `lets` that should be treated as parameters
--- (i.e., their definitions are ignored)
-loadEquations :: DataSource -> [Text] -> IO DiffEqs
-loadEquations file params =
-  do  toks <- lexEquations file
-      case DP.parseDEQs toks of
-        Left err -> throwIO (ParseError err)
-        Right a  -> pure a { deqParams = params }
+-------------------------------------------------------------------------------
+-- Gromet
 
--- | Lex a set of reactions, throwing `ParseError` on error
-lexReactions :: DataSource -> IO [Located RL.Token]
-lexReactions file = 
-  do  txt <- loadString file
-      case RL.lexRNet txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError $ "lexReactions: "<>err) 
+loadGrometPrt :: DataSource -> IO Gromet
+loadGrometPrt = loadGrometPrtFrom GrometPrtType
 
--- | Lex and parse a set of reactions, throwing `ParseError` on error
-parseReactions :: DataSource -> IO ReactionNet
-parseReactions file =
-  do  toks <- lexReactions file
-      case RP.parseRNet toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError $ "parseReactions: "<>err)
+loadGrometPrtFrom :: ModelType -> DataSource -> IO Gromet
+loadGrometPrtFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometPrt model)
 
-loadReactions :: DataSource -> IO ReactionNet
-loadReactions = parseReactions
+-------------------------------------------------------------------------------
+-- PNC
+loadGrometPnc :: DataSource -> IO PetriNetClassic
+loadGrometPnc = loadGrometPncFrom GrometPncType 
 
-lexLatex :: DataSource -> IO [Located LL.Token] 
-lexLatex file =
-  do  txt <- loadString file
-      case LL.lexLatex txt of
-        Right toks -> pure toks
-        Left err -> throwIO (ParseError $ "lexLatex: "<>err)
+loadGrometPncFrom :: ModelType -> DataSource -> IO PetriNetClassic
+loadGrometPncFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometPnc model)
 
-parseLatex :: DataSource -> IO DiffEqs
-parseLatex file =
-  do  toks <- lexLatex file
-      case LP.parseLatex toks of
-        Right deqs -> pure deqs
-        Left err -> throwIO (ParseError $ "parseLatex: "<>err)
 
-loadLatex :: DataSource -> IO DiffEqs 
-loadLatex = parseLatex
+-------------------------------------------------------------------------------
+-- FNET
+loadGrometFnet :: DataSource -> IO JSON.Value
+loadGrometFnet = loadGrometFnetFrom GrometFnetType
 
-lexABM :: DataSource -> IO [Located ABMLexer.Token]
-lexABM file = do
-  txt <- loadString file
-  case ABMLexer.lexABM txt of
-    Right toks -> pure toks
-    Left err -> throwIO (ParseError $ "lexABM: "<>err)
+loadGrometFnetFrom :: ModelType -> DataSource -> IO (FNet.FunctionNetwork)
+loadGrometFnetFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toGrometFnet model)
 
-parseABM :: DataSource -> IO ABMSyntax.Model
-parseABM file = do
-  toks <- lexABM file
-  case ABMParser.parseABM toks of
-    Right abm -> pure abm
-    Left err -> throwIO (ParseError $ "parseABM: "<>err)
 
-loadABM :: DataSource -> IO ABMSyntax.Model
-loadABM = parseABM
+-------------------------------------------------------------------------------
+-- TODO: Reactions
+
+-- loadReactions :: DataSource -> IO RNet.ReactionNet
+-- loadReactions = loadReactionsFrom (RNET Concrete)
+
+-- loadReactionsFrom :: ModelType -> DataSource -> IO RNet.ReactionNet
+-- loadReactionsFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               RNET Concrete  -> $(converter (RNET Concrete) (RNET Abstract))
+--       toIO "loadReactionsFrom" $ conv modelString
+
+-------------------------------------------------------------------------------
+-- TODO: Latex
+
+-- loadLatex :: DataSource -> IO Latex.Latex
+-- loadLatex = loadLatexFrom (LATEX Concrete)
+
+-- loadLatexFrom :: ModelType -> DataSource -> IO Latex.Latex
+-- loadLatexFrom format source =
+--   do  modelString <- loadModel format source
+--       let conv =
+--             case format of
+--               ESL Concrete   -> $(converter (ESL Concrete) (LATEX Abstract))
+--               DEQ Concrete   -> $(converter (DEQ Concrete) (LATEX Abstract))
+--               RNET Concrete  -> $(converter (RNET Concrete) (LATEX Abstract))
+--               LATEX Concrete -> $(converter (LATEX Concrete) (LATEX Abstract))
+--       toIO "loadLatexFrom" $ conv modelString
+
+-- loadConnectionGraph :: String -> IO (Value, Map Int Text)
+-- loadConnectionGraph s = 
+--   do  result <- case GG.asConnGraph s of
+--         Right (graph, nodeName) -> pure graph
+--         Left err -> throwIO $ ParseError err
+--       let (vertices, edges, mapping) = GG.intGraph result
+--           mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
+--       pure (GG.gtriJSON vertices edges, mapping')
+
+loadCPPFrom :: ModelType -> DataSource -> IO Doc
+loadCPPFrom format source =
+  do  coreModel <- loadCoreFrom format source
+      pure $ CPP.genModel coreModel
+
+-------------------------------------------------------------------------------
+-- Storage
+
+storeModel :: ModelType -> Text -> Text -> IO ModelDef
+storeModel mt name modelText =
+  do checkModel mt modelText
+     Storage.storeModel name mt modelText
+     pure ModelDef { modelDefSource = FromStore name
+                   , modelDefType   = mt
+                   }
+
+
+-------------------------------------------------------------------------------
+-- Validation
+
+checkModel' :: ModelType -> Text -> IO (Maybe String)
+checkModel' format source =
+  do  res <- try (checkModel format source)
+      case res of
+        Left err -> pure $ Just (show (err :: SomeException))
+        Right _ -> pure Nothing
+
+checkModel :: ModelType -> Text -> IO ()
+checkModel mt =
+  case mt of
+    EaselType -> checkESL
+    DeqType -> checkDEQ
+    GrometPrtType -> checkGrometPrt
+    _ -> \_ -> pure ()  -- We don't know how to validate this
+
+checkESL :: Text -> IO ()
+checkESL t =
+  do  Easel esl <- throwLeft ParseError (parseModel EaselType t)
+      _ <- throwLeft ValidationError (ESL.checkModel esl)
+      pure ()
+
+checkDEQ :: Text -> IO ()
+checkDEQ t =
+  do  Deq _ <- throwLeft ParseError (parseModel DeqType t)
+      pure ()
+
+-- XXX: not validated for the moment.
+checkGrometPrt :: Text -> IO ()
+checkGrometPrt _ = pure ()
+{-
+  do  (code, _out, _err) <- readProcessWithExitCode "jq" [] (Text.unpack t)
+      case code of
+        ExitSuccess -> pure ()
+        ExitFailure _ -> die (ValidationError "invalid gromet")
+-}
+
+
 
 -------------------------------------------------------------------------------
 
-data StratificationType = Demographic | Spatial
-  deriving Show
+stratifyModel ::
+  ModelType ->
+  DataSource ->
+  String ->
+  Maybe String ->
+  Stratify.StratificationType ->
+  IO Stratify.StratificationInfo
+stratifyModel format source connectionGraph statesJSON stratificationType =
+  do  model <- loadESLFrom format source
+      (connGraph, vertexNamer) <- throwLeft ParseError (GG.asConnGraph connectionGraph)
+      let vertexMap = Map.map Text.pack (GG.asMap connGraph vertexNamer)
+      states <- 
+        case decode . LBS8.pack <$> statesJSON of 
+          Just (Just s) -> pure $ Just s
+          Just Nothing -> die (ParseError "invalid states JSON")
+          Nothing -> pure Nothing
+      Stratify.stratifyModel model connGraph vertexMap states stratificationType
+  
 
-data StratificationInfo = StratificationInfo
-  { rawModel    :: Syntax.Model
-  , prettyModel :: Syntax.Model
-  , rawTopology :: MS.Net 
-  , holes       :: [Text]
-  , vertices    :: Map Int Text
-  }
-  deriving Show
+fitModelToMeasureData ::
+  ModelType {- ^ the model's type -} ->
+  DataSource {- ^ the model's source -} ->
+  [Text] {- ^ parameters to fit -} ->
+  DataSeries Double {- ^ the data -} ->
+  IO (Map Text Double)
+fitModelToMeasureData ty modelSrc params fitData =
+  do  eqs <- loadDiffEqsFrom ty modelSrc
+      let paramMap = Map.fromList (initialValueMapping eqs <$> params)
+      let (fit, _) = DEQ.fitModel eqs fitData Map.empty paramMap
+      pure (fst <$> fit)
+  where
+    initialValueMapping deq n = (n, fromMaybe 0 (DEQ.paramValue n deq))
 
--- This and its Aeson instances might ought to live somewhere else
-data States = States
-  { sus :: Text
-  , exp :: Text
-  , inf :: [Text]
-  }
-  deriving (Generic, Show)
+fitModelToData ::
+  ModelType {- ^ the model's type -}-> 
+  DataSource {- ^ the data as ASKEE-produced CSV -} ->
+  [Text] {- ^ parameters to fit -} -> 
+  Map Text Double {- ^ ??? -} ->
+  DataSource {- ^ the model -} -> 
+  IO (Map Text (Double, Double), [Map Text Double])
+  -- IO (Map Text (Double, Double))
+fitModelToData format fitData fitParams fitScale source = 
+  do  eqs <- loadDiffEqsFrom format source
+      rawData <-
+        case fitData of
+          Inline s -> pure s
+          FromFile f -> Text.readFile f
+          FromStore _ -> panic "fitModelToData" ["reading data from store is not yet supported"]
+      let bytes = Builder.toLazyByteString (Text.encodeUtf8Builder rawData)
+      dataSeries <- throwLeft DataSeriesError (parseDataSeries bytes)
+      pure $ DEQ.fitModel eqs dataSeries fitScale
+           $ Map.fromList (zip fitParams (repeat 0))
 
-instance Aeson.FromJSON States
-instance Aeson.ToJSON States
+-------------------------------------------------------------------------------
+-- Simulation
 
-stratifyModel :: DataSource -> DataSource -> Maybe DataSource -> StratificationType -> IO StratificationInfo
-stratifyModel model connections statesM strat =
-  do  topology <- modelAsTopology <$> loadModel model
-      (gtriConnections, vertices) <- loadConnectionGraph connections
-      states <- case statesM of 
-                  Just d -> Aeson.decode @States . B.pack <$> loadString d
-                  Nothing -> pure Nothing
-      let payload = object $  [ "top" .= topology 
-                              , "conn" .= gtriConnections
-                              , "type" .= case strat of { Demographic -> "dem" ; Spatial -> "spat" :: String }
-                              ] ++ maybe [] (\s -> [ "states" .= s ]) states
-      result <- readProcess "curl"  [ "-X", "POST"
-                                    , "-H", "Content-type: application/json"
-                                    , "-d", B.unpack $ encode payload
-                                    , "localhost:8001"
-                                    ] ""
-      rawTopology <- case decode (B.pack result) of
-        Just t -> pure t
-        Nothing -> error $ "failed to parse JSON of returned topology "++result
-      let (rawModel, holes) = insertHoles $ topologyAsModel rawTopology
-          prettyModel = nameHoles vertices rawModel
-      pure $ StratificationInfo{..}
+data SimulationType = 
+    AJ 
+  | Discrete 
+  | GSL 
+  | AutomatesSvc
+  deriving (Show)
 
 
-loadConnectionGraph :: DataSource -> IO (Value, Map Int Text)
-loadConnectionGraph d =
-  case d of
-    Inline t -> resultFromText t
-    FromFile f -> TextIO.readFile f >>= resultFromText
+-- check some of the arguments to simulate functions
+-- against the described interface, possibly returning
+-- a list of human-readable problems
+checkSimArgs ::
+  ModelType ->
+  DataSource ->
+  Map Text Double {- ^ parameterization -} ->
+  Set Text {- ^ variables to measure -} ->
+  IO [Text]
+checkSimArgs mt ds params outs =
+  checkInterfaceRequirements mt ds
+      [ paramsNotExistErrors (Map.keysSet params)
+      , outputsNotExistErrors outs
+      , unspecifiedValueErrors (Map.keysSet params)
+      ]
+
+-- check that the params to fit are a subset of the model's inputs.
+checkFitArgs ::
+  ModelType ->
+  DataSource ->
+  [Text] ->
+  IO [Text]
+checkFitArgs mt ds params =
+  checkInterfaceRequirements mt ds
+    [ paramsNotExistErrors (Set.fromList params) ]
+
+paramsNotExistErrors :: Set Text -> ModelInterface -> [Text]
+paramsNotExistErrors params iface =
+  requireSubset params (ifaceParamNames iface)
+    (\v -> "'" <> v <> "' is not a parameter of the specified model")
+
+outputsNotExistErrors :: Set Text -> ModelInterface -> [Text]
+outputsNotExistErrors outs iface =
+  requireSubset outs (ifaceOutputNames iface)
+                (\v -> "'" <> v <> "' is not a measurable quantity of the specified model")
+
+unspecifiedValueErrors :: Set Text -> ModelInterface -> [Text]
+unspecifiedValueErrors params iface =
+  requireSubset (ifaceParamsNoDefault iface) params
+                (\v -> "'" <> v <> "' has no default and must be specified")
+
+ifaceParamNames :: ModelInterface -> Set Text
+ifaceParamNames iface =
+  Set.fromList (portName <$> modelInputs iface)
+
+ifaceParamsNoDefault :: ModelInterface -> Set Text
+ifaceParamsNoDefault iface =
+  Set.fromList [portName p | p <- modelInputs iface, portDefault p == Nothing]
+
+ifaceOutputNames :: ModelInterface -> Set Text
+ifaceOutputNames iface =
+  Set.fromList (portName <$> modelOutputs iface)
+
+checkInterfaceRequirements :: ModelType -> DataSource -> [ModelInterface -> [Text]] -> IO [Text]
+checkInterfaceRequirements mt ds reqs =
+  do model <- loadModel mt ds
+     let iface = describeModelInterface model
+     pure $ concat [r iface | r <- reqs]
+
+requireSubset :: Ord a => Set a -> Set a -> (a -> Text) -> [Text]
+requireSubset a b err = err <$> Set.toList (Set.difference a b)
+
+
+simulateModel :: 
+  Maybe SimulationType ->
+  ModelType -> 
+  DataSource ->
+  Double {- ^ start -} ->
+  Double {- ^ end -} -> 
+  Double {- ^ step -} ->
+  Map Text Double {- ^ parameterization -} -> 
+  Set Text {- ^ variables to measure (empty to measure all) -} -> 
+  Maybe Int {- ^ seed (for discrete event simulation) -} -> 
+  Maybe Text {- ^ domain parameter (for function networks) -} -> 
+  Int ->
+  IO [DS.LabeledDataSeries Double]
+simulateModel sim format source start end step parameters outputs seed dp iterations
+  | step <= 0 = die (ValidationError "step must be a positive, nonzero number")
+  | otherwise =
+    case simType of
+      GSL -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelGSL format source start end step parameters outputs
+      Discrete ->  fmap (DS.ldsFromDs . filterDS) <$> simulateModelDiscrete format source start end step parameters seed iterations
+      AJ -> (:[]) . DS.ldsFromDs . filterDS <$> simulateModelAJ format source start end step parameters
+      AutomatesSvc -> (:[]) <$> simulateModelAutomates format source start end step dp parameters outputs
+  where
+    simType = fromMaybe defaultSimulationType sim
+    defaultSimulationType =
+      case format of
+        EaselType -> GSL
+        GrometPncType -> AJ
+        GrometPrtType -> GSL
+        GrometFnetType -> AutomatesSvc
+        RNetType -> GSL
+        DeqType -> GSL
+        CoreType -> GSL
+    filterDS ds 
+      | null outputs = ds
+      | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
+
+simulateModelAutomates ::
+  ModelType ->
+  DataSource ->
+  Double ->
+  Double ->
+  Double ->
+  Maybe Text ->
+  Map Text Double ->
+  Set Text ->
+  IO (DS.LabeledDataSeries Double)
+simulateModelAutomates format source start end step domainParamMb params outVars =
+  do  fnet <- loadGrometFnetFrom format source
+      domainParam <-
+        throwLeft HttpCallException
+          case domainParamMb of
+            Nothing -> Left "Domain parameter was not specified"
+            Just p -> Right p
+
+      let simReq =
+            Automates.SimulationRequest fnet start end step domainParam params outVars
+
+      Automates.simulateFnet simReq
+
+simulateModelGSL :: 
+  ModelType -> 
+  DataSource -> 
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
+  Map Text Double {- ^ parameters -} ->
+  Set Text {- ^ Variables to observe, empty for everything -} ->
+  IO (DataSeries Double)
+simulateModelGSL format source start end step parameters vars =
+  do  equations <- loadDiffEqsFrom format source
+      let times' = takeWhile (<= end)
+                 $ iterate (+ step) start
+      pure $ DEQ.simulate equations parameters vars times'
+
+simulateModelDiscrete ::
+  ModelType ->
+  DataSource ->
+  Double {- ^ start time -} ->
+  Double {- ^ end time -} -> 
+  Double {- ^ time step -} -> 
+  Map Text Double ->
+  Maybe Int {- ^ seed -} ->
+  Int {- ^ number of iterations -}->
+  IO [DataSeries Double]
+simulateModelDiscrete format source start end step parameters seed iterations =
+  do  model <- loadCoreFrom format source
+      let parameterizedModel = Core.addParams parameters model
+          (withLegalNames, newNames) = Core.legalize parameterizedModel
+      dss <- CPP.simulate withLegalNames start end step seed iterations
+      mapM (\DataSeries{..} -> pure DataSeries { values = adjust newNames values, ..}) dss
 
   where
-    resultFromText t =
-      do  let result' = GG.parseGeoGraph (unpack t)
-          result <- case result' of
-            Right res -> pure res
-            Left err -> throwIO $ ParseError err
-          let (vertices, edges, mapping) = GG.intGraph result
-              mapping' = Map.fromList [(i, Text.pack $ mapping i) | i <- [1..vertices]]
-          pure (GG.gtriJSON vertices edges, mapping')
-
-genCppRunner :: DataSource -> IO ()
-genCppRunner fp =
-  do compiled <- loadCoreModel fp []
-     print $ MG.genSimulationRunnerCpp compiled 100.0 m4
+    adjust vs = Map.fromList . map (\(v, e) -> (vs Map.! v, e)) . Map.toList
+      
+simulateModelAJ ::
+  ModelType -> 
+  DataSource -> 
+  Double {- ^ start -} ->
+  Double {- ^ stop -} -> 
+  Double {- ^ step -} -> 
+  Map Text Double ->
+  IO (DataSeries Double)
+simulateModelAJ format source start stop step parameters =
+  do  pnc <- loadGrometPncFrom format source
+      let newParameters = Map.mapKeys demangle parameters
+      AJ.simulate pnc start stop step newParameters
   where
-    _m1 :: M.Measure
-    _m1 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.Accumulate "m_sum" 1.0
-       $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
+    demangle t = 
+      case (Text.stripSuffix "_init" t, Text.stripSuffix "_rate" t) of
+        (Just t', _) -> t'
+        (_, Just t') -> t'
+        (Nothing, Nothing) -> t
 
-    _m2 :: M.Measure
-    _m2 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "I")
+-------------------------------------------------------------------------------
 
-    _m3 :: M.Measure
-    _m3 = M.EventBased
-       $ M.When (M.TimeLT 120.0)
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "time")
+convertModelString ::
+  ModelType -> DataSource -> ModelType -> IO (Either String String)
+convertModelString srcTy src destTy =
+  do  bytes <- loadModelText srcTy src
+      let model = parseModel srcTy bytes
+      pure
+        case destTy of
+          EaselType -> model >>= toEasel >>= (printModel . Easel)
+          DeqType -> model >>= toDeqs >>= (printModel . Deq)
+          -- If there are errors converting to core, we _might_ want to
+          -- see them more than we want to see the printing error? Maybe?
+          CoreType -> model >>= toCore >>= const (Left "cannot print core")
+          GrometPrtType -> model >>= toGrometPrt >>= (printModel . GrometPrt)
+          GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
+          GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
+          RNetType  -> Left "Don't know how to convert to RNet yet"
 
-    m4 :: M.Measure
-    m4 = M.TimeBased [M.AtTimes 1 15 120, M.AtTime 137]
-       $ M.Do
-       $ M.TraceExpr "i_trace" (Core.Var "time")
 
-dumpCppModel :: DataSource -> FilePath -> IO ()
-dumpCppModel file output =
-  do  compiled <- loadCoreModel file []
-      let rendered = show (SG.genModel compiled)
-      writeFile output rendered
-      putStrLn "compiled!"
+          
+listAllModelsWithMetadata :: IO [MetaAnn ModelDef]
+listAllModelsWithMetadata =
+  do  models <- listAllModels
+      let meta n = [("name", n), ("description", "No description.")]
+      forM models \m@ModelDef{..} ->
+        case modelDefType of
+          EaselType -> 
+            do  esl <- loadESL modelDefSource
+                pure $ MetaAnn { metaData = meta (ESL.modelName esl), metaValue = m }
+          _ -> pure @IO $ pure @MetaAnn m
 
-askeeStringToDiffEqAST :: String -> Either String DiffEqs
-askeeStringToDiffEqAST = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Abstract))
+queryModels :: Text -> IO [MetaAnn ModelDef]
+queryModels query = do
+  allModels <- listAllModelsWithMetadata
+  if query == "*"
+    then return allModels
+    else filterM match_model allModels
+  where
+    match_model metaAnnModel = do
+      (toplevelMetaData, model) <- loadModelFromDef metaAnnModel
+      let mInterface = describeModelInterface model
+          match_result = match_source (metaValue metaAnnModel) ||
+                         match_metadata_values (map snd toplevelMetaData) ||
+                         match_metadata_values (modelMetaDataValues $ modelMetadata model) ||
+                         match_metadata_values (portMetaDataValues $ modelInputs mInterface) ||
+                         match_metadata_values (portMetaDataValues $ modelOutputs mInterface)
+      return match_result
+    match_source modeldef =
+      let sourceText = case modelDefSource modeldef of
+                         FromFile s -> Text.pack s
+                         FromStore txt -> txt
+                         Inline _ -> ""
+      in match_wildcard query sourceText
+    match_metadata_values values = any (match_wildcard query) values
+    loadModelFromDef metaAnnModel = do
+      let ModelDef {..} = metaValue metaAnnModel
+      model <- loadModel modelDefType modelDefSource
+      return (metaData metaAnnModel, model)
+    portMetaDataValues ports = concat $ concatMap (Map.elems . portMeta) ports
+    modelMetaDataValues meta = concat $ Map.elems meta
+    match_wildcard pat s
+      | Text.null pat        = Text.null s
+      | Text.head pat == '*' = handleStar
+      | Text.head pat == '?' = handleQM
+      | otherwise            = handleChar
+      where
+        handleStar =
+          match_wildcard (Text.tail pat) s
+          || (not (Text.null s) && match_wildcard pat (Text.tail s))
+        handleQM =
+          not (Text.null s) && match_wildcard (Text.tail pat) (Text.tail s)
+        handleChar =
+          not (Text.null s) &&
+          Char.toLower (Text.head s) == Char.toLower (Text.head pat) &&
+          match_wildcard (Text.tail pat) (Text.tail s)
+          
+modelMetadata :: Model -> Map Text [Text]
+modelMetadata model = case model of
+  Easel ESL.Model{..}  -> withName modelName $ recastListOfPairs modelMeta
+  Core Core.Model{..}  -> withName modelName Map.empty
+  Deq _                -> Map.empty
+  RNet _               -> Map.empty
+  GrometPrt Gromet{..} -> withName grometName grometMeta
+  GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
+  GrometFnet m                  -> fnetMetadata m
+  where
+    recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
+    withName n meta = Map.insertWith (++) "name" [n] meta
+    fnetMetadata m = either (const Map.empty) fnetInfoToMetaMap $ FNet.fnetInfo m
+    fnetInfoToMetaMap info =
+      case FNet.fiModelLevelMeta info of
+        Just meta -> Map.fromList [ ("name", [FNet.fmlmName meta])
+                                  , ("description", [FNet.fmlmDescription meta])
+                                  ]
+        Nothing   -> Map.empty
+          
+--------------------------------------------------------------------------------
 
-askeeStringToDiffEqString :: String -> Either String String
-askeeStringToDiffEqString = $(converter (tagOf @Syntax.Model Concrete) (tagOf @DiffEqs Concrete))
+describeModelInterface :: Model -> ModelInterface
+describeModelInterface model = asCore `orElse` (asFnet `orElse` emptyModelInterface)
+  where
+    eitherToMaybe (Left _) = Nothing
+    eitherToMaybe (Right a) = Just a
 
--- $allConverters
+    orElse (Just a) _ = a
+    orElse Nothing b = b
 
-diffEqStringToLatexString :: String -> Either String String
-diffEqStringToLatexString = $(converter (tagOf @DiffEqs Concrete) (tagOf @Latex Concrete))
-renderCppModel :: DataSource -> IO String
-renderCppModel file =
-  do  compiled <- loadCoreModel file []
-      pure $ show (SG.genModel compiled)
+    asCore = Core.modelInterface <$> eitherToMaybe (toCore model)
+    asFnet =
+      case model of
+        GrometFnet json -> eitherToMaybe (FNet.fnetInterface json)
+        _ -> Nothing
 
-toAPRAM :: FilePath -> FilePath -> IO ()
-toAPRAM modelFile aPRAMFile =
-  do  m <- loadModel $ FromFile modelFile
-      let a = modelToAPRAM m "health"
-          a' = show $ printAPRAM a
-      writeFile aPRAMFile a'
+--------------------------------------------------------------------------------
 
-$allConverters
+compareModels :: ModelType -> DataSource -> ModelType -> DataSource -> IO [Map Text Text]
+compareModels sourceSource sourceFormat targetSource targetFormat =
+  do  ms <- loadModel sourceSource sourceFormat
+      mt <- loadModel targetSource targetFormat
+      suid <- either (die . ValidationError . ("error determining UID of source: "<>)) pure (modelUID ms)
+      tuid <- either (die . ValidationError . ("error determining UID of target: "<>)) pure (modelUID mt)
+      Compare.compareModels suid tuid

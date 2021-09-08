@@ -2,12 +2,15 @@
 module Options
   ( Options(..)
   , Command(..)
+  , ShowGromet(..)
   , getOptions
   , GetOptException(..)
   , showHelp
   ) where
 
 import Data.Text(Text)
+import Data.Set(Set)
+import qualified Data.Set as Set
 import Data.Map(Map)
 import qualified Data.Map as Map
 import qualified Data.Text as Text
@@ -22,9 +25,17 @@ data Command =
   | OnlyCheck
   | DumpCPP
   | DumpDEQs
-  | SimulateODE Double Double Double
+  | DumpPNC
+  | DumpCore
+  | DescribeInterface
+  | SimulateODE Double Double Double -- ^ Start, step, end
+  | SimulateCPP Double Double Double -- ^ Start, step, end
   | FitModel [Text] (Map Text Double)
   | ComputeError
+  | ShowGromet ShowGromet
+  deriving Show
+
+data ShowGromet = JSON | PP
   deriving Show
 
 data Options = Options
@@ -33,9 +44,13 @@ data Options = Options
   , dataFiles :: [FilePath]
   , deqFiles :: [FilePath]
   , rnetFiles :: [FilePath]
+  , pncFiles :: [FilePath]
+  , fnetFiles :: [FilePath]
   , outFile :: FilePath
   , gnuplot :: Bool
   , overwrite :: Map Text Double
+  , measures :: Set Text
+  , seed :: Maybe Int
   , onlyShowHelp :: Bool
   }
   deriving Show
@@ -48,10 +63,14 @@ options = OptSpec
         , modelFiles = []
         , dataFiles = []
         , deqFiles = []
+        , pncFiles = []
         , rnetFiles = []
+        , fnetFiles = []
         , onlyShowHelp = False
         , gnuplot = False
+        , measures = Set.empty
         , overwrite = Map.empty
+        , seed = Nothing
         , outFile = ""
         }
 
@@ -72,6 +91,26 @@ options = OptSpec
         "Dump some c++ code"
         $ NoArg \s -> Right s { command = DumpCPP }
 
+      , Option [] ["to-gromet"]
+        "Convert to GroMEt"
+        $ NoArg \s -> Right s { command = ShowGromet JSON }
+
+      , Option [] ["dump-pnc-gromet"]
+         "Parse a Petri Net Classic Gromet and print it"
+        $ NoArg \s -> Right s { command = DumpPNC }
+
+      , Option [] ["dump-core"]
+         "Try to convert input to Core"
+        $ NoArg \s -> Right s { command = DumpCore }
+
+      , Option [] ["to-pp-gromet"]
+        "Convert to human readable GroMEt"
+        $ NoArg \s -> Right s { command = ShowGromet PP }
+
+      , Option [] ["describe-interface"]
+        "Desribe the interface of a model in JSON"
+        $ NoArg \s -> Right s { command = DescribeInterface }
+
       , Option [] ["to-deq"]
         "Convert to differental equations"
         $ NoArg \s -> Right s { command = DumpDEQs }
@@ -81,6 +120,17 @@ options = OptSpec
         $ ReqArg "START:STEP:END"
           \a s -> do (start,step,end) <- parseODETimes a
                      Right s { command = SimulateODE start step end }
+
+      , Option [] ["obs"]
+        "Observe this variable"
+        $ ReqArg "IDENT"
+        \a s -> Right s { measures = Set.insert (Text.pack a) (measures s) }
+
+      , Option [] ["sim-cpp"]
+        "Solve a model using a C++-based discrete event simulator"
+        $ ReqArg "START:STEP:END"
+          \a s -> do (start,step,end) <- parseODETimes a
+                     Right s { command = SimulateCPP start step end }
 
       , Option [] ["fit"]
         "Fit model parameters with optional residual scaling"
@@ -107,6 +157,12 @@ options = OptSpec
         \a s -> do (x,d) <- parseOverwrite a
                    Right s { overwrite = Map.insert x d (overwrite s) }
 
+      , Option [] ["seed"]
+        "Use a particular seed during discrete event simulation"
+        $ ReqArg "INT"
+        \a s -> do i <- parseInt a
+                   Right s { seed = Just i }
+
       , Option [] ["error-ode"]
         "Compute difference between model and data"
         $ NoArg \s -> Right s { command = ComputeError }
@@ -131,6 +187,16 @@ options = OptSpec
         "Use this reaction network"
         $ ReqArg "FILE" \a s -> Right s { rnetFiles = a : rnetFiles s}
 
+      , Option [] ["pnc"]
+        "Use this Petri Net Classic"
+        $ ReqArg "FILE" \a s -> Right s { pncFiles = a : pncFiles s}
+
+      , Option [] ["fnet"]
+        "Use this function network"
+        $ ReqArg "FILE" \a s -> Right s { fnetFiles = a : fnetFiles s }
+
+
+
       , Option ['o'] ["output"]
         "Use this output file"
         $ ReqArg "FILE" \a s -> case outFile s of
@@ -146,6 +212,12 @@ options = OptSpec
   , progParams = \_ _ -> Left "Unexpected parameter"
 
   }
+
+parseInt :: String -> Either String Int
+parseInt xs =
+  case reads xs of
+    [(i, "")] -> Right i
+    _         -> Left "Malformed integer"
 
 parseODETimes :: String -> Either String (Double,Double,Double)
 parseODETimes xs =
@@ -164,8 +236,9 @@ parseScale xs =
 
 parseOverwrite :: String -> Either String (Text,Double)
 parseOverwrite xs =
-  case break (==':') xs of
-    (as,_:bs) | [(d,"")] <- reads bs -> Right (Text.pack as, d)
+  case break (==':') (reverse xs) of
+    (as,_:bs)
+      | [(d,"")] <- reads (reverse as) -> Right (Text.pack (reverse bs), d)
     _ -> Left "Invalid overwite, format is NAME:DOUBLE"
 
 

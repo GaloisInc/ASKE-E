@@ -1,0 +1,23 @@
+#!/bin/sh -e
+
+HOST="aske.galois.com"
+DEPLOY_USERNAME=${DEPLOY_USERNAME:-$USER}
+
+USRHST="$DEPLOY_USERNAME@$HOST"
+VERSION=$(git rev-parse HEAD)
+
+cabal build donu
+
+DIR=/opt/donu/deploy
+
+echo "Stopping Donu..."
+ssh $USRHST -t "sudo systemctl stop donu.service"
+
+DONU=`cabal exec -- which donu`
+echo "Deploying $VERSION..."
+scp "$DONU" $USRHST:$DIR/donu
+#scp -r "modelRepo" $USRHST:$DIR
+ssh $USRHST "echo $VERSION > $DIR/VERSION"
+
+echo "Starting Donu..."
+ssh $USRHST -t "sudo systemctl start donu.service"

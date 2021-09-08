@@ -1,6 +1,6 @@
 # `state`-Declared Variables
 
-```askee
+```easel
   state Susceptible = s_Initial
   state Infected    = i_Initial
   state Recovered   = r_Initial

@@ -1,0 +1,7 @@
+We demonstrate that alpha-conversion is essential to establishing a consistent
+value of a program's Kolmogorov complexity via the proxy of the text's
+compressibility.
+
+Identifier length has a significant effect on K(s), whereas the order of
+function definitions in the source text has only a minor impact on the value
+of K(s).

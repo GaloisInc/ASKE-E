@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.ExprTransform where
 
-import qualified Language.ASKEE.Syntax as Syntax
+import qualified Language.ASKEE.ESL.Syntax as Syntax
 import qualified Language.ASKEE.Expr as Expr
 
 import qualified Data.Map as Map
@@ -13,6 +13,7 @@ import           Data.Set ( Set )
 import           Data.Text ( Text )
 
 import Control.Monad.Identity ( runIdentity, Identity )
+import Language.ASKEE.Metadata
 
 transformExpr ::
   Monad m =>
@@ -62,9 +63,12 @@ transformModelExprs exprT mdl =
                  , Syntax.modelEvents = events'
                  }
   where
-    transformDecl (Syntax.Let n v) = Syntax.Let n <$> expr v
-    transformDecl (Syntax.State n v) = Syntax.State n <$> expr v
-    transformDecl (Syntax.Assert e) = Syntax.Assert <$> expr e
+    -- foo :: MetaAnn Syntax.Decl -> m (MetaAnn Syntax.Decl)
+    transformDecl (MetaAnn m (Syntax.Let n v)) = MetaAnn m . Syntax.Let n <$> expr v
+    transformDecl (MetaAnn m (Syntax.State n v)) = MetaAnn m . Syntax.State n <$> expr v
+    transformDecl (MetaAnn m (Syntax.Assert e)) = MetaAnn m . Syntax.Assert <$> expr e
+    transformDecl (MetaAnn m (Syntax.Parameter n Nothing)) =  pure $ MetaAnn m $ Syntax.Parameter n Nothing
+    transformDecl (MetaAnn m (Syntax.Parameter n (Just e))) =  expr e >>= \e' -> pure $ MetaAnn m $ Syntax.Parameter n (Just e')
 
     transformStmt (n, v) = (,) n <$> expr v
     transformEvent evt =
@@ -96,6 +100,62 @@ inlineLets' lets m = runIdentity (transformModelExprs go m)
             Just e' -> go e'
             Nothing -> pure e
         _ -> pure e
+
+-- | Rename variables in an expression via the provided function
+renameExprVarsWith :: (Text -> Text) -> Expr.Expr -> Expr.Expr
+renameExprVarsWith r e = runIdentity $ transformExpr go e
+  where
+    go ex =
+      case ex of
+        Expr.Var v -> pure $ Expr.Var (r v)
+        _          -> pure ex
+
+-- | Rename variables in an event via the provided function
+--
+-- Note: this will also rename variables that appear on event effect LHSs
+renameEventVarsWith :: (Text -> Text) -> Syntax.Event -> Syntax.Event
+renameEventVarsWith r = runIdentity . modifyEventVars (pure . r)
+  where
+    modifyEventVars varT evt =
+      do  when'   <- expr `traverse` Syntax.eventWhen evt
+          rate'   <- expr (Syntax.eventRate evt)
+          effect' <- transformStmt `traverse` Syntax.eventEffect evt
+          name' <- varT (Syntax.eventName evt)
+          pure $ evt  { Syntax.eventWhen = when'
+                      , Syntax.eventRate = rate'
+                      , Syntax.eventEffect = effect'
+                      , Syntax.eventName = name'
+                      }
+      where
+        exprT e =
+          case e of
+            Expr.Var v -> Expr.Var <$> varT v
+            _     -> pure e
+
+        transformStmt (n, v) = 
+          do  n' <- varT n
+              v' <- expr v
+              pure (n', v')
+
+        expr = transformExpr exprT
+
+
+renameModelVarsWith :: (Text -> Text) -> Syntax.Model -> Syntax.Model
+renameModelVarsWith r = modifyModelVars
+  where
+    modifyModelVars mdl =
+      let decls' = map transformDecl (Syntax.modelDecls mdl)
+          events' = map (renameEventVarsWith r) (Syntax.modelEvents mdl)
+      in  mdl { Syntax.modelDecls = decls'
+              , Syntax.modelEvents = events' }
+
+    transformDecl (MetaAnn m d) =
+      case d of
+        Syntax.Let n v -> MetaAnn m $ Syntax.Let (r n) $ renameExprVarsWith r v
+        Syntax.State n v -> MetaAnn m $ Syntax.State (r n) $ renameExprVarsWith r v
+        Syntax.Parameter n v -> MetaAnn m $ Syntax.Parameter (r n) $ renameExprVarsWith r <$> v
+        Syntax.Assert e -> MetaAnn m $ Syntax.Assert $ renameExprVarsWith r e
+        
 
 canonicalLets :: Syntax.Model -> (Map Text Expr.Expr, Set Text)
 canonicalLets Syntax.Model{..} = (lets, intermediates)

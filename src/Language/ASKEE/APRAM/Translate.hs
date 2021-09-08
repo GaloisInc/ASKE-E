@@ -1,13 +1,11 @@
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE.APRAM.Translate where
 
+import Control.Monad.Identity (Identity (runIdentity))
 
 import           Data.Either ( isLeft )
-import           Data.List  ( intercalate )
 import           Data.Map   ( Map )
 import qualified Data.Map   as Map
 import           Data.Maybe ( mapMaybe )
@@ -18,22 +16,18 @@ import qualified Data.Text  as Text
 
 import           Language.ASKEE.APRAM.Syntax as APRAMSyntax
 import           Language.ASKEE.APRAM.Sample ()
-import           Language.ASKEE.Syntax as ESLSyntax
 import qualified Language.ASKEE.Expr as Expr
-import Language.ASKEE.ExprTransform
+import           Language.ASKEE.ExprTransform
+import           Language.ASKEE.ESL.Syntax as ESLSyntax
+import Language.ASKEE.Metadata
 
-modelToAPRAM :: Model -> String -> APRAM
+modelToAPRAM :: Model -> Text -> APRAM
 modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
   where
-    Model{..} = inlineLets m nonStatefulLets
+    Model{..} = inlineLets m (Map.keys params)
 
     params = Map.fromList 
-      [ (unpack v, e) 
-      | (v, e) <- letDecls (ESLSyntax.modelDecls m)
-      , v `elem` nonStatefulLets ]
-
-    nonStatefulLets =
-      [ v
+      [ (v, e) 
       | (v, e) <- letDecls (ESLSyntax.modelDecls m)
       , not (involvesState e) ]
 
@@ -50,12 +44,13 @@ modelToAPRAM m columnName = APRAM (floor totalPop) params statuses cohorts mods
 
     cohorts = pop:[ Cohort state (Is columnName state) | state <- stateNames ]
     pop = Cohort "Population" All
-    stateNames = [ unpack v | (v, _) <- stateDecls modelDecls ]
+    stateNames = [ v | (v, _) <- stateDecls modelDecls ]
 
     mods = initialize : eventsToMods columnName modelEvents
     (totalPop, initialize) = initMod pop columnName modelDecls
 
-initMod :: Cohort -> String -> [Decl] -> (Double, Mod)
+
+initMod :: Cohort -> Text -> [MetaAnn Decl] -> (Double, Mod)
 initMod pop columnName decls = (totalPop, Mod "Initialize" pop actions "setup")
   where
     stateInitValues = [ (v, either (err v) id $ Expr.eval letBindings e) | (v, e) <- stateDecls decls ]
@@ -63,14 +58,14 @@ initMod pop columnName decls = (totalPop, Mod "Initialize" pop actions "setup")
     letBindings = Map.fromList $ letDecls decls
 
     actions = map mkAct stateInitValues
-    mkAct (v, d) = (Actions [Assign columnName (unpack v)], Probability $ Expr.LitD d `Expr.Div` Expr.LitD totalPop)
+    mkAct (v, d) = (Actions [Assign columnName v], Probability $ Expr.LitD d `Expr.Div` Expr.LitD totalPop)
     totalPop = sum [ d | (_, d) <- stateInitValues]
 
-eventsToMods :: String -> [Event] -> [Mod]
+eventsToMods :: Text -> [Event] -> [Mod]
 eventsToMods columnName = map eventToMod
   where
     eventToMod :: Event -> Mod
-    eventToMod Event{..} = Mod (unpack eventName) cohort [action, pass] "loop" 
+    eventToMod Event{..} = Mod eventName cohort [action, pass] "loop" 
       where
         cohort = Cohort oldStatus (Is columnName oldStatus)
 
@@ -93,17 +88,20 @@ eventsToMods columnName = map eventToMod
     subtractOne :: Statement -> Maybe Status
     subtractOne (v, e) =
       case e of
-        Expr.Sub (Expr.Var v') (Expr.LitD 1) | v == v' -> Just (unpack v')
+        Expr.Sub (Expr.Var v') (Expr.LitD 1) | v == v' -> Just v'
         _ -> Nothing
 
     addOne :: Statement -> Maybe Status
     addOne (v, e) =
       case e of
-        Expr.Add (Expr.Var v') (Expr.LitD 1) | v == v' -> Just (unpack v')
+        Expr.Add (Expr.Var v') (Expr.LitD 1) | v == v' -> Just v'
         _ -> Nothing
 
+-------------------------------------------------------------------------------
+
 apramToModel :: APRAM -> Double -> Model
-apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apramMods)
+apramToModel APRAM{..} delta =
+  Model "foo" (letDecs ++ stateDecs) (concatMap modToEvents apramMods) []
   where
     allStates :: Set State
     allStates = 
@@ -114,11 +112,19 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
       . Map.toList 
       ) apramStatuses
 
-    stateDecs :: [Decl]
+    stateDecs :: [MetaAnn Decl]
     stateDecs = 
-      [ State (mkStateName s) (Expr.Var "???")
+      [ pure $ State (mkStateName s) (Expr.Var "???")
       | s <- Set.toAscList allStates
       ]
+
+    letDecs :: [MetaAnn Decl]
+    letDecs =
+      [ pure $ Let t e
+      | (t, e) <- Map.toList apramParams
+      ] ++
+      [ pure $ Let "delta" (Expr.LitD delta)
+      , pure $ Let "size" (Expr.LitD $ fromIntegral apramAgents) ]
   
     -- Generate every possible combination, Cartesian-product style, of `b`s, 
     -- propagating their `a` tags
@@ -139,23 +145,25 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
         go :: Set State -> Set State
         go =
           case cexpr of
-            Is  column status -> Set.filter (\s -> s Map.! column == status) --Set.member    status)
-            Not column status -> Set.filter (\s -> s Map.! column /= status) --Set.notMember status)
-            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
-            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort undefined c1, Cohort undefined c2] -- TODO ugly
+            Is  column status -> Set.filter (\s -> s Map.! column == status)
+            Not column status -> Set.filter (\s -> s Map.! column /= status)
+            And c1 c2  -> \s -> foldr (Set.intersection . relevantStates) s         [Cohort "" c1, Cohort "" c2]
+            Or  c1 c2  -> \_ -> foldr (Set.union        . relevantStates) Set.empty [Cohort "" c1, Cohort "" c2]
             All -> const allStates
 
     modToEvents :: Mod -> [Event]
-    modToEvents Mod{..} = [ mkEvent (modName, thisAction, asRate thisProbSpec passProbSpec, state) 
-                          | (thisAction, thisProbSpec) <- mapMaybe getActions modActions
-                          , state <- Set.toAscList $ relevantStates modCohort
-                          ]
+    modToEvents Mod{..}
+      | modPhase == "setup" = []
+      | otherwise = [ mkEvent (modName, thisAction, asRate thisProbSpec passProbSpec, state) 
+                    | (thisAction, thisProbSpec) <- mapMaybe getActions modActions
+                    , state <- Set.toAscList $ relevantStates modCohort
+                    ]
       where
         passProbSpec :: ProbSpec
         passProbSpec =
           case mapMaybe (\case (Pass, p) -> Just p; _ -> Nothing) modActions of
             [p] -> p
-            _ -> error $ "in mod "<>modName<>", there was more than one specified inaction path"
+            x -> error $ "in mod "<>unpack modName<>", there was not exactly one specified inaction path "<>show x
 
     getActions :: (ActionSequence, ProbSpec) -> Maybe ([Action], ProbSpec)
     getActions (as, ps) =
@@ -167,21 +175,27 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
     asRate thisProbSpec passProbSpec =
       case (thisProbSpec, passProbSpec) of
         (Rate r, _) -> r
-        (Probability tp, Probability pp) -> 
-          Expr.Neg $ 
-            (tp `Expr.Mul` Expr.Fn "log" [pp]) 
-            `Expr.Div` 
-            (Expr.LitD delta `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp))
+        (Probability tp, Probability pp) -> Expr.Neg ((tp `Expr.Mul` Expr.Fn "log" [pp]) `Expr.Div` (Expr.Var "delta" `Expr.Mul` (Expr.LitD 1 `Expr.Sub` pp)))
         _ -> undefined
 
-    mkEvent :: (String, [Action], Expr.Expr, State) -> Event
+    mkEvent :: (Text, [Action], Expr.Expr, State) -> Event
     mkEvent (modname, actions, prob, state) = 
-      Event (name<>"___"<>pack modname) when rate effect Nothing
+      Event (name<>"___"<>modname) when rate effect Nothing
       where
         name = Text.intercalate "_AND_" $ map (\a -> pack (show a) <> "_" <> stateName) actions
         when = Just $ Expr.Var stateName `Expr.GT` Expr.LitD 0
-        rate = prob `Expr.Mul` scale
+        rate = runIdentity $ transformExpr go $ prob `Expr.Mul` scale
         effect = concatMap actionToStmts actions
+
+        go :: Expr.Expr -> Identity Expr.Expr
+        go e =
+          case e of
+            Expr.Var v ->
+              case filter (\(Cohort n _) -> n == v) apramCohorts of
+                [cohort] -> pure $ foldr1 Expr.Add (map (Expr.Var . mkStateName) (Set.toList $ relevantStates cohort))
+                _ -> pure e
+            _ -> pure e
+
         
         actionToStmts :: Action -> [Statement]
         actionToStmts act =
@@ -191,7 +205,7 @@ apramToModel APRAM{..} delta = Model "foo" stateDecs (concatMap modToEvents apra
               ]
 
         stateName = mkStateName state
-        scale = Expr.Var stateName `Expr.Div` Expr.LitD (fromIntegral apramAgents)
+        scale = Expr.Var stateName `Expr.Div` Expr.Var "size"
 
 -- Invariant: every APRAM column accounted for
 type State = Map Column Status
@@ -203,4 +217,4 @@ newState (Assign column status) = Map.adjust (const status) column
 
 -- Deterministic naming of States
 mkStateName :: State -> Text
-mkStateName = pack . intercalate "_" . Map.elems
+mkStateName = Text.intercalate "_" . Map.elems

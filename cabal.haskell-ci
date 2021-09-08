@@ -1,0 +1,5 @@
+apt: libblas-dev libgsl-dev liblapack-dev
+branches: main
+cabal-check: False
+distribution: focal
+submodules: True

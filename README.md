@@ -1,5 +1,10 @@
 # ASKE-E
+[![Build status](https://github.com/GaloisInc/ASKE-E/workflows/Haskell-CI/badge.svg)](https://github.com/GaloisInc/ASKE-E/actions?query=workflow%3AHaskell-CI)
 
-## Model Stratification
+## AlgebraicJulia
 
-To perform model stratification, whether via `donu` or other avenues in this workbench, requires issuing `./run-julia-server.sh` first, in a separate shell. The server may initially take ~10 minutes to start up, as the script/relevant Dockerfile precompile all modules touched by the Julia application that performs the work of stratification.
+Working with `AlgebraicJulia` (for model stratification or PNC gromet simulation) on a clean copy of this repository requires first running `./scripts/run-algebraic-julia.sh --build`. The building process may take a while.
+
+## Models
+
+Some of the models you might expect `donu` to serve, if you're using it locally, are symlinked to from a submodule (`demoRepo`). The classic `git submodule update --init` should populate it.

@@ -6,138 +6,280 @@ name:                aske-e
 version:             0.1.0.0
 author:              Galois Inc.
 maintainer:          james.lamar@galois.com
-extra-source-files:  CHANGELOG.md, README.md
+extra-source-files:  README.md
+                   , modelRepo/easel/sir.easel
+                   , modelRepo/easel/sir-no-parameters.easel
+                   , modelRepo/deq/sir.deq
+                   , modelRepo/gromet-pnc/seir.json
+                   , exposure/**/*.py
+tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
 library
-  exposed-modules:     Language.ASKEE
-                     , Language.ASKEE.Syntax
-                     , Language.ASKEE.Expr
-                     , Language.ASKEE.GenLexer
-                     , Language.ASKEE.Lexer
-                     , Language.ASKEE.GenParser
-                     , Language.ASKEE.Core
-                     , Language.ASKEE.Core.ImportASKEE
-                     , Language.ASKEE.Core.Simplify
-                     , Language.ASKEE.Core.DiffEq
-                     , Language.ASKEE.Core.Eval
-                     , Language.ASKEE.Core.GSLODE
-                     , Language.ASKEE.DataSeries
-                     , Language.ASKEE.Print
-                     , Language.ASKEE.VisualSummaryGraph
-                     , Language.ASKEE.AMIDOLIR
-                     , Language.ASKEE.APRAM.Syntax
-                     , Language.ASKEE.APRAM.Translate
-                     , Language.ASKEE.APRAM.Sample
-                     , Language.ASKEE.APRAM.Print
+    exposed-modules:    Language.ASKEE
 
-                     , Language.ASKEE.ABM.Sample
-                     , Language.ASKEE.ABM.Syntax
-                     , Language.ASKEE.ABM.Translate
-                     , Language.ASKEE.ABM.GenParser
-                     , Language.ASKEE.ABM.GenLexer
-                     , Language.ASKEE.ABM.Lexer
-                     , Language.ASKEE.ABM.Print
+                        -- Languages
+                        Language.ASKEE.ABM.Sample
+                        Language.ASKEE.ABM.Syntax
+                        Language.ASKEE.ABM.Translate
 
-                    --  , Language.ASKEE.DiffEq.Lexer
-                    --  , Language.ASKEE.DiffEq.GenLexer
-                    --  , Language.ASKEE.DiffEq.GenParser
-                    --  , Language.ASKEE.DiffEq.DiffEq
-                    --  , Language.ASKEE.DiffEq.DiffEqC
+                        Language.ASKEE.APRAM.GenLexer
+                        Language.ASKEE.APRAM.GenParser
+                        Language.ASKEE.APRAM.Lexer
+                        Language.ASKEE.APRAM.Print
+                        Language.ASKEE.APRAM.Sample
+                        Language.ASKEE.APRAM.Syntax
+                        Language.ASKEE.APRAM.Translate
 
-                     , Language.ASKEE.DEQ.GenLexer
-                     , Language.ASKEE.DEQ.GenParser
-                     , Language.ASKEE.DEQ.Lexer
-                     , Language.ASKEE.DEQ.Syntax
-                     , Language.ASKEE.DEQ.Print
+                        Language.ASKEE.Core
+                        Language.ASKEE.Core.Convert
+                        Language.ASKEE.Core.Eval
+                        Language.ASKEE.Core.Expr
+                        Language.ASKEE.Core.Print
+                        Language.ASKEE.Core.Syntax
+                        Language.ASKEE.Core.Interface
+                        Language.ASKEE.Core.Visualization
+                        Language.ASKEE.Core.ModelVisualization
 
-                     , Language.ASKEE.RNet.Reaction
-                     , Language.ASKEE.RNet.GenLexer
-                     , Language.ASKEE.RNet.GenParser
-                     , Language.ASKEE.RNet.Lexer
-                     , Language.ASKEE.RNet.Syntax
+                        Language.ASKEE.CPP
+                        Language.ASKEE.CPP.Compile
+                        Language.ASKEE.CPP.Pretty
+                        Language.ASKEE.CPP.SimulatorGen
 
-                     , Language.ASKEE.Latex.GenLexer
-                     , Language.ASKEE.Latex.GenParser
-                     , Language.ASKEE.Latex.Lexer
-                     , Language.ASKEE.Latex.Print
+                        Language.ASKEE.DEQ
+                        Language.ASKEE.DEQ.GenLexer
+                        Language.ASKEE.DEQ.GenParser
+                        Language.ASKEE.DEQ.Lexer
+                        Language.ASKEE.DEQ.Print
+                        Language.ASKEE.DEQ.Simulate
+                        Language.ASKEE.DEQ.Syntax
+                        Language.ASKEE.DEQ.Convert
 
-                     , Language.ASKEE.SimulatorGen
-                     , Language.ASKEE.ExprTransform
-                     , Language.ASKEE.Measure
-                     , Language.ASKEE.MeasureToCPP
-                     , Language.ASKEE.C
-                     , Language.ASKEE.Panic
-                     , Language.ASKEE.Check
-                     , Language.ASKEE.Translate
-                     , Language.ASKEE.Graph
-                     , Language.ASKEE.Convert
-                     , Language.ASKEE.Experiments
-                     , Language.ASKEE.ModelStratify.Syntax
-                     , Language.ASKEE.ModelStratify.Topology
-                     , Language.ASKEE.ModelStratify.GeoGraph
-                     , PetriNet
-  build-depends:       base >=4.13.0.0 && <5,
-                       aeson,
-                       attoparsec,
-                       bytestring,
-                       containers,
-                       vector,
-                       parser-combinators,
-                       pretty,
-                       prettyprinter,
-                       text,
-                       array,
-                       random,
-                       panic,
-                       mtl,
-                       hmatrix-gsl,
-                       hmatrix,
-                       template-haskell,
-                       statistics,
-                       Chart,
-                       cassava,
-                       unordered-containers,
-                       process,
-                       directory,
-                       temporary,
-                       multiset
-  build-tool-depends:  alex:alex, happy:happy
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  ghc-options:         -Wall
+                        Language.ASKEE.ESL
+                        Language.ASKEE.ESL.Check
+                        Language.ASKEE.ESL.Convert
+                        Language.ASKEE.ESL.GenLexer
+                        Language.ASKEE.ESL.GenParser
+                        Language.ASKEE.ESL.Lexer
+                        Language.ASKEE.ESL.Manipulate
+                        Language.ASKEE.ESL.Print
+                        Language.ASKEE.ESL.Syntax
 
+                        Language.ASKEE.Experiment.CodeGen
+                        Language.ASKEE.Experiment.EaselAdapter
+                        Language.ASKEE.Experiment.Lexer
+                        Language.ASKEE.Experiment.Parser
+                        Language.ASKEE.Experiment.Syntax
+                        Language.ASKEE.Experiment.TraverseType
+                        Language.ASKEE.Experiment.Typechecker
+                        Language.ASKEE.Experiment.TypeOf
+
+                        Language.ASKEE.Exposure.GenLexer
+                        Language.ASKEE.Exposure.GenParser
+                        Language.ASKEE.Exposure.Interpreter
+                        Language.ASKEE.Exposure.Lexer
+                        Language.ASKEE.Exposure.Plot
+                        Language.ASKEE.Exposure.Print
+                        Language.ASKEE.Exposure.Syntax
+                        Language.ASKEE.Exposure.Python
+
+                        Language.ASKEE.Gromet
+                        Language.ASKEE.Gromet.FromEasel
+                        Language.ASKEE.Gromet.See
+                        Language.ASKEE.Gromet.Syntax
+                        Language.ASKEE.Gromet.PetriNetClassic
+                        Language.ASKEE.Gromet.Common
+                        Language.ASKEE.Gromet.FunctionNetwork
+
+                        Language.ASKEE.Latex.GenLexer
+                        Language.ASKEE.Latex.GenParser
+                        Language.ASKEE.Latex.Lexer
+                        Language.ASKEE.Latex.Print
+                        Language.ASKEE.Latex.Syntax
+
+                        Language.ASKEE.AlgebraicJulia.GeoGraph
+                        Language.ASKEE.AlgebraicJulia.Interact
+                        Language.ASKEE.AlgebraicJulia.Simulate
+                        Language.ASKEE.AlgebraicJulia.Stratify
+                        Language.ASKEE.AlgebraicJulia.Syntax
+                        Language.ASKEE.AlgebraicJulia.Topology
+
+                        Language.ASKEE.RNet
+                        Language.ASKEE.RNet.GenLexer
+                        Language.ASKEE.RNet.GenParser
+                        Language.ASKEE.RNet.Lexer
+                        Language.ASKEE.RNet.Reaction
+                        Language.ASKEE.RNet.Convert
+                        Language.ASKEE.RNet.Syntax
+
+
+                        -- General
+                        Language.ASKEE.Compare
+                        Language.ASKEE.Convert
+                        Language.ASKEE.DataSeries
+                        Language.ASKEE.Error
+                        Language.ASKEE.Expr
+                        Language.ASKEE.ExprTransform
+                        Language.ASKEE.Graph
+                        Language.ASKEE.Metadata
+                        Language.ASKEE.Model
+                        Language.ASKEE.Model.Interface
+                        Language.ASKEE.Model.Basics
+                        Language.ASKEE.Panic
+                        Language.ASKEE.Storage
+                        Language.ASKEE.Storage.Internal
+                        Language.ASKEE.HTTPClient
+                        Language.ASKEE.Automates.Client
+                        Language.ASKEE.DataSet
+                        Language.ASKEE.DataError
+
+                        Language.ASKEE.Utils
+
+  other-modules:        Language.ASKEE.Experiments
+                        Paths_aske_e
+
+  build-depends:        base >=4.13.0.0 && <5
+                      , aeson
+                      , scientific
+                      , alex-tools
+                      , array
+                      , bytestring
+                      , cassava
+                      , Chart
+                      , containers
+                      , deepseq
+                      , directory
+                      , exceptions
+                      , extra
+                      , filepath
+                      , hmatrix
+                      , hmatrix-gsl
+                      , monadLib
+                      , mtl
+                      , multiset
+                      , panic
+                      , parser-combinators
+                      , pretty
+                      , prettyprinter
+                      , process
+                      , random
+                      , template-haskell
+                      , temporary
+                      , text
+                      , unordered-containers
+                      , vector
+                      , witherable >= 0.4
+                      , http-client
+                      , http-client-tls
+                      , utf8-string
+                      , case-insensitive
+
+  build-tool-depends:   alex:alex, happy:happy
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  ghc-options:          -Wall
+
+executable champ
+  hs-source-dirs:       app/champ
+  main-is:              Main.hs
+  other-modules:        Logo
+                        Paths_aske_e
+  autogen-modules:      Paths_aske_e
+  build-depends:        base
+                      , ansi-terminal
+                      , aske-e
+                      , bytestring
+                      , containers
+                      , directory
+                      , exceptions
+                      , extra
+                      , filepath
+                      , haskeline >= 0.7
+                      , mtl
+                      , optparse-applicative
+                      , text
+                      , transformers
+  default-language:     Haskell2010
+  ghc-options:          -Wall
 
 executable deca
-  hs-source-dirs:      app/deca
-  main-is:             Main.hs
-  other-modules:       Options
-  build-depends:       base, containers, filepath, aske-e, simple-get-opt,
-                       text, bytestring
-  default-language:    Haskell2010
-  ghc-options:         -Wall
+  hs-source-dirs:       app/deca
+  main-is:              Main.hs
+  other-modules:        Options
+  build-depends:        base
+                      , aske-e
+                      , bytestring
+                      , containers
+                      , filepath
+                      , simple-get-opt
+                      , text
+                      , aeson
+  default-language:     Haskell2010
+  ghc-options:          -Wall
 
 executable donu
-  hs-source-dirs:      app/donu
-  main-is:             Main.hs
-  other-modules:       SchemaJS, SchemaGeneric, Schema, HTML
-  build-depends:       base, containers, snap-server, snap-core, aske-e,
-                       text, bytestring, aeson, config-value, config-schema,
-                       scientific, pretty, vector, unordered-containers,
-                       semigroupoids
-  default-language:    Haskell2010
-  ghc-options:         -Wall
+  hs-source-dirs:       app/donu
+  main-is:              Main.hs
+  other-modules:        ExposureSession
+                        HTML
+                        Schema
+                        SchemaGeneric
+                        SchemaJS
 
+  build-depends:        base
+                      , aeson
+                      , aske-e
+                      , bytestring
+                      , cereal
+                      , clock
+                      , config-schema
+                      , config-value
+                      , containers
+                      , deepseq
+                      , directory
+                      , filepath
+                      , lens
+                      , mtl
+                      , pretty
+                      , process
+                      , scientific
+                      , semigroupoids
+                      , snap-core
+                      , snap-server
+                      , snap
+                      , lifted-base
+                      , text
+                      , time
+                      , unordered-containers
+                      , vector
+                      , websockets-snap
+                      , websockets
+                      , base64-bytestring
 
+  default-language:     Haskell2010
+  ghc-options:          -Wall -threaded
 
-
-test-suite test-model-check
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      test
-  main-is:             ModelCheck.hs
-  build-depends:       base
-                     , aske-e
-                     , containers
-                     , HUnit
-                     , mtl
-  default-language:    Haskell2010
-  ghc-options:         -main-is ModelCheck
+test-suite tests
+  type:                 exitcode-stdio-1.0
+  hs-source-dirs:       test
+  main-is:              Main.hs
+  other-modules:        ASKEE
+                      , Exposure
+                      , ModelCheck
+                      , Storage
+                      , Paths_aske_e
+  autogen-modules:      Paths_aske_e
+  build-depends:        base
+                      , aske-e
+                      , bytestring
+                      , containers
+                      , directory
+                      , filepath
+                      , file-embed
+                      , filepath
+                      , mtl
+                      , tasty
+                      , tasty-hunit
+                      , temporary
+                      , text
+  default-language:     Haskell2010
+  ghc-options:          -Wall

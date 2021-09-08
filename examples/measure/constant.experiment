@@ -1,0 +1,15 @@
+experiment MkTwo(i)
+  return 2 + i
+
+measure Sum()
+  sum = 0.0
+  count = 0.0
+
+  with i
+    sum = sum + i
+    count = count + 1
+
+experiment MkTwos()
+  twos = sample 100 MkTwo(0.0)
+  sum = measure twos with Sum()
+  return sum.sum

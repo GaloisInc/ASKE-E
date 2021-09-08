@@ -1,106 +1,48 @@
-{-# Language OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Language.ASKEE.Experiments where
 
-import Data.Map (Map)
+import qualified System.Random as Random
 import qualified Data.Map as Map
-import Data.Text (Text)
+import qualified Data.Set as Set
+import Data.Set(Set)
+import Data.Text(Text)
 
-import qualified Language.ASKEE.DEQ.GenLexer as DL
-import qualified Language.ASKEE.DEQ.GenParser as DP
-import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-
-import qualified Language.ASKEE.GenLexer as AL
-import qualified Language.ASKEE.GenParser as AP
-import           Language.ASKEE.Lexer (Token, Located)
-import           Language.ASKEE.Syntax (Model)
-import qualified Language.ASKEE.SimulatorGen as SG
-import qualified Language.ASKEE.Measure as M
-import qualified Language.ASKEE.MeasureToCPP as MG
-import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.Core.ImportASKEE(modelAsCore)
+import qualified Language.ASKEE as ASKEE
+import qualified Language.ASKEE.ESL.Manipulate as MP
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.Error as Error
+import qualified Language.ASKEE.DEQ.Simulate as Sim
+import qualified Language.ASKEE.DataSeries as DS
+import qualified Language.ASKEE.Utils as Utils
 
 
-testLexModel :: FilePath -> IO [Located Token]
-testLexModel fp =
-  do txt <- readFile fp
-     case AL.lexModel txt of
-       Right toks -> pure toks
-       Left err -> fail err
-
-testParseModel :: FilePath -> IO Model
-testParseModel fp = 
-  do  toks <- testLexModel fp
-      case AP.parseModel toks of
-        Right m -> pure m
-        Left e -> error e
-
-coreModel :: FilePath -> [Text] -> IO Core.Model
-coreModel fp ps =
-  do mb <- modelAsCore ps <$> testParseModel fp
-     case mb of
-       Right a  -> pure a
-       Left err -> fail err
-
-testLexDiffEqs :: FilePath -> IO [Located DL.Token]
-testLexDiffEqs fp =
-  do  txt <- readFile fp
-      case DL.lexDEQs txt of
-        Right toks -> pure toks
-        Left err -> fail err
-
-testParseDiffEqs :: FilePath -> IO DiffEqs
-testParseDiffEqs fp =
-  do  toks <- testLexDiffEqs fp
-      case DP.parseDEQs toks of
-        Right deqs -> pure deqs
-        Left err -> fail err
-
-dump :: Either String (Map Text [Double]) -> FilePath -> IO ()
-dump ~(Right m) fp = writeFile fp $ show $ Map.toList m 
-
-sir, sirs, sirVD :: [Char]
-sir = "examples/askee/sir.askee"
-sirs = "examples/askee/sirs.askee"
-sirVD = "examples/askee/sir-vd.askee"
+dsRestrictFields :: Set Text -> DS.DataSeries a -> DS.DataSeries a
+dsRestrictFields fields ds =
+  ds { DS.values = Map.restrictKeys (DS.values ds) fields }
 
 
-genCppModel :: FilePath -> FilePath -> IO ()
-genCppModel fp output =
-  do compiled <- coreModel fp []
-     let rendered = show (SG.genModel compiled)
-     writeFile output rendered
-     putStrLn "compiled!"
+mkInfectedData :: FilePath -> IO ()
+mkInfectedData out =
+  do  sir <- ASKEE.loadESLFrom ASKEE.EaselType (ASKEE.FromFile "modelRepo/easel/sir-meta.easel")
+      seird <- ASKEE.loadESLFrom ASKEE.EaselType (ASKEE.FromFile "modelRepo/easel/seird_hosp.easel")
+      let double_epi = MP.join (Map.singleton "S" "Susceptible") "ep1_" "ep2_" sir seird
 
-m1 :: M.Measure
-m1 = M.EventBased
-   $ M.When (M.TimeLT 120.0)
-   $ M.Do
-   $ M.Accumulate "m_sum" 1.0
-   $ Core.Op2 Core.Add (Core.Var "m_sum") (Core.Literal (Core.Num 1.0))
+      double_epi_deq <- Error.throwLeft Error.ConversionError (Model.toDeqs $ Model.Easel double_epi)
+      let params = Map.fromList [("ep1_beta", 0.5), ("ep1_S_init", 996), ("ep2_beta", 2)]
+      let double_epi_series = Sim.simulate double_epi_deq params Set.empty [1,2..120]
 
-m2 :: M.Measure
-m2 = M.EventBased
-   $ M.When (M.TimeLT 120.0)
-   $ M.Do
-   $ M.TraceExpr "i_trace" (Core.Var "I")
+      let Just infected = Map.lookup "ep1_I" (DS.values double_epi_series)
+      let infectedNoise = fromInteger . floor  <$> Utils.withUniformNoise (Random.mkStdGen 1) infected 0.2
+      let ds' = double_epi_series { DS.values = Map.singleton "I" infectedNoise }
 
-m3 :: M.Measure
-m3 = M.EventBased
-   $ M.When (M.TimeLT 120.0)
-   $ M.Do
-   $ M.TraceExpr "i_trace" (Core.Var "time")
-
-m4 :: M.Measure
-m4 = M.TimeBased [M.AtTimes 1 15 120, M.AtTime 137]
-   $ M.Do
-   $ M.TraceExpr "i_trace" (Core.Var "time")
+      DS.saveDataSeries out ds'
 
 
 
-exMeasure :: M.Measure
-exMeasure = m1 M.:+: m2
 
-genCppRunner :: FilePath -> IO ()
-genCppRunner fp =
-  do compiled <- coreModel fp []
-     putStrLn $ show $ MG.genSimulationRunnerCpp compiled 100.0 m4
+
+
+
+
+
+

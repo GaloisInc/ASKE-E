@@ -1,0 +1,119 @@
+The Problem
+-----------
+
+Propose a Level of Effort (LOE) metric to quantify the amount of programming work required to develop a correct implementation of a simulation of an epidemiological model.
+
+The Initial Proposal
+--------------------
+
+We propose that LOE is related to program complexity, which in turn is related primarily to the size of the program. To a first approximation, a longer program takes longer to write. The challenge then becomes finding a way to quantify the length of a program in a way that is somewhat predictable despite variations in programmer style and preference, for example the presence or absence of comments and whitespace and use of short versus long identifier names.
+
+The Kolmogorov complexity[1] metric suggests a solution which is independent of choice of representation: find the shortest program which emits the text of the program to be measured. While Kolmogorov complexity is not computable[2], compressibility of the program text serves as an approximate upper bound on the value expected of the the text's Kolmogorov complexity[3,4].
+
+Caveats
+-------
+
+Kolmogorov complexity (and our computable proxy: compressibility) considers the entire program text, including comments (which are informative to the reader, but do not contribute to the behavior of the program) and translation directives of various kinds (e.g. compiler directives, pragmas and makefiles). We should always strip comments. It's less clear what to do about translation directives; we will attend to this question after discussions about whether our proposal satisfies the desire for an LOE metric.
+
+Alpha-conversion
+----------------
+
+When using compressibility as a proxy for Kolmogorov complexity, the resulting metric is strongly affected by identifier length. We address this by renaming user-defined symbols to have the minimum number of characters needed, based upon the number of such symbols in the program. Likewise, while literal strings are essential to the proper function of a program, they do not (absent use of an eval-like function) contribute the the essential complexity of a program; we normalize all strings to a fixed length and content.
+
+Symbols which are essential to describe the interpretation of a program, such as library function names and reserved words in the language, are subjected to an independent pass of alpha-conversion. Keyword argument names are considered an essential part of function invocation and are also subjected to this second alpha-conversion pass. Using two independent passes of alpha-conversion effectively provides two namespaces for the normalized symbol names, thus isolating the normalized lengths of user-defined and language-defined symbols from influencing each other.
+
+Other Considerations
+--------------------
+
+The implementation of the compression method used as a proxy for Kolmogorov complexity will affect the compressibility metric. This will be particularly true in the case of short program texts, as the size of the dictionary (which is part of the compressed text) may, for example, be padded to some minimum size for the convenience of the decompression algorithm.
+
+Implementations of a given compression method may differ in their encodings while still being considered to be the same method[5]; we don't know how significant these differences may be as regards a compressibility measure.
+
+As an adjunct to compressibility, we also count the number of unique tokens (excluding punctuation) in a program text as an indicator of cognitive effort for the programmer; the intuition is that a larger number of unique tokens contributes to an increased LOE.
+
+Validation of Approach
+----------------------
+
+We tested the approach of combined alpha-conversion and keyword normalization on a set of four C programs having identical source code except for the order in which functions are defined. An identical set of function declarations at the head of each variant program allowed for the function definitions to be reordered without otherwise changing code.
+
+Our tests demonstrate that the order of function definition changes the Kolmogorov complexity estimate by approximatedly one percent; we take this as confirmation that insignificant differences in source texts will have insignficant effect upon the complexity estimate.
+
+Our tests also illustrate the need for alpha-conversion in order to impose a consistent length of user-defined identifier. We extended the length of the alpha-converted identifiers and observed that longer identifiers yield larger complexity estimates.
+
+Other Approaches
+----------------
+
+We attempted to apply Latent Semantic Indexing[6] as a measure of document similarity. We thought of this not as LOE for a specific program text, but rather as a measure of the effort required to transform one text into a larger, more complex text (e.g. ODE to RNET or RNET to a discrete event simulation written in a general-purpose programming language). We quickly discovered that the method is not useful when scaled down to using a single document as a corpus.
+
+We considered and rejected the use of edit distance[7] (e.g. Levenshtein distance[8]) to measure document similarity. The edit distance is sensitive to spelling variations; transforming a program by simply renaming all of its identifiers will result in a nonzero edit distance even though the two variations are functionally identical.
+
+We have considered the use of structural metrics[9,10]. Measurement of these metrics depends upon the ability to build an AST from the source text. The Halstead metric is based upon counts of operators and operands. This approach, proposed in 1977, predates the common usage of modern programming paradigms (object, functional, message-passing, etc.); it's not clear that later research has attempted to validate the metric for modern programming languages and techniques. The Cyclomatic (McCabe) metric, proposed in 1976, denotes a program's complexity in terms of the shape of its control-flow graph. This metric was designed to flag code in need of refactoring to simplify complex or deeply-nested control flows. Cyclomatic complexity analysis tools often analyze only a function at a time; the complexity estimate for a whole program is taken as the average of the complexity of its functions.
+
+Results
+-------
+
+We collected from the Rosetta Code website[11] a number of sample programs written in C, C++, FORTRAN and Haskell. Some of these samples have been edited for consistency across languages; e.g. to remove test drivers and data leaving only the essential algorithmic code.
+
+We also gathered several ODEs with corresponding solvers written in Julia[12] and Python[13]. Comments have been removed from all source texts.
+
+Finally, we used the Penn CHIME model[14] and the model's Python implemention[15]. The Python code has been stripped of comments and logging functionality.
+
+The following table shows the analysis of the sample source codes. The referenced sources are listed in Appendix B.
+
+```
+FILL_USING ./report.sh
+```
+
+Alternative Metrics
+-------------------
+
+For purposes of comparison to legacy software metrics, Appendix A contains analyses extracted using both lizard[16] (for function-level Cyclomatic complexity) and multimetric[17] (for Halstead's effort metric).
+
+References
+----------
+
+```
+[1] https://en.wikipedia.org/wiki/Kolmogorov_complexity
+[2] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Uncomputability_of_Kolmogorov_complexity
+[3] https://en.wikipedia.org/wiki/Kolmogorov_complexity#Compression
+[4] https://en.wikipedia.org/wiki/Lempel-Ziv_complexity
+[5] https://en.wikipedia.org/wiki/LZ77_and_LZ78
+[6] https://en.wikipedia.org/wiki/Latent_semantic_analysis#Latent_semantic_indexing
+[7] https://en.wikipedia.org/wiki/Edit_distance
+[8] https://en.wikipedia.org/wiki/Levenshtein_distance
+[9] https://en.wikipedia.org/wiki/Halstead_complexity_measures
+[10] https://en.wikipedia.org/wiki/Cyclomatic_complexity
+[11] https://rosettacode.org/
+[12] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers-in-julia.html
+[13] https://computationalmindset.com/en/neural-networks/ordinary-differential-equation-solvers.html
+[14] https://code-for-philly.gitbook.io/chime/what-is-chime/sir-modeling
+[15] https://raw.githubusercontent.com/CodeForPhilly/chime/develop/src/penn_chime/model/sir.py
+[16] https://pypi.org/project/lizard/
+[17] https://pypi.org/project/multimetric/
+```
+
+Appendix A
+----------
+
+This appendix illustrates structural complexity metrics for comparison to the Kolmogorov metric used in the body of the report.
+
+Here is an example of McCabe complexity analysis at the level of individual functions (CCN is Cyclomatic Complexity Number; NS is the count of nested control structures):
+
+```
+FILL_USING ./mccabe/lizard-ccm.sh ./samples/chime_sir.py
+```
+
+The following table lists Halstead's predicted effort for all sample programs:
+
+```
+FILL_USING ./halstead/halstead-all.sh
+```
+
+Appendix B
+----------
+
+This is all of the sample code:
+
+```
+FILL_USING ./list-samples.sh
+```

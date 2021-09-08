@@ -9,7 +9,7 @@ import           Data.Map ( Map )
 import qualified Data.Map as Map
 
 import Language.ASKEE.Expr ( Expr(..) )
-import Language.ASKEE.Lexer ( Located(..) )
+import Language.ASKEE.ESL.Lexer ( Located(..) )
 import Language.ASKEE.RNet.Lexer as Lexer
 import Language.ASKEE.RNet.Syntax as Syntax
 
@@ -82,6 +82,7 @@ Exp                                      :: { Expr }
   | '(' Exp ')'                             { $2 }
   | SYM                                     { Var $1 }
   | REAL                                    { LitD $1 }
+  | INT                                     { LitD (fromIntegral $1) }
 
 {
 parseError :: [Located Token] -> Either String a

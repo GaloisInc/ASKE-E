@@ -1,0 +1,64 @@
+model SIR_VitalDynamics:
+  let beta = 0.4
+  let gamma = 0.04
+
+  let s_initial = 997
+  let i_initial = 3
+  let r_initial = 0
+
+  let mu = 0.001       # death rate
+  let lambda = 0.0015  # birth rate
+
+  state S = s_initial
+  state I = i_initial
+  state R = r_initial
+
+  let total_population = S + I + R
+
+  event Infect:
+    when:
+      S > 0 and I > 0
+    rate:
+      beta * I * S / total_population
+    effect:
+      S -= 1
+      I += 1
+
+  event Remove:
+    when:
+      I > 0
+    rate:
+      gamma * I
+    effect:
+      I -= 1
+      R += 1
+
+  event Birth:
+    rate:
+      lambda * total_population
+    effect:
+      S += 1
+
+  event SDeath:
+    when:
+      S > 0
+    rate:
+      mu * S
+    effect:
+      S -= 1
+
+  event IDeath:
+    when:
+      I > 0
+    rate:
+      mu * I
+    effect:
+      I -= 1
+
+  event RDeath:
+    when:
+      R > 0
+    rate:
+      mu * R
+    effect:
+      R -= 1

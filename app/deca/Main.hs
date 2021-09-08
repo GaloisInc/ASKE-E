@@ -1,8 +1,8 @@
 {-# Language BlockArguments, OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
 module Main(main) where
 
 import qualified Data.Map as Map
-import Data.Text(Text)
 import qualified Data.Text as Text
 import Control.Exception(catches, Handler(..),throwIO)
 import Control.Monad(when,forM_)
@@ -11,91 +11,96 @@ import System.FilePath(replaceExtension)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import Numeric(showGFloat)
 
-import Language.ASKEE
+import qualified Data.Aeson as JSON
+
+import Language.ASKEE.Gromet.PetriNetClassic(pnFromGromet, ppPetriNet)
+import qualified Language.ASKEE.Gromet.See as Gromet
+import qualified Language.ASKEE as A
+import qualified Language.ASKEE.Model as Model
+import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.Core as Core
-import           Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import           Language.ASKEE.DEQ.Print (ppDiffEqs)
-import qualified Language.ASKEE.Core.DiffEq as DiffEq
-import qualified Language.ASKEE.Core.GSLODE as ODE
-import qualified Language.ASKEE.DataSeries as DS
-import qualified Language.ASKEE.Print as PP
-import Language.ASKEE.RNet.Reaction (reactionsAsModel)
 
 import Options
 
 main :: IO ()
 main =
-  do opts <- getOptions
-     case command opts of
-       OnlyLex -> 
-          forM_ (modelFiles opts) (lexModel . FromFile)
-       OnlyParse -> 
-          forM_ (modelFiles opts) (parseModel . FromFile)
-       OnlyCheck ->
-          forM_ (modelFiles opts) (loadModel . FromFile)
-       DumpCPP -> 
-          forM_ (modelFiles opts) 
-            (genCppRunner . FromFile)
+  do  opts <- getOptions
+      case command opts of
 
-       DumpDEQs ->
-         do ds <- exactlyOne "model" =<< loadDiffEqs opts []
-            print (ppDiffEqs ds)
 
-       SimulateODE x y z ->
-         do m0 <- exactlyOne "model" =<< loadDiffEqs opts []
-            let m     = DiffEq.applyParams (Core.NumLit <$> overwrite opts) m0
-                res   = simODE m x y z
-                bs    = DS.encodeDataSeries res
-                ofile = outFile opts
-            if null ofile
-              then LBS.putStrLn bs
-              else LBS.writeFile (outFile opts) bs
-            when (gnuplot opts && not (null ofile)) $
-              writeFile (replaceExtension ofile "gnuplot")
-                $ gnuPlotScript res ofile
+        DumpPNC -> mapM_ dumpPNC (modelFiles opts)
 
-       ComputeError ->
-         do eqss <- loadDiffEqs opts []
-            forM_ eqss \eqs ->
-              forM_ (dataFiles opts) \d ->
-                do putStrLn ("  data: " ++ show d)
-                   ds <- DS.parseDataSeriesFromFile d
-                   let errs = ODE.computeErrorPerVar
-                            $ ODE.modelSquareError eqs ds Map.empty
-                   forM_ (Map.toList errs) \(x,e) ->
-                     putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
+        DumpDEQs -> mapM_ dumpDEQ  (modelsProvided opts)
+        DumpCore -> mapM_ dumpCore (modelsProvided opts)
 
-       FitModel ps scale ->
-         case dataFiles opts of
-           [df] ->
-              do eqs <- exactlyOne "model" =<< loadDiffEqs opts ps
-                 ds  <- DS.parseDataSeriesFromFile df
-                 let showF f = showGFloat Nothing f ""
-                 let (res,work) = ODE.fitModel eqs ds scale
-                                          (Map.fromList (zip ps (repeat 0)))
-                     see n xs =
-                       do putStrLn n
-                          forM_ (Map.toList xs) \(x,(y,e)) ->
-                              putStrLn ("let " ++ Text.unpack x ++
-                                        " = " ++ showF y ++
-                                        " # error = " ++ showF e
-                                       )
-                 forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
-                       do putStrLn ("-- Step " ++ show n ++ " --")
-                          forM_ (Map.toList ys) \(x,y) ->
-                              putStrLn ("let " ++ Text.unpack x ++
-                                        " = " ++ showF y)
+        DescribeInterface -> mapM_ testDescirbeInterface (modelsProvided opts)
 
-                 see "Result:" res
-                 let totalErr = ODE.computeErrorPerVar
-                              $ ODE.modelSquareError eqs ds (fst <$> res)
-                 forM_ (Map.toList totalErr) \(x,e) ->
-                    putStrLn $ "# error in " ++ Text.unpack x ++
-                                                        " = " ++ showF e
+        ShowGromet how -> mapM_ (showGromet how) (modelsProvided opts)
 
-           _ -> throwIO (GetOptException
-                           ["Fitting needs 1 model and 1 data file. (for now)"])
+        SimulateODE start step stop ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              res <- A.simulateModelGSL modelType (A.FromFile modelFile) start stop step (overwrite opts) (measures opts)
+              let bs = A.dataSeriesAsCSV res
+                  out = outFile opts
+              if null out
+                then LBS.putStrLn bs
+                else LBS.writeFile out bs
+              when (gnuplot opts && not (null out)) $
+                writeFile (replaceExtension out "gnuplot") $
+                  A.gnuPlotScript res out
 
+        SimulateCPP start step stop ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              res <- head <$> A.simulateModelDiscrete modelType (A.FromFile modelFile) start stop step (overwrite opts) (seed opts) 1
+              let bs = A.dataSeriesAsCSV res
+                  out = outFile opts
+              if null out
+                then LBS.putStrLn bs
+                else LBS.writeFile out bs
+              when (gnuplot opts && not (null out)) $
+                writeFile (replaceExtension out "gnuplot") $
+                  A.gnuPlotScript res out
+
+        ComputeError ->
+          do  eqss <- mapM (A.loadDiffEqs . A.FromFile) (deqFiles opts)
+              forM_ eqss \eqs ->
+                forM_ (dataFiles opts) \d ->
+                  do  putStrLn ("  data: " ++ show d)
+                      ds <- A.parseDataSeriesFromFile d
+                      let errs = DEQ.computeErrorPerVar
+                               $ DEQ.modelSquareError eqs ds Map.empty
+                      forM_ (Map.toList errs) \(x,e) ->
+                        putStrLn ("    " ++ Text.unpack x ++ ": " ++ show e)
+
+        FitModel ps scale ->
+          do  (modelFile, modelType) <- exactlyOne "model-like thing" $ modelsProvided opts
+              equations <- A.loadDiffEqsFrom modelType (A.FromFile modelFile)
+              dataFile <- exactlyOne "data file" (dataFiles opts)
+              ds <- A.parseDataSeriesFromFile dataFile
+              ifaceErrs <- A.checkFitArgs modelType (A.FromFile modelFile) ps
+              case ifaceErrs of
+                [] ->
+                  do (fit, work) <- A.fitModelToData modelType (A.FromFile dataFile) ps scale (A.FromFile modelFile)
+                     let showF f = showGFloat Nothing f ""
+                         see n xs =
+                           do  putStrLn n
+                               forM_ (Map.toList xs) \(x,(y,e)) ->
+                                 putStrLn ("let " ++ Text.unpack x ++
+                                           " = " ++ showF y ++
+                                           " # error = " ++ showF e)
+                     forM_ (zip [ (1::Int) .. ] work) \(n,ys) ->
+                       do  putStrLn ("-- Step " ++ show n ++ " --")
+                           forM_ (Map.toList ys) \(x,y) ->
+                             putStrLn ("let " ++ Text.unpack x ++
+                                       " = " ++ showF y)
+                     see "Result:" fit
+                     let totalErr = DEQ.computeErrorPerVar
+                                  $ DEQ.modelSquareError equations ds (fst <$> fit)
+                     forM_ (Map.toList totalErr) \(x,e) ->
+                       putStrLn $ "# error in " ++ Text.unpack x ++ " = " ++ showF e
+                errs -> forM_ errs (putStrLn . Text.unpack)
+
+        _ -> throwIO (GetOptException [""])
 
   `catches`
   [ Handler  \(GetOptException errs) ->
@@ -112,40 +117,57 @@ exactlyOne thing xs =
     [a] -> pure a
     _   -> throwIO (GetOptException [ "Expected exactly 1 " ++ thing ])
 
+modelsProvided :: Options -> [(FilePath, A.ModelType)]
+modelsProvided opts =
+  map (, A.DeqType) (deqFiles opts) ++
+  map (, A.EaselType) (modelFiles opts) ++
+  map (, A.GrometPncType) (pncFiles opts) ++
+  map (, A.RNetType) (rnetFiles opts) ++
+  map (, A.GrometFnetType) (fnetFiles opts)
 
-loadDiffEqs :: Options -> [Text] -> IO [DiffEqs]
-loadDiffEqs opts ps0 =
-  do ms1 <- mapM (`loadEquations` params) (map FromFile (deqFiles opts))
-     ms2 <- mapM fromModel                (map FromFile (modelFiles opts))
-     ms3 <- mapM fromRNet                 (map FromFile (rnetFiles opts))
-     pure (ms1 ++ ms2 ++ ms3)
-  where
-  params = Map.keys (overwrite opts) ++ ps0
+dumpPNC :: FilePath -> IO ()
+dumpPNC file =
+  do mb <- JSON.eitherDecodeFileStrict' file
+     case pnFromGromet =<< mb of
+       Right a -> print (ppPetriNet a)
+       Left err -> print err
 
-  fromModel file =
-    do m <- loadCoreModel file params
-       pure (DiffEq.asEquationSystem m)
-
-  fromRNet file =
-    do  rnet <- loadReactions file
-        m <- case reactionsAsModel rnet of
-          Right model -> pure model
-          Left err -> fail err
-        print (PP.printModel m)
-        m' <- loadCoreModel (Inline (Text.pack $ show $ PP.printModel m)) []
-        pure (DiffEq.asEquationSystem m')
-
-simODE :: DiffEqs -> Double -> Double -> Double -> DS.DataSeries Double
-simODE m start step end = ODE.simulate m Map.empty times
-  where times = takeWhile (<= end) (iterate (+ step) start)
-
-gnuPlotScript :: DS.DataSeries Double -> FilePath -> String
-gnuPlotScript ds f =
-  unlines
-    [ "set key outside"
-    , "set datafile separator \",\""
-    , "plot for [col=2:" ++ show (DS.dsColumns ds) ++ "] " ++
-         show f ++ " using 1:col with lines title columnheader"
-    ]
+dumpCore :: (FilePath, A.ModelType) -> IO ()
+dumpCore (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toCore m of
+       Right c -> print (Core.ppModel c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to Core"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
 
 
+dumpDEQ :: (FilePath, A.ModelType) -> IO ()
+dumpDEQ (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     case Model.toDeqs m of
+       Right c -> print (DEQ.printDiffEqs c)
+       Left err ->
+         putStrLn $ unlines [ "Failed to convert to DEqs"
+                            , "file: " ++ show file
+                            , "type:" ++ show ty
+                            , "error:" ++ err
+                            ]
+
+
+
+
+testDescirbeInterface :: (FilePath, A.ModelType) -> IO ()
+testDescirbeInterface (file,ty) =
+  do m <- A.loadModel ty (A.FromFile file)
+     LBS.putStrLn (JSON.encode (A.describeModelInterface m))
+
+showGromet :: ShowGromet -> (FilePath, A.ModelType) -> IO ()
+showGromet how (f,t) =
+  do m <- A.loadGrometPrtFrom t (A.FromFile f)
+     case how of
+       JSON -> LBS.putStrLn (JSON.encode m)
+       PP   -> print (Gromet.pp m)

@@ -7,14 +7,19 @@ import qualified Data.Map as Map
 import Data.Text ( unpack )
 
 import Language.ASKEE.DEQ.Syntax ( DiffEqs(..) )
-import Language.ASKEE.Core
+import Language.ASKEE.Latex.Syntax
+import Language.ASKEE.Core.Expr
 import Language.ASKEE.Panic ( panic )
 
-import Text.PrettyPrint as PP
+import Prettyprinter ( hcat, hsep, vcat, parens, Pretty(pretty) )
+import qualified Prettyprinter as PP
+
 import Text.Printf ( printf )
 
-printLatex :: DiffEqs -> Doc
-printLatex DiffEqs {..} = vcat [lets, initials, rates]
+type Doc = PP.Doc ()
+
+printLatex :: Latex -> Doc
+printLatex (Latex DiffEqs{..}) = vcat [lets, initials, rates]
   where
     lets = vcat $ map binding (Map.toList deqLets)
     initials = vcat $ map initBinding (Map.toList deqInitial)
@@ -22,10 +27,10 @@ printLatex DiffEqs {..} = vcat [lets, initials, rates]
 
     binding (ident, expr) = hsep [text (unpack ident), "=", printExpr expr]
     ddtBinding (ident, expr) = hcat ["\\frac{d ", text (unpack ident), "}{dt} = ", printExpr expr]
-    initBinding (i,e) = hsep [hcat [text (unpack i),parens (int 0)], "=", printExpr e]
+    initBinding (i,e) = hsep [hcat [text (unpack i),parens (pretty (0::Int))], "=", printExpr e]
 
   
--- | Specialized version of `ppExpr` in Language.ASKEE.Core
+-- | Specialized version of `ppExpr` in Language.ASKEE.Core.Print
 printExpr :: Expr -> Doc
 printExpr expr =
   case expr of
@@ -71,3 +76,6 @@ printExpr expr =
           panic 
             "encountered unknown Core expression when pretty-printing latex" 
             [ "while determining precedence", show e ]
+
+text :: String -> Doc
+text = pretty

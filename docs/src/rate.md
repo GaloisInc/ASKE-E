@@ -1,8 +1,8 @@
 # `rate`
 
-```askee
+```easel
     rate:
-      beta * (1 - contact_rate) * Susceptible * Infected / total_pop
+      beta * contact_multiplier * Susceptible * Infected / total_pop
 ```
 
 An expression defined on `let` variables and `state` variables, evaluating to a

@@ -1,0 +1,50 @@
+{
+  "name": "Example Data",
+  "description": "Example data drawn from SIR model",
+  "columns": [
+    {
+      "values": [
+        3,
+        570.9758710681087,
+        177.8779579737781,
+        53.66360145338841,
+        16.175249034797183
+      ],
+      "name": "I",
+      "description": "Infected Population"
+    },
+    {
+      "values": [
+        0,
+        412.987493166334,
+        821.8532404022537,
+        946.2589265257153,
+        983.7715119765173
+      ],
+      "name": "R",
+      "description": "Recovered Population"
+    },
+    {
+      "values": [
+        997,
+        16.036635765557786,
+        0.2688016239687889,
+        7.747202089688701e-2,
+        5.323898868597068e-2
+      ],
+      "name": "S",
+      "description": "Susceptible Population"
+    },
+    {
+      "values": [
+        0,
+        30,
+        60,
+        90,
+        120
+      ],
+      "name": "time",
+      "description": "Time (in days)"
+    }
+  ]
+}

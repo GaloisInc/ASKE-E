@@ -1,0 +1,44 @@
+model SIR_SuperSpreader:
+  let beta = 0.4
+  let beta_super = beta / 1000.0
+  let gamma = 0.04
+
+  let s_initial = 997
+  let i_initial = 3
+  let r_initial = 0
+
+  state S = s_initial
+  state I = i_initial
+  state R = r_initial
+
+  let total_population = S + I + R
+
+  assert total_population == s_initial + i_initial + r_initial # total population is constant
+
+  event Infect:
+    when:
+      S > 0 and I > 0
+    rate: 
+      beta * S * I / total_population
+    effect:
+      S -= 1
+      I += 1
+      
+  event Remove:
+    when:
+      I > 0
+    rate: 
+      gamma * I
+    effect:
+      I -= 1
+      R += 1
+
+  event Superspread:
+    when: S > 100
+    rate:
+      beta_super * S * I / total_population
+    effect:
+      S -= 100
+      I += 100
+      
+      

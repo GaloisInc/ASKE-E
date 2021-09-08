@@ -1,0 +1,12 @@
+parameter beta = 0.4
+parameter gamma = 0.04
+parameter i_initial = 3.0
+parameter r_initial = 0.0
+parameter s_initial = 997.0
+let total_population = S + I + R
+I(0) = i_initial
+R(0) = r_initial
+S(0) = s_initial
+d/dt I = beta * S * I / total_population + -gamma * I
+d/dt R = gamma * I
+d/dt S = -beta * S * I / total_population

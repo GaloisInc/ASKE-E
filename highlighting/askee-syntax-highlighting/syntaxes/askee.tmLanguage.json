@@ -23,6 +23,14 @@
 			"patterns": [{
 				"name": "comment.line.double-slash",
 				"match": "#.*\n"
+			},
+			{
+				"name": "comment.block.documentation",
+				"match": "\\[--(.*):(.*)--\\]",
+				"captures": {
+					"1": { "name": "variable" },
+					"2": { "name": "string.quoted.double" }
+				}
 			}]
 		},
 		"constants": {
@@ -35,7 +43,7 @@
 			"patterns": [		
 				{
 					"name": "keyword.block.askee",
-					"match": "\\b(model|let|derived|state|event|when|rate|effect|measure|var|update|aggregate|result|reduce|on|assert|trace|init|expression)\\b"
+					"match": "\\b(model|let|derived|state|event|when|rate|effect|measure|var|update|aggregate|result|reduce|on|assert|trace|init|expression|parameter)\\b"
 				},
 				{
 					"name": "keyword.control",

@@ -1,0 +1,101 @@
+model SIR
+  S : number
+  I : number
+  R : number
+  time : number
+
+model SIR2
+  S : number
+  I : number
+  R : number
+  time : number
+
+measure Sum()
+  sum = 0.0
+
+  with j
+    sum = sum + j.I
+
+measure Peak()
+  peak_value = 0.0
+  peak_time = 0.0
+
+  with p
+    if peak_value < p.I then
+      peak_value = p.I
+      peak_time = p.time
+    end
+
+experiment X()
+  ys = SIR2() at [0 .. 60 by 1]
+
+  xs = SIR() at [0 .. 120 by 1]
+
+  i = measure xs2 with Sum()
+  j = measure ys with Peak()
+
+
+let x = sample 1000 X()
+let y = sample 1000 X()
+
+
+
+
+output mean_y = measure y with mean_X_i
+output mean_y = mean(y.i)
+output X as pmean(x.pts) ???
+
+min, max, mean, sample
+
+
+
+
+
+
+mean(SIR().I at [0..120 by 1]) : vector number
+
+experiment ___()
+  ss = SIR() at [0..120 by 1])
+  pts = trace xs
+
+main
+  xs = sample 1000 X()
+  print {
+    maxima: pmax(xs.pts.I),
+    mean: pmean(xs.pts.I),
+    minima: pmin(xs.pts.I)
+  }
+
+measure Peak()
+  max_I = 0.0
+  max_t = 0.0
+
+  with sir
+    if sir.I > max_I then
+      max_I = sir.I
+      max_t = sir.time
+    end
+
+sample(SIR() measure Peak(120), 100)
+
+       |
+      \_/
+
+measure Peak()
+  max_I = 0.0
+  max_t = 0.0
+
+  with sir
+    if sir.I > max_I then
+      max_I = sir.I
+      max_t = sir.t
+    end
+
+experiment peakexp()
+  ss = SIR() at [0..120 by 1]
+  peak = ss measure Peak()
+
+main
+  peak_samples = sample peakexp() 100
+
+  return peak_sample.peak
