@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y \
     openssl \
     python3
 
-RUN cabal update
-
 WORKDIR /build
+
+RUN cabal update 'hackage.haskell.org,2021-09-08T00:31:34Z'
 COPY aske-e.cabal .
 RUN cabal v2-build --only-dependencies
 
