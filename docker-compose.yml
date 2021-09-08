@@ -33,8 +33,9 @@ services:
 
   algebraic-julia:
     build: ASKE-E-Simulation-WG/AlgebraicPetri-Stratification
-    volumes:
-      - "./modelRepo:/models"
+    # TODO: leverage this mount when sending models between `donu` and AJ
+    # volumes:
+    #   - "./modelRepo:/models"
     expose:
       - "localhost:8001:8001"
     networks:
