@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     libgsl-dev \
     liblapack-dev \
     libssl-dev \
-    openssl
+    openssl \
+    python3
 
 RUN cabal update
 
@@ -18,6 +19,8 @@ COPY src src
 COPY app app
 COPY test test
 COPY dataRepo dataRepo
+COPY modelRepo modelRepo
+COPY exposure exposure
 
 
 ##############################################################################
