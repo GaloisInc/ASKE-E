@@ -7,7 +7,7 @@ module Language.ASKEE.ABM.Lexer
   ) where
 
 import Data.Text (Text)
-import Language.ASKEE.Lexer ( Located(..) )
+import Language.ASKEE.ESL.Lexer ( Located(..) )
 
 -- data Located a =
 --   Located { locLine :: Int

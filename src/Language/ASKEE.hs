@@ -4,7 +4,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Language.ASKEE
-  ( loadDiffEqs
+  ( loadABM
+  , loadABMFrom
+  , loadDiffEqs
   , loadDiffEqsFrom
   , loadESL
   , loadESLFrom
@@ -124,6 +126,7 @@ import           Language.ASKEE.Error                  ( ASKEEError(..)
 import           Language.ASKEE.Metadata               ( MetaAnn(..) )
 import           Language.ASKEE.Model                  ( parseModel
                                                        , printModel
+                                                       , toABM
                                                        , toDeqs
                                                        , toEasel
                                                        , toCore
@@ -154,6 +157,7 @@ import           Language.ASKEE.Storage                ( initStorage
 import qualified Language.ASKEE.Storage                as Storage
 import qualified Language.ASKEE.Automates.Client       as Automates
 import qualified Language.ASKEE.DataError              as DataError
+import qualified Language.ASKEE.ABM.Syntax as ABM
 
 loadModel :: ModelType -> DataSource -> IO Model
 loadModel format source =
@@ -232,11 +236,22 @@ loadGrometPncFrom format source =
 loadGrometFnet :: DataSource -> IO JSON.Value
 loadGrometFnet = loadGrometFnetFrom GrometFnetType
 
-loadGrometFnetFrom :: ModelType -> DataSource -> IO (FNet.FunctionNetwork)
+loadGrometFnetFrom :: ModelType -> DataSource -> IO FNet.FunctionNetwork
 loadGrometFnetFrom format source =
   do  model <- loadModel format source
       throwLeft ConversionError (toGrometFnet model)
 
+
+-------------------------------------------------------------------------------
+-- ABM
+
+loadABM :: DataSource -> IO ABM.Model
+loadABM = loadABMFrom ABMType
+
+loadABMFrom :: ModelType -> DataSource -> IO ABM.Model
+loadABMFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toABM model)
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -497,6 +512,7 @@ simulateModel sim format source start end step parameters outputs seed dp iterat
         RNetType -> GSL
         DeqType -> GSL
         CoreType -> GSL
+        ABMType -> undefined
     filterDS ds 
       | null outputs = ds
       | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
@@ -596,6 +612,7 @@ convertModelString srcTy src destTy =
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
           RNetType  -> Left "Don't know how to convert to RNet yet"
+          ABMType -> model >>= toABM >>= (printModel . ABM)
 
 
           
@@ -664,6 +681,7 @@ modelMetadata model = case model of
   GrometPrt Gromet{..} -> withName grometName grometMeta
   GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
   GrometFnet m                  -> fnetMetadata m
+  ABM _                -> mempty
   where
     recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
     withName n meta = Map.insertWith (++) "name" [n] meta

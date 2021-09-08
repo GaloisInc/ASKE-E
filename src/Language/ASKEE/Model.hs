@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs #-}
 module Language.ASKEE.Model
   ( Model(..)
+  , toABM
   , toDeqs
   , toCore
   , toEasel
@@ -32,6 +33,7 @@ import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
 import qualified Language.ASKEE.Gromet.PetriNetClassic as GPNC
 import qualified Language.ASKEE.Gromet.FunctionNetwork as FNET
+import qualified Language.ASKEE.ABM as ABM
 
 data Model =
     Easel     ESL.Model
@@ -41,6 +43,7 @@ data Model =
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
   | GrometFnet FNET.FunctionNetwork
+  | ABM       ABM.Model
   deriving Show
 
 modelTypeOf :: Model -> MT.ModelType
@@ -53,6 +56,7 @@ modelTypeOf m =
     GrometPrt _ -> MT.GrometPrtType
     GrometPnc _ -> MT.GrometPncType
     GrometFnet _ -> MT.GrometFnetType
+    ABM _ -> MT.ABMType
 
 -------------------------------------------------------------------------------
 
@@ -113,6 +117,10 @@ unGrometPnc _ = ConversionPass
 unGrometFNet :: Model -> ConversionResult JSON.Value
 unGrometFNet (GrometFnet v) = ConversionSucceded v
 unGrometFNet _ = ConversionPass
+
+unABM :: Model -> ConversionResult ABM.Model
+unABM (ABM m) = ConversionSucceded m
+unABM _ = ConversionPass
 
 
 -------------------------------------------------------------------------------
@@ -181,6 +189,9 @@ toGrometPnc = asEither (tryConvs [unGrometPnc, notExist MT.GrometPncType])
 toGrometFnet :: Model -> Either String JSON.Value
 toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
 
+toABM :: Model -> Either String ABM.Model
+toABM = asEither (tryConvs [unABM, notExist MT.ABMType])
+
 parseModel :: MT.ModelType -> Text -> Either String Model
 parseModel mt s =
   case mt of
@@ -195,6 +206,7 @@ parseModel mt s =
     MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
     MT.GrometPncType -> GrometPnc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
+    MT.ABMType -> ABM <$> ABM.parseABM s
   where
     loadJSON :: JSON.FromJSON a => Either String a
     loadJSON = JSON.eitherDecodeStrict (Text.encodeUtf8 s)
@@ -210,6 +222,7 @@ printModel m =
     GrometPrt g -> Right $ Text.unpack $ GPRT.grometText g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v
+    ABM abm -> (Right . show . ABM.printABM) abm
   where
     printJson v = BS.unpack $ JSON.encode v
 
@@ -224,3 +237,4 @@ modelUID m =
     GrometPrt _ -> Left "don't know how to find PRT gromet UID" -- TODO
     GrometPnc gromet -> Right $ GPNC.pncUID gromet
     GrometFnet gromet -> FNET.fnetUID gromet
+    ABM _ -> Left "ABM models have no UID"
