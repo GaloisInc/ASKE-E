@@ -125,7 +125,7 @@ AgentAttr                            :: { (Text, Text) }
 ModelDecl                            :: { (Text, [(Text, Expr)], [(Text, Expr)], [Event]) }
   : model SYM ':' BOPEN
       LetDecls
-      InitDecl
+      InitDecls
       EventDecls
     BCLOSE                              { ($2, $5, $6, $7) }
 
@@ -135,10 +135,10 @@ LetDecls                             :: { [(Text, Expr)] }
 LetDecl                              :: { (Text, Expr) }
   : let SYM '=' Exp BSEP                { ($2, $4) }
 
-InitDecl                             :: { [(Text, Expr)] }
-  : init ':'
-      SYM '<-' Exp
-    BSEP                                { [($3, $5)] }
+InitDecls                            :: { [(Text, Expr)] }
+  : init ':' BOPEN 
+      MANY1SEP(BindStatement,BSEP)
+    BCLOSE BSEP                         { $4 }
 
 BindStatement                        :: { (Text, Expr) }
   : SYM '<-' Exp                        { ($1, $3) }
