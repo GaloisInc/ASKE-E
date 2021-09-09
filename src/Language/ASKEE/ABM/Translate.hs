@@ -3,6 +3,8 @@
 {-# LANGUAGE TupleSections #-}
 module Language.ASKEE.ABM.Translate where
 
+import Control.Monad.Identity ( Identity(runIdentity) )
+
 import           Data.List ( nub )
 import qualified Data.Map  as Map
 import           Data.Map  ( Map )
@@ -10,13 +12,12 @@ import qualified Data.Text as Text
 import           Data.Text ( Text )
 
 import qualified Language.ASKEE.ABM.Syntax as ABM
+import qualified Language.ASKEE.ESL.Syntax as ESL
 import           Language.ASKEE.Expr
 import           Language.ASKEE.ExprTransform
-import qualified Language.ASKEE.ESL.Syntax as ESL
 import           Language.ASKEE.Panic (panic)
 
 import Prelude hiding ( succ, fail, GT )
-import Control.Monad.Identity ( Identity(runIdentity) )
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
