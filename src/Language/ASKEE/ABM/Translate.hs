@@ -15,7 +15,7 @@ import           Language.ASKEE.ExprTransform
 import qualified Language.ASKEE.ESL.Syntax as ESL
 import           Language.ASKEE.Panic (panic)
 
-import Prelude hiding ( succ, fail )
+import Prelude hiding ( succ, fail, GT )
 import Control.Monad.Identity ( Identity(runIdentity) )
 
 -- Intermediate representation of a particular combination of ABM statuses
@@ -71,18 +71,26 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     -- variables.
     instantiateEvent :: Map Text ESLStateVar -> ESL.Event
     instantiateEvent agentMapping = 
-      ESL.Event eventName Nothing eventRate' (concatMap asStatement eventEffect) Nothing
+      ESL.Event eventName (Just nonZeroGuard) eventRate' (concat effects) Nothing
       where
-        asStatement :: ABM.AgentAssign -> [ESL.Statement]
+        -- A tuple of the expression that must be true for these statements to be
+        -- meaningful, and the statements themselves. At the moment, that expression
+        -- is a guard that the compartment drawn from is nonempty.
+        asStatement :: ABM.AgentAssign -> (Expr, [ESL.Statement])
         asStatement (ABM.AgentAssign (ABM.Attribute agentName agentAttr) (ABM.Status agentStatus)) =
           let ESLStateVar decAgentStatuses = agentMapping Map.! agentName
               incAgentStatuses = Map.insert agentAttr agentStatus decAgentStatuses
               decAgentName = stateName decAgentStatuses
               incAgentName = stateName incAgentStatuses
-          in  [ (decAgentName, Var decAgentName `Sub` LitD 1)
-              , (incAgentName, Var incAgentName `Add` LitD 1)
-              ]
+          in  ( Var decAgentName `GT` LitD 0
+              , [ (decAgentName, Var decAgentName `Sub` LitD 1)
+                , (incAgentName, Var incAgentName `Add` LitD 1)
+                ]
+              )
         asStatement _ = undefined
+
+        (guardNonEmptyCompartments, effects) = unzip (map asStatement eventEffect)
+        nonZeroGuard = foldl1 And guardNonEmptyCompartments
 
         eventRate' = runIdentity $ transformExpr spliceSizes eventRate
 
