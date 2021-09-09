@@ -13,6 +13,8 @@ import qualified Language.ASKEE.ABM.Syntax as ABM
 import           Language.ASKEE.Expr
 import           Language.ASKEE.ExprTransform
 import qualified Language.ASKEE.ESL.Syntax as ESL
+import           Language.ASKEE.Panic (panic)
+
 import Prelude hiding ( succ, fail )
 import Control.Monad.Identity ( Identity(runIdentity) )
 
@@ -31,13 +33,27 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
       [ pure $ ESL.Let v e
       | (v, e) <- Map.toList modelLets
       ]
-    states = map (pure . stateDecl) (allStates agentAttrs)
+    states = map pure (declareStates modelAgent (allStates agentAttrs) modelInit)
     events = concatMap (translateEvent agentAttrs) modelEvents
     agentAttrs = 
       [ (attr, statuses)
       | (attr, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
       ]
 
+declareStates :: Map Text ABM.AgentAttribute -> [ESLStateVar] -> Map Text Expr -> [ESL.Decl]
+declareStates agent stateVars initialization = map declare stateVars
+  where
+    declare (ESLStateVar statuses) =
+      let scale e = e `Div` LitD total
+          components = map (scale . (initialization Map.!)) (Map.elems statuses)
+      in  ESL.State (stateName statuses) (foldr1 Mul components)
+
+    total =
+      let (_, ABM.AgentAttribute _ statuses) = Map.findMin agent
+          totalE = foldr1 Add (map (initialization Map.!) statuses)
+      in  case eval initialization totalE of
+            Right totalD -> totalD
+            Left err -> panic "declareStates" ["couldn't evaluate initial condition in ABM", err]
 
 translateEvent :: [(Text, [Text])] -> ABM.Event -> [ESL.Event]
 translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
