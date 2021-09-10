@@ -22,6 +22,7 @@ library
                         Language.ASKEE.ABM.GenLexer
                         Language.ASKEE.ABM.GenParser
                         Language.ASKEE.ABM.Lexer
+                        Language.ASKEE.ABM.Manipulate
                         Language.ASKEE.ABM.Print
                         Language.ASKEE.ABM.Sample
                         Language.ASKEE.ABM.Syntax
