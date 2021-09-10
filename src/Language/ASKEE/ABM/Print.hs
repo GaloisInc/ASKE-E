@@ -18,7 +18,7 @@ printABM Model{..} = vcat $
   [ printStatuses (Map.elems modelAgent)
   , printAgent modelAgent
   , "model "<>pretty modelName<>":"
-  ] ++ map (nest 4)
+  ] ++ map (indent 2)
   [ printLets modelLets
   , printEvents modelEvents
   ]
@@ -30,12 +30,12 @@ printStatuses = vcat . map printStatusDecl
     printStatusDecl :: AgentAttribute -> Doc ()
     printStatusDecl AgentAttribute{..} = vcat $
       ("status "<>pretty attributeName<>":") :
-      map (nest 4 . pretty) attributeStatuses
+      map (indent 2 . pretty) attributeStatuses
 
 printAgent :: Map Text AgentAttribute -> Doc ()
 printAgent a = vcat $
   "agent A:":
-  [ nest 4 $ pretty attrName<>" :: "<>pretty attrType
+  [ indent 2 $ pretty attrName<>" :: "<>pretty attrType
   | (attrName, AgentAttribute attrType _) <- Map.toList a
   ]
 
@@ -52,12 +52,12 @@ printEvents = vcat . map printEvent
         pretty eventName<>
         parens (hcat $ punctuate comma $ map pretty eventAgents)
         <>":"
-      , nest 4 "when:"
-      , nest 8 $ printAgentExpr eventWhen
-      , nest 4 "rate:"
-      , nest 8 $ printExpr eventRate
-      , nest 4 "effect:"
-      ] ++ map (nest 8 . printAgentAssign) eventEffect
+      , indent 2 "when:"
+      , indent 4 $ printAgentExpr eventWhen
+      , indent 2 "rate:"
+      , indent 4 $ printExpr eventRate
+      , indent 2 "effect:"
+      ] ++ map (indent 4 . printAgentAssign) eventEffect
 
     printAgentAssign :: AgentAssign -> Doc ()
     printAgentAssign (AgentAssign a1 a2) =

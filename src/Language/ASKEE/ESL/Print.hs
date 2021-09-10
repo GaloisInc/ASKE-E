@@ -16,7 +16,7 @@ import Prettyprinter ( (<>)
                      , hsep
                      , vcat
                      , parens
-                     , Pretty(pretty), indent )
+                     , Pretty(pretty), indent, punctuate, comma, hcat )
 import qualified Prettyprinter as PP
 import Language.ASKEE.Metadata
 
@@ -151,19 +151,7 @@ printExpr expr =
       in  vcat [indent 2 decl, indent 4 branches']
     LitB True -> text "true"
     LitB False -> text "false"
-    (Fn f args) ->
-      case (f, args) of
-        ("exp", [e1]) -> "exp"<>parens (printExpr e1)
-        ("exp", as) -> error $ 
-          "printExpr: arity mismatch: function `exp` expected 1 argument, received "++
-          show (length as)++
-          ": "++show as
-        ("log", [e1]) -> "log"<>parens (printExpr e1)
-        ("log", as) -> error $ 
-          "printExpr: arity mismatch: function `log` expected 1 argument, received "++
-          show (length as)++
-          ": "++show as
-        _ -> error $ "printExpr: didn't recognize function "++unpack f
+    Fn f args -> pretty f<>parens (hcat (punctuate comma (map printExpr args)))
   
   where
     binop = expBinop pp
