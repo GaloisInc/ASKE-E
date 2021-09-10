@@ -42,7 +42,7 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
       ]
 
 declareStates :: 
-  Map Text ABM.AgentAttribute -> 
+  ABM.Agent -> 
   [ESLStateVar] -> 
   Map Text Expr {- ^ status initialization mapping -} -> 
   Map Text Expr {- ^ model lets -} -> 

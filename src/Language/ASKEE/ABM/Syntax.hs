@@ -6,9 +6,11 @@ import Data.Map ( Map )
 
 import Language.ASKEE.Expr
 
+type Agent = Map Text AgentAttribute  -- ^ Names of attributes mapped to attributes themselves
+
 data Model = Model
   { modelName   :: Text
-  , modelAgent  :: Map Text AgentAttribute -- ^ Names of attributes mapped to attributes themselves
+  , modelAgent  :: Agent
   , modelLets   :: Map Text Expr
   , modelInit   :: Map Text Expr -- ^ Initial conditions of the model
   , modelEvents :: [Event]
