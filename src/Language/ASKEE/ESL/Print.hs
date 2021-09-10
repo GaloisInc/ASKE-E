@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Language.ASKEE.ESL.Print where
 
 import Data.Text (unpack, Text )
@@ -10,33 +10,22 @@ import Language.ASKEE.Expr as Expr
 
 import Prelude hiding (GT, EQ, LT, (<>))
 
-import Prettyprinter ( (<>)
-                     , (<+>)
-                     , emptyDoc
-                     , hsep
-                     , vcat
-                     , parens
-                     , Pretty(pretty), indent, punctuate, comma, hcat )
-import qualified Prettyprinter as PP
+import Prettyprinter
 import Language.ASKEE.Metadata
 
-type Doc = PP.Doc ()
+instance Pretty Expr where
+  pretty = printExpr
 
 -- Notes:
 -- More line spacing could be nice?
 
-pyPrintExpr :: Expr -> Doc
+pyPrintExpr :: Expr -> Doc a
 pyPrintExpr expr = 
   case expr of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    -- (Neg e1) -> char '-' <> pp e1
-    -- (LitD d) -> double d
-    -- (Var i) -> text (unpack i)
-    -- (Exp e1) -> text "math.exp" <> parens (pyPrintExpr e1)
-    -- (Log e1) -> text "math.log" <> parens (pyPrintExpr e1)
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
     (Var i) -> pretty i
@@ -80,7 +69,7 @@ pyPrintExpr expr =
     aBinop = expBinop pp
     lBinop = expBinop pp
 
-    pp :: Expr -> Doc
+    pp :: Expr -> Doc a
     pp e = 
       if prec e <= prec expr
         then parens (pyPrintExpr e)
@@ -110,18 +99,13 @@ pyPrintExpr expr =
         Fn {} -> 10
 
 
-printExpr :: Expr -> Doc
+printExpr :: Expr -> Doc a
 printExpr expr = 
   case expr of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
     (Mul e1 e2) -> binop e1 "*"   e2
     (Div e1 e2) -> binop e1 "/"   e2
-    -- (Neg e1) -> char '-' <> pp e1
-    -- (LitD d) -> double d
-    -- (Var i) -> text (unpack i)
-    -- (Exp e1) -> text "exp" <> parens (printExpr e1)
-    -- (Log e1) -> text "log" <> parens (printExpr e1)
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
     (Var i) -> pretty (unpack i)
@@ -151,18 +135,18 @@ printExpr expr =
       in  vcat [indent 2 decl, indent 4 branches']
     LitB True -> text "true"
     LitB False -> text "false"
-    Fn f args -> pretty f<>parens (hcat (punctuate comma (map printExpr args)))
+    Fn f args -> pretty f<>parens (hcat (punctuate comma (map pretty args)))
   
   where
     binop = expBinop pp
     aBinop = expBinop pp
     lBinop = expBinop pp
 
-    pp :: Expr -> Doc
+    pp :: Expr -> Doc a
     pp e = 
       if prec e <= prec expr
-        then parens (printExpr e)
-        else         printExpr e
+        then parens (pretty e)
+        else         pretty e
         
     prec :: Expr -> Int
     prec e =
@@ -187,94 +171,94 @@ printExpr expr =
         Cond {} -> 0
         Fn {} -> 10
 
-    condBranch :: Expr -> Expr -> Doc
+    condBranch :: Expr -> Expr -> Doc a
     condBranch e1 e2 = 
-      printExpr e1 <+>
+      pretty e1 <+>
       text "if" <+>
-      printExpr e2
+      pretty e2
 
-    condOther :: Expr -> Doc
+    condOther :: Expr -> Doc a
     condOther e =
-      printExpr e <+>
+      pretty e <+>
       text "otherwise"
 
-expBinop :: (a -> Doc) -> a -> String -> a -> Doc
+expBinop :: (a -> Doc b) -> a -> String -> a -> Doc b
 expBinop pr e1 op e2 = 
   hsep  [ pr e1
         , pretty op
         , pr e2
         ]
 
-printEvent :: Event -> Doc
+printEvent :: Event -> Doc a
 printEvent Event{..} = vcat [decl, indent 2 body]
   where
-    decl :: Doc
+    decl :: Doc a
     decl = text "event" <+>
            pretty (unpack eventName) <>
            pretty ':'
 
-    body :: Doc
+    body :: Doc a
     body = vcat [when, rate, effect]
 
-    rate :: Doc
-    rate = vcat [text "rate:", indent 2 (printExpr eventRate)]
+    rate :: Doc a
+    rate = vcat [text "rate:", indent 2 (pretty eventRate)]
 
-    when :: Doc
+    when :: Doc a
     when = case eventWhen of
       Nothing -> emptyDoc
-      Just w -> vcat [text "when:", indent 2 (printExpr w)]
+      Just w -> vcat [text "when:", indent 2 (pretty w)]
 
-    effect :: Doc
+    effect :: Doc a
     effect = vcat [text "effect:", indent 2 statements]
     
-    statements :: Doc
+    statements :: Doc a
     statements = vcat $ map (uncurry printAssign) eventEffect
 
-    printAssign :: Text -> Expr -> Doc
+    printAssign :: Text -> Expr -> Doc a
     printAssign ident e = 
       hsep [ pretty (unpack ident)
            , pretty '='
-           , printExpr e]
+           , pretty e]
 
 -- | NB: does _not_ print metadata
-printModel :: Model -> Doc
+printModel :: Model -> Doc a
 printModel Model{..} = vcat [decl, indent 2 body]
   where
-    decl :: Doc
+    decl :: Doc a
     decl = text "model" <+>
            pretty (unpack modelName) <>
            pretty ':'
 
-    body :: Doc
+    body :: Doc a
     body = vcat (state ++ events)
 
-    state :: [Doc]
+    state :: [Doc a]
     state = map (printDecl . metaValue) modelDecls
 
-    events :: [Doc]
+    events :: [Doc a]
     events = map printEvent modelEvents
 
-    printDecl :: Decl -> Doc
+    printDecl :: Decl -> Doc a
     printDecl (Let name val) = 
       hsep [ text "let"
            , pretty (unpack name)
            , pretty '='
-           , printExpr val
+           , pretty val
            ]
     printDecl (State name val) = 
       hsep [ text "state"
            , pretty (unpack name)
            , pretty '='
-           , printExpr val
+           , pretty val
            ]
     printDecl (Assert e) =
       hsep [ text "assert"
-           , printExpr e
+           , pretty e
            ]
     printDecl (Parameter name e) =
       case e of
-        Just v -> hsep [ "parameter", pretty (unpack name), "=", printExpr v ]
+        Just v -> hsep [ "parameter", pretty (unpack name), "=", pretty v ]
         Nothing -> hsep [ "parameter", pretty (unpack name) ]
 
-text :: String -> Doc
+text :: String -> Doc a
 text = pretty

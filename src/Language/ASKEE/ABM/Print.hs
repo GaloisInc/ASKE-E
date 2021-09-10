@@ -7,7 +7,7 @@ import Data.Map ( Map )
 import Data.Text ( Text )
 import Language.ASKEE.ABM.Syntax
 import Language.ASKEE.Expr ( Expr )
-import Language.ASKEE.ESL.Print ( printExpr )
+import Language.ASKEE.ESL.Print ()
 
 import Prelude hiding ( (<>) )
 
@@ -19,7 +19,8 @@ printABM Model{..} = vcat $
   , printAgent modelAgent
   , "model "<>pretty modelName<>":"
   ] ++ map (indent 2)
-  [ printLets modelLets
+  [ printInit modelInit
+  , printLets modelLets
   , printEvents modelEvents
   ]
   
@@ -39,10 +40,17 @@ printAgent a = vcat $
   | (attrName, AgentAttribute attrType _) <- Map.toList a
   ]
 
+printInit :: Map Text Expr -> Doc ()
+printInit i = vcat $
+  "init:":
+  [ indent 2 $ pretty var<>" <- "<>pretty val
+  | (var, val) <- Map.toList i
+  ]
+
 printLets :: Map Text Expr -> Doc ()
 printLets = vcat . map printLet . Map.toList
   where
-    printLet (v, e) = "let "<>pretty v<>" = "<>printExpr e
+    printLet (v, e) = "let "<>pretty v<>" = "<>pretty e
 
 printEvents :: [Event] -> Doc ()
 printEvents = vcat . map printEvent
@@ -55,7 +63,7 @@ printEvents = vcat . map printEvent
       , indent 2 "when:"
       , indent 4 $ printAgentExpr eventWhen
       , indent 2 "rate:"
-      , indent 4 $ printExpr eventRate
+      , indent 4 $ pretty eventRate
       , indent 2 "effect:"
       ] ++ map (indent 4 . printAgentAssign) eventEffect
 
