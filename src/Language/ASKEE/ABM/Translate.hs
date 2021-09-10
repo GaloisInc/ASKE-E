@@ -34,15 +34,20 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
       [ pure $ ESL.Let v e
       | (v, e) <- Map.toList modelLets
       ]
-    states = map pure (declareStates modelAgent (allStates agentAttrs) modelInit)
+    states = map pure (declareStates modelAgent (allStates agentAttrs) modelInit modelLets)
     events = concatMap (translateEvent agentAttrs) modelEvents
     agentAttrs = 
       [ (attr, statuses)
       | (attr, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
       ]
 
-declareStates :: Map Text ABM.AgentAttribute -> [ESLStateVar] -> Map Text Expr -> [ESL.Decl]
-declareStates agent stateVars initialization = map declare stateVars
+declareStates :: 
+  Map Text ABM.AgentAttribute -> 
+  [ESLStateVar] -> 
+  Map Text Expr {- ^ status initialization mapping -} -> 
+  Map Text Expr {- ^ model lets -} -> 
+  [ESL.Decl]
+declareStates agent stateVars initialization lets = map declare stateVars
   where
     declare (ESLStateVar statuses) =
       let scale e = e `Div` LitD total
@@ -51,8 +56,10 @@ declareStates agent stateVars initialization = map declare stateVars
 
     total =
       let (_, ABM.AgentAttribute _ statuses) = Map.findMin agent
+          -- ^ just pick any agent's status set - for now, we assume all status
+          -- sets sum to the same total
           totalE = foldr1 Add (map (initialization Map.!) statuses)
-      in  case eval initialization totalE of
+      in  case eval (initialization <> lets) totalE of
             Right totalD -> totalD
             Left err -> panic "declareStates" ["couldn't evaluate initial condition in ABM", err]
 
