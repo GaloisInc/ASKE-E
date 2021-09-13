@@ -36,6 +36,8 @@ model           { Located _ _ Lexer.Model }
 rate            { Located _ _ Lexer.Rate }
 status          { Located _ _ Lexer.Status }
 when            { Located _ _ Lexer.When }
+mingling        { Located _ _ Lexer.Mingling }
+nonmingling     { Located _ _ Lexer.Nonmingling }
 
 '+'             { Located _ _ Lexer.Add }
 '-'             { Located _ _ Lexer.Sub }
@@ -110,9 +112,12 @@ StatusDecls                          :: { [StatusDecl] }
   : MANY1(StatusDecl)                   { $1 }
 
 StatusDecl                           :: { StatusDecl }
-  : status SYM ':' BOPEN
+  : mingling status SYM ':' BOPEN
       MANY1SEP(SYM,BSEP)
-    BCLOSE                              { StatusDecl $2 $5 }
+    BCLOSE                              { StatusDecl Mingling $3 $6 }
+  | nonmingling status SYM ':' BOPEN
+      MANY1SEP(SYM,BSEP)
+    BCLOSE                              { StatusDecl Nonmingling $3 $6 }
 
 AgentDecl                            :: { AgentDecl }
   : agent SYM ':' BOPEN
@@ -222,7 +227,8 @@ parseError (t:ts) = Left $ "parse error at line " ++ show (locLine t) ++ ", col 
 
 
 data StatusDecl = StatusDecl
-  { statusName :: Text
+  { statusMingling :: Mingling
+  , statusName :: Text
   , statusValues :: [Text] 
   }
   deriving (Eq, Show)
@@ -237,11 +243,12 @@ mkModel :: ([StatusDecl], AgentDecl, (Text, [(Text, Expr)], [(Text, Expr)], [Eve
 mkModel (statuses, AgentDecl{..}, (modelName, lets, init, modelEvents)) = Model{..}
   where
     statusMap = foldr (uncurry Map.insert) Map.empty 
-      [ (n, vs) 
-      | StatusDecl n vs <- statuses ]
+      [ (n, (m, vs)) 
+      | StatusDecl m n vs <- statuses ]
     modelAgent = foldr (uncurry Map.insert) Map.empty
-      [ (attrName, AgentAttribute attrType (statusMap Map.! attrType))
-      | (attrName, attrType) <- agentAttributes ]
+      [ (attrName, AgentAttribute attrType mingling statuses)
+      | (attrName, attrType) <- agentAttributes
+      , let (mingling, statuses) = statusMap Map.! attrType ]
     modelLets = Map.fromList lets
     modelInit = Map.fromList init
 }

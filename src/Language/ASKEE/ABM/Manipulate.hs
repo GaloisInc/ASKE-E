@@ -9,7 +9,7 @@ import qualified Data.Text  as Text
 import Language.ASKEE.ABM.Syntax
 
 combine :: Model -> Model -> Model
-combine m1 m2 = Model name agent lets initial (modelEvents m1 <> modelEvents m2)
+combine m1 m2 = Model name agent lets initial events
   where
     name = modelName m1 <> "_" <> modelName m2
     agent
@@ -27,6 +27,23 @@ combine m1 m2 = Model name agent lets initial (modelEvents m1 <> modelEvents m2)
         Map.union (modelInit m1) (modelInit m2)
       | otherwise = undefined
 
+    events = 
+      map mkNewM1Event (modelEvents m1) ++
+      map mkNewM2Event (modelEvents m2)
+
+    m1NonminglingStatuses = [attrName | (attrName, AgentAttribute n Nonmingling s) <- Map.toList (modelAgent m1)]
+    m2NonminglingStatuses = [attrName | (attrName, AgentAttribute n Nonmingling s) <- Map.toList (modelAgent m2)]
+
+    mkNewM1Event e@Event{..} =
+      case m2NonminglingStatuses of
+        [] -> e
+        ss -> error (show ss) e { eventWhen = foldr1 And (map (\attr -> foldr1 And (zipWith (\a1 a2 -> Eq (Attribute a1 attr) (Attribute a2 attr)) eventAgents (tail eventAgents))) ss) }
+    mkNewM2Event e@Event{..} =
+      case m1NonminglingStatuses of
+        [] -> e
+        ss -> e { eventWhen = foldr1 And (map (\status -> foldr1 And (zipWith (\a1 a2 -> Eq (Attribute a1 status) (Attribute a2 status)) eventAgents (tail eventAgents))) ss) }
+
+
 -- | Two agents are compatible if they don't share names of attributes and if
 -- those attributes' statuses don't have name clashes
 compatibleAgents :: Agent -> Agent -> Bool
@@ -34,12 +51,12 @@ compatibleAgents a1 a2 = noSharedAttributeNames && noSharedStatuses
   where
     noSharedAttributeNames = null (Map.intersection a1 a2)
     noSharedStatuses = length (nub allStatuses) == length allStatuses
-    allStatuses = concat [ ss | AgentAttribute _ ss <- Map.elems a1 <> Map.elems a2 ]
+    allStatuses = concat [ ss | AgentAttribute _ _ ss <- Map.elems a1 <> Map.elems a2 ]
 
 synthAgent :: Model -> Agent
 synthAgent Model{..} = 
   Map.fromList 
-    [ (attribute, AgentAttribute attrName stats)
+    [ (attribute, AgentAttribute attrName Mingling stats)
     | (attrName, (attribute, stats)) <- zip attrNames (Map.toList statuses)
     ]
   where

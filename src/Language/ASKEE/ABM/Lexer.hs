@@ -27,6 +27,8 @@ data Token = EOF
   | Rate
   | Status
   | When
+  | Mingling
+  | Nonmingling
 
   -- expressions
   | Add

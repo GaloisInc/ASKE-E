@@ -17,8 +17,13 @@ data Model = Model
   }
   deriving Show
 
+data Mingling = Mingling | Nonmingling
+  deriving (Eq, Show)
+
 data AgentAttribute = AgentAttribute 
   { attributeName     :: Text -- ^ The name/type of an attribute
+  , attributeMingling :: Mingling -- ^ Whether or not agents with different statuses
+                                  -- within this attribute might encounter one another
   , attributeStatuses :: [Text] -- ^ The statuses associated with this attribute
   }
   deriving Show

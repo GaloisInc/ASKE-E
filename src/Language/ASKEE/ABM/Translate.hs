@@ -38,7 +38,7 @@ abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
     events = concatMap (translateEvent agentAttrs) modelEvents
     agentAttrs = 
       [ (attr, statuses)
-      | (attr, ABM.AgentAttribute _ statuses) <- Map.toList modelAgent
+      | (attr, ABM.AgentAttribute _ _ statuses) <- Map.toList modelAgent
       ]
 
 declareStates :: 
@@ -55,7 +55,7 @@ declareStates agent stateVars initialization lets = map declare stateVars
       in  ESL.State (stateName statuses) (foldr1 Mul components)
 
     total =
-      let (_, ABM.AgentAttribute _ statuses) = Map.findMin agent
+      let (_, ABM.AgentAttribute _ _ statuses) = Map.findMin agent
           -- ^ just pick any agent's status set - for now, we assume all status
           -- sets sum to the same total
           totalE = foldr1 Add (map (initialization Map.!) statuses)

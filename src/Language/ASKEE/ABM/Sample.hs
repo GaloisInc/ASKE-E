@@ -19,8 +19,8 @@ sampleModel = Model{..}
 
 sampleAgent :: Map Text AgentAttribute
 sampleAgent = Map.fromList
-  [ ("health", AgentAttribute "Health" ["S", "E", "I", "R"])
-  , ("city", AgentAttribute "City" ["sea", "pdx"])
+  [ ("health", AgentAttribute "Health" Mingling ["S", "E", "I", "R"])
+  , ("city", AgentAttribute "City" Nonmingling ["sea", "pdx"])
   -- , AgentAttribute "age" ["0-30", "31-60", "61-90"]
   -- , AgentAttribute "quarantine" ["quarantined", "not_quarantined"]
   ]

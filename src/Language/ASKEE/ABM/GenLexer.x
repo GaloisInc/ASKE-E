@@ -36,6 +36,8 @@ tokens :-
 "rate"                  { atomic Rate }
 "status"                { atomic Status }
 "when"                  { atomic When }
+"mingling"              { atomic Mingling }
+"nonmingling"           { atomic Nonmingling }
 "+"                     { atomic Add }
 "-"                     { atomic Sub }
 "*"                     { atomic Mul }

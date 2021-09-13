@@ -29,15 +29,20 @@ printStatuses :: [AgentAttribute] -> Doc ()
 printStatuses = vcat . map printStatusDecl
   where
     printStatusDecl :: AgentAttribute -> Doc ()
-    printStatusDecl AgentAttribute{..} = vcat $
-      ("status "<>pretty attributeName<>":") :
-      map (indent 2 . pretty) attributeStatuses
-
+    printStatusDecl AgentAttribute{..} = 
+      let mingling =
+            case attributeMingling of
+              Mingling -> "mingling"
+              Nonmingling -> "nonmingling"
+      in  vcat $
+            (mingling<>" status "<>pretty attributeName<>":") :
+            map (indent 2 . pretty) attributeStatuses
+    
 printAgent :: Map Text AgentAttribute -> Doc ()
 printAgent a = vcat $
   "agent A:":
   [ indent 2 $ pretty attrName<>" :: "<>pretty attrType
-  | (attrName, AgentAttribute attrType _) <- Map.toList a
+  | (attrName, AgentAttribute attrType _ _) <- Map.toList a
   ]
 
 printInit :: Map Text Expr -> Doc ()
