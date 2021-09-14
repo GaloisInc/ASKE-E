@@ -4,6 +4,7 @@ module Language.ASKEE.ABM.Manipulate where
 
 import           Data.List ( nub )
 import qualified Data.Map  as Map
+import qualified Data.Set  as Set
 import qualified Data.Text as Text
 
 import Language.ASKEE.ABM.Syntax
@@ -55,17 +56,18 @@ combine m1 m2 = Model name agent lets initial events
 
     equateAttrs attr agent1 agent2 = Eq (Attribute agent1 attr) (Attribute agent2 attr)
 
--- | Two agents are compatible if they don't share names of attributes and if
+-- | Two agents are "compatible" if they don't share names of attributes and if
 -- those attributes' statuses don't have name clashes
 compatibleAgents :: Agent -> Agent -> Bool
 compatibleAgents a1 a2 = noSharedAttributeNames && noSharedStatuses
   where
     noSharedAttributeNames = null (Map.intersection a1 a2)
-    noSharedStatuses = length (nub allStatuses) == length allStatuses
-    allStatuses = concat [ ss | AgentAttribute _ _ ss <- Map.elems a1 <> Map.elems a2 ]
+    noSharedStatuses = 
+      let stats a = Set.fromList $ concat [ ss | AgentAttribute _ _ ss <- Map.elems a ] 
+      in  null (Set.intersection (stats a1) (stats a2))
 
-synthAgent :: Model -> Agent
-synthAgent Model{..} = 
+synthesizeAgent :: Model -> Agent
+synthesizeAgent Model{..} = 
   Map.fromList 
     [ (attribute, AgentAttribute attrName Mingling stats)
     | (attrName, (attribute, stats)) <- zip attrNames (Map.toList statuses)
