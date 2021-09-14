@@ -18,7 +18,6 @@ import           Language.ASKEE.ExprTransform
 import           Language.ASKEE.Panic (panic)
 
 import Prelude hiding ( succ, fail, GT )
-import Debug.Trace
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
@@ -244,18 +243,14 @@ search expr curr fail succ allAttrs =
                   [ (agentName1, currentAttrs1)
                   , (agentName2, currentAttrs2)
                   ]
-            (Just s, Nothing) ->
+            (Just status, Nothing) ->
               -- ...and agentName1 defines the attribute in question
-              let newAttrs = Map.singleton agentAttr s
-                  newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insertWith (<>) agentName2 newState curr
-              in succ newAgentMap fail
-            (Nothing, Just s) ->
+              let newAgentMap = addStatus agentAttr status agentName2 mempty curr
+              in  succ newAgentMap fail
+            (Nothing, Just status) ->
               -- ...and agentName2 defines the attribute in question
-              let newAttrs = Map.singleton agentAttr s
-                  newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insertWith (<>) agentName1 newState curr
-              in succ newAgentMap fail
+              let newAgentMap = addStatus agentAttr status agentName1 mempty curr
+              in  succ newAgentMap fail
             (Just s1, Just s2) | s1 == s2 -> 
               -- ...and both define the attribute in question
               succ curr fail
@@ -272,15 +267,8 @@ search expr curr fail succ allAttrs =
               fail
             (s:ss) -> 
               -- Some candidate statuses left to assign
-              let newAgentMap = Map.foldrWithKey (fill s) curr agents
+              let newAgentMap = Map.foldrWithKey (addStatus agentAttr s) curr agents
               in  succ newAgentMap (randomStatuses ss agents)
-          where
-            fill :: Text -> Text -> Map Text Text -> Map Text ESLStateVar -> Map Text ESLStateVar
-            fill status agentName agentAttrs cur =
-              let newAttrs = Map.insert agentAttr status agentAttrs
-                  newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insert agentName newState cur
-              in  newAgentMap
 
         -- | Given a set of attribute-status bindings for one agent, either
         -- find the correct attribute-status binding for the other agent or,
@@ -291,9 +279,7 @@ search expr curr fail succ allAttrs =
             Just s ->
               -- The already-bound agent has a status `s` associated with
               -- this attribute
-              let newAttrs = Map.singleton agentAttr s
-                  newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insert unboundAgentName newState curr
+              let newAgentMap = addStatus agentAttr s unboundAgentName mempty curr
               in succ newAgentMap fail
             Nothing -> 
               -- The already-bound agent has no status associated with
@@ -320,10 +306,8 @@ search expr curr fail succ allAttrs =
     doSimpleEq agentName agentAttr agentStatus =
       case curr Map.!? agentName of
         -- The agent doesn't exist in the mapping
-        Nothing -> 
-          let newAttrs = Map.singleton agentAttr agentStatus
-              newState = ESLStateVar newAttrs
-              newAgentMap = Map.insert agentName newState curr
+        Nothing ->
+          let newAgentMap = addStatus agentAttr agentStatus agentName mempty curr
           in  succ newAgentMap fail
         Just (ESLStateVar currentAttrs) ->
           -- The agent does exist in the mapping...
@@ -333,10 +317,14 @@ search expr curr fail succ allAttrs =
               succ curr fail
             Nothing ->
               -- ...and doesn't define the attribute of interest
-              let newAttrs = Map.insert agentAttr agentStatus currentAttrs
-                  newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insert agentName newState curr
+              let newAgentMap = addStatus agentAttr agentStatus agentName currentAttrs curr
               in  succ newAgentMap fail
             _ -> 
               -- ...and defines the attribute incorrectly
               fail
+
+    addStatus :: Text -> Text -> Text -> Map Text Text -> Map Text ESLStateVar -> Map Text ESLStateVar
+    addStatus agentAttr status agentName agentAttrs cur =
+      let newAttrs = Map.insert agentAttr status agentAttrs
+          newState = ESLStateVar newAttrs
+      in  Map.insertWith (<>) agentName newState cur
