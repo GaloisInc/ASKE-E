@@ -18,6 +18,7 @@ import           Language.ASKEE.ExprTransform
 import           Language.ASKEE.Panic (panic)
 
 import Prelude hiding ( succ, fail, GT )
+import Debug.Trace
 
 -- Intermediate representation of a particular combination of ABM statuses
 -- (values) across the space of attributes (keys)
@@ -25,6 +26,9 @@ newtype ESLStateVar = ESLStateVar
   { statuses :: Map Text Text 
   }
   deriving (Eq, Ord, Show)
+
+instance Semigroup ESLStateVar where
+  ESLStateVar ss1 <> ESLStateVar ss2 = ESLStateVar (ss1 <> ss2)
 
 abmToModel :: ABM.Model -> ESL.Model
 abmToModel ABM.Model{..} = ESL.Model name (lets++states) events []
@@ -206,7 +210,7 @@ search expr curr fail succ allAttrs =
     ABM.Eq (ABM.Attribute n1 a1) (ABM.Attribute n2 a2) | a1 == a2 ->
       doComplexEq n1 n2 a1
     ABM.And e1 e2 -> 
-      search e1 curr fail (\cur res -> search e2 cur res succ allAttrs) allAttrs
+      search e1 curr fail (\cur res -> search e2 (curr<>cur) res succ allAttrs) allAttrs
     ABM.Or e1 e2 -> 
       search e1 curr (search e2 curr fail succ allAttrs) succ allAttrs
     _ -> undefined 
@@ -244,13 +248,13 @@ search expr curr fail succ allAttrs =
               -- ...and agentName1 defines the attribute in question
               let newAttrs = Map.singleton agentAttr s
                   newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insert agentName2 newState curr
+                  newAgentMap = Map.insertWith (<>) agentName2 newState curr
               in succ newAgentMap fail
             (Nothing, Just s) ->
               -- ...and agentName2 defines the attribute in question
               let newAttrs = Map.singleton agentAttr s
                   newState = ESLStateVar newAttrs
-                  newAgentMap = Map.insert agentName1 newState curr
+                  newAgentMap = Map.insertWith (<>) agentName1 newState curr
               in succ newAgentMap fail
             (Just s1, Just s2) | s1 == s2 -> 
               -- ...and both define the attribute in question
