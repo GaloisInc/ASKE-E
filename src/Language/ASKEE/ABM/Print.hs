@@ -19,8 +19,8 @@ printABM Model{..} = vcat $
   , printAgent modelAgent
   , "model "<>pretty modelName<>":"
   ] ++ map (indent 2)
-  [ printInit modelInit
-  , printLets modelLets
+  [ printLets modelLets
+  , printInit modelInit
   , printEvents modelEvents
   ]
   
