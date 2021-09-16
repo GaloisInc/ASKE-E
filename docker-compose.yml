@@ -2,11 +2,13 @@ version: "3.9"
 
 services:
   donu:
+    image: galoisinc/askee:donu
     build:
       context: .
       target: donu-execute
-    volumes:
-      - "./modelRepo:/build/modelRepo"
+    # TODO: leverage this mount when sending models between `donu` and AJ
+    # volumes:
+    #   - "./modelRepo:/build/modelRepo"
 
       # Uncomment to propagate local changes to the container for quicker
       # development:
@@ -32,6 +34,7 @@ services:
       aske_e_datadir: /build
 
   algebraic-julia:
+    image: galoisinc/askee:algebraicjulia
     build: ASKE-E-Simulation-WG/AlgebraicPetri-Stratification
     # TODO: leverage this mount when sending models between `donu` and AJ
     # volumes:
@@ -42,6 +45,7 @@ services:
       - donu-network
 
   jupyter:
+    image: galoisinc/askee:jupyter
     build: jupyter
     ports: 
       - "8888:8888"
