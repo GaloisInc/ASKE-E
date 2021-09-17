@@ -55,7 +55,7 @@ declareStates agent stateVars initialization lets = map declare stateVars
     declare (ESLStateVar statuses) =
       let scale e = e `Div` LitD total
           components = map (scale . (initialization Map.!)) (Map.elems statuses)
-      in  ESL.State (stateName statuses) (foldr1 Mul components)
+      in  ESL.State (stateName statuses) (LitD total `Mul` foldr1 Mul components)
 
     total =
       let (_, ABM.AgentAttribute _ _ statuses) = Map.findMin agent
@@ -75,8 +75,9 @@ translateEvent agentAttrs ABM.Event{..} = concatMap template relevantStates
     -- (at this point) we can't see until now.
     template :: Map Text [ESLStateVar] -> [ESL.Event]
     template agents = 
-      nub $ 
-        map (instantiateEvent . Map.fromList) (taggedCombos $ Map.toList agents)
+      let events = nub $ map (instantiateEvent . Map.fromList) (taggedCombos $ Map.toList agents)
+      in  [ e { ESL.eventName = ESL.eventName e<>"_"<>Text.pack (show i) } 
+          | (e, i) <- zip events [1::Integer ..] ]
 
     -- Instantiate an event at a particular mapping of agents to ESL state
     -- variables.
