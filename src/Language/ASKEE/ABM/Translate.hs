@@ -209,7 +209,7 @@ search expr curr fail succ allAttrs =
     ABM.Eq (ABM.Attribute n1 a1) (ABM.Attribute n2 a2) | a1 == a2 ->
       doComplexEq n1 n2 a1
     ABM.And e1 e2 -> 
-      search e1 curr fail (\cur res -> search e2 (curr<>cur) res succ allAttrs) allAttrs
+      search e1 curr fail (\cur res -> search e2 (cur<>curr) res succ allAttrs) allAttrs
     ABM.Or e1 e2 -> 
       search e1 curr (search e2 curr fail succ allAttrs) succ allAttrs
     _ -> undefined 
