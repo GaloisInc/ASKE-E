@@ -15,7 +15,7 @@ data Model = Model
   , modelInit   :: Map Text Expr -- ^ Initial conditions of the model
   , modelEvents :: [Event]
   }
-  deriving Show
+  deriving (Eq, Show)
 
 data Mingling = Mingling | Nonmingling
   deriving (Eq, Show)
@@ -26,7 +26,7 @@ data AgentAttribute = AgentAttribute
                                   -- within this attribute might encounter one another
   , attributeStatuses :: [Text] -- ^ The statuses associated with this attribute
   }
-  deriving Show
+  deriving (Eq, Show)
 
 data Event = Event
   { eventName   :: Text
@@ -35,18 +35,18 @@ data Event = Event
   , eventRate   :: Expr
   , eventEffect :: [AgentAssign]
   }
-  deriving Show
+  deriving (Eq, Show)
 
 data AgentAssign = AgentAssign AttributeRef AttributeRef
-  deriving Show
+  deriving (Eq, Show)
 
 data AttributeRef =
     Status Text
   | Attribute Text Text
-  deriving Show
+  deriving (Eq, Show)
 
 data AgentExpr = 
     Eq AttributeRef AttributeRef -- ^ `x.city == y.city` or `x.health == S`, e.g.
   | And AgentExpr AgentExpr
   | Or AgentExpr AgentExpr
-  deriving Show
+  deriving (Eq, Show)
