@@ -57,7 +57,7 @@ data SBML = SBML
   , sbmlCompartments      :: [Compartment]
   , sbmlSpecies           :: [Species]
   , sbmlParameters        :: [Parameter]
-  , sbmlInitialConditions :: [InitialCondition]
+  , sbmlInitialConditions :: [InitialAssignment]
   , sbmlRules             :: [Rule]
   , sbmlConstraints       :: [Constraint]
   , sbmlReactions         :: [Reaction]
@@ -102,13 +102,14 @@ data Species = Species
 
 data Parameter = Parameter
   { parameterID       :: ID
+  , parameterName     :: Maybe ID -- not in the spec
   , parameterValue    :: Maybe Double
   , parameterUnits    :: Maybe ID
   , parameterConstant :: Bool
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
-data InitialCondition = InitialCondition
+data InitialAssignment = InitialAssignment
   { initialID     :: Maybe ID
   , initialSymbol :: ID
   , initialMath   :: Math
@@ -164,8 +165,8 @@ data Required = Mandatory | Optional
 
 -------------------------------------------------------------------------------
 
-newtype Interpreter a = Interpreter
-  { unInterpreter :: ExceptT Error (State Location) a
+newtype Parser a = Parser
+  { unParser :: ExceptT Error (State Location) a
   }
   deriving newtype
     ( Applicative
@@ -175,8 +176,8 @@ newtype Interpreter a = Interpreter
     , MonadState Location
     )
 
-runInterpreter :: Interpreter a -> Either Error a
-runInterpreter (Interpreter i) =
+runParser :: Parser a -> Either Error a
+runParser (Parser i) =
   evalState (runExceptT i) (Location Nothing)
 
 newtype Location = Location
@@ -190,15 +191,15 @@ data Error = Error
   }
   deriving (Show)
 
-die :: String -> Interpreter a
+die :: String -> Parser a
 die eMessage =
   do  eLoc <- get
       throwError Error{..}
 
-setLinum :: Maybe Line -> Interpreter ()
+setLinum :: Maybe Line -> Parser ()
 setLinum = put . Location
 
-parseSBML :: String -> Interpreter SBML
+parseSBML :: String -> Parser SBML
 parseSBML src =
   do  sbmlCursor <- fromContent <$> xml
       sbmlVersion <- parseVersion (current sbmlCursor)
@@ -209,7 +210,7 @@ parseSBML src =
           Nothing -> die "sbml did not have a \"model\" child"
 
       sbmlName <- withNamedElement "model" (current modelCursor) \attrs _ ->
-        reqVal asText attrs "name"
+        reqAttr parseText attrs "name"
 
       let sbmlFunctionDefs = []
       let sbmlUnitDefs = []
@@ -245,7 +246,7 @@ parseSBML src =
             2 -> pure (x !! 1)
             _ -> die "this document was too full"
 
-parseChildList :: String -> (Content -> Interpreter a) -> Cursor -> Interpreter [a]
+parseChildList :: String -> (Content -> Parser a) -> Cursor -> Parser [a]
 parseChildList name parse cur =
   case namedChild name cur of
     Nothing -> pure []
@@ -260,7 +261,7 @@ namedChild s = findChild elementHasName
           | n == s -> True
         _ -> False
 
-withNamedElement :: String -> Content -> ([Attr] -> [Content] -> Interpreter a) -> Interpreter a
+withNamedElement :: String -> Content -> ([Attr] -> [Content] -> Parser a) -> Parser a
 withNamedElement s c f =
   case c of
     Elem (Element (QName n _ _) attrs content linum)
@@ -268,73 +269,87 @@ withNamedElement s c f =
       | otherwise -> die $ printf "expected element '%s', but found '%s'" s n
     _ -> die $ printf "expected element-type content, but found %s" (show c)
 
-parseVersion :: Content -> Interpreter Version
+parseVersion :: Content -> Parser Version
 parseVersion c =
   withNamedElement "sbml" c \attrs _ ->
-    do  versionLevel   <- reqVal asAny attrs "level"
-        versionVersion <- reqVal asAny attrs "version"
+    do  versionLevel   <- reqAttr parseAny attrs "level"
+        versionVersion <- reqAttr parseAny attrs "version"
         unless (versionLevel == 3 && versionVersion == 2) $
           die $ printf "unsupported SBML version: %i.%i" versionLevel versionVersion
         pure Version{..}
 
-parseCompartment :: Content -> Interpreter Compartment
+parseCompartment :: Content -> Parser Compartment
 parseCompartment c =
   withNamedElement "compartment" c \attrs _ ->
-    do  compartmentID         <- reqVal asText attrs "id"
-        compartmentDimensions <- optVal asAny  attrs "spatialDimensions"
-        compartmentSize       <- optVal asAny  attrs "size"
-        compartmentUnits      <- optVal asText attrs "units"
-        compartmentConstant   <- reqVal asBool attrs "constant"
+    do  compartmentID         <- reqAttr parseText attrs "id"
+        compartmentDimensions <- optAttr parseAny  attrs "spatialDimensions"
+        compartmentSize       <- optAttr parseAny  attrs "size"
+        compartmentUnits      <- optAttr parseText attrs "units"
+        compartmentConstant   <- reqAttr parseBool attrs "constant"
         pure Compartment{..}
 
-parseSpecies :: Content -> Interpreter Species
+parseSpecies :: Content -> Parser Species
 parseSpecies c =
   withNamedElement "species" c \attrs _ ->
-    do  speciesID                    <- reqVal asText attrs "id"
-        speciesName                  <- optVal asText attrs "name"
-        speciesCompartment           <- reqVal asText attrs "compartment"
-        speciesInitialAmount         <- optVal asAny  attrs "initialAmount"
-        speciesInitialConc           <- optVal asAny  attrs "initialConcentration"
-        speciesSubstanceUnits        <- optVal asText attrs "substanceUnits"
-        speciesHasOnlySubstanceUnits <- reqVal asBool attrs "hasOnlySubstanceUnits"
-        speciesBoundaryCondition     <- reqVal asBool attrs "boundaryCondition"
-        speciesConstant              <- reqVal asBool attrs "constant"
-        speciesConversionFactor      <- optVal asText attrs "conversionFactor"
+    do  speciesID                    <- reqAttr parseText attrs "id"
+        speciesName                  <- optAttr parseText attrs "name"
+        speciesCompartment           <- reqAttr parseText attrs "compartment"
+        speciesInitialAmount         <- optAttr parseAny  attrs "initialAmount"
+        speciesInitialConc           <- optAttr parseAny  attrs "initialConcentration"
+        speciesSubstanceUnits        <- optAttr parseText attrs "substanceUnits"
+        speciesHasOnlySubstanceUnits <- reqAttr parseBool attrs "hasOnlySubstanceUnits"
+        speciesBoundaryCondition     <- reqAttr parseBool attrs "boundaryCondition"
+        speciesConstant              <- reqAttr parseBool attrs "constant"
+        speciesConversionFactor      <- optAttr parseText attrs "conversionFactor"
         pure Species{..}
 
-asText :: String -> Either String Text
-asText = pure . pack
+parseParameter :: Content -> Parser Parameter
+parseParameter c =
+  withNamedElement "parameter" c \attrs _ ->
+    do  parameterID       <- reqAttr parseText attrs "id"
+        parameterName     <- optAttr parseText attrs "name"
+        parameterValue    <- optAttr parseAny  attrs "value"
+        parameterUnits    <- optAttr parseText attrs "units"
+        parameterConstant <- reqAttr parseBool attrs "constant"
+        pure Parameter{..}
 
-asBool :: String -> Either String Bool
-asBool = readBool
+parseInitialAssignment :: Content -> Parser InitialAssignment
+parseInitialAssignment c =
+  withNamedElement "initialAssignment" c \attrs contents ->
+    do  initialID     <- optAttr parseText attrs "id"
+        initialSymbol <- reqAttr parseText attrs "symbol"
+        pure InitialAssignment{..}
 
-asAny :: Read a => String -> Either String a
-asAny = readEither'
+parseMath :: [Content] -> Parser Math
+parseMath cs = undefined
 
-reqVal :: Read a => (String -> Either String a) -> [Attr] -> QName -> Interpreter a
-reqVal rd attrs key =
+reqAttr :: (String -> Parser a) -> [Attr] -> QName -> Parser a
+reqAttr parse attrs key =
   case lookupAttr key attrs of
     Nothing -> die $ printf "data error: required key %s not found" (qName key)
-    Just val -> either (die . printf "error when parsing key '%s': %s" (qName key)) pure (rd val)
+    Just val -> parse val
 
-optVal :: Read a => (String -> Either String a) -> [Attr] -> QName -> Interpreter (Maybe a)
-optVal rd attrs key =
+optAttr :: (String -> Parser a) -> [Attr] -> QName -> Parser (Maybe a)
+optAttr parse attrs key =
   case lookupAttr key attrs of
     Nothing -> pure Nothing
-    Just val -> either (die . printf "error when parsing key '%s': %s" (qName key)) (pure . Just) (rd val)
+    Just val -> Just <$> parse val
 
-readEither' :: Read a => String -> Either String a
-readEither' s =
+parseAny :: Read a => String -> Parser a
+parseAny s =
   case readEither s of
-    Left _ -> Left $ printf "parse error: failed to interpret string '%s'" s
-    Right a -> Right a
+    Right a -> pure a
+    Left _ -> die $ printf "failed to parse '%s'" s
 
-readBool :: String -> Either String Bool
-readBool s =
+parseBool :: String -> Parser Bool
+parseBool s =
   case map toLower s of
-    "true" -> Right True
-    "false" -> Right False
-    _ -> Left $ "parse error: failed to parse purported boolean "<>s
+    "true" -> pure True
+    "false" -> pure False
+    _ -> die $ printf "failed to parse '%s' as boolean" s
+
+parseText :: String -> Parser Text
+parseText = pure . pack
 
 instance IsString QName where
   fromString s = QName s Nothing Nothing
