@@ -111,6 +111,7 @@ library
                         Language.ASKEE.RNet.Convert
                         Language.ASKEE.RNet.Syntax
 
+                        Language.ASKEE.SBML
 
                         -- General
                         Language.ASKEE.Compare
@@ -168,6 +169,7 @@ library
                       , unordered-containers
                       , vector
                       , witherable >= 0.4
+                      , xml
                       , http-client
                       , http-client-tls
                       , utf8-string

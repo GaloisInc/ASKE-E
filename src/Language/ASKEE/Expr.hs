@@ -1,13 +1,19 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Language.ASKEE.Expr where
 
+import Control.DeepSeq (NFData)
+
+import Data.List (find)
 import Data.Map  (Map, (!?))
 import Data.Text (Text, unpack)
 
+import GHC.Generics (Generic)
+
 import Prelude hiding (LT, EQ, GT)
-import Data.List (find)
 
 data Expr =
     Add  Expr Expr
@@ -30,7 +36,7 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
-  deriving (Eq, Show, Ord)
+  deriving (Eq, Generic, NFData, Ord, Show)
 
 
 eval :: Map Text Expr -> Expr -> Either String Double
