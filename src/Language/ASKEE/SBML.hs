@@ -28,40 +28,42 @@ import Data.Text   ( Text, pack )
 
 import GHC.Generics ( Generic )
 
-import Language.ASKEE.Expr ( Expr )
+import Language.ASKEE.Expr ( Expr (LitD) )
 
-import Text.Printf            ( printf )
+import Text.Printf            --( printf, PrintfArg )
 import Text.Read              ( readEither )
-import Text.XML.Light         ( parseXML
+import Text.XML.Light         ( elChildren
+                              , findChild
+                              , parseXML
                               , lookupAttr
-                              , Attr
                               , CData(..)
                               , Content(..)
                               , Element(..)
                               , Line
-                              , QName(..) )
-import Text.XML.Light.Cursor  ( findChild
-                              , firstChild
-                              , fromContent
-                              , getChild
-                              , Cursor(..) )
+                              , QName(..), findChildren, filterChild )
+import Debug.Trace
+-- import Text.XML.Light.Cursor  ( findChild
+--                               , firstChild
+--                               , fromContent
+--                               , getChild
+--                               , Cursor(..) )
 
 type ID = Text
 type Math = Expr
 
 data SBML = SBML
-  { sbmlName              :: ID
-  , sbmlVersion           :: Version
-  , sbmlFunctionDefs      :: [Function]
-  , sbmlUnitDefs          :: [UnitDef]
-  , sbmlCompartments      :: [Compartment]
-  , sbmlSpecies           :: [Species]
-  , sbmlParameters        :: [Parameter]
-  , sbmlInitialConditions :: [InitialAssignment]
-  , sbmlRules             :: [Rule]
-  , sbmlConstraints       :: [Constraint]
-  , sbmlReactions         :: [Reaction]
-  , sbmlEvents            :: [Event]
+  { sbmlName               :: ID
+  , sbmlVersion            :: Version
+  , sbmlFunctionDefs       :: Maybe [Function]
+  , sbmlUnitDefs           :: Maybe [UnitDef]
+  , sbmlCompartments       :: Maybe [Compartment]
+  , sbmlSpecies            :: Maybe [Species]
+  , sbmlParameters         :: Maybe [Parameter]
+  , sbmlInitialAssignments :: Maybe [InitialAssignment]
+  , sbmlRules              :: Maybe [Rule]
+  , sbmlConstraints        :: Maybe [Constraint]
+  , sbmlReactions          :: Maybe [Reaction]
+  , sbmlEvents             :: Maybe [Event]
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
@@ -126,8 +128,8 @@ data Reaction = Reaction
   { reactionID          :: ID
   , reactionReversible  :: Bool
   , reactionCompartment :: Maybe ID
-  , reactionReactants   :: [SpeciesRef]
-  , reactionProducts    :: [SpeciesRef]
+  , reactionReactants   :: Maybe [SpeciesRef]
+  , reactionProducts    :: Maybe [SpeciesRef]
   , reactionModifiers   :: [ModifierSpeciesRef]
   , reactionKineticLaw  :: Maybe KineticLaw
   }
@@ -201,42 +203,32 @@ setLinum = put . Location
 
 parseSBML :: String -> Parser SBML
 parseSBML src =
-  do  sbmlCursor <- fromContent <$> xml
-      sbmlVersion <- parseVersion (current sbmlCursor)
+  do  sbml <- xml >>= asElement
+      sbmlVersion <- parseVersion sbml
 
-      modelCursor <- 
-        case namedChild "model" sbmlCursor of
-          Just c -> pure c
-          Nothing -> die "sbml did not have a \"model\" child"
+      model <- withReqNamedChildElement "model" sbml pure
+      sbmlName <- reqAttr parseText model "name"
 
-      sbmlName <- withNamedElement "model" (current modelCursor) \attrs _ ->
-        reqAttr parseText attrs "name"
-
-      let sbmlFunctionDefs = []
-      let sbmlUnitDefs = []
+      let sbmlFunctionDefs = Nothing
+      let sbmlUnitDefs = Nothing
       
-      sbmlCompartments <- parseChildList "listOfCompartments" parseCompartment modelCursor
-      sbmlSpecies <- parseChildList "listOfSpecies" parseSpecies modelCursor
-      
-      let sbmlParameters = []
-      let sbmlInitialConditions = []
-      let sbmlRules = []
-      let sbmlConstraints = []
-      let sbmlReactions = []
-      let sbmlEvents = []
+      sbmlCompartments <- 
+        withOptNamedChildElement "listOfCompartments" model (appChildElements parseCompartment)
+      sbmlSpecies <- 
+        withOptNamedChildElement "listOfSpecies" model (appChildElements parseSpecies)
+      sbmlParameters <- 
+        withOptNamedChildElement "listOfParameters" model (appChildElements parseParameter)
+      sbmlInitialAssignments <- 
+        withOptNamedChildElement "listOfInitialAssignments" model (appChildElements parseInitialAssignment)
+
+      let sbmlRules = Nothing
+      let sbmlConstraints = Nothing
+      let sbmlReactions = Nothing
+      let sbmlEvents = Nothing
 
       pure SBML{..}
   where
-    xml = stripHeader (concatMap stripXMLWS (parseXML src))
-
-    stripXMLWS c =
-      case c of
-        Text (CData _ s _) 
-          | all isSpace s -> []
-          | otherwise -> [c]
-        Elem (Element name attrs contents linum) -> 
-          [Elem (Element name attrs (concatMap stripXMLWS contents) linum)]
-        CRef _ -> undefined
+    xml = stripHeader (concatMap removeWS (parseXML src))
 
     stripHeader x =
       do  setLinum (Just 0)
@@ -246,94 +238,139 @@ parseSBML src =
             2 -> pure (x !! 1)
             _ -> die "this document was too full"
 
-parseChildList :: String -> (Content -> Parser a) -> Cursor -> Parser [a]
-parseChildList name parse cur =
-  case namedChild name cur of
-    Nothing -> pure []
-    Just c -> traverse (parse . current) (children c)
+removeWS :: Content -> [Content]
+removeWS content =
+  case content of
+    Text (CData _ s _) 
+      | all isSpace s -> []
+      | otherwise -> [content]
+    Elem (Element name attrs contents linum) -> 
+      [Elem (Element name attrs (concatMap removeWS contents) linum)]
+    CRef _ -> undefined
 
-namedChild :: String -> Cursor -> Maybe Cursor
-namedChild s = findChild elementHasName
-  where
-    elementHasName c =
-      case current c of
-        Elem (Element (QName n _ _) _ _ _)
-          | n == s -> True
-        _ -> False
+findChild' :: QName -> Element -> Maybe Element
+findChild' qn = filterChild (\(Element qn' _ _ _) -> qName qn == qName qn')
 
-withNamedElement :: String -> Content -> ([Attr] -> [Content] -> Parser a) -> Parser a
-withNamedElement s c f =
-  case c of
-    Elem (Element (QName n _ _) attrs content linum)
-      | n == s -> setLinum linum >> f attrs content
-      | otherwise -> die $ printf "expected element '%s', but found '%s'" s n
-    _ -> die $ printf "expected element-type content, but found %s" (show c)
+withReqNamedChildElement :: QName -> Element -> (Element -> Parser a) -> Parser a
+withReqNamedChildElement s e@(Element (QName n _ _) _ _ linum) p =
+  do  setLinum linum
+      case findChild' s e of
+        Just e' -> p e'
+        Nothing -> die $ printf "couldn't find child named '%s' in element '%s'" s n
 
-parseVersion :: Content -> Parser Version
-parseVersion c =
-  withNamedElement "sbml" c \attrs _ ->
-    do  versionLevel   <- reqAttr parseAny attrs "level"
-        versionVersion <- reqAttr parseAny attrs "version"
-        unless (versionLevel == 3 && versionVersion == 2) $
-          die $ printf "unsupported SBML version: %i.%i" versionLevel versionVersion
-        pure Version{..}
+withOptNamedChildElement :: QName -> Element -> (Element -> Parser a) -> Parser (Maybe a)
+withOptNamedChildElement s e@(Element _ _ _ linum) p =
+  do  setLinum linum
+      case findChild' s e of
+        Just e' -> Just <$> p e'
+        Nothing -> pure Nothing
 
-parseCompartment :: Content -> Parser Compartment
-parseCompartment c =
-  withNamedElement "compartment" c \attrs _ ->
-    do  compartmentID         <- reqAttr parseText attrs "id"
-        compartmentDimensions <- optAttr parseAny  attrs "spatialDimensions"
-        compartmentSize       <- optAttr parseAny  attrs "size"
-        compartmentUnits      <- optAttr parseText attrs "units"
-        compartmentConstant   <- reqAttr parseBool attrs "constant"
-        pure Compartment{..}
+withChildElements :: Element -> (Element -> Parser a) -> Parser [a]
+withChildElements e@(Element _ _ _ linum) p = 
+  do  setLinum linum
+      traverse p (elChildren e)
 
-parseSpecies :: Content -> Parser Species
-parseSpecies c =
-  withNamedElement "species" c \attrs _ ->
-    do  speciesID                    <- reqAttr parseText attrs "id"
-        speciesName                  <- optAttr parseText attrs "name"
-        speciesCompartment           <- reqAttr parseText attrs "compartment"
-        speciesInitialAmount         <- optAttr parseAny  attrs "initialAmount"
-        speciesInitialConc           <- optAttr parseAny  attrs "initialConcentration"
-        speciesSubstanceUnits        <- optAttr parseText attrs "substanceUnits"
-        speciesHasOnlySubstanceUnits <- reqAttr parseBool attrs "hasOnlySubstanceUnits"
-        speciesBoundaryCondition     <- reqAttr parseBool attrs "boundaryCondition"
-        speciesConstant              <- reqAttr parseBool attrs "constant"
-        speciesConversionFactor      <- optAttr parseText attrs "conversionFactor"
-        pure Species{..}
+appChildElements :: (Element -> Parser a) -> Element -> Parser [a]
+appChildElements = flip withChildElements
 
-parseParameter :: Content -> Parser Parameter
-parseParameter c =
-  withNamedElement "parameter" c \attrs _ ->
-    do  parameterID       <- reqAttr parseText attrs "id"
-        parameterName     <- optAttr parseText attrs "name"
-        parameterValue    <- optAttr parseAny  attrs "value"
-        parameterUnits    <- optAttr parseText attrs "units"
-        parameterConstant <- reqAttr parseBool attrs "constant"
-        pure Parameter{..}
+guardName :: QName -> Element -> Parser ()
+guardName s (Element n _ _ linum) =
+  do  setLinum linum
+      unless (qName s == qName n) (die $ printf "expected element to be named '%s', but it was named '%s'" s n)
 
-parseInitialAssignment :: Content -> Parser InitialAssignment
-parseInitialAssignment c =
-  withNamedElement "initialAssignment" c \attrs contents ->
-    do  initialID     <- optAttr parseText attrs "id"
-        initialSymbol <- reqAttr parseText attrs "symbol"
-        pure InitialAssignment{..}
+-------------------------------------------------------------------------------
 
-parseMath :: [Content] -> Parser Math
-parseMath cs = undefined
+parseVersion :: Element -> Parser Version
+parseVersion e =
+  do  guardName "sbml" e
+      versionLevel <- reqAttr parseAny e "level"
+      versionVersion <- reqAttr parseAny e "version"
+      unless (versionLevel == 3 && versionVersion == 2) $
+        die $ printf "unsupported SBML version: %i.%i" versionLevel versionVersion
+      pure Version{..}
 
-reqAttr :: (String -> Parser a) -> [Attr] -> QName -> Parser a
-reqAttr parse attrs key =
-  case lookupAttr key attrs of
-    Nothing -> die $ printf "data error: required key %s not found" (qName key)
-    Just val -> parse val
+parseCompartment :: Element -> Parser Compartment
+parseCompartment e =
+  do  guardName "compartment" e
+      compartmentID         <- reqAttr parseText e "id"
+      compartmentDimensions <- optAttr parseAny  e "spatialDimensions"
+      compartmentSize       <- optAttr parseAny  e "size"
+      compartmentUnits      <- optAttr parseText e "units"
+      compartmentConstant   <- reqAttr parseBool e "constant"
+      pure Compartment{..}
 
-optAttr :: (String -> Parser a) -> [Attr] -> QName -> Parser (Maybe a)
-optAttr parse attrs key =
-  case lookupAttr key attrs of
-    Nothing -> pure Nothing
-    Just val -> Just <$> parse val
+parseSpecies :: Element -> Parser Species
+parseSpecies e =
+  do  guardName "species" e
+      speciesID                    <- reqAttr parseText e "id"
+      speciesName                  <- optAttr parseText e "name"
+      speciesCompartment           <- reqAttr parseText e "compartment"
+      speciesInitialAmount         <- optAttr parseAny  e "initialAmount"
+      speciesInitialConc           <- optAttr parseAny  e "initialConcentration"
+      speciesSubstanceUnits        <- optAttr parseText e "substanceUnits"
+      speciesHasOnlySubstanceUnits <- reqAttr parseBool e "hasOnlySubstanceUnits"
+      speciesBoundaryCondition     <- reqAttr parseBool e "boundaryCondition"
+      speciesConstant              <- reqAttr parseBool e "constant"
+      speciesConversionFactor      <- optAttr parseText e "conversionFactor"
+      pure Species{..}
+
+parseParameter :: Element -> Parser Parameter
+parseParameter e =
+  do  guardName "parameter" e
+      parameterID       <- reqAttr parseText e "id"
+      parameterName     <- optAttr parseText e "name"
+      parameterValue    <- optAttr parseAny  e "value"
+      parameterUnits    <- optAttr parseText e "units"
+      parameterConstant <- reqAttr parseBool e "constant"
+      pure Parameter{..}
+
+parseInitialAssignment :: Element -> Parser InitialAssignment
+parseInitialAssignment e =
+  do  guardName "initialAssignment" e
+      initialID     <- optAttr parseText e "id"
+      initialSymbol <- reqAttr parseText e "symbol"
+      initialMath   <- withReqNamedChildElement "math" e parseMath
+      pure InitialAssignment{..}
+
+parseMath :: Element -> Parser Math
+parseMath e =
+  do  guardName "math" e
+      pure (LitD 0)
+
+parseReaction :: Element -> Parser Reaction
+parseReaction e =
+  do  guardName "reaction" e
+      reactionID <- reqAttr parseText e "id"
+      reactionReversible <- reqAttr parseBool e "reversible"
+      reactionCompartment <- optAttr parseText e "id"
+      reactionReactants <- 
+        withOptNamedChildElement "listOfReactants" e (appChildElements parseSpeciesRef)
+      reactionProducts <- 
+        withOptNamedChildElement "listOfProducts" e (appChildElements parseSpeciesRef)
+
+      pure Reaction{..}
+
+parseSpeciesRef :: Element -> Parser SpeciesRef
+parseSpeciesRef e =
+  do  guardName "species" e
+      speciesRefID <- reqAttr parseText e "id"
+      speciesRefStoichiometry <- optAttr parseAny e "stoichiometry"
+      speciesRefConstant <- reqAttr parseBool e "constant"
+      pure SpeciesRef{..}
+
+reqAttr :: (String -> Parser a) -> Element -> QName -> Parser a
+reqAttr parse (Element _ attrs _ linum) key =
+  do  setLinum linum
+      case lookupAttr key attrs of
+        Just val -> parse val
+        Nothing -> die $ printf "data error: required key %s not found" (qName key)
+
+optAttr :: (String -> Parser a) -> Element -> QName -> Parser (Maybe a)
+optAttr parse (Element _ attrs _ linum) key =
+  do  setLinum linum
+      case lookupAttr key attrs of
+        Just val -> Just <$> parse val
+        Nothing -> pure Nothing
 
 parseAny :: Read a => String -> Parser a
 parseAny s =
@@ -354,7 +391,18 @@ parseText = pure . pack
 instance IsString QName where
   fromString s = QName s Nothing Nothing
 
-children :: Cursor -> [Cursor]
-children c =
-  map fromJust $
-    takeWhile isJust [ getChild i c | i <- [0..] ]
+instance PrintfArg QName where
+  formatArg (QName n _ _) = formatString n
+
+
+asElement :: Content -> Parser Element
+asElement c =
+  case c of
+    Elem e -> pure e
+    _ -> die $ printf "expected an element, but found a %s" (show c)
+
+
+-- children :: Cursor -> [Cursor]
+-- children c =
+--   map fromJust $
+--     takeWhile isJust [ getChild i c | i <- [0..] ]
