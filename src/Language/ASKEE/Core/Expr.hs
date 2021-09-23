@@ -36,7 +36,7 @@ data Expr =
 data Op1 = Not | Neg | Exp | Log
   deriving (Show,Eq,Ord,Generic,NFData)
 
-data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or
+data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or | Pow
   deriving (Show,Eq,Ord,Generic,NFData)
 
 data Literal =
@@ -369,3 +369,4 @@ asExpr expr =
         Eq -> Expr.EQ (asExpr e1) (asExpr e2)
         And -> Expr.And (asExpr e1) (asExpr e2)
         Or -> Expr.Or (asExpr e1) (asExpr e2)
+        Pow -> Expr.Pow (asExpr e1) (asExpr e2)

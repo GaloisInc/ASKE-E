@@ -284,6 +284,7 @@ exprToArg vars expr =
            Core.Eq      -> op "=="
            Core.And     -> op "and"
            Core.Or      -> op "or"
+           Core.Pow     -> error "don't know the syntax for exponentiation in gromet"
 
     Core.If e1 e2 e3  -> doOp "if" [e1,e2,e3]
     Core.Fail _       -> doOp "error" []

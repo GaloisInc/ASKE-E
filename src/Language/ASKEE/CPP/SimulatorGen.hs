@@ -68,6 +68,7 @@ genIncludes = C.stmts [ C.include i | i <- includes ]
     , "stdint.h"
     , "math.h"
     , "iostream"
+    , "cmath"
     ]
 
 eventNum :: [Core.Event]-> Core.Ident -> Int
@@ -228,7 +229,10 @@ genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
   case e0 of
     Core.Op1 op e        -> unop (op1 op) e
-    Core.Op2 op e1 e2    -> binop (op2 op) e1 e2
+    Core.Op2 op e1 e2    -> 
+      case op of
+        Core.Pow -> C.call ("std" `C.namespace` "pow") [subExpr e1, subExpr e2]
+        _ -> binop (op2 op) e1 e2
     Core.If test thn els -> C.cond (subExpr test) (subExpr thn) (subExpr els)
     Core.Literal l       -> lit l
     Core.Var n           -> vf n
@@ -251,6 +255,7 @@ genExpr' vf e0 =
              Core.Eq  -> "=="
              Core.And -> "&&"
              Core.Or  -> "||"
+             Core.Pow -> error "power not an infix op"
 
   lit l = case l of
             Core.Num d  -> C.doubleLit d

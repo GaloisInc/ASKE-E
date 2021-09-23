@@ -36,6 +36,7 @@ evalDouble expr env =
         Mul -> evalDouble e1 env * evalDouble e2 env
         Sub -> evalDouble e1 env - evalDouble e2 env
         Div -> evalDouble e1 env / evalDouble e2 env
+        Pow -> evalDouble e1 env ** evalDouble e2 env
         Lt  -> typeError
         Leq -> typeError
         Eq  -> typeError
@@ -73,6 +74,7 @@ evalBool expr env =
         Mul -> typeError
         Sub -> typeError
         Div -> typeError
+        Pow -> typeError
         Lt  -> evalDouble e1 env < evalDouble e2 env
         Leq -> evalDouble e1 env <= evalDouble e2 env
         Eq  -> evalDouble e1 env == evalDouble e2 env

@@ -34,6 +34,7 @@ pyPrintExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "math.exp" <> parens (pyPrintExpr e1)
     (Log e1) -> text "math.log" <> parens (pyPrintExpr e1)
+    (Pow e1 e2) -> binop e1 "**" e2
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
     (Var i) -> pretty i
@@ -78,6 +79,7 @@ pyPrintExpr expr =
         Not _ -> 1
         Exp _ -> 1
         Log _ -> 1
+        Pow _ _ -> 8
         Add _ _ -> 6
         Sub _ _ -> 6
         Mul _ _ -> 7
@@ -103,6 +105,7 @@ printExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "exp" <> parens (printExpr e1)
     (Log e1) -> text "log" <> parens (printExpr e1)
+    (Pow _ _) -> error "haven't decided on a syntax for exponentiation yet"
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
     (Var i) -> pretty (unpack i)
@@ -153,6 +156,7 @@ printExpr expr =
         Not _ -> 4
         Exp _ -> 1
         Log _ -> 1
+        Pow _ _ -> error "haven't decided on a syntax for exponentiation yet"
         Add _ _ -> 6
         Sub _ _ -> 6
         Mul _ _ -> 7

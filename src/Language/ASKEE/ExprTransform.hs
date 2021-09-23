@@ -29,6 +29,7 @@ transformExpr exprT e =
     Expr.Neg e1    -> (Expr.Neg <$> expr e1) >>= exprT
     Expr.Exp e1    -> (Expr.Exp <$> expr e1) >>= exprT
     Expr.Log e1    -> (Expr.Log <$> expr e1) >>= exprT
+    Expr.Pow e1 e2 -> bin Expr.Pow e1 e2
     Expr.And e1 e2 -> bin Expr.And e1 e2
     Expr.Or  e1 e2 -> bin Expr.Or e1 e2
     Expr.LT  e1 e2 -> cmp Expr.LT e1 e2

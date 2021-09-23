@@ -284,3 +284,6 @@ spacedOut = intersperse ""
 main :: [Doc] -> Doc
 main =
   function int "main" [arg int "argc", ptrptrArg char "argv"]
+
+namespace :: Doc {- ^ the namespace -} -> Doc {- ^ the value -} -> Doc
+namespace nm val = nm <> "::" <> val

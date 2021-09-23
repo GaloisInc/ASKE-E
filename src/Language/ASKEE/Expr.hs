@@ -23,6 +23,7 @@ data Expr =
   | Neg  Expr
   | Exp  Expr
   | Log  Expr
+  | Pow  Expr Expr
   | And  Expr Expr
   | Or   Expr Expr
   | Not  Expr
@@ -50,6 +51,7 @@ eval vars e = ev e
     ev (Neg e1) = negate <$> ev e1
     ev (Exp e1) = exp <$> ev e1
     ev (Log e1) = log <$> ev e1
+    ev (Pow e1 e2) = binop (**) e1 e2
     ev (And e1 e2) = logop (&&) e1 e2
     ev (Or e1 e2) = logop (||) e1 e2
     ev (Not e1) = double . not <$> evB e1

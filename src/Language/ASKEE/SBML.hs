@@ -389,7 +389,7 @@ parseMath e =
             "divide" -> foldl1 Div <$> traverse parseTop els
             "and" -> foldl1 And <$> traverse parseTop els
             "or" -> foldl1 Or <$> traverse parseTop els
-            "power" -> foldl1 Add <$> traverse parseTop els
+            "power" -> foldl1 Pow <$> traverse parseTop els
             n -> die $ printf "unknown mathematical operator '%s'" n
         [] -> undefined
 
