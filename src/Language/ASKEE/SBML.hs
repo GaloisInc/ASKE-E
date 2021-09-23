@@ -130,31 +130,33 @@ data Reaction = Reaction
   , reactionCompartment :: Maybe ID
   , reactionReactants   :: Maybe [SpeciesRef]
   , reactionProducts    :: Maybe [SpeciesRef]
-  , reactionModifiers   :: [ModifierSpeciesRef]
+  , reactionModifiers   :: Maybe [ModifierSpeciesRef]
   , reactionKineticLaw  :: Maybe KineticLaw
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data SpeciesRef = SpeciesRef
-  { speciesRefID :: ID
+  { speciesRefID            :: Maybe ID
+  , speciesRefSpecies       :: ID
   , speciesRefStoichiometry :: Maybe Double
-  , speciesRefConstant :: Bool
+  , speciesRefConstant      :: Bool
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data ModifierSpeciesRef = ModifierSpeciesRef
-  { modifierSpeciesRefID :: ID
+  { modifierSpeciesRefID      :: Maybe ID
+  , modifierSpeciesRefSpecies :: ID
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data KineticLaw = KineticLaw
   { kineticMath        :: Maybe Math
-  , kineticLocalParams :: [LocalParam]
+  , kineticLocalParams :: Maybe [LocalParam]
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data LocalParam = LocalParam
-  { localParamID :: ID
+  { localParamID    :: ID
   , localParamValue :: Maybe Double
   , localParamUnits :: Maybe ID
   }
@@ -179,8 +181,7 @@ newtype Parser a = Parser
     )
 
 runParser :: Parser a -> Either Error a
-runParser (Parser i) =
-  evalState (runExceptT i) (Location Nothing)
+runParser (Parser i) = evalState (runExceptT i) (Location Nothing)
 
 newtype Location = Location
   { locLinum :: Maybe Line
@@ -223,7 +224,10 @@ parseSBML src =
 
       let sbmlRules = Nothing
       let sbmlConstraints = Nothing
-      let sbmlReactions = Nothing
+
+      sbmlReactions <- 
+        withOptNamedChildElement "listOfReactions" model (appChildElements parseReaction)
+
       let sbmlEvents = Nothing
 
       pure SBML{..}
@@ -347,16 +351,43 @@ parseReaction e =
         withOptNamedChildElement "listOfReactants" e (appChildElements parseSpeciesRef)
       reactionProducts <- 
         withOptNamedChildElement "listOfProducts" e (appChildElements parseSpeciesRef)
-
+      reactionModifiers <-
+        withOptNamedChildElement "listOfModifiers" e (appChildElements parseModifierSpeciesRef)
+      reactionKineticLaw <-
+        withOptNamedChildElement "kineticLaw" e parseKineticLaw
       pure Reaction{..}
 
 parseSpeciesRef :: Element -> Parser SpeciesRef
 parseSpeciesRef e =
-  do  guardName "species" e
-      speciesRefID <- reqAttr parseText e "id"
+  do  guardName "speciesReference" e
+      speciesRefID <- optAttr parseText e "id"
+      speciesRefSpecies <- reqAttr parseText e "species"
       speciesRefStoichiometry <- optAttr parseAny e "stoichiometry"
       speciesRefConstant <- reqAttr parseBool e "constant"
       pure SpeciesRef{..}
+
+parseModifierSpeciesRef :: Element -> Parser ModifierSpeciesRef
+parseModifierSpeciesRef e =
+  do  guardName "speciesReference" e
+      modifierSpeciesRefID <- optAttr parseText e "id"
+      modifierSpeciesRefSpecies <- reqAttr parseText e "species"
+      pure ModifierSpeciesRef{..}
+
+parseKineticLaw :: Element -> Parser KineticLaw
+parseKineticLaw e =
+  do  guardName "kineticLaw" e
+      kineticMath <- withOptNamedChildElement "math" e parseMath
+      kineticLocalParams <-
+        withOptNamedChildElement "listOfLocalParameters" e (appChildElements parseLocalParam)
+      pure KineticLaw{..}
+
+parseLocalParam :: Element -> Parser LocalParam
+parseLocalParam e =
+  do  guardName "" e
+      localParamID <- reqAttr parseText e "id"
+      localParamValue <- optAttr parseAny e "value"
+      localParamUnits <- optAttr parseText e "units"
+      pure LocalParam{..}
 
 reqAttr :: (String -> Parser a) -> Element -> QName -> Parser a
 reqAttr parse (Element _ attrs _ linum) key =
