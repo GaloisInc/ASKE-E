@@ -112,6 +112,9 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         Language.ASKEE.SBML
+                        Language.ASKEE.SBML.Syntax
+                        Language.ASKEE.SBML.Parse
+                        
 
                         -- General
                         Language.ASKEE.Compare
