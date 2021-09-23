@@ -73,7 +73,7 @@ data Error = Error
   { eLoc :: Location
   , eMessage :: String
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 ppError :: Error -> String
 ppError Error{..} = printf "error at line %i: %s" ppLoc eMessage
@@ -86,7 +86,7 @@ ppError Error{..} = printf "error at line %i: %s" ppLoc eMessage
 newtype Location = Location
   { locLinum :: Maybe Line
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 runParser :: Parser a -> Either Error a
 runParser (Parser i) = evalState (runExceptT i) (Location Nothing)
