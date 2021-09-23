@@ -22,7 +22,6 @@ import Control.Monad.Except     ( throwError
                                 , ExceptT(..) )
 
 import Data.Char   ( toLower, isSpace )
-import Data.Maybe  ( fromJust, isJust )
 import Data.String ( IsString(..) )
 import Data.Text   ( Text, pack )
 
@@ -33,20 +32,14 @@ import Language.ASKEE.Expr ( Expr (LitD) )
 import Text.Printf            --( printf, PrintfArg )
 import Text.Read              ( readEither )
 import Text.XML.Light         ( elChildren
-                              , findChild
-                              , parseXML
+                              , filterChild 
                               , lookupAttr
+                              , parseXML
                               , CData(..)
                               , Content(..)
                               , Element(..)
                               , Line
-                              , QName(..), findChildren, filterChild )
-import Debug.Trace
--- import Text.XML.Light.Cursor  ( findChild
---                               , firstChild
---                               , fromContent
---                               , getChild
---                               , Cursor(..) )
+                              , QName(..) )
 
 type ID = Text
 type Math = Expr
@@ -207,26 +200,26 @@ parseSBML src =
   do  sbml <- xml >>= asElement
       sbmlVersion <- parseVersion sbml
 
-      model <- withReqNamedChildElement "model" sbml pure
+      model <- reqChild pure sbml "model"
       sbmlName <- reqAttr parseText model "name"
 
       let sbmlFunctionDefs = Nothing
       let sbmlUnitDefs = Nothing
       
       sbmlCompartments <- 
-        withOptNamedChildElement "listOfCompartments" model (appChildElements parseCompartment)
+        optChild (appChildElements parseCompartment) model "listOfCompartments"
       sbmlSpecies <- 
-        withOptNamedChildElement "listOfSpecies" model (appChildElements parseSpecies)
+        optChild (appChildElements parseSpecies) model "listOfSpecies"
       sbmlParameters <- 
-        withOptNamedChildElement "listOfParameters" model (appChildElements parseParameter)
+        optChild (appChildElements parseParameter) model "listOfParameters"
       sbmlInitialAssignments <- 
-        withOptNamedChildElement "listOfInitialAssignments" model (appChildElements parseInitialAssignment)
+        optChild (appChildElements parseInitialAssignment) model "listOfInitialAssignments"
 
       let sbmlRules = Nothing
       let sbmlConstraints = Nothing
 
       sbmlReactions <- 
-        withOptNamedChildElement "listOfReactions" model (appChildElements parseReaction)
+        optChild (appChildElements parseReaction) model "listOfReactions"
 
       let sbmlEvents = Nothing
 
@@ -255,18 +248,32 @@ removeWS content =
 findChild' :: QName -> Element -> Maybe Element
 findChild' qn = filterChild (\(Element qn' _ _ _) -> qName qn == qName qn')
 
-withReqNamedChildElement :: QName -> Element -> (Element -> Parser a) -> Parser a
-withReqNamedChildElement s e@(Element (QName n _ _) _ _ linum) p =
+reqChild :: (Element -> Parser a) -> Element -> QName -> Parser a
+reqChild parse e@(Element eName _ _ linum) cName =
   do  setLinum linum
-      case findChild' s e of
-        Just e' -> p e'
-        Nothing -> die $ printf "couldn't find child named '%s' in element '%s'" s n
+      case findChild' cName e of
+        Just e' -> parse e'
+        Nothing -> die $ printf "couldn't find child named '%s' in element '%s'" cName eName
 
-withOptNamedChildElement :: QName -> Element -> (Element -> Parser a) -> Parser (Maybe a)
-withOptNamedChildElement s e@(Element _ _ _ linum) p =
+optChild :: (Element -> Parser a) -> Element -> QName -> Parser (Maybe a)
+optChild parse e@(Element _ _ _ linum) cName =
   do  setLinum linum
-      case findChild' s e of
-        Just e' -> Just <$> p e'
+      case findChild' cName e of
+        Just e' -> Just <$> parse e'
+        Nothing -> pure Nothing
+
+reqAttr :: (String -> Parser a) -> Element -> QName -> Parser a
+reqAttr parse (Element _ attrs _ linum) key =
+  do  setLinum linum
+      case lookupAttr key attrs of
+        Just val -> parse val
+        Nothing -> die $ printf "data error: required key %s not found" (qName key)
+
+optAttr :: (String -> Parser a) -> Element -> QName -> Parser (Maybe a)
+optAttr parse (Element _ attrs _ linum) key =
+  do  setLinum linum
+      case lookupAttr key attrs of
+        Just val -> Just <$> parse val
         Nothing -> pure Nothing
 
 withChildElements :: Element -> (Element -> Parser a) -> Parser [a]
@@ -333,7 +340,7 @@ parseInitialAssignment e =
   do  guardName "initialAssignment" e
       initialID     <- optAttr parseText e "id"
       initialSymbol <- reqAttr parseText e "symbol"
-      initialMath   <- withReqNamedChildElement "math" e parseMath
+      initialMath   <- reqChild parseMath e "math"
       pure InitialAssignment{..}
 
 parseMath :: Element -> Parser Math
@@ -348,13 +355,13 @@ parseReaction e =
       reactionReversible <- reqAttr parseBool e "reversible"
       reactionCompartment <- optAttr parseText e "id"
       reactionReactants <- 
-        withOptNamedChildElement "listOfReactants" e (appChildElements parseSpeciesRef)
+        optChild (appChildElements parseSpeciesRef) e "listOfReactants"
       reactionProducts <- 
-        withOptNamedChildElement "listOfProducts" e (appChildElements parseSpeciesRef)
+        optChild (appChildElements parseSpeciesRef) e "listOfProducts"
       reactionModifiers <-
-        withOptNamedChildElement "listOfModifiers" e (appChildElements parseModifierSpeciesRef)
+        optChild (appChildElements parseModifierSpeciesRef) e "listOfModifiers"
       reactionKineticLaw <-
-        withOptNamedChildElement "kineticLaw" e parseKineticLaw
+        optChild parseKineticLaw e "kineticLaw"
       pure Reaction{..}
 
 parseSpeciesRef :: Element -> Parser SpeciesRef
@@ -376,9 +383,9 @@ parseModifierSpeciesRef e =
 parseKineticLaw :: Element -> Parser KineticLaw
 parseKineticLaw e =
   do  guardName "kineticLaw" e
-      kineticMath <- withOptNamedChildElement "math" e parseMath
+      kineticMath <- optChild parseMath e "math"
       kineticLocalParams <-
-        withOptNamedChildElement "listOfLocalParameters" e (appChildElements parseLocalParam)
+        optChild (appChildElements parseLocalParam) e "listOfLocalParameters"
       pure KineticLaw{..}
 
 parseLocalParam :: Element -> Parser LocalParam
@@ -388,20 +395,6 @@ parseLocalParam e =
       localParamValue <- optAttr parseAny e "value"
       localParamUnits <- optAttr parseText e "units"
       pure LocalParam{..}
-
-reqAttr :: (String -> Parser a) -> Element -> QName -> Parser a
-reqAttr parse (Element _ attrs _ linum) key =
-  do  setLinum linum
-      case lookupAttr key attrs of
-        Just val -> parse val
-        Nothing -> die $ printf "data error: required key %s not found" (qName key)
-
-optAttr :: (String -> Parser a) -> Element -> QName -> Parser (Maybe a)
-optAttr parse (Element _ attrs _ linum) key =
-  do  setLinum linum
-      case lookupAttr key attrs of
-        Just val -> Just <$> parse val
-        Nothing -> pure Nothing
 
 parseAny :: Read a => String -> Parser a
 parseAny s =
