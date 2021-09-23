@@ -76,7 +76,7 @@ data Error = Error
   deriving (Eq, Show)
 
 ppError :: Error -> String
-ppError Error{..} = printf "error at line %i: %s" ppLoc eMessage
+ppError Error{..} = printf "error at line %s: %s" ppLoc eMessage
   where
     ppLoc =
       case eLoc of
@@ -281,7 +281,7 @@ parseReaction e =
   do  guardName "reaction" e
       reactionID <- reqAttr parseText e "id"
       reactionReversible <- reqAttr parseBool e "reversible"
-      reactionCompartment <- optAttr parseText e "id"
+      reactionCompartment <- optAttr parseText e "compartment"
       reactionReactants <- 
         optChild (appChildren parseSpeciesRef) e "listOfReactants"
       reactionProducts <- 
@@ -303,7 +303,7 @@ parseSpeciesRef e =
 
 parseModifierSpeciesRef :: Element -> Parser ModifierSpeciesRef
 parseModifierSpeciesRef e =
-  do  guardName "speciesReference" e
+  do  guardName "modifierSpeciesReference" e
       modifierSpeciesRefID <- optAttr parseText e "id"
       modifierSpeciesRefSpecies <- reqAttr parseText e "species"
       pure ModifierSpeciesRef{..}
@@ -318,7 +318,7 @@ parseKineticLaw e =
 
 parseLocalParam :: Element -> Parser LocalParam
 parseLocalParam e =
-  do  guardName "" e
+  do  guardName "localParameter" e
       localParamID <- reqAttr parseText e "id"
       localParamValue <- optAttr parseAny e "value"
       localParamUnits <- optAttr parseText e "units"

@@ -4,6 +4,7 @@ module SBML where
 
 import Data.Text ( Text )
 
+import Language.ASKEE.Expr
 import Language.ASKEE.SBML.Parse
 import Language.ASKEE.SBML.Syntax
 
@@ -36,19 +37,7 @@ parseSBMLWrongVersion =
   where
     src = "<sbml level=\"3\" version=\"1\"></sbml>"
 
-emptyModel = Model
-  { modelName               = Nothing
-  , modelFunctionDefs       = Nothing
-  , modelUnitDefs           = Nothing
-  , modelCompartments       = Nothing
-  , modelSpecies            = Nothing
-  , modelParameters         = Nothing
-  , modelInitialAssignments = Nothing
-  , modelRules              = Nothing
-  , modelConstraints        = Nothing
-  , modelReactions          = Nothing
-  , modelEvents             = Nothing
-  }
+-------------------------------------------------------------------------------
 
 parseUnitKindSuccess :: Assertion
 parseUnitKindSuccess = expected @=? runParser (parseUnitKind "tesla")
@@ -70,8 +59,7 @@ parseFullUnit :: Assertion
 parseFullUnit = expected @=? parse src parseUnit
   where
     src = "<unit kind=\"second\" exponent=\"-1\" scale=\"0\" multiplier=\"1\"/>"
-    expected = Right u
-    u = defaultUnit
+    expected = Right defaultUnit
       { unitKind = Second
       , unitExponent = -1
       , unitScale = 0
@@ -80,7 +68,7 @@ parseFullUnit = expected @=? parse src parseUnit
 parseFullUnitDef :: Assertion
 parseFullUnitDef = expected @=? parse src parseUnitDef
   where
-    src = unwords
+    src = unlines
       [ "<unitDefinition id=\"litre_per_mole_second\">"
       , "  <listOfUnits>"
       , "     <unit kind=\"mole\"   exponent=\"-1\" scale=\"0\" multiplier=\"1\"/>"
@@ -89,8 +77,7 @@ parseFullUnitDef = expected @=? parse src parseUnitDef
       , "  </listOfUnits>"
       , "</unitDefinition>"
       ]
-    expected = Right perSecond
-    perSecond = UnitDef
+    expected = Right UnitDef
       { unitDefID = "litre_per_mole_second"
       , unitDefUnits = Just [u1,u2,u3]
       }
@@ -110,8 +97,243 @@ parseFullUnitDef = expected @=? parse src parseUnitDef
       , unitScale = 0
       }
 
+-------------------------------------------------------------------------------
+
+parseFullCompartment :: Assertion
+parseFullCompartment = expected @=? parse src parseCompartment
+  where
+    src = "<compartment id=\"comp\" size=\"1e-14\" spatialDimensions=\"3\" units=\"litre\" constant=\"true\"/>"
+    expected = Right Compartment
+      { compartmentID = "comp"
+      , compartmentSize = Just 1e-14
+      , compartmentDimensions = Just 3
+      , compartmentUnits = Just "litre"
+      , compartmentConstant = True
+      }
 
 -------------------------------------------------------------------------------
+
+parseFullSpecies :: Assertion
+parseFullSpecies = expected @=? parse src parseSpecies
+  where
+    src = "<species compartment=\"comp\" id=\"E\"  initialAmount=\"5e-21\" boundaryCondition=\"false\" hasOnlySubstanceUnits=\"false\" substanceUnits=\"mole\" constant=\"false\"/>"
+    expected = Right Species
+      { speciesID = "E"
+      , speciesName = Nothing
+      , speciesCompartment = "comp"
+      , speciesInitialAmount = Just 5e-21
+      , speciesInitialConc = Nothing
+      , speciesSubstanceUnits = Just "mole"
+      , speciesHasOnlySubstanceUnits = False
+      , speciesBoundaryCondition = False
+      , speciesConstant = False
+      , speciesConversionFactor = Nothing
+      }
+
+-------------------------------------------------------------------------------
+
+parseFullParameter :: Assertion
+parseFullParameter = expected @=? parse src parseParameter
+  where
+    src = "<parameter id=\"convertToMilliMole\" value=\"1000\" units=\"millimole_per_mole\" constant=\"true\"/>"
+    expected = Right Parameter
+      { parameterID = "convertToMilliMole"
+      , parameterName = Nothing
+      , parameterValue = Just 1000
+      , parameterUnits = Just "millimole_per_mole"
+      , parameterConstant = True
+      }
+
+-------------------------------------------------------------------------------
+
+parseMathLit :: Assertion
+parseMathLit = expected @=? parse src parseMath
+  where
+    src = unlines
+      [ "<math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "      xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "  <cn sbml:units=\"dimensionless\"> 2 </cn>"
+      , "</math>"
+      ]
+    expected = Right (LitD 2)
+
+parseMathVar :: Assertion
+parseMathVar = expected @=? parse src parseMath
+  where
+    src = unlines
+      [ "<math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "      xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "  <ci> y </ci>"
+      , "</math>"
+      ]
+    expected = Right (Var "y")
+
+parseMathApp :: Assertion
+parseMathApp = expected @=? parse src parseMath
+  where
+    src = unlines
+      [ "<math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "      xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "    <apply>"
+      , "        <times/>"
+      , "        <ci> y </ci>"
+      , "        <cn sbml:units=\"dimensionless\"> 2 </cn>"
+      , "    </apply>"
+      , "</math>"
+      ]
+    expected = Right (Mul (Var "y") (LitD 2))
+
+-------------------------------------------------------------------------------
+
+parseFullInitialAssignment :: Assertion
+parseFullInitialAssignment = expected @=? parse src parseInitialAssignment
+  where
+    src = unlines
+      [ "<initialAssignment symbol=\"x\">"
+      , "    <math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "          xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "        <apply>"
+      , "            <times/>"
+      , "            <ci> y </ci>"
+      , "            <cn sbml:units=\"dimensionless\"> 2 </cn>"
+      , "        </apply>"
+      , "    </math>"
+      , "</initialAssignment>"
+      ]
+    expected = Right InitialAssignment
+      { initialID = Nothing
+      , initialSymbol = "x"
+      , initialMath = Mul (Var "y") (LitD 2)
+      }
+
+-------------------------------------------------------------------------------
+
+parseFullSpeciesRef :: Assertion
+parseFullSpeciesRef = expected @=? parse src parseSpeciesRef
+  where
+    src = "<speciesReference species=\"T\" stoichiometry=\"1\" constant=\"true\"/>"
+    expected = Right SpeciesRef
+      { speciesRefID = Nothing
+      , speciesRefSpecies = "T"
+      , speciesRefStoichiometry = Just 1
+      , speciesRefConstant = True
+      }
+
+parseFullModifierSpeciesRef :: Assertion
+parseFullModifierSpeciesRef = expected @=? parse src parseModifierSpeciesRef
+  where
+    src = "<modifierSpeciesReference species=\"S2\"/>"
+    expected = Right ModifierSpeciesRef
+      { modifierSpeciesRefID = Nothing
+      , modifierSpeciesRefSpecies = "S2"
+      }
+
+parseFullLocalParameter :: Assertion
+parseFullLocalParameter = expected @=? parse src parseLocalParam
+  where
+    src = "<localParameter id=\"k2\" value=\"0.15\" units=\"per_second\"/>"
+    expected = Right LocalParam
+      { localParamID = "k2"
+      , localParamValue = Just 0.15
+      , localParamUnits = Just "per_second"
+      }
+
+parseFullKineticLaw :: Assertion
+parseFullKineticLaw = expected @=? parse src parseKineticLaw
+  where
+    src = unlines
+      [ "<kineticLaw>"
+      , "    <math xmlns=\"http://www.w3.org/1998/Math/MathML\">"
+      , "        <apply>"
+      , "            <times/>"
+      , "            <ci> k2 </ci>"
+      , "            <ci> S2 </ci>"
+      , "            <ci> cell </ci>"
+      , "        </apply>"
+      , "    </math>"
+      , "    <listOfLocalParameters>"
+      , "        <localParameter id=\"k2\" value=\"0.15\" units=\"per_second\"/>"
+      , "    </listOfLocalParameters>"
+      , "</kineticLaw>"
+      ]
+    l = LocalParam
+      { localParamID = "k2"
+      , localParamValue = Just 0.15
+      , localParamUnits = Just "per_second"
+      }
+    expected = Right KineticLaw
+      { kineticMath = Just (Mul (Mul (Var "k2") (Var "S2")) (Var "cell"))
+      , kineticLocalParams = Just [l]
+      }
+
+
+parseFullReaction :: Assertion
+parseFullReaction = expected @=? parse src parseReaction
+  where
+    src = unlines
+      [ "<reaction id=\"out\" reversible=\"false\">"
+      , "  <listOfReactants>"
+      , "      <speciesReference species=\"T\" stoichiometry=\"1\" constant=\"true\"/>"
+      , "  </listOfReactants>"
+      , "  <listOfProducts>"
+      , "      <speciesReference species=\"X1\" stoichiometry=\"1\" constant=\"true\"/>"
+      , "  </listOfProducts>"
+      , "  <listOfModifiers>"
+      , "      <modifierSpeciesReference species=\"S2\"/>"
+      , "  </listOfModifiers>"
+      , "  <kineticLaw>"
+      , "      <math xmlns=\"http://www.w3.org/1998/Math/MathML\">"
+      , "          <apply>"
+      , "              <times/>"
+      , "              <ci> k2 </ci>"
+      , "              <ci> S2 </ci>"
+      , "              <ci> cell </ci>"
+      , "          </apply>"
+      , "      </math>"
+      , "      <listOfLocalParameters>"
+      , "          <localParameter id=\"k2\" value=\"0.15\" units=\"per_second\"/>"
+      , "      </listOfLocalParameters>"
+      , "  </kineticLaw>"
+      , "</reaction>"
+      ]
+
+    expected = Right Reaction
+      { reactionID = "out"
+      , reactionReversible = False
+      , reactionCompartment = Nothing
+      , reactionReactants = Just [r]
+      , reactionProducts = Just [p]
+      , reactionModifiers = Just [m]
+      , reactionKineticLaw = Just k
+      }
+    r = SpeciesRef
+      { speciesRefID = Nothing
+      , speciesRefSpecies = "T"
+      , speciesRefStoichiometry = Just 1
+      , speciesRefConstant = True
+      }
+    p = SpeciesRef
+      { speciesRefID = Nothing
+      , speciesRefSpecies = "X1"
+      , speciesRefStoichiometry = Just 1
+      , speciesRefConstant = True
+      }
+    m = ModifierSpeciesRef
+      { modifierSpeciesRefID = Nothing
+      , modifierSpeciesRefSpecies = "S2"
+      }
+    l = LocalParam
+      { localParamID = "k2"
+      , localParamValue = Just 0.15
+      , localParamUnits = Just "per_second"
+      }
+    k = KineticLaw
+      { kineticMath = Just (Mul (Mul (Var "k2") (Var "S2")) (Var "cell"))
+      , kineticLocalParams = Just [l]
+      }
+    
+-------------------------------------------------------------------------------
+
 
 parseSampleText :: Assertion
 parseSampleText = expected @=? runParser (parseText "hey")
@@ -233,11 +455,30 @@ tests = testGroup "SBML parsing tests"
   , testCase "parseFullUnit" parseFullUnit
   , testCase "parseFullUnitDef" parseFullUnitDef
 
+  , testCase "parseFullCompartment" parseFullCompartment
+
+  , testCase "parseFullSpecies" parseFullSpecies
+
+  , testCase "parseFullParameter" parseFullParameter
+
+  , testCase "parseMathLit" parseMathLit
+  , testCase "parseMathVar" parseMathVar
+  , testCase "parseMathApp" parseMathApp
+
+  , testCase "parseFullInitialAssignment" parseFullInitialAssignment
+
+  , testCase "parseFullSpeciesRef" parseFullSpeciesRef
+  , testCase "parseFullModifierSpeciesRef" parseFullModifierSpeciesRef
+  , testCase "parseFullLocalParameter" parseFullLocalParameter
+  , testCase "parseFullKineticLaw" parseFullKineticLaw
+  , testCase "parseFullReaction" parseFullReaction
+
   , testCase "parseSampleText" parseSampleText
   , testCase "parseTrue" parseTrue
   , testCase "parseFalse" parseFalse
   , testCase "parseInt" parseInt
   , testCase "parseDouble" parseDouble  
+
   , testCase "parseReqAttrPresent" parseReqAttrPresent
   , testCase "parseReqAttrAbsent" parseReqAttrAbsent
   , testCase "parseOptAttrPresent" parseOptAttrPresent
@@ -247,6 +488,7 @@ tests = testGroup "SBML parsing tests"
   , testCase "parseOptChildAbsent" parseOptChildAbsent
   , testCase "parseOptChildAbsent" parseOptChildAbsent
   , testCase "parseAllChildren" parseAllChildren
+
   , testCase "parseRightName" parseRightName
   , testCase "parseWrongName" parseWrongName
   ]
