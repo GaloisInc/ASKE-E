@@ -15,24 +15,24 @@ type ID = Text
 type Math = Expr
 
 data SBML = SBML
-  { sbmlName               :: ID
-  , sbmlVersion            :: Version
-  , sbmlFunctionDefs       :: Maybe [Function]
-  , sbmlUnitDefs           :: Maybe [UnitDef]
-  , sbmlCompartments       :: Maybe [Compartment]
-  , sbmlSpecies            :: Maybe [Species]
-  , sbmlParameters         :: Maybe [Parameter]
-  , sbmlInitialAssignments :: Maybe [InitialAssignment]
-  , sbmlRules              :: Maybe [Rule]
-  , sbmlConstraints        :: Maybe [Constraint]
-  , sbmlReactions          :: Maybe [Reaction]
-  , sbmlEvents             :: Maybe [Event]
+  { sbmlLevel   :: Int
+  , sbmlVersion :: Int
+  , sbmlModel   :: Maybe Model
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
-data Version = Version
-  { versionLevel   :: Int
-  , versionVersion :: Int
+data Model = Model
+  { modelName               :: Maybe ID
+  , modelFunctionDefs       :: Maybe [Function]
+  , modelUnitDefs           :: Maybe [UnitDef]
+  , modelCompartments       :: Maybe [Compartment]
+  , modelSpecies            :: Maybe [Species]
+  , modelParameters         :: Maybe [Parameter]
+  , modelInitialAssignments :: Maybe [InitialAssignment]
+  , modelRules              :: Maybe [Rule]
+  , modelConstraints        :: Maybe [Constraint]
+  , modelReactions          :: Maybe [Reaction]
+  , modelEvents             :: Maybe [Event]
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
@@ -127,5 +127,3 @@ data LocalParam = LocalParam
 
 data Event
   deriving (Eq, Generic, NFData, Ord, Show)
-
-data Required = Mandatory | Optional
