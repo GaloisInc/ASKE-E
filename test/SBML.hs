@@ -24,32 +24,17 @@ expectRight x =
     Right _ -> pure ()
     Left _ -> assertFailure ("Expected `Right`, received "<>show x)
 
-
-parseSBMLWrongName = 
-  expectLeft (parse src parseSBML)
-  where
-    src = "<smbl level=\"3\" version=\"2\"></sbml>"
-
+parseSBMLWrongLevel :: Assertion
 parseSBMLWrongLevel = 
   expectLeft (parse src parseSBML)
   where
     src = "<sbml level=\"2\" version=\"2\"></sbml>"
 
+parseSBMLWrongVersion :: Assertion
 parseSBMLWrongVersion = 
   expectLeft (parse src parseSBML)
   where
     src = "<sbml level=\"3\" version=\"1\"></sbml>"
-
-parseSBMLNoModel = 
-  expected @=? parse src parseSBML
-  where
-    src = "<sbml level=\"3\" version=\"2\"></sbml>"
-    expected = Right SBML { sbmlLevel = 3, sbmlVersion = 2, sbmlModel = Nothing }
-
-parseModelWrongName = 
-  expectLeft (parse src parseModel)
-  where
-    src = "<modle></model>"
 
 emptyModel = Model
   { modelName               = Nothing
@@ -65,30 +50,29 @@ emptyModel = Model
   , modelEvents             = Nothing
   }
 
-parseModelNoName = 
-  expected @=? parse src parseModel
-  where
-    src = "<model></model>"
-    expected = Right emptyModel
-
 -------------------------------------------------------------------------------
 
+parseSampleText :: Assertion
 parseSampleText = expected @=? runParser (parseText "hey")
   where
     expected = Right "hey"
 
+parseTrue :: Assertion
 parseTrue = expected @=? runParser (parseBool "true")
   where
     expected = Right True
 
+parseFalse :: Assertion
 parseFalse = expected @=? runParser (parseBool "false")
   where
     expected = Right False
 
+parseInt :: Assertion
 parseInt = expected @=? runParser (parseAny "3")
   where
     expected = Right (3 :: Int)
 
+parseDouble :: Assertion
 parseDouble = expected @=? runParser (parseAny "3")
   where
     expected = Right (3.0 :: Double)
@@ -99,29 +83,34 @@ parseReqTextAttr s e = reqAttr parseText e s
 parseOptTextAttr :: QName -> Element -> Parser (Maybe Text)
 parseOptTextAttr s e = optAttr parseText e s
 
+parseReqAttrPresent :: Assertion
 parseReqAttrPresent = 
   expected @=? parse src (parseReqTextAttr "bar")
   where
     src = "<foo bar=\"hey\">"
     expected = Right "hey"
 
+parseReqAttrAbsent :: Assertion
 parseReqAttrAbsent = 
   expectLeft $ parse src (parseReqTextAttr "foo")
   where
     src = "<foo bar=\"hey\">"
 
+parseOptAttrPresent :: Assertion
 parseOptAttrPresent = 
   expected @=? parse src (parseOptTextAttr "bar")
   where
     src = "<foo bar=\"hey\">"
     expected = Right (Just "hey")
 
+parseOptAttrAbsent :: Assertion
 parseOptAttrAbsent = 
   expected @=? parse src (parseOptTextAttr "foo")
   where
     src = "<foo bar=\"hey\">"
     expected = Right Nothing
 
+parseReqChildPresent :: Assertion
 parseReqChildPresent = 
   expected @=? 
     parse src (\e -> reqChild (parseReqTextAttr "bar") e "foo")
@@ -129,12 +118,14 @@ parseReqChildPresent =
     src = "<any><foo bar=\"baz\"></foo></any>"
     expected = Right "baz"
 
+parseReqChildAbsent :: Assertion
 parseReqChildAbsent = 
   expectLeft $ 
     parse src (\e -> reqChild (parseReqTextAttr "bar") e "bar")
   where
     src = "<any><foo bar=\"baz\"></foo></any>"
 
+parseOptChildPresent :: Assertion
 parseOptChildPresent = 
   expected @=? 
     parse src (\e -> optChild (parseReqTextAttr "bar") e "foo")
@@ -142,6 +133,7 @@ parseOptChildPresent =
     src = "<any><foo bar=\"baz\"></foo></any>"
     expected = Right (Just "baz")
 
+parseOptChildAbsent :: Assertion
 parseOptChildAbsent = 
   expected @=? 
     parse src (\e -> optChild (\_ -> die "" :: Parser ()) e "bar")
@@ -149,6 +141,7 @@ parseOptChildAbsent =
     src = "<any><foo bar=\"baz\"></foo></any>"
     expected = Right Nothing
 
+parseAllChildren :: Assertion
 parseAllChildren =
   expected @=?
     parse src (appChildren (parseOptTextAttr "bar"))
@@ -156,23 +149,23 @@ parseAllChildren =
     src = "<any><foo bar=\"baz\"></foo><foo></foo></any>"
     expected = Right [Just "baz", Nothing]
 
+parseRightName :: Assertion
 parseRightName = 
   expected @=? parse src (guardName "foo")
   where
     src = "<foo bar=\"hey\">"
     expected = Right ()
 
+parseWrongName :: Assertion
 parseWrongName = 
   expectLeft $ parse src (guardName "bar")
   where
     src = "<foo bar=\"hey\">"
 
+tests :: TestTree
 tests = testGroup "SBML parsing tests"
-  [ testCase "parseSBMLWrongName" parseSBMLWrongName
-  , testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
+  [ testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
   , testCase "parseSBMLWrongVersion" parseSBMLWrongVersion
-  , testCase "parseSBMLNoModel" parseSBMLNoModel
-  , testCase "parseModelWrongName" parseModelWrongName
   
   , testCase "parseSampleText" parseSampleText
   , testCase "parseTrue" parseTrue
