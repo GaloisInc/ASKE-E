@@ -27,9 +27,11 @@ import Data.Text   ( Text, pack )
 
 import GHC.Generics ( Generic )
 
-import Language.ASKEE.Expr ( Expr (LitD) )
+import Language.ASKEE.Expr    ( Expr(..) )
 
-import Text.Printf            --( printf, PrintfArg )
+import Text.Printf            ( formatString
+                              , printf
+                              , PrintfArg(formatArg) )
 import Text.Read              ( readEither )
 import Text.XML.Light         ( elChildren
                               , filterChild 
@@ -238,12 +240,16 @@ parseSBML src =
 removeWS :: Content -> [Content]
 removeWS content =
   case content of
-    Text (CData _ s _) 
+    Text (CData k s l) 
       | all isSpace s -> []
-      | otherwise -> [content]
+      | otherwise -> [Text (CData k (strip s) l)]
     Elem (Element name attrs contents linum) -> 
       [Elem (Element name attrs (concatMap removeWS contents) linum)]
     CRef _ -> undefined
+  where
+    strip = lStrip . rStrip
+    lStrip = dropWhile isSpace
+    rStrip = reverse . dropWhile isSpace . reverse
 
 findChild' :: QName -> Element -> Maybe Element
 findChild' qn = filterChild (\(Element qn' _ _ _) -> qName qn == qName qn')
@@ -346,7 +352,46 @@ parseInitialAssignment e =
 parseMath :: Element -> Parser Math
 parseMath e =
   do  guardName "math" e
-      pure (LitD 0)
+      kids <- traverse asElement (elContent e)
+      case kids of
+        [k] -> parseTop k
+        _ -> die $ printf "don't know how to interpret top-level math expression '%s' with more than one element" (show e)
+  
+  where
+    -- use on top-level applications and raw values
+    parseTop :: Element -> Parser Math
+    parseTop el = 
+      case qName (elName el) of
+        "apply" -> traverse asElement (elContent el) >>= parseArgs
+        "ci" -> 
+          do  body <- traverse asText (elContent el)
+              case body of
+                [b] -> pure (Var (pack b))
+                _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
+        "cn" -> 
+          do  tyM <- optAttr parseText el "type"
+              body <- traverse asText (elContent el)
+              case (tyM, body) of
+                (Just "e-notation", _) -> die $ printf "e-notation not yet supported"
+                (_, [b]) -> LitD <$> parseAny b
+                _ -> die $ printf "could not interpret number '%s'" (show body)
+        _ -> die $ printf "could not interpret math expression '%s'" (show el)
+
+    -- use on application arguments, including "plus"/"minus" etc.
+    parseArgs :: [Element] -> Parser Math
+    parseArgs elems =
+      case elems of
+        (el:els) ->
+          case qName (elName el) of
+            "plus" -> foldl1 Add <$> traverse parseTop els
+            "minus" -> foldl1 Sub <$> traverse parseTop els
+            "times" -> foldl1 Mul <$> traverse parseTop els
+            "divide" -> foldl1 Div <$> traverse parseTop els
+            "and" -> foldl1 And <$> traverse parseTop els
+            "or" -> foldl1 Or <$> traverse parseTop els
+            "power" -> foldl1 Add <$> traverse parseTop els
+            n -> die $ printf "unknown mathematical operator '%s'" n
+        [] -> undefined
 
 parseReaction :: Element -> Parser Reaction
 parseReaction e =
@@ -418,15 +463,14 @@ instance IsString QName where
 instance PrintfArg QName where
   formatArg (QName n _ _) = formatString n
 
-
 asElement :: Content -> Parser Element
 asElement c =
   case c of
-    Elem e -> pure e
+    Elem el -> setLinum (elLine el) >> pure el
     _ -> die $ printf "expected an element, but found a %s" (show c)
 
-
--- children :: Cursor -> [Cursor]
--- children c =
---   map fromJust $
---     takeWhile isJust [ getChild i c | i <- [0..] ]
+asText :: Content -> Parser String
+asText c =
+  case c of
+    Text cd -> setLinum (cdLine cd) >> pure (cdData cd)
+    _ -> die $ printf "expected a text, but found a '%s'" (show c)
