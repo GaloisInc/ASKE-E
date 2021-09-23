@@ -29,7 +29,6 @@ import Text.Printf            ( formatString
 import Text.Read              ( readEither )
 import Text.XML.Light         ( elChildren
                               , filterChild
-                              , lookupAttr
                               , lookupAttrBy
                               , parseXML
                               , Attr
@@ -307,7 +306,7 @@ findChild' qn = filterChild (\(Element qn' _ _ _) -> qName qn == qName qn')
 reqAttr :: (String -> Parser a) -> Element -> QName -> Parser a
 reqAttr parser (Element _ attrs _ linum) key =
   do  setLinum linum
-      case lookupAttr key attrs of
+      case lookupAttr' key attrs of
         Just val -> parser val
         Nothing -> die $ printf "data error: required key %s not found" (qName key)
 
