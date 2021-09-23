@@ -42,7 +42,7 @@ import Text.XML.Light         ( elChildren
 parse :: String -> (Element -> Parser a) -> Either String a
 parse src parser = 
   case runParser (parseString src parser) of
-    Left err -> Left (printError err)
+    Left err -> Left (ppError err)
     Right a -> Right a
 
 parseString :: String -> (Element -> Parser a) -> Parser a
@@ -70,27 +70,27 @@ newtype Parser a = Parser
     , MonadState Location
     )
 
-runParser :: Parser a -> Either Error a
-runParser (Parser i) = evalState (runExceptT i) (Location Nothing)
-
-newtype Location = Location
-  { locLinum :: Maybe Line
-  }
-  deriving (Show)
-
 data Error = Error
   { eLoc :: Location
   , eMessage :: String
   }
   deriving (Show)
 
-printError :: Error -> String
-printError Error{..} = printf "error at line %i: %s" printLoc eMessage
+ppError :: Error -> String
+ppError Error{..} = printf "error at line %i: %s" ppLoc eMessage
   where
-    printLoc =
+    ppLoc =
       case eLoc of
         Location Nothing -> "<no location>"
         Location (Just l) -> show l
+
+newtype Location = Location
+  { locLinum :: Maybe Line
+  }
+  deriving (Show)
+
+runParser :: Parser a -> Either Error a
+runParser (Parser i) = evalState (runExceptT i) (Location Nothing)
 
 die :: String -> Parser a
 die eMessage =
@@ -219,7 +219,7 @@ parseMath e =
             "or" -> foldl1 Or <$> traverse parseTop els
             "power" -> foldl1 Pow <$> traverse parseTop els
             n -> die $ printf "unknown mathematical operator '%s'" n
-        [] -> undefined
+        [] -> die $ printf "unexpected empty application in math element %s" (show e)
 
 parseReaction :: Element -> Parser Reaction
 parseReaction e =
