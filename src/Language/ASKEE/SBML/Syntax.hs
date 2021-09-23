@@ -39,7 +39,54 @@ data Model = Model
 data Function
   deriving (Eq, Generic, NFData, Ord, Show)
 
-data UnitDef
+data UnitDef = UnitDef
+  { unitDefID :: ID
+  , unitDefUnits :: Maybe [Unit]
+  }
+  deriving (Eq, Generic, NFData, Ord, Show)
+
+data Unit = Unit
+  { unitKind       :: UnitKind
+  , unitExponent   :: Double
+  , unitScale      :: Int
+  , unitMultiplier :: Double
+  }
+  deriving (Eq, Generic, NFData, Ord, Show)
+
+data UnitKind =
+    Ampere
+  | Avogadro
+  | Becquerel
+  | Candela
+  | Coulomb
+  | Dimensionless
+  | Farad
+  | Gram
+  | Gray
+  | Henry
+  | Hertz
+  | Item
+  | Joule
+  | Katal
+  | Kelvin
+  | Kilogram
+  | Litre
+  | Lumen
+  | Lux
+  | Metre
+  | Mole
+  | Newton
+  | Ohm
+  | Pascal
+  | Radian
+  | Second
+  | Siemens
+  | Sievert
+  | Steradian
+  | Tesla
+  | Volt
+  | Watt
+  | Weber
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data Compartment = Compartment

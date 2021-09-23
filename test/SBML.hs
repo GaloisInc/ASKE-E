@@ -12,17 +12,17 @@ import Test.Tasty.HUnit
 
 import Text.XML.Light
 
-expectLeft :: Show a => Either String a -> IO ()
+expectLeft :: Show r => Either l r -> IO ()
 expectLeft x =
   case x of
-    Right _ -> assertFailure ("Expected `Left`, received "<>show x)
+    Right r -> assertFailure ("Expected `Left`, received Right "<>show r)
     Left _ -> pure ()
 
-expectRight :: Show a => Either String a -> IO ()
+expectRight :: Show l => Either l r -> IO ()
 expectRight x =
   case x of
     Right _ -> pure ()
-    Left _ -> assertFailure ("Expected `Right`, received "<>show x)
+    Left l -> assertFailure ("Expected `Right`, received Left "<>show l)
 
 parseSBMLWrongLevel :: Assertion
 parseSBMLWrongLevel = 
@@ -49,6 +49,67 @@ emptyModel = Model
   , modelReactions          = Nothing
   , modelEvents             = Nothing
   }
+
+parseUnitKindSuccess :: Assertion
+parseUnitKindSuccess = expected @=? runParser (parseUnitKind "tesla")
+  where
+    expected = Right Tesla
+
+parseUnitKindFailure :: Assertion
+parseUnitKindFailure = expectLeft $ runParser (parseUnitKind "general motors")
+
+defaultUnit :: Unit
+defaultUnit = Unit
+  { unitKind = undefined
+  , unitExponent = 0
+  , unitScale = 1
+  , unitMultiplier = 1
+  }
+
+parseFullUnit :: Assertion
+parseFullUnit = expected @=? parse src parseUnit
+  where
+    src = "<unit kind=\"second\" exponent=\"-1\" scale=\"0\" multiplier=\"1\"/>"
+    expected = Right u
+    u = defaultUnit
+      { unitKind = Second
+      , unitExponent = -1
+      , unitScale = 0
+      }
+      
+parseFullUnitDef :: Assertion
+parseFullUnitDef = expected @=? parse src parseUnitDef
+  where
+    src = unwords
+      [ "<unitDefinition id=\"litre_per_mole_second\">"
+      , "  <listOfUnits>"
+      , "     <unit kind=\"mole\"   exponent=\"-1\" scale=\"0\" multiplier=\"1\"/>"
+      , "     <unit kind=\"litre\"  exponent=\"1\"  scale=\"0\" multiplier=\"1\"/>"
+      , "     <unit kind=\"second\" exponent=\"-1\" scale=\"0\" multiplier=\"1\"/>"
+      , "  </listOfUnits>"
+      , "</unitDefinition>"
+      ]
+    expected = Right perSecond
+    perSecond = UnitDef
+      { unitDefID = "litre_per_mole_second"
+      , unitDefUnits = Just [u1,u2,u3]
+      }
+    u1 = defaultUnit 
+      { unitKind = Mole
+      , unitExponent = -1
+      , unitScale = 0
+      }
+    u2 = defaultUnit 
+      { unitKind = Litre
+      , unitExponent = 1
+      , unitScale = 0
+      }
+    u3 = defaultUnit 
+      { unitKind = Second
+      , unitExponent = -1
+      , unitScale = 0
+      }
+
 
 -------------------------------------------------------------------------------
 
@@ -167,6 +228,11 @@ tests = testGroup "SBML parsing tests"
   [ testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
   , testCase "parseSBMLWrongVersion" parseSBMLWrongVersion
   
+  , testCase "parseUnitKindSuccess" parseUnitKindSuccess
+  , testCase "parseUnitKindFailure" parseUnitKindFailure
+  , testCase "parseFullUnit" parseFullUnit
+  , testCase "parseFullUnitDef" parseFullUnitDef
+
   , testCase "parseSampleText" parseSampleText
   , testCase "parseTrue" parseTrue
   , testCase "parseFalse" parseFalse

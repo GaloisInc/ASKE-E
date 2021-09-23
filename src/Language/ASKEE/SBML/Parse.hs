@@ -116,7 +116,8 @@ parseModel e =
   do  guardName "model" e
       modelName <- optAttr parseText e "name"
       let modelFunctionDefs = Nothing
-      let modelUnitDefs = Nothing
+      modelUnitDefs <-
+        optChild (appChildren parseUnitDef) e "listOfUnitDefinitions"
       modelCompartments <- 
         optChild (appChildren parseCompartment) e "listOfCompartments"
       modelSpecies <- 
@@ -132,6 +133,61 @@ parseModel e =
       let modelEvents = Nothing
 
       pure Model{..}
+
+parseUnitDef :: Element -> Parser UnitDef
+parseUnitDef e =
+  do  guardName "unitDefinition" e
+      unitDefID <- reqAttr parseText e "id"
+      unitDefUnits <-
+        optChild (appChildren parseUnit) e "listOfUnits"
+      pure UnitDef{..}
+
+parseUnit :: Element -> Parser Unit
+parseUnit e =
+  do  guardName "unit" e
+      unitKind <- reqAttr parseUnitKind e "kind"
+      unitExponent <- reqAttr parseAny e "exponent"
+      unitScale <- reqAttr parseAny e "scale"
+      unitMultiplier <- reqAttr parseAny e "multiplier"
+      pure Unit{..}
+
+parseUnitKind :: String -> Parser UnitKind
+parseUnitKind s =
+  case s of
+    "ampere" -> pure Ampere
+    "avogadro" -> pure Avogadro
+    "becquerel" -> pure Becquerel
+    "candela" -> pure Candela
+    "coulomb" -> pure Coulomb
+    "dimensionless" -> pure Dimensionless
+    "farad" -> pure Farad
+    "gram" -> pure Gram
+    "gray" -> pure Gray
+    "henry" -> pure Henry
+    "hertz" -> pure Hertz
+    "item" -> pure Item
+    "joule" -> pure Joule
+    "katal" -> pure Katal
+    "kelvin" -> pure Kelvin
+    "kilogram" -> pure Kilogram
+    "litre" -> pure Litre
+    "lumen" -> pure Lumen
+    "lux" -> pure Lux
+    "metre" -> pure Metre
+    "mole" -> pure Mole
+    "newton" -> pure Newton
+    "ohm" -> pure Ohm
+    "pascal" -> pure Pascal
+    "radian" -> pure Radian
+    "second" -> pure Second
+    "siemens" -> pure Siemens
+    "sievert" -> pure Sievert
+    "steradian" -> pure Steradian
+    "tesla" -> pure Tesla
+    "volt" -> pure Volt
+    "watt" -> pure Watt
+    "weber" -> pure Weber
+    _ -> die $ printf "unknown unit kind '%s'" s
 
 parseCompartment :: Element -> Parser Compartment
 parseCompartment e =
