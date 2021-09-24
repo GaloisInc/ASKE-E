@@ -271,6 +271,7 @@ test-suite tests
   other-modules:        ASKEE
                       , Exposure
                       , ModelCheck
+                      , SBML
                       , Storage
                       , Paths_aske_e
   autogen-modules:      Paths_aske_e
