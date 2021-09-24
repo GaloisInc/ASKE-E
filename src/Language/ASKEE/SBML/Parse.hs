@@ -1,4 +1,3 @@
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -61,7 +60,7 @@ parseString src parser = xml >>= asElement >>= parser
 newtype Parser a = Parser
   { unParser :: ExceptT Error (State Location) a
   }
-  deriving newtype
+  deriving
     ( Applicative
     , Functor
     , Monad
@@ -104,8 +103,8 @@ setLinum = put . Location
 parseSBML :: Element -> Parser SBML
 parseSBML e =
   do  guardName "sbml" e
-      sbmlLevel <- reqAttr parseAny e "level"
-      sbmlVersion <- reqAttr parseAny e "version"
+      sbmlLevel <- reqAttr parseRead e "level"
+      sbmlVersion <- reqAttr parseRead e "version"
       unless (sbmlLevel == 3 && sbmlVersion == 2) $
         die $ printf "unsupported SBML version: %i.%i" sbmlLevel sbmlVersion
       sbmlModel <- optChild parseModel e "model"
@@ -146,9 +145,9 @@ parseUnit :: Element -> Parser Unit
 parseUnit e =
   do  guardName "unit" e
       unitKind <- reqAttr parseUnitKind e "kind"
-      unitExponent <- reqAttr parseAny e "exponent"
-      unitScale <- reqAttr parseAny e "scale"
-      unitMultiplier <- reqAttr parseAny e "multiplier"
+      unitExponent <- reqAttr parseRead e "exponent"
+      unitScale <- reqAttr parseRead e "scale"
+      unitMultiplier <- reqAttr parseRead e "multiplier"
       pure Unit{..}
 
 parseUnitKind :: String -> Parser UnitKind
@@ -193,8 +192,8 @@ parseCompartment :: Element -> Parser Compartment
 parseCompartment e =
   do  guardName "compartment" e
       compartmentID         <- reqAttr parseText e "id"
-      compartmentDimensions <- optAttr parseAny  e "spatialDimensions"
-      compartmentSize       <- optAttr parseAny  e "size"
+      compartmentDimensions <- optAttr parseRead e "spatialDimensions"
+      compartmentSize       <- optAttr parseRead e "size"
       compartmentUnits      <- optAttr parseText e "units"
       compartmentConstant   <- reqAttr parseBool e "constant"
       pure Compartment{..}
@@ -205,8 +204,8 @@ parseSpecies e =
       speciesID                    <- reqAttr parseText e "id"
       speciesName                  <- optAttr parseText e "name"
       speciesCompartment           <- reqAttr parseText e "compartment"
-      speciesInitialAmount         <- optAttr parseAny  e "initialAmount"
-      speciesInitialConc           <- optAttr parseAny  e "initialConcentration"
+      speciesInitialAmount         <- optAttr parseRead e "initialAmount"
+      speciesInitialConc           <- optAttr parseRead e "initialConcentration"
       speciesSubstanceUnits        <- optAttr parseText e "substanceUnits"
       speciesHasOnlySubstanceUnits <- reqAttr parseBool e "hasOnlySubstanceUnits"
       speciesBoundaryCondition     <- reqAttr parseBool e "boundaryCondition"
@@ -219,7 +218,7 @@ parseParameter e =
   do  guardName "parameter" e
       parameterID       <- reqAttr parseText e "id"
       parameterName     <- optAttr parseText e "name"
-      parameterValue    <- optAttr parseAny  e "value"
+      parameterValue    <- optAttr parseRead e "value"
       parameterUnits    <- optAttr parseText e "units"
       parameterConstant <- reqAttr parseBool e "constant"
       pure Parameter{..}
@@ -235,7 +234,7 @@ parseInitialAssignment e =
 parseMath :: Element -> Parser Math
 parseMath e =
   do  guardName "math" e
-      kids <- traverse asElement (elContent e)
+      kids <- asElements (elContent e)
       case kids of
         [k] -> parseTop k
         _ -> die $ printf "don't know how to interpret top-level math expression '%s' with more than one element" (show e)
@@ -245,18 +244,19 @@ parseMath e =
     parseTop :: Element -> Parser Math
     parseTop el = 
       case qName (elName el) of
-        "apply" -> traverse asElement (elContent el) >>= parseArgs
+        "apply" -> asElements (elContent el) >>= parseArgs
         "ci" -> 
-          do  body <- traverse asText (elContent el)
+          do  body <- asTexts (elContent el)
               case body of
                 [b] -> pure (Var (pack b))
                 _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
         "cn" -> 
           do  tyM <- optAttr parseText el "type"
-              body <- traverse asText (elContent el)
+              body <- asTexts (elContent el)
               case (tyM, body) of
                 (Just "e-notation", _) -> die $ printf "e-notation not yet supported"
-                (_, [b]) -> LitD <$> parseAny b
+                (Just "rational", _) -> die $ printf "rational not yet supported"
+                (_, [b]) -> LitD <$> parseRead b
                 _ -> die $ printf "could not interpret number '%s'" (show body)
         _ -> die $ printf "could not interpret math expression '%s'" (show el)
 
@@ -266,6 +266,7 @@ parseMath e =
       case elems of
         (el:els) ->
           case qName (elName el) of
+            -- XXX address special cases of fewer than two arguments
             "plus" -> foldl1 Add <$> traverse parseTop els
             "minus" -> foldl1 Sub <$> traverse parseTop els
             "times" -> foldl1 Mul <$> traverse parseTop els
@@ -296,8 +297,9 @@ parseSpeciesRef :: Element -> Parser SpeciesRef
 parseSpeciesRef e =
   do  guardName "speciesReference" e
       speciesRefID <- optAttr parseText e "id"
+      speciesRefName <- optAttr parseText e "name"
       speciesRefSpecies <- reqAttr parseText e "species"
-      speciesRefStoichiometry <- optAttr parseAny e "stoichiometry"
+      speciesRefStoichiometry <- optAttr parseRead e "stoichiometry"
       speciesRefConstant <- reqAttr parseBool e "constant"
       pure SpeciesRef{..}
 
@@ -320,12 +322,12 @@ parseLocalParam :: Element -> Parser LocalParam
 parseLocalParam e =
   do  guardName "localParameter" e
       localParamID <- reqAttr parseText e "id"
-      localParamValue <- optAttr parseAny e "value"
+      localParamValue <- optAttr parseRead e "value"
       localParamUnits <- optAttr parseText e "units"
       pure LocalParam{..}
 
-parseAny :: Read a => String -> Parser a
-parseAny s =
+parseRead :: Read a => String -> Parser a
+parseRead s =
   case readEither s of
     Right a -> pure a
     Left _ -> die $ printf "failed to parse '%s'" s
@@ -391,16 +393,35 @@ guardName s (Element n _ _ linum) =
 
 asElement :: Content -> Parser Element
 asElement c =
-  case c of
-    Elem el -> setLinum (elLine el) >> pure el
-    _ -> die $ printf "expected an element, but found a %s" (show c)
+  do  setLinum (lineFrom c)
+      case c of
+        Elem el -> pure el
+        _ -> die $ printf "expected an element, but found a %s" (show c)
 
 asText :: Content -> Parser String
 asText c =
-  case c of
-    Text cd -> setLinum (cdLine cd) >> pure (cdData cd)
-    _ -> die $ printf "expected a text, but found a '%s'" (show c)
+  do  setLinum (lineFrom c)
+      case c of
+        Text cd -> pure (cdData cd)
+        _ -> die $ printf "expected a text, but found a '%s'" (show c)
 
+-- Use this instead of `traverse`ing to have the location set at the
+-- first element, rather than the last
+asElements :: [Content] -> Parser [Element]
+asElements cons = reverse <$> traverse asElement (reverse cons)
+
+-- Ditto
+asTexts :: [Content] -> Parser [String]
+asTexts cons = reverse <$> traverse asText (reverse cons)
+
+
+lineFrom :: Content -> Maybe Line
+lineFrom c = 
+  case c of
+    Elem el -> elLine el
+    Text cd -> cdLine cd
+    CRef _ -> Nothing
+    
 -------------------------------------------------------------------------------
 
 removeWS :: Content -> [Content]

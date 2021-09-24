@@ -21,6 +21,7 @@ data SBML = SBML
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
+-- TODO models have several more optional attributes, see p. 37
 data Model = Model
   { modelName               :: Maybe ID
   , modelFunctionDefs       :: Maybe [Function]
@@ -147,6 +148,7 @@ data Reaction = Reaction
 
 data SpeciesRef = SpeciesRef
   { speciesRefID            :: Maybe ID
+  , speciesRefName          :: Maybe ID
   , speciesRefSpecies       :: ID
   , speciesRefStoichiometry :: Maybe Double
   , speciesRefConstant      :: Bool
