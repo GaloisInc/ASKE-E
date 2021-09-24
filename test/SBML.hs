@@ -214,6 +214,7 @@ parseFullSpeciesRef = expected @=? parse src parseSpeciesRef
     src = "<speciesReference species=\"T\" stoichiometry=\"1\" constant=\"true\"/>"
     expected = Right SpeciesRef
       { speciesRefID = Nothing
+      , speciesRefName = Nothing
       , speciesRefSpecies = "T"
       , speciesRefStoichiometry = Just 1
       , speciesRefConstant = True
@@ -308,12 +309,14 @@ parseFullReaction = expected @=? parse src parseReaction
       }
     r = SpeciesRef
       { speciesRefID = Nothing
+      , speciesRefName = Nothing
       , speciesRefSpecies = "T"
       , speciesRefStoichiometry = Just 1
       , speciesRefConstant = True
       }
     p = SpeciesRef
       { speciesRefID = Nothing
+      , speciesRefName = Nothing
       , speciesRefSpecies = "X1"
       , speciesRefStoichiometry = Just 1
       , speciesRefConstant = True
@@ -351,12 +354,12 @@ parseFalse = expected @=? runParser (parseBool "false")
     expected = Right False
 
 parseInt :: Assertion
-parseInt = expected @=? runParser (parseAny "3")
+parseInt = expected @=? runParser (parseRead "3")
   where
     expected = Right (3 :: Int)
 
 parseDouble :: Assertion
-parseDouble = expected @=? runParser (parseAny "3")
+parseDouble = expected @=? runParser (parseRead "3")
   where
     expected = Right (3.0 :: Double)
 
