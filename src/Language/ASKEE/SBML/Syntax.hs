@@ -92,7 +92,7 @@ data UnitKind =
 
 data Compartment = Compartment
   { compartmentID         :: ID
-  , compartmentDimensions :: Maybe Int
+  , compartmentDimensions :: Maybe Double
   , compartmentSize       :: Maybe Double
   , compartmentUnits      :: Maybe ID
   , compartmentConstant   :: Bool
