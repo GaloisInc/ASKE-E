@@ -6,6 +6,7 @@ module Language.ASKEE.SBML.ToXML
   ( sbmlToXML
   ) where
 
+import Data.Char (toLower)
 import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -58,7 +59,11 @@ instance Node Function where
   node _n x = case x of {}
 
 instance Node UnitDef where
-  node _n x = case x of {}
+  node n UnitDef{unitDefID, unitDefUnits} =
+    add_attr (attr "id" $ ppText unitDefID) $
+    node n $ catMaybes
+      [ listOf "Units" (unode "unit") unitDefUnits
+      ]
 
 instance Node Compartment where
   node n Compartment{ compartmentID, compartmentDimensions
@@ -144,6 +149,17 @@ instance Node Reaction where
 
 instance Node Event where
   node _n x = case x of {}
+
+instance Node Unit where
+  node n Unit{ unitKind, unitExponent
+             , unitScale, unitMultiplier
+             } =
+    add_attrs [ attr "kind" $ ppUnitKind unitKind
+              , attr "exponent" $ ppDouble unitExponent
+              , attr "scale" $ ppInt unitScale
+              , attr "multiplier" $ ppDouble unitMultiplier
+              ] $
+    node n ()
 
 instance Node Expr where
   node n expr =
@@ -248,10 +264,7 @@ mbUnode :: Node n => String -> Maybe n -> Maybe Element
 mbUnode name mbN = unode name <$> mbN
 
 ppBool :: Bool -> String
-ppBool b =
-  case b of
-    False -> "false"
-    True  -> "true"
+ppBool = showButLowercase
 
 ppDouble :: Double -> String
 ppDouble = show
@@ -261,3 +274,12 @@ ppInt = show
 
 ppText :: Text -> String
 ppText = T.unpack
+
+ppUnitKind :: UnitKind -> String
+ppUnitKind = showButLowercase
+
+showButLowercase :: Show a => a -> String
+showButLowercase x =
+  case show x of
+    ""     -> ""
+    (c:cs) -> toLower c:cs
