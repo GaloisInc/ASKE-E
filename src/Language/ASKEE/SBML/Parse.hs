@@ -266,16 +266,28 @@ parseMath e =
       case elems of
         (el:els) ->
           case qName (elName el) of
-            -- XXX address special cases of fewer than two arguments
-            "plus" -> foldl1 Add <$> traverse parseTop els
-            "minus" -> foldl1 Sub <$> traverse parseTop els
-            "times" -> foldl1 Mul <$> traverse parseTop els
-            "divide" -> foldl1 Div <$> traverse parseTop els
-            "and" -> foldl1 And <$> traverse parseTop els
-            "or" -> foldl1 Or <$> traverse parseTop els
-            "power" -> foldl1 Pow <$> traverse parseTop els
+            "plus"   -> onEmptyElse els (pure (LitD 0)) Add
+            "minus"  -> onSingletonElse els Neg Sub
+            "times"  -> onEmptyElse els (pure (LitD 1)) Mul
+            "divide" -> onEmptyElse els (die $ printf "no division identity") Div
+            "and"    -> onEmptyElse els (pure (LitB (and []))) And
+            "or"     -> onEmptyElse els (pure (LitB (or []))) Or
+            "power"  -> foldl1 Pow <$> traverse parseTop els
             n -> die $ printf "unknown mathematical operator '%s'" n
         [] -> die $ printf "unexpected empty application in math element %s" (show e)
+      
+      where
+        onEmptyElse els identity op =
+          case els of
+            [] -> identity
+            _ -> foldl1 op <$> traverse parseTop els
+
+        onSingletonElse els singletonOp op =
+          case els of
+            [] -> die $ printf "expected nonempty list of arguments in application of element '%s'" (show $ head elems)
+            [e'] -> singletonOp <$> parseTop e'
+            _ -> foldl1 op <$> traverse parseTop els
+
 
 parseReaction :: Element -> Parser Reaction
 parseReaction e =

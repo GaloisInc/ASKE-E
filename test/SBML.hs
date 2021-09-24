@@ -183,6 +183,33 @@ parseMathApp = expected @=? parse src parseMath
       ]
     expected = Right (Mul (Var "y") (LitD 2))
 
+parseMathSingleton :: Assertion
+parseMathSingleton = expected @=? parse src parseMath
+  where
+    src = unlines
+      [ "<math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "      xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "    <apply>"
+      , "        <minus/>"
+      , "        <ci> y </ci>"
+      , "    </apply>"
+      , "</math>"
+      ]
+    expected = Right (Neg (Var "y"))
+
+parseMathIdentity :: Assertion
+parseMathIdentity = expected @=? parse src parseMath
+  where
+    src = unlines
+      [ "<math xmlns=\"http://www.w3.org/1998/Math/MathML\""
+      , "      xmlns:sbml=\"http://www.sbml.org/sbml/level3/version2/core\">"
+      , "    <apply>"
+      , "        <plus/>"
+      , "    </apply>"
+      , "</math>"
+      ]
+    expected = Right (LitD 0)
+
 -------------------------------------------------------------------------------
 
 parseFullInitialAssignment :: Assertion
@@ -467,6 +494,8 @@ tests = testGroup "SBML parsing tests"
   , testCase "parseMathLit" parseMathLit
   , testCase "parseMathVar" parseMathVar
   , testCase "parseMathApp" parseMathApp
+  , testCase "parseMathSingleton" parseMathSingleton
+  , testCase "parseMathIdentity" parseMathIdentity
 
   , testCase "parseFullInitialAssignment" parseFullInitialAssignment
 
