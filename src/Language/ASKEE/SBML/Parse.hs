@@ -39,7 +39,7 @@ import Text.XML.Light         ( elChildren
                               , QName(..) )
 
 parse :: String -> (Element -> Parser a) -> Either String a
-parse src parser = 
+parse src parser =
   case runParser (parseString src parser) of
     Left err -> Left (ppError err)
     Right a -> Right a
@@ -106,7 +106,7 @@ parseSBML e =
   do  guardName "sbml" e
       sbmlLevel <- reqAttr parseAny e "level"
       sbmlVersion <- reqAttr parseAny e "version"
-      unless (sbmlLevel == 3 && sbmlVersion == 2) $
+      unless (supportedSBMLVersion sbmlLevel sbmlVersion) $
         die $ printf "unsupported SBML version: %i.%i" sbmlLevel sbmlVersion
       sbmlModel <- optChild parseModel e "model"
       pure SBML{..}
@@ -118,17 +118,17 @@ parseModel e =
       let modelFunctionDefs = Nothing
       modelUnitDefs <-
         optChild (appChildren parseUnitDef) e "listOfUnitDefinitions"
-      modelCompartments <- 
+      modelCompartments <-
         optChild (appChildren parseCompartment) e "listOfCompartments"
-      modelSpecies <- 
+      modelSpecies <-
         optChild (appChildren parseSpecies) e "listOfSpecies"
-      modelParameters <- 
+      modelParameters <-
         optChild (appChildren parseParameter) e "listOfParameters"
-      modelInitialAssignments <- 
+      modelInitialAssignments <-
         optChild (appChildren parseInitialAssignment) e "listOfInitialAssignments"
       let modelRules = Nothing
       let modelConstraints = Nothing
-      modelReactions <- 
+      modelReactions <-
         optChild (appChildren parseReaction) e "listOfReactions"
       let modelEvents = Nothing
 
@@ -239,19 +239,19 @@ parseMath e =
       case kids of
         [k] -> parseTop k
         _ -> die $ printf "don't know how to interpret top-level math expression '%s' with more than one element" (show e)
-  
+
   where
     -- use on top-level applications and raw values
     parseTop :: Element -> Parser Math
-    parseTop el = 
+    parseTop el =
       case qName (elName el) of
         "apply" -> traverse asElement (elContent el) >>= parseArgs
-        "ci" -> 
+        "ci" ->
           do  body <- traverse asText (elContent el)
               case body of
                 [b] -> pure (Var (pack b))
                 _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
-        "cn" -> 
+        "cn" ->
           do  tyM <- optAttr parseText el "type"
               body <- traverse asText (elContent el)
               case (tyM, body) of
@@ -282,9 +282,9 @@ parseReaction e =
       reactionID <- reqAttr parseText e "id"
       reactionReversible <- reqAttr parseBool e "reversible"
       reactionCompartment <- optAttr parseText e "compartment"
-      reactionReactants <- 
+      reactionReactants <-
         optChild (appChildren parseSpeciesRef) e "listOfReactants"
-      reactionProducts <- 
+      reactionProducts <-
         optChild (appChildren parseSpeciesRef) e "listOfProducts"
       reactionModifiers <-
         optChild (appChildren parseModifierSpeciesRef) e "listOfModifiers"
@@ -377,7 +377,7 @@ lookupAttr' :: QName -> [Attr] -> Maybe String
 lookupAttr' k = lookupAttrBy (\q -> qName q == qName k)
 
 withChildren :: Element -> (Element -> Parser a) -> Parser [a]
-withChildren e@(Element _ _ _ linum) p = 
+withChildren e@(Element _ _ _ linum) p =
   do  setLinum linum
       traverse p (elChildren e)
 
@@ -401,15 +401,19 @@ asText c =
     Text cd -> setLinum (cdLine cd) >> pure (cdData cd)
     _ -> die $ printf "expected a text, but found a '%s'" (show c)
 
+supportedSBMLVersion :: Int -> Int -> Bool
+supportedSBMLVersion level version =
+  level == 3 && version == 2
+
 -------------------------------------------------------------------------------
 
 removeWS :: Content -> [Content]
 removeWS content =
   case content of
-    Text (CData k s l) 
+    Text (CData k s l)
       | all isSpace s -> []
       | otherwise -> [Text (CData k (strip s) l)]
-    Elem (Element name attrs contents linum) -> 
+    Elem (Element name attrs contents linum) ->
       [Elem (Element name attrs (concatMap removeWS contents) linum)]
     CRef _ -> undefined
   where

@@ -272,6 +272,7 @@ test-suite tests
                       , Exposure
                       , ModelCheck
                       , SBML
+                      , SBML.Instances
                       , Storage
                       , Paths_aske_e
   autogen-modules:      Paths_aske_e
@@ -283,9 +284,13 @@ test-suite tests
                       , filepath
                       , file-embed
                       , filepath
+                      , generic-random
                       , mtl
+                      , QuickCheck
+                      , quickcheck-instances
                       , tasty
                       , tasty-hunit
+                      , tasty-quickcheck
                       , temporary
                       , text
                       , xml
