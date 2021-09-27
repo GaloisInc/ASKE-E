@@ -113,6 +113,7 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         Language.ASKEE.SBML
+                        Language.ASKEE.SBML.Convert
                         Language.ASKEE.SBML.Syntax
                         Language.ASKEE.SBML.Parse
                         Language.ASKEE.SBML.ToXML
