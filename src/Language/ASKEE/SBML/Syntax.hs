@@ -101,7 +101,7 @@ data Compartment = Compartment
 
 data Species = Species
   { speciesID                    :: ID
-  , speciesName                  :: Maybe ID -- not in the spec
+  , speciesName                  :: Maybe ID
   , speciesCompartment           :: ID
   , speciesInitialAmount         :: Maybe Double
   , speciesInitialConc           :: Maybe Double
@@ -115,7 +115,7 @@ data Species = Species
 
 data Parameter = Parameter
   { parameterID       :: ID
-  , parameterName     :: Maybe ID -- not in the spec
+  , parameterName     :: Maybe ID
   , parameterValue    :: Maybe Double
   , parameterUnits    :: Maybe ID
   , parameterConstant :: Bool

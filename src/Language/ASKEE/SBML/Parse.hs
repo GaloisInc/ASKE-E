@@ -274,19 +274,19 @@ parseMath e =
             "or"     -> onEmptyElse els (pure (LitB (or []))) Or
             "power"  -> foldl1 Pow <$> traverse parseTop els
             n -> die $ printf "unknown mathematical operator '%s'" n
-        [] -> die $ printf "unexpected empty application in math element %s" (show e)
+        [] -> die $ printf "empty application in math element %s" (show e)
       
       where
-        onEmptyElse els identity op =
-          case els of
+        onEmptyElse es identity op =
+          case es of
             [] -> identity
-            _ -> foldl1 op <$> traverse parseTop els
+            _ -> foldl1 op <$> traverse parseTop es
 
-        onSingletonElse els singletonOp op =
-          case els of
+        onSingletonElse es singletonOp op =
+          case es of
             [] -> die $ printf "expected nonempty list of arguments in application of element '%s'" (show $ head elems)
             [e'] -> singletonOp <$> parseTop e'
-            _ -> foldl1 op <$> traverse parseTop els
+            _ -> foldl1 op <$> traverse parseTop es
 
 
 parseReaction :: Element -> Parser Reaction
