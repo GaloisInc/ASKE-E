@@ -222,10 +222,11 @@ instance Node Expr where
           ]
 
 instance Node SpeciesRef where
-  node n SpeciesRef{ speciesRefID, speciesRefSpecies
+  node n SpeciesRef{ speciesRefID, speciesRefName, speciesRefSpecies
                    , speciesRefStoichiometry, speciesRefConstant
                    } =
     add_attrs (catMaybes [ mbAttr   "id" ppText speciesRefID
+                         , mbAttr   "name" ppText speciesRefName
                          , justAttr "species" ppText speciesRefSpecies
                          , mbAttr   "stoichiometry" ppDouble speciesRefStoichiometry
                          , justAttr "constant" ppBool speciesRefConstant
