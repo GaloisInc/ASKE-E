@@ -172,13 +172,15 @@ instance Node Expr where
       exprToElement :: Expr -> Element
       exprToElement e =
         case e of
-          Add e1 e2 -> apply "plus" e1 e2
-          Sub e1 e2 -> apply "minus" e1 e2
-          Mul e1 e2 -> apply "times" e1 e2
-          Div e1 e2 -> apply "divide" e1 e2
-          Pow e1 e2 -> apply "power" e1 e2
-          And e1 e2 -> apply "and" e1 e2
-          Or e1 e2  -> apply "or" e1 e2
+          Neg e1    -> apply1 "minus" e1
+
+          Add e1 e2 -> apply2 "plus" e1 e2
+          Sub e1 e2 -> apply2 "minus" e1 e2
+          Mul e1 e2 -> apply2 "times" e1 e2
+          Div e1 e2 -> apply2 "divide" e1 e2
+          Pow e1 e2 -> apply2 "power" e1 e2
+          And e1 e2 -> apply2 "and" e1 e2
+          Or e1 e2  -> apply2 "or" e1 e2
 
           Var  i    -> unode "ci" $ ppText i
           LitD d    -> unode "cn" $ ppDouble d
@@ -187,7 +189,6 @@ instance Node Expr where
           Log{}     -> notSupported "log"
           Not{}     -> notSupported "not"
 
-          Neg{}     -> notInMathML "Neg"
           LT{}      -> notInMathML "LT"
           LTE{}     -> notInMathML "LTE"
           EQ{}      -> notInMathML "EQ"
@@ -205,12 +206,19 @@ instance Node Expr where
       notInMathML name = error $
         "`" ++ name ++ "` does not have a counterpart in MathML"
 
-      apply :: String -> Expr -> Expr -> Element
-      apply name rator rand =
+      apply1 :: String -> Expr -> Element
+      apply1 name arg =
         unode "apply"
           [ unode name ()
-          , exprToElement rator
-          , exprToElement rand
+          , exprToElement arg
+          ]
+
+      apply2 :: String -> Expr -> Expr -> Element
+      apply2 name arg1 arg2 =
+        unode "apply"
+          [ unode name ()
+          , exprToElement arg1
+          , exprToElement arg2
           ]
 
 instance Node SpeciesRef where
