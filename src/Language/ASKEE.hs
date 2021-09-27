@@ -17,6 +17,8 @@ module Language.ASKEE
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
+  , loadSBML
+  , loadSBMLFrom
   , loadModel
   
   , checkModel
@@ -130,6 +132,7 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
+                                                       , toSBML
                                                        , modelUID
                                                        , Model (..) )
 import           Language.ASKEE.Model.Basics           ( ModelType(..)
@@ -139,6 +142,7 @@ import           Language.ASKEE.Model.Interface        ( ModelInterface(..)
                                                        , emptyModelInterface
                                                        )
 import           Language.ASKEE.Panic                  ( panic )
+import qualified Language.ASKEE.SBML                   as SBML
 import qualified Language.ASKEE.AlgebraicJulia.Simulate as AJ
 import qualified Language.ASKEE.AlgebraicJulia.GeoGraph as GG
 import qualified Language.ASKEE.AlgebraicJulia.Stratify as Stratify
@@ -237,6 +241,16 @@ loadGrometFnetFrom format source =
   do  model <- loadModel format source
       throwLeft ConversionError (toGrometFnet model)
 
+
+-------------------------------------------------------------------------------
+-- SBML
+loadSBML :: DataSource -> IO SBML.SBML
+loadSBML = loadSBMLFrom SBMLType
+
+loadSBMLFrom :: ModelType -> DataSource -> IO SBML.SBML
+loadSBMLFrom format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toSBML model)
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -497,6 +511,7 @@ simulateModel sim format source start end step parameters outputs seed dp iterat
         RNetType -> GSL
         DeqType -> GSL
         CoreType -> GSL
+        SBMLType -> GSL
     filterDS ds 
       | null outputs = ds
       | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
@@ -596,6 +611,7 @@ convertModelString srcTy src destTy =
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
           RNetType  -> Left "Don't know how to convert to RNet yet"
+          SBMLType -> model >>= toSBML >>= (printModel . SBML)
 
 
           
@@ -664,6 +680,7 @@ modelMetadata model = case model of
   GrometPrt Gromet{..} -> withName grometName grometMeta
   GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
   GrometFnet m                  -> fnetMetadata m
+  SBML _               -> mempty
   where
     recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
     withName n meta = Map.insertWith (++) "name" [n] meta

@@ -11,6 +11,7 @@ module Language.ASKEE.Model
   , toGrometPrt
   , toGrometPnc
   , toGrometFnet
+  , toSBML
   , parseModel
   , printModel
   , modelUID
@@ -27,6 +28,7 @@ import qualified Language.ASKEE.Core as Core
 import qualified Language.ASKEE.DEQ as DEQ
 import qualified Language.ASKEE.RNet as RNet
 import qualified Language.ASKEE.ESL as ESL
+import qualified Language.ASKEE.SBML as SBML
 
 import qualified Language.ASKEE.Model.Basics as MT
 import qualified Language.ASKEE.Gromet as GPRT
@@ -41,6 +43,7 @@ data Model =
   | GrometPrt GPRT.Gromet
   | GrometPnc GPNC.PetriNetClassic
   | GrometFnet FNET.FunctionNetwork
+  | SBML      SBML.SBML
   deriving Show
 
 modelTypeOf :: Model -> MT.ModelType
@@ -53,6 +56,7 @@ modelTypeOf m =
     GrometPrt _ -> MT.GrometPrtType
     GrometPnc _ -> MT.GrometPncType
     GrometFnet _ -> MT.GrometFnetType
+    SBML _ -> MT.SBMLType
 
 -------------------------------------------------------------------------------
 
@@ -79,6 +83,9 @@ asGrometPrt :: Model -> ConversionResult GPRT.Gromet
 asGrometPrt = tryConvs [unGrometPrt, asCore >=> fromCore, notExist MT.GrometPrtType ]
   where
     fromCore = pure . GPRT.convertCoreToGromet
+
+asSBML :: Model -> ConversionResult SBML.SBML
+asSBML = tryConvs [unSBML, notExist MT.SBMLType]
 
 notExist :: MT.ModelType -> Model -> ConversionResult a
 notExist tgt mdl =
@@ -114,6 +121,9 @@ unGrometFNet :: Model -> ConversionResult JSON.Value
 unGrometFNet (GrometFnet v) = ConversionSucceded v
 unGrometFNet _ = ConversionPass
 
+unSBML :: Model -> ConversionResult SBML.SBML
+unSBML (SBML s) = ConversionSucceded s
+unSBML _ = ConversionPass
 
 -------------------------------------------------------------------------------
 -- ConversionResult
@@ -181,6 +191,9 @@ toGrometPnc = asEither (tryConvs [unGrometPnc, notExist MT.GrometPncType])
 toGrometFnet :: Model -> Either String JSON.Value
 toGrometFnet = asEither (tryConvs [unGrometFNet, notExist MT.GrometFnetType])
 
+toSBML :: Model -> Either String SBML.SBML
+toSBML = asEither asSBML
+
 parseModel :: MT.ModelType -> Text -> Either String Model
 parseModel mt s =
   case mt of
@@ -195,6 +208,7 @@ parseModel mt s =
     MT.GrometPrtType -> Left "Cannot parse gromet-prt - parser is not yet implemented"
     MT.GrometPncType -> GrometPnc <$> loadJSON
     MT.GrometFnetType -> GrometFnet <$> loadJSON
+    MT.SBMLType -> SBML <$> SBML.parseSBML (Text.unpack s)
   where
     loadJSON :: JSON.FromJSON a => Either String a
     loadJSON = JSON.eitherDecodeStrict (Text.encodeUtf8 s)
@@ -210,6 +224,7 @@ printModel m =
     GrometPrt g -> Right $ Text.unpack $ GPRT.grometText g
     GrometFnet v -> Right $ printJson v
     GrometPnc v -> Right $ printJson v
+    SBML v -> Right $ Text.unpack $ SBML.sbmlToXML v
   where
     printJson v = BS.unpack $ JSON.encode v
 
@@ -224,3 +239,4 @@ modelUID m =
     GrometPrt _ -> Left "don't know how to find PRT gromet UID" -- TODO
     GrometPnc gromet -> Right $ GPNC.pncUID gromet
     GrometFnet gromet -> FNET.fnetUID gromet
+    SBML _ -> Left "SBML models have no UID"

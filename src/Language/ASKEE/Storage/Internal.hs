@@ -146,6 +146,7 @@ formatLocation mt =
     GrometFnetType -> "gromet-fnet"
     GrometPncType -> "gromet-pnc"
     RNetType  -> "rnet"
+    SBMLType -> "sbml"
 
 -------------------------------------------------------------------------------
 

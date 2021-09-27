@@ -14,6 +14,8 @@ import           Data.Text ( Text )
 
 import Control.Monad.Identity ( runIdentity, Identity )
 import Language.ASKEE.Metadata
+import qualified Language.ASKEE.Core.Expr as Core
+import Language.ASKEE.ESL.Convert (expAsCore)
 
 transformExpr ::
   Monad m =>
@@ -157,7 +159,9 @@ renameModelVarsWith r = modifyModelVars
         Syntax.State n v -> MetaAnn m $ Syntax.State (r n) $ renameExprVarsWith r v
         Syntax.Parameter n v -> MetaAnn m $ Syntax.Parameter (r n) $ renameExprVarsWith r <$> v
         Syntax.Assert e -> MetaAnn m $ Syntax.Assert $ renameExprVarsWith r e
-        
+
+collectExprVars :: Expr.Expr -> Set.Set Text
+collectExprVars e = Core.collectExprVars (expAsCore e)
 
 canonicalLets :: Syntax.Model -> (Map Text Expr.Expr, Set Text)
 canonicalLets Syntax.Model{..} = (lets, intermediates)
