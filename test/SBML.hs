@@ -2,9 +2,12 @@
 
 module SBML where
 
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Text ( Text )
 
 import Language.ASKEE.Expr
+import qualified Language.ASKEE.SBML as SBML
 import Language.ASKEE.SBML.Parse
 import Language.ASKEE.SBML.Syntax
 
@@ -26,13 +29,13 @@ expectRight x =
     Left l -> assertFailure ("Expected `Right`, received Left "<>show l)
 
 parseSBMLWrongLevel :: Assertion
-parseSBMLWrongLevel = 
+parseSBMLWrongLevel =
   expectLeft (parse src parseSBML)
   where
     src = "<sbml level=\"2\" version=\"2\"></sbml>"
 
 parseSBMLWrongVersion :: Assertion
-parseSBMLWrongVersion = 
+parseSBMLWrongVersion =
   expectLeft (parse src parseSBML)
   where
     src = "<sbml level=\"3\" version=\"1\"></sbml>"
@@ -64,7 +67,7 @@ parseFullUnit = expected @=? parse src parseUnit
       , unitExponent = -1
       , unitScale = 0
       }
-      
+
 parseFullUnitDef :: Assertion
 parseFullUnitDef = expected @=? parse src parseUnitDef
   where
@@ -81,17 +84,17 @@ parseFullUnitDef = expected @=? parse src parseUnitDef
       { unitDefID = "litre_per_mole_second"
       , unitDefUnits = Just [u1,u2,u3]
       }
-    u1 = defaultUnit 
+    u1 = defaultUnit
       { unitKind = Mole
       , unitExponent = -1
       , unitScale = 0
       }
-    u2 = defaultUnit 
+    u2 = defaultUnit
       { unitKind = Litre
       , unitExponent = 1
       , unitScale = 0
       }
-    u3 = defaultUnit 
+    u3 = defaultUnit
       { unitKind = Second
       , unitExponent = -1
       , unitScale = 0
@@ -361,7 +364,7 @@ parseFullReaction = expected @=? parse src parseReaction
       { kineticMath = Just (Mul (Mul (Var "k2") (Var "S2")) (Var "cell"))
       , kineticLocalParams = Just [l]
       }
-    
+
 -------------------------------------------------------------------------------
 
 
@@ -397,58 +400,58 @@ parseOptTextAttr :: QName -> Element -> Parser (Maybe Text)
 parseOptTextAttr s e = optAttr parseText e s
 
 parseReqAttrPresent :: Assertion
-parseReqAttrPresent = 
+parseReqAttrPresent =
   expected @=? parse src (parseReqTextAttr "bar")
   where
     src = "<foo bar=\"hey\">"
     expected = Right "hey"
 
 parseReqAttrAbsent :: Assertion
-parseReqAttrAbsent = 
+parseReqAttrAbsent =
   expectLeft $ parse src (parseReqTextAttr "foo")
   where
     src = "<foo bar=\"hey\">"
 
 parseOptAttrPresent :: Assertion
-parseOptAttrPresent = 
+parseOptAttrPresent =
   expected @=? parse src (parseOptTextAttr "bar")
   where
     src = "<foo bar=\"hey\">"
     expected = Right (Just "hey")
 
 parseOptAttrAbsent :: Assertion
-parseOptAttrAbsent = 
+parseOptAttrAbsent =
   expected @=? parse src (parseOptTextAttr "foo")
   where
     src = "<foo bar=\"hey\">"
     expected = Right Nothing
 
 parseReqChildPresent :: Assertion
-parseReqChildPresent = 
-  expected @=? 
+parseReqChildPresent =
+  expected @=?
     parse src (\e -> reqChild (parseReqTextAttr "bar") e "foo")
   where
     src = "<any><foo bar=\"baz\"></foo></any>"
     expected = Right "baz"
 
 parseReqChildAbsent :: Assertion
-parseReqChildAbsent = 
-  expectLeft $ 
+parseReqChildAbsent =
+  expectLeft $
     parse src (\e -> reqChild (parseReqTextAttr "bar") e "bar")
   where
     src = "<any><foo bar=\"baz\"></foo></any>"
 
 parseOptChildPresent :: Assertion
-parseOptChildPresent = 
-  expected @=? 
+parseOptChildPresent =
+  expected @=?
     parse src (\e -> optChild (parseReqTextAttr "bar") e "foo")
   where
     src = "<any><foo bar=\"baz\"></foo></any>"
     expected = Right (Just "baz")
 
 parseOptChildAbsent :: Assertion
-parseOptChildAbsent = 
-  expected @=? 
+parseOptChildAbsent =
+  expected @=?
     parse src (\e -> optChild (\_ -> die "" :: Parser ()) e "bar")
   where
     src = "<any><foo bar=\"baz\"></foo></any>"
@@ -463,64 +466,84 @@ parseAllChildren =
     expected = Right [Just "baz", Nothing]
 
 parseRightName :: Assertion
-parseRightName = 
+parseRightName =
   expected @=? parse src (guardName "foo")
   where
     src = "<foo bar=\"hey\">"
     expected = Right ()
 
 parseWrongName :: Assertion
-parseWrongName = 
+parseWrongName =
   expectLeft $ parse src (guardName "bar")
   where
     src = "<foo bar=\"hey\">"
 
+-------------------------------------------------------------------------------
+
+indraModelRoundtrip :: Assertion
+indraModelRoundtrip = do
+  fileContents <- T.readFile "modelRepo/sbml/indra_model.sbml"
+  case SBML.parseSBML (T.unpack fileContents) of
+    Left err   -> assertFailure err
+    Right sbml -> do
+      let ppSBML = SBML.sbmlToXML sbml
+      case SBML.parseSBML (T.unpack ppSBML) of
+        Left err    -> assertFailure err
+        Right sbml' -> sbml @=? sbml'
+
+-------------------------------------------------------------------------------
+
 tests :: TestTree
-tests = testGroup "SBML parsing tests"
-  [ testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
-  , testCase "parseSBMLWrongVersion" parseSBMLWrongVersion
-  
-  , testCase "parseUnitKindSuccess" parseUnitKindSuccess
-  , testCase "parseUnitKindFailure" parseUnitKindFailure
-  , testCase "parseFullUnit" parseFullUnit
-  , testCase "parseFullUnitDef" parseFullUnitDef
+tests = testGroup "SBML tests"
+  [ testGroup "SBML parsing tests"
+    [ testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
+    , testCase "parseSBMLWrongVersion" parseSBMLWrongVersion
 
-  , testCase "parseFullCompartment" parseFullCompartment
+    , testCase "parseUnitKindSuccess" parseUnitKindSuccess
+    , testCase "parseUnitKindFailure" parseUnitKindFailure
+    , testCase "parseFullUnit" parseFullUnit
+    , testCase "parseFullUnitDef" parseFullUnitDef
 
-  , testCase "parseFullSpecies" parseFullSpecies
+    , testCase "parseFullCompartment" parseFullCompartment
 
-  , testCase "parseFullParameter" parseFullParameter
+    , testCase "parseFullSpecies" parseFullSpecies
 
-  , testCase "parseMathLit" parseMathLit
-  , testCase "parseMathVar" parseMathVar
-  , testCase "parseMathApp" parseMathApp
-  , testCase "parseMathSingleton" parseMathSingleton
-  , testCase "parseMathIdentity" parseMathIdentity
+    , testCase "parseFullParameter" parseFullParameter
 
-  , testCase "parseFullInitialAssignment" parseFullInitialAssignment
+    , testCase "parseMathLit" parseMathLit
+    , testCase "parseMathVar" parseMathVar
+    , testCase "parseMathApp" parseMathApp
+    , testCase "parseMathSingleton" parseMathSingleton
+    , testCase "parseMathIdentity" parseMathIdentity
 
-  , testCase "parseFullSpeciesRef" parseFullSpeciesRef
-  , testCase "parseFullModifierSpeciesRef" parseFullModifierSpeciesRef
-  , testCase "parseFullLocalParameter" parseFullLocalParameter
-  , testCase "parseFullKineticLaw" parseFullKineticLaw
-  , testCase "parseFullReaction" parseFullReaction
+    , testCase "parseFullInitialAssignment" parseFullInitialAssignment
 
-  , testCase "parseSampleText" parseSampleText
-  , testCase "parseTrue" parseTrue
-  , testCase "parseFalse" parseFalse
-  , testCase "parseInt" parseInt
-  , testCase "parseDouble" parseDouble  
+    , testCase "parseFullSpeciesRef" parseFullSpeciesRef
+    , testCase "parseFullModifierSpeciesRef" parseFullModifierSpeciesRef
+    , testCase "parseFullLocalParameter" parseFullLocalParameter
+    , testCase "parseFullKineticLaw" parseFullKineticLaw
+    , testCase "parseFullReaction" parseFullReaction
 
-  , testCase "parseReqAttrPresent" parseReqAttrPresent
-  , testCase "parseReqAttrAbsent" parseReqAttrAbsent
-  , testCase "parseOptAttrPresent" parseOptAttrPresent
-  , testCase "parseOptAttrAbsent" parseOptAttrAbsent
-  , testCase "parseReqChildAbsent" parseReqChildAbsent
-  , testCase "parseReqChildAbsent" parseReqChildAbsent
-  , testCase "parseOptChildAbsent" parseOptChildAbsent
-  , testCase "parseOptChildAbsent" parseOptChildAbsent
-  , testCase "parseAllChildren" parseAllChildren
+    , testCase "parseSampleText" parseSampleText
+    , testCase "parseTrue" parseTrue
+    , testCase "parseFalse" parseFalse
+    , testCase "parseInt" parseInt
+    , testCase "parseDouble" parseDouble
 
-  , testCase "parseRightName" parseRightName
-  , testCase "parseWrongName" parseWrongName
+    , testCase "parseReqAttrPresent" parseReqAttrPresent
+    , testCase "parseReqAttrAbsent" parseReqAttrAbsent
+    , testCase "parseOptAttrPresent" parseOptAttrPresent
+    , testCase "parseOptAttrAbsent" parseOptAttrAbsent
+    , testCase "parseReqChildAbsent" parseReqChildAbsent
+    , testCase "parseReqChildAbsent" parseReqChildAbsent
+    , testCase "parseOptChildAbsent" parseOptChildAbsent
+    , testCase "parseOptChildAbsent" parseOptChildAbsent
+    , testCase "parseAllChildren" parseAllChildren
+
+    , testCase "parseRightName" parseRightName
+    , testCase "parseWrongName" parseWrongName
+    ]
+  , testGroup "SBML real-world unit tests"
+    [ testCase "indra_model roundtrip" indraModelRoundtrip
+    ]
   ]

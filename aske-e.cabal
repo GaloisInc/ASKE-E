@@ -11,6 +11,7 @@ extra-source-files:  README.md
                    , modelRepo/easel/sir-no-parameters.easel
                    , modelRepo/deq/sir.deq
                    , modelRepo/gromet-pnc/seir.json
+                   , modelRepo/sbml/indra_model.sbml
                    , exposure/**/*.py
 tested-with:         GHC == 8.8.4, GHC == 8.10.4
 
