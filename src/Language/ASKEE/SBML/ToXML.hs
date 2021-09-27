@@ -71,7 +71,7 @@ instance Node Compartment where
                     , compartmentConstant
                     } =
     add_attrs (catMaybes [ justAttr "id" ppText compartmentID
-                         , mbAttr   "spatialDimenstions" ppDouble compartmentDimensions
+                         , mbAttr   "spatialDimensions" ppDouble compartmentDimensions
                          , mbAttr   "size" ppDouble compartmentSize
                          , mbAttr   "units" ppText compartmentUnits
                          , justAttr "constant" ppBool compartmentConstant
