@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-module Language.ASKEE.SBML.ToXML
+module Language.ASKEE.SBML.L3V2.ToXML
   ( sbmlToXML
   ) where
 
@@ -14,7 +14,7 @@ import Prelude hiding (Ordering(..))
 import Text.XML.Light
 
 import Language.ASKEE.Expr (Expr(..))
-import Language.ASKEE.SBML.Syntax
+import Language.ASKEE.SBML.L3V2.Syntax
 
 sbmlToXML :: SBML -> Text
 sbmlToXML sbml =

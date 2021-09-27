@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Language.ASKEE.SBML.Parse where
+module Language.ASKEE.SBML.L3V2.Parse where
 
 import Control.Monad            ( unless )
 import Control.Monad.State.Lazy ( evalState
@@ -19,8 +19,8 @@ import Data.Char   ( toLower, isSpace )
 import Data.String ( IsString(..) )
 import Data.Text   ( Text, pack )
 
-import Language.ASKEE.Expr    ( Expr(..) )
-import Language.ASKEE.SBML.Syntax
+import Language.ASKEE.Expr             ( Expr(..) )
+import Language.ASKEE.SBML.L3V2.Syntax
 
 import Text.Printf            ( formatString
                               , printf

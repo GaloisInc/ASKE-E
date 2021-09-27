@@ -113,10 +113,10 @@ library
                         Language.ASKEE.RNet.Syntax
 
                         Language.ASKEE.SBML
-                        Language.ASKEE.SBML.Convert
-                        Language.ASKEE.SBML.Syntax
-                        Language.ASKEE.SBML.Parse
-                        Language.ASKEE.SBML.ToXML
+                        Language.ASKEE.SBML.L3V2.Convert
+                        Language.ASKEE.SBML.L3V2.Syntax
+                        Language.ASKEE.SBML.L3V2.Parse
+                        Language.ASKEE.SBML.L3V2.ToXML
 
 
                         -- General
@@ -273,7 +273,7 @@ test-suite tests
   other-modules:        ASKEE
                       , Exposure
                       , ModelCheck
-                      , SBML
+                      , SBMLL3V2
                       , Storage
                       , Paths_aske_e
   autogen-modules:      Paths_aske_e

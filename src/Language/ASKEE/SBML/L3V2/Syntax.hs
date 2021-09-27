@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE EmptyDataDeriving #-}
-module Language.ASKEE.SBML.Syntax where
+module Language.ASKEE.SBML.L3V2.Syntax where
 
 import Control.DeepSeq ( NFData )
 

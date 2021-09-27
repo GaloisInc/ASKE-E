@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
-module Language.ASKEE.SBML.Convert where
+module Language.ASKEE.SBML.L3V2.Convert where
 
 import Control.Monad.Identity
 
@@ -10,11 +10,11 @@ import qualified Data.Map   as Map
 import           Data.Maybe
 import qualified Data.Set   as Set
 
-import Language.ASKEE.ESL.Syntax  as ESL
+import Language.ASKEE.ESL.Syntax        as ESL
 import Language.ASKEE.Expr
-import Language.ASKEE.ExprTransform ( transformExpr
-                                    , collectExprVars)
-import Language.ASKEE.SBML.Syntax   as SBML
+import Language.ASKEE.ExprTransform     ( transformExpr
+                                        , collectExprVars)
+import Language.ASKEE.SBML.L3V2.Syntax  as SBML
 
 import Prelude hiding ( GT )
 

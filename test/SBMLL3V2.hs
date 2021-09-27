@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SBML where
+module SBMLL3V2 where
 
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -8,8 +8,8 @@ import Data.Text ( Text )
 
 import Language.ASKEE.Expr
 import qualified Language.ASKEE.SBML as SBML
-import Language.ASKEE.SBML.Parse
-import Language.ASKEE.SBML.Syntax
+import Language.ASKEE.SBML.L3V2.Parse
+import Language.ASKEE.SBML.L3V2.Syntax
 
 import Test.Tasty
 import Test.Tasty.HUnit
