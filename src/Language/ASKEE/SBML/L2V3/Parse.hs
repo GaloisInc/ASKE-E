@@ -16,14 +16,16 @@ parseSBML e =
       sbmlVersion <- reqAttr parseRead e "version"
       when (sbmlLevel /= 2 || sbmlVersion /= 3) $
         die ""
+      sbmlNotes <- optChild parseNotes e "notes"
+      sbmlAnnotation <- optChild parseAnnotation e "annotation"
       sbmlModel <- reqChild parseModel e "model"
       pure SBML{..}
-      
+
 parseModel :: Element -> Parser Model
 parseModel e =
   do  modelID <- optAttr parseText e "id"
       modelName <- optAttr parseText e "name"
-      modelFunctionDefs <- 
+      modelFunctionDefs <-
         optChild (appChildren parseFunction) e "listOfFunctionDefinitions"
       modelUnitDefs <-
         optChild (appChildren parseUnitDef) e "listOfUnitDefinitions"
@@ -107,6 +109,7 @@ parseCompartment e =
       compartmentUnits      <- optAttr parseText e "units"
       compartmentOutside    <- optAttr parseText e "outside"
       compartmentConstant   <- optAttrDef True parseBool e "constant"
+      compartmentAnnotation <- optChild parseAnnotation e "annotation"
       pure Compartment{..}
 
 parseSpecies :: Element -> Parser Species
@@ -123,6 +126,8 @@ parseSpecies e =
       speciesBoundaryCondition     <- optAttrDef False parseBool e "boundaryCondition"
       speciesCharge                <- optAttr parseRead e "charge"
       speciesConstant              <- optAttrDef False parseBool e "constant"
+      speciesNotes                 <- optChild parseNotes e "notes"
+      speciesAnnotation            <- optChild parseAnnotation e "annotation"
       pure Species{..}
 
 parseParameter :: Element -> Parser Parameter
@@ -133,4 +138,5 @@ parseParameter e =
       parameterValue    <- optAttr parseRead e "value"
       parameterUnits    <- optAttr parseText e "units"
       parameterConstant <- optAttrDef True parseBool e "constant"
+      parameterNotes    <- optChild parseNotes e "notes"
       pure Parameter{..}

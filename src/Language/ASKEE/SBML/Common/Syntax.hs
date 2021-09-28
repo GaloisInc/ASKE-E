@@ -9,6 +9,9 @@ import Data.Text ( Text )
 import GHC.Generics ( Generic )
 
 import Language.ASKEE.Expr ( Expr )
+import Language.ASKEE.SBML.Instances ()
+
+import Text.XML.Light
 
 type ID = Text
 type Math = Expr
@@ -77,5 +80,12 @@ data Parameter = Parameter
   , parameterValue    :: Maybe Double
   , parameterUnits    :: Maybe ID
   , parameterConstant :: Bool
+  , parameterNotes    :: Maybe Notes
   }
+  deriving (Eq, Generic, NFData, Ord, Show)
+
+newtype Notes = Notes { getNotes :: [Element] }
+  deriving (Eq, Generic, NFData, Ord, Show)
+
+newtype Annotation = Annotation { getAnnotation :: [Element] }
   deriving (Eq, Generic, NFData, Ord, Show)

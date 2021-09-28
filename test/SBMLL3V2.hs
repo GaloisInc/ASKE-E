@@ -114,6 +114,7 @@ parseFullCompartment = expected @=? parse src parseCompartment
       , compartmentDimensions = Just 3
       , compartmentUnits = Just "litre"
       , compartmentConstant = True
+      , compartmentAnnotation = Nothing
       }
 
 -------------------------------------------------------------------------------
@@ -133,6 +134,8 @@ parseFullSpecies = expected @=? parse src parseSpecies
       , speciesBoundaryCondition = False
       , speciesConstant = False
       , speciesConversionFactor = Nothing
+      , speciesNotes = Nothing
+      , speciesAnnotation = Nothing
       }
 
 -------------------------------------------------------------------------------
@@ -147,6 +150,7 @@ parseFullParameter = expected @=? parse src parseParameter
       , parameterValue = Just 1000
       , parameterUnits = Just "millimole_per_mole"
       , parameterConstant = True
+      , parameterNotes = Nothing
       }
 
 -------------------------------------------------------------------------------
@@ -338,6 +342,7 @@ parseFullReaction = expected @=? parse src parseReaction
       , reactionProducts = Just [p]
       , reactionModifiers = Just [m]
       , reactionKineticLaw = Just k
+      , reactionAnnotation = Nothing
       }
     r = SpeciesRef
       { speciesRefID = Nothing

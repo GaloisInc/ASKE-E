@@ -24,13 +24,17 @@ sbmlToXML sbml =
             ]
 
 instance Node SBML where
-  node n SBML{sbmlLevel, sbmlVersion, sbmlModel} =
+  node n SBML{ sbmlLevel, sbmlVersion, sbmlModel
+             , sbmlNotes, sbmlAnnotation
+             } =
     add_attrs [ attr "xmlns" "http://www.sbml.org/sbml/level3/version2/core"
               , attr "level" $ ppInt sbmlLevel
               , attr "version" $ ppInt sbmlVersion
               ] $
     node n $ catMaybes
       [ mbUnode "model" sbmlModel
+      , mbUnode "notes" sbmlNotes
+      , mbUnode "annotation" sbmlAnnotation
       ]
 
 instance Node Model where
@@ -69,7 +73,7 @@ instance Node UnitDef where
 instance Node Compartment where
   node n Compartment{ compartmentID, compartmentDimensions
                     , compartmentSize, compartmentUnits
-                    , compartmentConstant
+                    , compartmentConstant, compartmentAnnotation
                     } =
     add_attrs (catMaybes [ justAttr "id" ppText compartmentID
                          , mbAttr   "spatialDimensions" ppDouble compartmentDimensions
@@ -77,7 +81,9 @@ instance Node Compartment where
                          , mbAttr   "units" ppText compartmentUnits
                          , justAttr "constant" ppBool compartmentConstant
                          ]) $
-    node n ()
+    node n $ catMaybes
+      [ mbUnode "annotation" compartmentAnnotation
+      ]
 
 instance Node Species where
   node n Species{ speciesID, speciesName
@@ -85,6 +91,7 @@ instance Node Species where
                 , speciesInitialConc, speciesSubstanceUnits
                 , speciesHasOnlySubstanceUnits, speciesBoundaryCondition
                 , speciesConstant, speciesConversionFactor
+                , speciesNotes, speciesAnnotation
                 } =
     add_attrs (catMaybes [ justAttr "id" ppText speciesID
                          , mbAttr   "name" ppText speciesName
@@ -97,12 +104,15 @@ instance Node Species where
                          , justAttr "constant" ppBool speciesConstant
                          , mbAttr   "conversionFactor" ppText speciesConversionFactor
                          ]) $
-    node n ()
+    node n $ catMaybes
+      [ mbUnode "notes" speciesNotes
+      , mbUnode "annotatin" speciesAnnotation
+      ]
 
 instance Node Parameter where
   node n Parameter{ parameterID, parameterName
                   , parameterValue, parameterUnits
-                  , parameterConstant
+                  , parameterConstant, parameterNotes
                   } =
     add_attrs (catMaybes [ justAttr "id" ppText parameterID
                          , mbAttr   "name" ppText parameterName
@@ -110,7 +120,9 @@ instance Node Parameter where
                          , mbAttr   "units" ppText parameterUnits
                          , justAttr "constant" ppBool parameterConstant
                          ]) $
-    node n ()
+    node n $ catMaybes
+      [ mbUnode "notes" parameterNotes
+      ]
 
 instance Node InitialAssignment where
   node n InitialAssignment{initialID, initialSymbol, initialMath} =
@@ -135,7 +147,7 @@ instance Node Reaction where
   node n Reaction{ reactionID, reactionReversible
                  , reactionCompartment, reactionReactants
                  , reactionProducts, reactionModifiers
-                 , reactionKineticLaw
+                 , reactionKineticLaw, reactionAnnotation
                  } =
     add_attrs (catMaybes [ justAttr "id" ppText reactionID
                          , justAttr "reversible" ppBool reactionReversible
@@ -146,6 +158,7 @@ instance Node Reaction where
       , listOf "Products"  (unode "speciesReference")         reactionProducts
       , listOf "Modifiers" (unode "modifierSpeciesReference") reactionModifiers
       , mbUnode "kineticLaw" reactionKineticLaw
+      , mbUnode "annotation" reactionAnnotation
       ]
 
 instance Node Event where
@@ -255,6 +268,14 @@ instance Node LocalParam where
                          , mbAttr   "units" ppText localParamUnits
                          ]) $
     node n ()
+
+instance Node Notes where
+  node n Notes{getNotes = ns} =
+    node n ns
+
+instance Node Annotation where
+  node n Annotation{getAnnotation = ns} =
+    node n ns
 
 listOf :: String -> (a -> Element) -> Maybe [a] -> Maybe Element
 listOf listName toElement mbL =
