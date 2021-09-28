@@ -117,7 +117,6 @@ data SpeciesRef = SpeciesRef
   , speciesRefSpecies           :: ID
   , speciesRefStoichiometry     :: Double
   , speciesRefStoichiometryMath :: Maybe Math
-  , speciesRefConstant          :: Bool
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 

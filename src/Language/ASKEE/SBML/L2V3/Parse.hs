@@ -195,6 +195,7 @@ parseReaction e =
       reactionModifiers <-
         optChild (appChildren parseModifierSpeciesRef) e "listOfModifiers"
       reactionKineticLaw <- optChild parseKineticLaw e "kineticLaw"
+      reactionAnnotation <- optChild parseAnnotation e "annotation"
       pure Reaction{..}
 
 parseSpeciesRef :: Element -> Parser SpeciesRef
@@ -205,7 +206,6 @@ parseSpeciesRef e =
       speciesRefSpecies <- reqAttr parseText e "species"
       speciesRefStoichiometry <- optAttrDef 1 parseRead e "stoichiometry"
       speciesRefStoichiometryMath <- optChild parseMath e "stoichiometryMath"
-      speciesRefConstant <- reqAttr parseBool e "constant"
       pure SpeciesRef{..}
 
 parseModifierSpeciesRef :: Element -> Parser ModifierSpeciesRef
