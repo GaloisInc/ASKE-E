@@ -70,13 +70,23 @@ data Species = Species
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data InitialAssignment = InitialAssignment
-  { initialID     :: Maybe ID
-  , initialSymbol :: ID
+  { initialSymbol :: ID
   , initialMath   :: Math
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
-data Rule = AlgebraicRule | AssignmentRule | RateRule
+data Rule = 
+    AlgebraicRule 
+      { ruleMath :: Math 
+      }
+  | AssignmentRule
+      { ruleMath :: Math
+      , ruleVariable :: ID 
+      } 
+  | RateRule
+      { ruleMath :: Math
+      , ruleVariable :: ID
+      }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data Constraint
@@ -84,8 +94,10 @@ data Constraint
 
 data Reaction = Reaction
   { reactionID          :: ID
+  , reactionName        :: Maybe ID
   , reactionReversible  :: Bool
-  , reactionCompartment :: Maybe ID
+  , reactionFast        :: Bool
+  -- , reactionCompartment :: Maybe ID
   , reactionReactants   :: Maybe [SpeciesRef]
   , reactionProducts    :: Maybe [SpeciesRef]
   , reactionModifiers   :: Maybe [ModifierSpeciesRef]
@@ -94,30 +106,25 @@ data Reaction = Reaction
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data SpeciesRef = SpeciesRef
-  { speciesRefID            :: Maybe ID
-  , speciesRefName          :: Maybe ID
-  , speciesRefSpecies       :: ID
-  , speciesRefStoichiometry :: Maybe Double
-  , speciesRefConstant      :: Bool
+  { speciesRefID                :: Maybe ID
+  , speciesRefName              :: Maybe ID
+  , speciesRefSpecies           :: ID
+  , speciesRefStoichiometry     :: Double
+  , speciesRefStoichiometryMath :: Maybe Math
+  , speciesRefConstant          :: Bool
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data ModifierSpeciesRef = ModifierSpeciesRef
   { modifierSpeciesRefID      :: Maybe ID
+  , modifierSpeciesRefName    :: Maybe ID
   , modifierSpeciesRefSpecies :: ID
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
 data KineticLaw = KineticLaw
   { kineticMath        :: Maybe Math
-  , kineticLocalParams :: Maybe [LocalParam]
-  }
-  deriving (Eq, Generic, NFData, Ord, Show)
-
-data LocalParam = LocalParam
-  { localParamID    :: ID
-  , localParamValue :: Maybe Double
-  , localParamUnits :: Maybe ID
+  , kineticLocalParams :: Maybe [Parameter]
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 

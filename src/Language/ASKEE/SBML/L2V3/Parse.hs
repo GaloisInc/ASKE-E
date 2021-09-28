@@ -27,19 +27,24 @@ parseModel e =
         optChild (appChildren parseFunction) e "listOfFunctionDefinitions"
       modelUnitDefs <-
         optChild (appChildren parseUnitDef) e "listOfUnitDefinitions"
-      -- let modelCompartmentTypes    = Nothing
-      -- let modelSpeciesTypes        = Nothing
       modelCompartments <-
         optChild (appChildren parseCompartment) e "listOfCompartments"
       modelSpecies <-
         optChild (appChildren parseSpecies) e "listOfSpecies"
       modelParameters <-
         optChild (appChildren parseParameter) e "listOfParameters"
-      -- let modelInitialAssignments  = Nothing
-      -- let modelRules               = Nothing
-      -- let modelConstraints         = Nothing
-      -- let modelReactions           = Nothing
-      -- let modelEvents              = Nothing
+      modelInitialAssignments <-
+        optChild (appChildren parseInitialAssignment) e "listOfInitialAssignments"
+      modelRules <-
+        optChild (appChildren parseRule) e "listOfRules"
+      modelReactions <-
+        optChild (appChildren parseReaction) e "listOfReactions"
+
+      let modelCompartmentTypes    = Nothing
+      let modelSpeciesTypes        = Nothing
+      let modelConstraints         = Nothing
+      let modelEvents              = Nothing
+
       pure Model{..}
 
 parseUnitDef :: Element -> Parser UnitDef
@@ -134,3 +139,81 @@ parseParameter e =
       parameterUnits    <- optAttr parseText e "units"
       parameterConstant <- optAttrDef True parseBool e "constant"
       pure Parameter{..}
+
+parseInitialAssignment :: Element -> Parser InitialAssignment
+parseInitialAssignment e =
+  do  guardName "initialAssignment" e
+      initialSymbol <- reqAttr parseText e "symbol"
+      initialMath   <- reqChild parseMath e "math"
+      pure InitialAssignment{..}
+
+parseRule :: Element -> Parser Rule
+parseRule e =
+  case qName (elName e) of
+    "algebraicRule" -> parseAlgebraicRule e
+    "assignmentRule" -> parseAssignmentRule e
+    "rateRule" -> parseRateRule e
+    n -> die $ printf "undefined rule type '%s'" n
+
+parseAlgebraicRule :: Element -> Parser Rule
+parseAlgebraicRule e =
+  do  guardName "algebraicRule" e
+      ruleMath <- reqChild parseMath e "math"
+      pure AlgebraicRule{..}
+
+parseAssignmentRule :: Element -> Parser Rule
+parseAssignmentRule e =
+  do  guardName "assignmentRule" e
+      ruleVariable <- reqAttr parseText e "variable"
+      ruleMath <- reqChild parseMath e "math"
+      pure AssignmentRule{..}
+
+parseRateRule :: Element -> Parser Rule
+parseRateRule e =
+  do  guardName "rateRule" e
+      ruleVariable <- reqAttr parseText e "variable"
+      ruleMath <- reqChild parseMath e "math"
+      pure RateRule{..}
+
+parseReaction :: Element -> Parser Reaction
+parseReaction e =
+  do  guardName "reaction" e
+      reactionID <- reqAttr parseText e "id"
+      reactionName <- optAttr parseText e "name"
+      reactionReversible <- optAttrDef True parseBool e "reversible"
+      reactionFast <- optAttrDef False parseBool e "fast"
+      reactionReactants <-
+        optChild (appChildren parseSpeciesRef) e "listOfReactants"
+      reactionProducts <-
+        optChild (appChildren parseSpeciesRef) e "listOfProducts"
+      reactionModifiers <-
+        optChild (appChildren parseModifierSpeciesRef) e "listOfModifiers"
+      reactionKineticLaw <- optChild parseKineticLaw e "kineticLaw"
+      pure Reaction{..}
+
+parseSpeciesRef :: Element -> Parser SpeciesRef
+parseSpeciesRef e =
+  do  guardName "speciesReference" e
+      speciesRefID <- optAttr parseText e "id"
+      speciesRefName <- optAttr parseText e "name"
+      speciesRefSpecies <- reqAttr parseText e "species"
+      speciesRefStoichiometry <- optAttrDef 1 parseRead e "stoichiometry"
+      speciesRefStoichiometryMath <- optChild parseMath e "stoichiometryMath"
+      speciesRefConstant <- reqAttr parseBool e "constant"
+      pure SpeciesRef{..}
+
+parseModifierSpeciesRef :: Element -> Parser ModifierSpeciesRef
+parseModifierSpeciesRef e =
+  do  guardName "modifierSpeciesReference" e
+      modifierSpeciesRefID <- optAttr parseText e "id"
+      modifierSpeciesRefName <- optAttr parseText e "name"
+      modifierSpeciesRefSpecies <- reqAttr parseText e "species"
+      pure ModifierSpeciesRef{..}
+
+parseKineticLaw :: Element -> Parser KineticLaw
+parseKineticLaw e =
+  do  guardName "kineticLaw" e
+      kineticMath <- optChild parseMath e "math"
+      kineticLocalParams <-
+        optChild (appChildren parseParameter) e "listOfParameters"
+      pure KineticLaw{..}
