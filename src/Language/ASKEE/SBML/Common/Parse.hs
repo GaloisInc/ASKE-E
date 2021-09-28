@@ -232,18 +232,32 @@ parseTop el =
             _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
     "cn" ->
       do  tyM <- optAttr parseText el "type"
-          body <- asTexts (elContent el)
-          case (tyM, body) of
-            (Just "e-notation", _) -> die $ printf "e-notation not yet supported"
-            (Just "rational", _) -> die $ printf "rational not yet supported"
-            (_, [b]) -> LitD <$> parseRead b
-            _ -> die $ printf "could not interpret number '%s'" (show body)
+          case tyM of
+            Just "e-notation" -> parseENotation (elContent el)
+            Just "rational" -> die $ printf "rational not yet supported"
+            _ ->
+              do  body <- asTexts (elContent el)
+                  case body of
+                    [b] -> LitD <$> parseRead b
+                    _ -> die $ printf "could not interpret number '%s'" (show body)
     "csymbol" ->
       do  url <- optAttr parseText el "definitionURL"
           case url of
             Just "http://www.sbml.org/sbml/symbols/time" -> pure (Var "time")
             _ -> die $ printf "can't interpret csymbol element '%s'" (show el)
     _ -> die $ printf "could not interpret math expression '%s'" (show el)
+
+parseENotation :: [Content] -> Parser Math
+parseENotation cs =
+  case cs of
+    [a, Elem s, b]
+      | qName (elName s) == "sep" -> 
+        do  a' <- asText a >>= parseRead
+            b' <- asText b >>= parseRead
+            pure $ LitD (a' * (10 ** b'))
+      | otherwise -> die $ printf "ill-<sep>arated e-notation '%s'" (show cs)
+    _ -> die $ printf "ill-formed e-notation '%s'" (show cs)
+                
 
 -- use on application arguments, including "plus"/"minus" etc.
 parseApply :: [Element] -> Parser Math
