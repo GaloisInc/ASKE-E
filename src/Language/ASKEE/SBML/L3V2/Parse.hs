@@ -20,6 +20,8 @@ parseSBML e =
       sbmlVersion <- reqAttr parseRead e "version"
       unless (sbmlLevel == 3 && sbmlVersion == 2) $
         die $ printf "unsupported SBML version: %i.%i" sbmlLevel sbmlVersion
+      sbmlNotes <- optChild parseNotes e "notes"
+      sbmlAnnotation <- optChild parseAnnotation e "annotation"
       sbmlModel <- optChild parseModel e "model"
       pure SBML{..}
 
@@ -30,17 +32,17 @@ parseModel e =
       let modelFunctionDefs = Nothing
       modelUnitDefs <-
         optChild (appChildren parseUnitDef) e "listOfUnitDefinitions"
-      modelCompartments <- 
+      modelCompartments <-
         optChild (appChildren parseCompartment) e "listOfCompartments"
-      modelSpecies <- 
+      modelSpecies <-
         optChild (appChildren parseSpecies) e "listOfSpecies"
-      modelParameters <- 
+      modelParameters <-
         optChild (appChildren parseParameter) e "listOfParameters"
-      modelInitialAssignments <- 
+      modelInitialAssignments <-
         optChild (appChildren parseInitialAssignment) e "listOfInitialAssignments"
       let modelRules = Nothing
       let modelConstraints = Nothing
-      modelReactions <- 
+      modelReactions <-
         optChild (appChildren parseReaction) e "listOfReactions"
       let modelEvents = Nothing
 
@@ -109,6 +111,7 @@ parseCompartment e =
       compartmentSize       <- optAttr parseRead e "size"
       compartmentUnits      <- optAttr parseText e "units"
       compartmentConstant   <- reqAttr parseBool e "constant"
+      compartmentAnnotation <- optChild parseAnnotation e "annotation"
       pure Compartment{..}
 
 parseSpecies :: Element -> Parser Species
@@ -124,6 +127,8 @@ parseSpecies e =
       speciesBoundaryCondition     <- reqAttr parseBool e "boundaryCondition"
       speciesConstant              <- reqAttr parseBool e "constant"
       speciesConversionFactor      <- optAttr parseText e "conversionFactor"
+      speciesNotes                 <- optChild parseNotes e "notes"
+      speciesAnnotation            <- optChild parseAnnotation e "annotation"
       pure Species{..}
 
 parseParameter :: Element -> Parser Parameter
@@ -134,6 +139,7 @@ parseParameter e =
       parameterValue    <- optAttr parseRead e "value"
       parameterUnits    <- optAttr parseText e "units"
       parameterConstant <- reqAttr parseBool e "constant"
+      parameterNotes    <- optChild parseNotes e "notes"
       pure Parameter{..}
 
 parseInitialAssignment :: Element -> Parser InitialAssignment
@@ -150,14 +156,16 @@ parseReaction e =
       reactionID <- reqAttr parseText e "id"
       reactionReversible <- reqAttr parseBool e "reversible"
       reactionCompartment <- optAttr parseText e "compartment"
-      reactionReactants <- 
+      reactionReactants <-
         optChild (appChildren parseSpeciesRef) e "listOfReactants"
-      reactionProducts <- 
+      reactionProducts <-
         optChild (appChildren parseSpeciesRef) e "listOfProducts"
       reactionModifiers <-
         optChild (appChildren parseModifierSpeciesRef) e "listOfModifiers"
       reactionKineticLaw <-
         optChild parseKineticLaw e "kineticLaw"
+      reactionAnnotation <-
+        optChild parseAnnotation e "annotation"
       pure Reaction{..}
 
 parseSpeciesRef :: Element -> Parser SpeciesRef

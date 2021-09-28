@@ -115,6 +115,7 @@ library
                         Language.ASKEE.SBML
                         Language.ASKEE.SBML.Common.Parse
                         Language.ASKEE.SBML.Common.Syntax
+                        Language.ASKEE.SBML.Instances
                         Language.ASKEE.SBML.L2V3.Syntax
                         Language.ASKEE.SBML.L2V3.Parse
                         Language.ASKEE.SBML.L3V2.Convert

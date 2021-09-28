@@ -12,9 +12,11 @@ import GHC.Generics ( Generic )
 import Language.ASKEE.SBML.Common.Syntax
 
 data SBML = SBML
-  { sbmlLevel   :: Int
-  , sbmlVersion :: Int
-  , sbmlModel   :: Model
+  { sbmlLevel      :: Int
+  , sbmlVersion    :: Int
+  , sbmlNotes      :: Maybe Notes
+  , sbmlAnnotation :: Maybe Annotation
+  , sbmlModel      :: Model
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
@@ -51,6 +53,7 @@ data Compartment = Compartment
   , compartmentUnits      :: Maybe ID
   , compartmentOutside    :: Maybe ID
   , compartmentConstant   :: Bool
+  , compartmentAnnotation :: Maybe Annotation
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
@@ -66,6 +69,8 @@ data Species = Species
   , speciesBoundaryCondition     :: Bool
   , speciesCharge                :: Maybe Int
   , speciesConstant              :: Bool
+  , speciesNotes                 :: Maybe Notes
+  , speciesAnnotation            :: Maybe Annotation
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 
@@ -102,6 +107,7 @@ data Reaction = Reaction
   , reactionProducts    :: Maybe [SpeciesRef]
   , reactionModifiers   :: Maybe [ModifierSpeciesRef]
   , reactionKineticLaw  :: Maybe KineticLaw
+  , reactionAnnotation  :: Maybe Annotation
   }
   deriving (Eq, Generic, NFData, Ord, Show)
 

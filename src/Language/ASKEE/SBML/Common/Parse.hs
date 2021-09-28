@@ -39,7 +39,7 @@ import Text.XML.Light         ( elChildren
                               , QName(..), filterChildren )
 
 parse :: String -> (Element -> Parser a) -> Either String a
-parse src parser = 
+parse src parser =
   case runParser (parseFromString src parser) of
     Left err -> Left (ppError err)
     Right a -> Right a
@@ -143,7 +143,7 @@ lookupAttr' :: QName -> [Attr] -> Maybe String
 lookupAttr' k = lookupAttrBy (\q -> qName q == qName k)
 
 withChildren :: Element -> (Element -> Parser a) -> Parser [a]
-withChildren e@(Element _ _ _ linum) p = 
+withChildren e@(Element _ _ _ linum) p =
   do  setLinum linum
       traverse p (elChildren e)
 
@@ -180,7 +180,7 @@ asTexts cons = reverse <$> traverse asText (reverse cons)
 
 
 lineFrom :: Content -> Maybe Line
-lineFrom c = 
+lineFrom c =
   case c of
     Elem el -> elLine el
     Text cd -> cdLine cd
@@ -205,6 +205,12 @@ parseText = pure . pack
 
 -------------------------------------------------------------------------------
 
+parseNotes :: Element -> Parser Notes
+parseNotes e = Notes <$> asElements (elContent e)
+
+parseAnnotation :: Element -> Parser Annotation
+parseAnnotation e = Annotation <$> asElements (elContent e)
+
 parseMath :: Element -> Parser Math
 parseMath e =
   do  guardName "math" e
@@ -212,10 +218,10 @@ parseMath e =
       case kids of
         [k] -> parseTop k
         _ -> die $ printf "don't know how to interpret top-level math expression '%s' with more than one element" (show e)
-  
+
 -- use on top-level applications and raw values
 parseTop :: Element -> Parser Math
-parseTop el = 
+parseTop el =
   case qName (elName el) of
     "apply" -> asElements (elContent el) >>= parseApply
     "piecewise" -> parsePiecewise el
@@ -224,7 +230,7 @@ parseTop el =
           case body of
             [b] -> pure (Var (pack b))
             _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
-    "cn" -> 
+    "cn" ->
       do  tyM <- optAttr parseText el "type"
           body <- asTexts (elContent el)
           case (tyM, body) of
@@ -258,7 +264,7 @@ parseApply elems =
 
         n -> die $ printf "unknown mathematical operator '%s'" n
     [] -> die $ printf "empty application in math element"
-  
+
   where
     onEmptyElse es identity op =
       case es of
@@ -282,7 +288,7 @@ parseApply elems =
         _ -> die $ printf "expected two arguments to binary operator, received '%i'" (length es)
 
 parsePiecewise :: Element -> Parser Expr
-parsePiecewise el = 
+parsePiecewise el =
   do  guardName "piecewise" el
       let pieces = filterChildren (\el' -> qName (elName el') == "piece") el
       let other = filterChildren (\el' -> qName (elName el') == "otherwise") el
@@ -344,10 +350,10 @@ parseBody e =
 removeWS :: Content -> [Content]
 removeWS content =
   case content of
-    Text (CData k s l) 
+    Text (CData k s l)
       | all isSpace s -> []
       | otherwise -> [Text (CData k (strip s) l)]
-    Elem (Element name attrs contents linum) -> 
+    Elem (Element name attrs contents linum) ->
       [Elem (Element name attrs (concatMap removeWS contents) linum)]
     CRef _ -> undefined
   where
