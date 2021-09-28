@@ -7,8 +7,8 @@ import Control.Monad ( when )
 import Language.ASKEE.SBML.Common.Parse
 import Language.ASKEE.SBML.Common.Syntax
 import Language.ASKEE.SBML.L2V3.Syntax
+import Text.Printf    ( printf )
 import Text.XML.Light
-import Text.Printf (printf)
 
 parseSBML :: Element -> Parser SBML
 parseSBML e =

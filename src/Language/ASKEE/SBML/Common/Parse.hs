@@ -21,6 +21,8 @@ import Data.Text   ( Text, pack )
 import Language.ASKEE.Expr
 import Language.ASKEE.SBML.Common.Syntax
 
+import Prelude hiding ( LT, EQ, GT )
+
 import Text.Printf            ( formatString
                               , printf
                               , PrintfArg(formatArg) )
@@ -216,6 +218,7 @@ parseTop :: Element -> Parser Math
 parseTop el = 
   case qName (elName el) of
     "apply" -> asElements (elContent el) >>= parseApply
+    "piecewise" -> parsePiecewise el
     "ci" -> 
       do  body <- asTexts (elContent el)
           case body of
@@ -229,6 +232,11 @@ parseTop el =
             (Just "rational", _) -> die $ printf "rational not yet supported"
             (_, [b]) -> LitD <$> parseRead b
             _ -> die $ printf "could not interpret number '%s'" (show body)
+    "csymbol" ->
+      do  url <- optAttr parseText el "definitionURL"
+          case url of
+            Just "http://www.sbml.org/sbml/symbols/time" -> pure (Var "time")
+            _ -> die $ printf "can't interpret csymbol element '%s'" (show el)
     _ -> die $ printf "could not interpret math expression '%s'" (show el)
 
 -- use on application arguments, including "plus"/"minus" etc.
@@ -243,9 +251,10 @@ parseApply elems =
         "divide" -> onEmptyElse els (die $ printf "no division identity") Div
         "and"    -> onEmptyElse els (pure (LitB (and []))) And
         "or"     -> onEmptyElse els (pure (LitB (or []))) Or
-        "power"  -> foldl1 Pow <$> traverse parseTop els
-        "piecewise" -> parsePiecewise el
-          
+        "lt"     -> binop els LT
+        "gt"     -> binop els GT
+        "power"  -> binop els Pow
+        "sin"    -> unop els Sin
 
         n -> die $ printf "unknown mathematical operator '%s'" n
     [] -> die $ printf "empty application in math element"
@@ -259,8 +268,18 @@ parseApply elems =
     onSingletonElse es singletonOp op =
       case es of
         [] -> die $ printf "expected nonempty list of arguments in application of element '%s'" (show $ head elems)
-        [e'] -> singletonOp <$> parseTop e'
+        [e'] -> unop [e'] singletonOp
         _ -> foldl1 op <$> traverse parseTop es
+
+    unop es op =
+      case es of
+        [e] -> op <$> parseTop e
+        _ -> die $ printf "expected one argument to unary operator, received '%i'" (length es)
+
+    binop es op =
+      case es of
+        [e1, e2] -> op <$> parseTop e1 <*> parseTop e2
+        _ -> die $ printf "expected two arguments to binary operator, received '%i'" (length es)
 
 parsePiecewise :: Element -> Parser Expr
 parsePiecewise el = 
@@ -270,10 +289,10 @@ parsePiecewise el =
       when (length other /= 1) $
         die "can't parse piecewise without an 'otherwise' (yet)"
       piecesEs <- traverse parsePiece pieces
-      otherE <- parseTop (head other)
+      otherE <- parseOther (head other)
       pure $ Cond piecesEs (Just otherE)
 
-parsePiece :: Element -> Parser (Expr, Expr)
+parsePiece :: Element -> Parser (Math, Math)
 parsePiece el =
   do  guardName "piece" el
       case elChildren el of
@@ -282,6 +301,13 @@ parsePiece el =
               c <- parseTop condition
               pure (a, c)
         _ -> die $ printf "ill-formed piece '%s'" (show el)
+
+parseOther :: Element -> Parser Math
+parseOther e =
+  do  guardName "otherwise" e
+      case elChildren e of
+        [c] -> parseTop c
+        _ -> undefined
 
 parseFunction :: Element -> Parser Function
 parseFunction e =
@@ -311,7 +337,7 @@ parseBody e =
   do  let body = filterChildren (\el -> qName (elName el) /= "bvar") e
       when (length body /= 1) $
         die "bad function"
-      parseMath (head body)
+      parseTop (head body)
 
 -------------------------------------------------------------------------------
 
@@ -334,8 +360,8 @@ removeWS content =
 instance IsString QName where
   fromString s = QName s uri prefix
     where
-      uri = error "internal error: unexpected attempt to examine a QName's URI"
-      prefix = error "internal error: unexpected attempt to examine a QName's prefix"
+      uri = error $ printf "internal error: unexpected attempt to examine a QName's URI (name: '%s')" s
+      prefix = error $ printf "internal error: unexpected attempt to examine a QName's prefix (name: '%s')" s
 
 instance PrintfArg QName where
   formatArg (QName n _ _) = formatString n
