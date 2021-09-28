@@ -6,15 +6,12 @@ module Language.ASKEE.SBML.L3V2.Parse where
 
 import Control.Monad ( unless )
 
-import Data.Text ( pack )
-
-import Language.ASKEE.Expr             ( Expr(..) )
 import Language.ASKEE.SBML.L3V2.Syntax
-import Language.ASKEE.SBML.Parse
+import Language.ASKEE.SBML.Common.Parse
+import Language.ASKEE.SBML.Common.Syntax
 
 import Text.Printf    ( printf )
-import Text.XML.Light ( Element(..)
-                      , QName(..) )
+import Text.XML.Light ( Element(..) )
 
 parseSBML :: Element -> Parser SBML
 parseSBML e =
@@ -146,64 +143,6 @@ parseInitialAssignment e =
       initialSymbol <- reqAttr parseText e "symbol"
       initialMath   <- reqChild parseMath e "math"
       pure InitialAssignment{..}
-
-parseMath :: Element -> Parser Math
-parseMath e =
-  do  guardName "math" e
-      kids <- asElements (elContent e)
-      case kids of
-        [k] -> parseTop k
-        _ -> die $ printf "don't know how to interpret top-level math expression '%s' with more than one element" (show e)
-  
-  where
-    -- use on top-level applications and raw values
-    parseTop :: Element -> Parser Math
-    parseTop el = 
-      case qName (elName el) of
-        "apply" -> asElements (elContent el) >>= parseArgs
-        "ci" -> 
-          do  body <- asTexts (elContent el)
-              case body of
-                [b] -> pure (Var (pack b))
-                _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
-        "cn" -> 
-          do  tyM <- optAttr parseText el "type"
-              body <- asTexts (elContent el)
-              case (tyM, body) of
-                (Just "e-notation", _) -> die $ printf "e-notation not yet supported"
-                (Just "rational", _) -> die $ printf "rational not yet supported"
-                (_, [b]) -> LitD <$> parseRead b
-                _ -> die $ printf "could not interpret number '%s'" (show body)
-        _ -> die $ printf "could not interpret math expression '%s'" (show el)
-
-    -- use on application arguments, including "plus"/"minus" etc.
-    parseArgs :: [Element] -> Parser Math
-    parseArgs elems =
-      case elems of
-        (el:els) ->
-          case qName (elName el) of
-            "plus"   -> onEmptyElse els (pure (LitD 0)) Add
-            "minus"  -> onSingletonElse els Neg Sub
-            "times"  -> onEmptyElse els (pure (LitD 1)) Mul
-            "divide" -> onEmptyElse els (die $ printf "no division identity") Div
-            "and"    -> onEmptyElse els (pure (LitB (and []))) And
-            "or"     -> onEmptyElse els (pure (LitB (or []))) Or
-            "power"  -> foldl1 Pow <$> traverse parseTop els
-            n -> die $ printf "unknown mathematical operator '%s'" n
-        [] -> die $ printf "empty application in math element %s" (show e)
-      
-      where
-        onEmptyElse es identity op =
-          case es of
-            [] -> identity
-            _ -> foldl1 op <$> traverse parseTop es
-
-        onSingletonElse es singletonOp op =
-          case es of
-            [] -> die $ printf "expected nonempty list of arguments in application of element '%s'" (show $ head elems)
-            [e'] -> singletonOp <$> parseTop e'
-            _ -> foldl1 op <$> traverse parseTop es
-
 
 parseReaction :: Element -> Parser Reaction
 parseReaction e =

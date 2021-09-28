@@ -15,6 +15,7 @@ import Text.XML.Light
 
 import Language.ASKEE.Expr (Expr(..))
 import Language.ASKEE.SBML.L3V2.Syntax
+import Language.ASKEE.SBML.Common.Syntax
 
 sbmlToXML :: SBML -> Text
 sbmlToXML sbml =

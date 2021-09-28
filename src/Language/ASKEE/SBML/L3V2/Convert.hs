@@ -15,6 +15,7 @@ import Language.ASKEE.Expr
 import Language.ASKEE.ExprTransform     ( transformExpr
                                         , collectExprVars)
 import Language.ASKEE.SBML.L3V2.Syntax  as SBML
+import Language.ASKEE.SBML.Common.Syntax  as SBML
 
 import Prelude hiding ( GT )
 

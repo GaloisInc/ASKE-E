@@ -10,7 +10,8 @@ import Language.ASKEE.Expr
 import qualified Language.ASKEE.SBML as SBML
 import Language.ASKEE.SBML.L3V2.Parse
 import Language.ASKEE.SBML.L3V2.Syntax
-import Language.ASKEE.SBML.Parse
+import Language.ASKEE.SBML.Common.Parse
+import Language.ASKEE.SBML.Common.Syntax
 
 import Test.Tasty
 import Test.Tasty.HUnit
