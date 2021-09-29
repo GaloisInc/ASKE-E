@@ -229,7 +229,7 @@ genExpr' :: Env -> Core.Expr -> C.Doc
 genExpr' vf e0 =
   case e0 of
     Core.Op1 op e        -> unop (op1 op) e
-    Core.Op2 op e1 e2    -> 
+    Core.Op2 op e1 e2    ->
       case op of
         Core.Pow -> C.call ("std" `C.namespace` "pow") [subExpr e1, subExpr e2]
         _ -> binop (op2 op) e1 e2
@@ -244,6 +244,7 @@ genExpr' vf e0 =
              Core.Neg -> "-"
              Core.Exp -> "exp"
              Core.Log -> "log"
+             Core.Sin -> "sin"
 
   op2 op = case op of
              Core.Add -> "+"
@@ -287,8 +288,8 @@ genExprSub f e =
 genDriver ::
   Core.Model ->
   Double {- ^ start time -} ->
-  Double {- ^ end time -} -> 
-  Double {- ^ time step -} -> 
+  Double {- ^ end time -} ->
+  Double {- ^ time step -} ->
   C.Doc
 genDriver model start stop step = C.main
   [ C.declare (modelClassName model) cModel
@@ -299,7 +300,7 @@ genDriver model start stop step = C.main
   -- make arrangements to provide unique seeds to each invocation, since
   -- many simultaneous invocations without a seed may well end up receiving
   -- identical times as seeds.
-  , C.ifThenElse ("argc" C.> C.intLit 1) 
+  , C.ifThenElse ("argc" C.> C.intLit 1)
     [C.assign cSeed (C.call "strtoul" [C.subscript "argv" (C.intLit 1), C.nullptr, C.intLit 10])]
     [C.assign cSeed (C.call "time" [C.nullptr])]
   , C.stmt (C.call (C.member cModel "set_seed") [cSeed])

@@ -61,7 +61,26 @@ instance Node Model where
       ]
 
 instance Node Function where
-  node _n x = case x of {}
+  node n Function{ functionID, functionName
+                 , functionArgs, functionBody
+                 } =
+    add_attrs (catMaybes [ justAttr "id" ppText functionID
+                         , mbAttr   "name" ppText functionName
+                         ]) $
+    node n
+      [ wrapMathElements (unqual "math") $
+        [ unode "lambda" $
+          map argToXML functionArgs ++
+          [ mathToXML functionBody
+          ]
+        ]
+      ]
+    where
+      argToXML :: ID -> Element
+      argToXML functionArg =
+        unode "bvar"
+          [ mathToXML $ Var functionArg
+          ]
 
 instance Node UnitDef where
   node n UnitDef{unitDefID, unitDefUnits} =
@@ -176,64 +195,69 @@ instance Node Unit where
     node n ()
 
 instance Node Expr where
-  node n expr =
-    add_attrs [ attr "xmlns" "http://www.w3.org/1998/Math/MathML"
-              ] $
-    node n
-      [ exprToElement expr
-      ]
-    where
-      exprToElement :: Expr -> Element
-      exprToElement e =
-        case e of
-          Neg e1    -> apply1 "minus" e1
+  node n math = wrapMathElements n [mathToXML math]
 
-          Add e1 e2 -> apply2 "plus" e1 e2
-          Sub e1 e2 -> apply2 "minus" e1 e2
-          Mul e1 e2 -> apply2 "times" e1 e2
-          Div e1 e2 -> apply2 "divide" e1 e2
-          Pow e1 e2 -> apply2 "power" e1 e2
-          And e1 e2 -> apply2 "and" e1 e2
-          Or e1 e2  -> apply2 "or" e1 e2
+wrapMathElements :: QName -> [Element] -> Element
+wrapMathElements n es =
+  add_attrs [ attr "xmlns" "http://www.w3.org/1998/Math/MathML"
+            ] $
+  node n es
 
-          Var  i    -> unode "ci" $ ppText i
-          LitD d    -> unode "cn" $ ppDouble d
+mathToXML :: Math -> Element
+mathToXML = exprToElement
+  where
+    exprToElement :: Expr -> Element
+    exprToElement e =
+      case e of
+        Neg e1    -> apply1 "minus" e1
+        Sin e1    -> apply1 "sin" e1
 
-          Exp{}     -> notSupported "exp"
-          Log{}     -> notSupported "log"
-          Not{}     -> notSupported "not"
+        Add e1 e2 -> apply2 "plus" e1 e2
+        Sub e1 e2 -> apply2 "minus" e1 e2
+        Mul e1 e2 -> apply2 "times" e1 e2
+        Div e1 e2 -> apply2 "divide" e1 e2
+        Pow e1 e2 -> apply2 "power" e1 e2
+        And e1 e2 -> apply2 "and" e1 e2
+        Or e1 e2  -> apply2 "or" e1 e2
 
-          LT{}      -> notInMathML "LT"
-          LTE{}     -> notInMathML "LTE"
-          EQ{}      -> notInMathML "EQ"
-          GTE{}     -> notInMathML "GTE"
-          GT{}      -> notInMathML "GT"
-          If{}      -> notInMathML "If"
-          Cond{}    -> notInMathML "Cond"
-          LitB{}    -> notInMathML "LitB"
+        Var  i    -> unode "ci" $ ppText i
+        LitD d    -> unode "cn" $ ppDouble d
 
-      notSupported :: String -> a
-      notSupported name = error $
-        "The `" ++ name ++ "` operator is not yet supported"
+        Exp{}     -> notSupported "exp"
+        Log{}     -> notSupported "log"
+        Not{}     -> notSupported "not"
 
-      notInMathML :: String -> a
-      notInMathML name = error $
-        "`" ++ name ++ "` does not have a counterpart in MathML"
+        LT{}      -> notInMathML "LT"
+        LTE{}     -> notInMathML "LTE"
+        EQ{}      -> notInMathML "EQ"
+        GTE{}     -> notInMathML "GTE"
+        GT{}      -> notInMathML "GT"
+        If{}      -> notInMathML "If"
+        Cond{}    -> notInMathML "Cond"
+        LitB{}    -> notInMathML "LitB"
 
-      apply1 :: String -> Expr -> Element
-      apply1 name arg =
-        unode "apply"
-          [ unode name ()
-          , exprToElement arg
-          ]
+    notSupported :: String -> a
+    notSupported name = error $
+      "The `" ++ name ++ "` operator is not yet supported"
 
-      apply2 :: String -> Expr -> Expr -> Element
-      apply2 name arg1 arg2 =
-        unode "apply"
-          [ unode name ()
-          , exprToElement arg1
-          , exprToElement arg2
-          ]
+    notInMathML :: String -> a
+    notInMathML name = error $
+      "`" ++ name ++ "` does not have a counterpart in MathML"
+
+    apply1 :: String -> Expr -> Element
+    apply1 name arg =
+      unode "apply"
+        [ unode name ()
+        , exprToElement arg
+        ]
+
+    apply2 :: String -> Expr -> Expr -> Element
+    apply2 name arg1 arg2 =
+      unode "apply"
+        [ unode name ()
+        , exprToElement arg1
+        , exprToElement arg2
+        ]
 
 instance Node SpeciesRef where
   node n SpeciesRef{ speciesRefID, speciesRefName, speciesRefSpecies

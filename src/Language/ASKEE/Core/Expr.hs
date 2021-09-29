@@ -33,7 +33,7 @@ data Expr =
   | Fail String
     deriving (Show,Eq,Ord,Generic,NFData)
 
-data Op1 = Not | Neg | Exp | Log
+data Op1 = Not | Neg | Exp | Log | Sin
   deriving (Show,Eq,Ord,Generic,NFData)
 
 data Op2 = Add | Mul | Sub | Div | Lt | Leq | Eq | And | Or | Pow
@@ -357,6 +357,7 @@ asExpr expr =
         Neg -> Expr.Neg (asExpr e1)
         Exp -> Expr.Exp (asExpr e1)
         Log -> Expr.Log (asExpr e1)
+        Sin -> Expr.Sin (asExpr e1)
 
     doOp2 op2 e1 e2 =
       case op2 of

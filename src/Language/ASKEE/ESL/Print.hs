@@ -26,7 +26,7 @@ type Doc = PP.Doc ()
 -- More line spacing could be nice?
 
 pyPrintExpr :: Expr -> Doc
-pyPrintExpr expr = 
+pyPrintExpr expr =
   case expr of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
@@ -34,6 +34,7 @@ pyPrintExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "math.exp" <> parens (pyPrintExpr e1)
     (Log e1) -> text "math.log" <> parens (pyPrintExpr e1)
+    (Sin e1) -> text "math.sin" <> parens (pyPrintExpr e1)
     (Pow e1 e2) -> binop e1 "**" e2
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
@@ -45,11 +46,11 @@ pyPrintExpr expr =
     (LT e1 e2)  -> aBinop e1 "<"   e2
     (And e1 e2) -> lBinop e1 "and" e2
     (Or e1 e2)  -> lBinop e1 "or"  e2
-    (Not e1) -> 
+    (Not e1) ->
       hsep  [ text "not"
             , pp e1]
-    If e1 e2 e3 -> 
-      hsep  [ pp e2 
+    If e1 e2 e3 ->
+      hsep  [ pp e2
             , text "if"
             , pp e1
             , text "else"
@@ -58,18 +59,18 @@ pyPrintExpr expr =
     Cond _ _ -> undefined
     LitB True -> text "True"
     LitB False -> text "False"
-  
+
   where
     binop = expBinop pp
     aBinop = expBinop pp
     lBinop = expBinop pp
 
     pp :: Expr -> Doc
-    pp e = 
+    pp e =
       if prec e <= prec expr
         then parens (pyPrintExpr e)
         else         pyPrintExpr e
-        
+
     prec :: Expr -> Int
     prec e =
       case e of
@@ -79,6 +80,7 @@ pyPrintExpr expr =
         Not _ -> 1
         Exp _ -> 1
         Log _ -> 1
+        Sin _ -> 1
         Pow _ _ -> 8
         Add _ _ -> 6
         Sub _ _ -> 6
@@ -97,7 +99,7 @@ pyPrintExpr expr =
 
 
 printExpr :: Expr -> Doc
-printExpr expr = 
+printExpr expr =
   case expr of
     (Add e1 e2) -> binop e1 "+"   e2
     (Sub e1 e2) -> binop e1 "-"   e2
@@ -105,6 +107,7 @@ printExpr expr =
     (Div e1 e2) -> binop e1 "/"   e2
     (Exp e1) -> text "exp" <> parens (printExpr e1)
     (Log e1) -> text "log" <> parens (printExpr e1)
+    (Sin e1) -> text "sin" <> parens (printExpr e1)
     (Pow _ _) -> error "haven't decided on a syntax for exponentiation yet"
     (Neg e1) -> pretty '-' <> pp e1
     (LitD d) -> pretty d
@@ -116,14 +119,14 @@ printExpr expr =
     (LT e1 e2)  -> aBinop e1 "<"   e2
     (And e1 e2) -> lBinop e1 "and" e2
     (Or e1 e2)  -> lBinop e1 "or"  e2
-    (Not e1) -> 
+    (Not e1) ->
       hsep  [ text "not"
             , pp e1]
-    If e1 e2 e3 -> 
+    If e1 e2 e3 ->
       hsep  [ text "if"
             , pp e1
             , text "then"
-            , pp e2 
+            , pp e2
             , text "else"
             , pp e3
             ]
@@ -135,18 +138,18 @@ printExpr expr =
       in  vcat [indent 2 decl, indent 4 branches']
     LitB True -> text "true"
     LitB False -> text "false"
-  
+
   where
     binop = expBinop pp
     aBinop = expBinop pp
     lBinop = expBinop pp
 
     pp :: Expr -> Doc
-    pp e = 
+    pp e =
       if prec e <= prec expr
         then parens (printExpr e)
         else         printExpr e
-        
+
     prec :: Expr -> Int
     prec e =
       case e of
@@ -156,6 +159,7 @@ printExpr expr =
         Not _ -> 4
         Exp _ -> 1
         Log _ -> 1
+        Sin _ -> 1
         Pow _ _ -> error "haven't decided on a syntax for exponentiation yet"
         Add _ _ -> 6
         Sub _ _ -> 6
@@ -173,7 +177,7 @@ printExpr expr =
         Cond {} -> 0
 
     condBranch :: Expr -> Expr -> Doc
-    condBranch e1 e2 = 
+    condBranch e1 e2 =
       printExpr e1 <+>
       text "if" <+>
       printExpr e2
@@ -184,7 +188,7 @@ printExpr expr =
       text "otherwise"
 
 expBinop :: (a -> Doc) -> a -> String -> a -> Doc
-expBinop pr e1 op e2 = 
+expBinop pr e1 op e2 =
   hsep  [ pr e1
         , pretty op
         , pr e2
@@ -211,12 +215,12 @@ printEvent Event{..} = vcat [decl, indent 2 body]
 
     effect :: Doc
     effect = vcat [text "effect:", indent 2 statements]
-    
+
     statements :: Doc
     statements = vcat $ map (uncurry printAssign) eventEffect
 
     printAssign :: Text -> Expr -> Doc
-    printAssign ident e = 
+    printAssign ident e =
       hsep [ pretty (unpack ident)
            , pretty '='
            , printExpr e]
@@ -240,13 +244,13 @@ printModel Model{..} = vcat [decl, indent 2 body]
     events = map printEvent modelEvents
 
     printDecl :: Decl -> Doc
-    printDecl (Let name val) = 
+    printDecl (Let name val) =
       hsep [ text "let"
            , pretty (unpack name)
            , pretty '='
            , printExpr val
            ]
-    printDecl (State name val) = 
+    printDecl (State name val) =
       hsep [ text "state"
            , pretty (unpack name)
            , pretty '='
