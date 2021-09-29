@@ -86,6 +86,7 @@ expAsCore e =
     Src.Div e1 e2     -> binop Div e1 e2
     Src.Exp e1        -> Op1 Exp (expAsCore e1)
     Src.Log e1        -> Op1 Log (expAsCore e1)
+    Src.Sin e1        -> Op1 Sin (expAsCore e1)
     Src.Pow e1 e2     -> binop Pow e1 e2
     Src.Neg e1        -> Op1 Neg (expAsCore e1)
     Src.LitD d        -> NumLit d

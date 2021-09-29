@@ -270,6 +270,7 @@ exprToArg vars expr =
            Core.Neg     -> op "-"
            Core.Exp     -> op "exp"
            Core.Log     -> op "log"
+           Core.Sin     -> op "sin"
 
     -- XXX: we could turn binary to N-ary operators?
     Core.Op2 f e1 e2 ->

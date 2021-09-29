@@ -22,7 +22,7 @@ import           Language.ASKEE.ESL.Syntax (Event(..), Decl(..), Model(..))
 import Prelude hiding (GT, EQ, LT, exp)
 import Language.ASKEE.Metadata
 
-data Type = 
+data Type =
     Double
   | Boolean
   deriving Eq
@@ -60,7 +60,7 @@ checkModel :: Model -> Either String Model
 checkModel m@Model{..} = evalCheck go >> pure m
   where
     go :: Check ()
-    go = 
+    go =
       do  checkDecls (map metaValue modelDecls)
           checkEvents modelEvents
 
@@ -101,7 +101,7 @@ checkEvents = mapM_ checkEvent
           ty <- typeCheck eventRate
           lift $ expect Nothing eventRate Double ty
 
-          forM_ eventEffect $ 
+          forM_ eventEffect $
             \(var, expr) ->
               do  scopeCheck eventRepr (Just var) expr
                   ty' <- typeCheck eventRate
@@ -132,7 +132,7 @@ scopeCheck thing varM expr =
       let eVars = exprVars expr
           boundVars = Map.keysSet es
       unless (eVars `Set.isSubsetOf` boundVars) $
-        let unboundVars = show $ Set.toList $ eVars Set.\\ boundVars 
+        let unboundVars = show $ Set.toList $ eVars Set.\\ boundVars
             exprStr = show $ printExpr expr
         in  lift . Left . unlines $
               [ "in \'"<>thing<>maybe "" (\var -> " "<>Text.unpack var) varM<>"\', expression"
@@ -143,14 +143,14 @@ scopeCheck thing varM expr =
       case varM of
         Nothing -> pure ()
         Just var
-          | var `Set.member` boundVars && thing /= eventRepr -> 
-            lift . Left . unlines $ 
+          | var `Set.member` boundVars && thing /= eventRepr ->
+            lift . Left . unlines $
               [ "in \'"<>thing<>"\'-type (re)binding for \'"<>Text.unpack var<>"\':"
               , "binding cannot shadow an existing binding"
               ]
           -- the below branch may not be needed
-          | var `Set.member` eVars && thing /= eventRepr -> 
-            lift . Left . unlines $ 
+          | var `Set.member` eVars && thing /= eventRepr ->
+            lift . Left . unlines $
               [ "in \'"<>thing<>"\'-type binding for \'"<>Text.unpack var<>"\':"
               , "variable "<>Text.unpack var<>" cannot be referred to in its own expression:"
               , show (printExpr expr)
@@ -163,13 +163,13 @@ typeCheck :: Expr -> Check Type
 typeCheck expr =
   do  ExprInfo _ ts <- get
       lift $ typeOf ts expr
-      
+
 -- | Type an expression
 typeOf :: Map Text Type -> Expr -> Either String Type
 typeOf bindings orig = ty orig
   where
     ty :: Expr -> Either String Type
-    ty e = 
+    ty e =
       case e of
         Add e1 e2   -> arithTy e1 e2
         Sub e1 e2   -> arithTy e1 e2
@@ -178,6 +178,7 @@ typeOf bindings orig = ty orig
         Neg e1      -> ty e1 >>= expect' e1 Double >> pure Double
         Exp e1      -> ty e1 >>= expect' e1 Double >> pure Double
         Log e1      -> ty e1 >>= expect' e1 Double >> pure Double
+        Sin e1      -> ty e1 >>= expect' e1 Double >> pure Double
         Pow e1 e2   -> arithTy e1 e2
         And e1 e2   -> logTy e1 e2
         Or e1 e2    -> logTy e1 e2
@@ -195,17 +196,17 @@ typeOf bindings orig = ty orig
               expect' e2 t2 t2
               expect' e3 t2 t3
               pure t2
-        Cond [] _ -> panic 
-          "no \'cond\' branches" 
+        Cond [] _ -> panic
+          "no \'cond\' branches"
           [ "while typechecking cond expression:"
           , show (printExpr e)
           ]
         Cond branches otherM ->
-          do  forM_ [condition | (_, condition) <- branches] $ 
+          do  forM_ [condition | (_, condition) <- branches] $
                 \expr -> ty expr >>= expect' expr Boolean
 
               expected <- ty $ head [result | (result, _) <- branches]
-              forM_ [result | (result, _) <- tail branches] $ 
+              forM_ [result | (result, _) <- tail branches] $
                 \expr -> ty expr >>= expect' expr expected
 
               case otherM of
@@ -215,8 +216,8 @@ typeOf bindings orig = ty orig
         Var v ->
           case bindings Map.!? v of
             Just t -> pure t
-            Nothing -> panic 
-              ("encountered unbound variable "<>Text.unpack v) 
+            Nothing -> panic
+              ("encountered unbound variable "<>Text.unpack v)
               [ "while typechecking expression:"
               , show (printExpr orig)
               ]
@@ -256,10 +257,10 @@ exprVars = Set.fromList . execWriter . transformExpr extractVars
 
 -- | Simple type-checking utility function for expected types
 expect :: Maybe Expr -> Expr -> Type -> Type -> Either String ()
-expect context expr expected got = 
-  if expected == got 
+expect context expr expected got =
+  if expected == got
     then pure ()
-    else 
+    else
       case context of
         Nothing -> Left . unlines $
           [ "type mismatch!"

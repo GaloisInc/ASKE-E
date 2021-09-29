@@ -28,6 +28,7 @@ evalDouble expr env =
         Neg -> negate (evalDouble e env)
         Exp -> exp (evalDouble e env)
         Log -> log (evalDouble e env)
+        Sin -> sin (evalDouble e env)
         Not -> typeError
 
     Op2 op e1 e2 ->
@@ -66,6 +67,7 @@ evalBool expr env =
         Neg -> typeError
         Exp -> typeError
         Log -> typeError
+        Sin -> typeError
         Not -> not (evalBool e env)
 
     Op2 op e1 e2 ->
