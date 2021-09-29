@@ -310,7 +310,7 @@ parsePiecewise el =
         die "can't parse piecewise without an 'otherwise' (yet)"
       piecesEs <- traverse parsePiece pieces
       otherE <- parseOther (head other)
-      pure $ Cond piecesEs (Just otherE)
+      pure $ foldr (\(action, condition) -> If condition action) otherE piecesEs
 
 parsePiece :: Element -> Parser (Math, Math)
 parsePiece el =
