@@ -2,7 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
-module Language.ASKEE.SBML.L3V2.ToXML
+module Language.ASKEE.SBML.L2V3.ToXML
   ( sbmlToXML
   ) where
 
@@ -14,7 +14,7 @@ import Prelude hiding (Ordering(..))
 import Text.XML.Light
 
 import Language.ASKEE.Expr (Expr(..))
-import Language.ASKEE.SBML.L3V2.Syntax
+import Language.ASKEE.SBML.L2V3.Syntax
 import Language.ASKEE.SBML.Common.Syntax
 
 sbmlToXML :: SBML -> Text
@@ -32,7 +32,7 @@ instance Node SBML where
               , attr "version" $ ppInt sbmlVersion
               ] $
     node n $ catMaybes
-      [ mbUnode "model" sbmlModel
+      [ Just $ unode "model" sbmlModel
       , mbUnode "notes" sbmlNotes
       , mbUnode "annotation" sbmlAnnotation
       ]
@@ -95,7 +95,7 @@ instance Node Compartment where
                     , compartmentConstant, compartmentAnnotation
                     } =
     add_attrs (catMaybes [ justAttr "id" ppText compartmentID
-                         , mbAttr   "spatialDimensions" ppDouble compartmentDimensions
+                         , justAttr "spatialDimensions" ppInt compartmentDimensions
                          , mbAttr   "size" ppDouble compartmentSize
                          , mbAttr   "units" ppText compartmentUnits
                          , justAttr "constant" ppBool compartmentConstant
@@ -109,7 +109,7 @@ instance Node Species where
                 , speciesCompartment, speciesInitialAmount
                 , speciesInitialConc, speciesSubstanceUnits
                 , speciesHasOnlySubstanceUnits, speciesBoundaryCondition
-                , speciesConstant, speciesConversionFactor
+                , speciesConstant
                 , speciesNotes, speciesAnnotation
                 } =
     add_attrs (catMaybes [ justAttr "id" ppText speciesID
@@ -121,7 +121,6 @@ instance Node Species where
                          , justAttr "hasOnlySubstanceUnits" ppBool speciesHasOnlySubstanceUnits
                          , justAttr "boundaryCondition" ppBool speciesBoundaryCondition
                          , justAttr "constant" ppBool speciesConstant
-                         , mbAttr   "conversionFactor" ppText speciesConversionFactor
                          ]) $
     node n $ catMaybes
       [ mbUnode "notes" speciesNotes
@@ -144,10 +143,8 @@ instance Node Parameter where
       ]
 
 instance Node InitialAssignment where
-  node n InitialAssignment{initialID, initialSymbol, initialMath} =
-    add_attrs (catMaybes [ mbAttr   "id" ppText initialID
-                         , justAttr "symbol" ppText initialSymbol
-                         ]) $
+  node n InitialAssignment{initialSymbol, initialMath} =
+    add_attr (attr "symbol" $ ppText initialSymbol) $
     node n
       [ unode "math" initialMath
       ]
@@ -155,23 +152,33 @@ instance Node InitialAssignment where
 instance Node Rule where
   node _n rule =
     case rule of
-      AlgebraicRule  -> unode "algebraicRule"  ()
-      AssignmentRule -> unode "assignmentRule" ()
-      RateRule       -> unode "rateRule"       ()
+      AlgebraicRule{ruleMath} ->
+        unode "algebraicRule"
+          [ unode "math" ruleMath
+          ]
+      AssignmentRule{ruleMath, ruleVariable} ->
+        add_attr (attr "variable" $ ppText ruleVariable) $
+        unode "assignmentRule"
+          [ unode "math" ruleMath
+          ]
+      RateRule{ruleMath, ruleVariable} ->
+        add_attr (attr "variable" $ ppText ruleVariable) $
+        unode "rateRule"
+          [ unode "math" ruleMath
+          ]
 
 instance Node Constraint where
   node _n x = case x of {}
 
 instance Node Reaction where
   node n Reaction{ reactionID, reactionReversible
-                 , reactionCompartment, reactionReactants
+                 , reactionReactants
                  , reactionProducts, reactionModifiers
                  , reactionKineticLaw, reactionAnnotation
                  } =
-    add_attrs (catMaybes [ justAttr "id" ppText reactionID
-                         , justAttr "reversible" ppBool reactionReversible
-                         , mbAttr   "compartment" ppText reactionCompartment
-                         ]) $
+    add_attrs ([ attr "id" $ ppText reactionID
+               , attr "reversible" $ ppBool reactionReversible
+               ]) $
     node n $ catMaybes
       [ listOf "Reactants" (unode "speciesReference")         reactionReactants
       , listOf "Products"  (unode "speciesReference")         reactionProducts
@@ -271,13 +278,12 @@ mathToXML = exprToElement
 
 instance Node SpeciesRef where
   node n SpeciesRef{ speciesRefID, speciesRefName, speciesRefSpecies
-                   , speciesRefStoichiometry, speciesRefConstant
+                   , speciesRefStoichiometry
                    } =
     add_attrs (catMaybes [ mbAttr   "id" ppText speciesRefID
                          , mbAttr   "name" ppText speciesRefName
                          , justAttr "species" ppText speciesRefSpecies
-                         , mbAttr   "stoichiometry" ppDouble speciesRefStoichiometry
-                         , justAttr "constant" ppBool speciesRefConstant
+                         , justAttr "stoichiometry" ppDouble speciesRefStoichiometry
                          ]) $
     node n ()
 
@@ -294,14 +300,6 @@ instance Node KineticLaw where
       [ mbUnode "math" kineticMath
       , listOf "LocalParameters" (unode "localParameter") kineticLocalParams
       ]
-
-instance Node LocalParam where
-  node n LocalParam{localParamID, localParamValue, localParamUnits} =
-    add_attrs (catMaybes [ justAttr "id" ppText localParamID
-                         , mbAttr   "value" ppDouble localParamValue
-                         , mbAttr   "units" ppText localParamUnits
-                         ]) $
-    node n ()
 
 instance Node Notes where
   node n Notes{getNotes = ns} =
