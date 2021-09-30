@@ -1,4 +1,4 @@
-module SBMLL2V3 where
+module SBML.L2V3 where
 
 import Data.Generics (Data, everywhere, mkT)
 import qualified Data.Text as T

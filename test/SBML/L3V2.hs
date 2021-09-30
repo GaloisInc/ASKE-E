@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module SBMLL3V2 where
+module SBML.L3V2 where
 
 import Data.Generics ( Data, everywhere, mkT )
 import qualified Data.Text as T

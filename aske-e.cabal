@@ -278,8 +278,8 @@ test-suite tests
   other-modules:        ASKEE
                       , Exposure
                       , ModelCheck
-                      , SBMLL2V3
-                      , SBMLL3V2
+                      , SBML.L2V3
+                      , SBML.L3V2
                       , Storage
                       , Paths_aske_e
   autogen-modules:      Paths_aske_e
