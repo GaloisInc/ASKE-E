@@ -38,14 +38,15 @@ instance Node SBML where
       ]
 
 instance Node Model where
-  node n Model{ modelName
+  node n Model{ modelID, modelName
               , modelFunctionDefs, modelUnitDefs
               , modelCompartments, modelSpecies
               , modelParameters, modelInitialAssignments
               , modelRules, modelConstraints
               , modelReactions, modelEvents
               } =
-    add_attrs (catMaybes [ mbAttr "name" ppText modelName
+    add_attrs (catMaybes [ mbAttr "id" ppText modelID
+                         , mbAttr "name" ppText modelName
                          ]) $
     node n $ catMaybes
       [ listOf "FunctionDefinitions" (unode "functionDefinition") modelFunctionDefs
@@ -90,11 +91,12 @@ instance Node UnitDef where
       ]
 
 instance Node Compartment where
-  node n Compartment{ compartmentID, compartmentDimensions
+  node n Compartment{ compartmentID, compartmentName, compartmentDimensions
                     , compartmentSize, compartmentUnits
                     , compartmentConstant, compartmentAnnotation
                     } =
     add_attrs (catMaybes [ justAttr "id" ppText compartmentID
+                         , mbAttr   "name" ppText compartmentName
                          , justAttr "spatialDimensions" ppInt compartmentDimensions
                          , mbAttr   "size" ppDouble compartmentSize
                          , mbAttr   "units" ppText compartmentUnits
@@ -171,14 +173,15 @@ instance Node Constraint where
   node _n x = case x of {}
 
 instance Node Reaction where
-  node n Reaction{ reactionID, reactionReversible
-                 , reactionReactants
+  node n Reaction{ reactionID, reactionName
+                 , reactionReversible, reactionReactants
                  , reactionProducts, reactionModifiers
                  , reactionKineticLaw, reactionAnnotation
                  } =
-    add_attrs ([ attr "id" $ ppText reactionID
-               , attr "reversible" $ ppBool reactionReversible
-               ]) $
+    add_attrs (catMaybes [ justAttr "id" ppText reactionID
+                         , mbAttr "name" ppText reactionName
+                         , justAttr "reversible" ppBool reactionReversible
+                         ]) $
     node n $ catMaybes
       [ listOf "Reactants" (unode "speciesReference")         reactionReactants
       , listOf "Products"  (unode "speciesReference")         reactionProducts
@@ -235,7 +238,7 @@ mathToXML = exprToElement
         GTE e1 e2 -> apply2 "gte" e1 e2
         GT e1 e2  -> apply2 "gt" e1 e2
 
-        If c t f                       -> piecewiseToXML [(c, t)] (Just f)
+        If c t f                       -> piecewiseToXML [(t, c)] (Just f)
         Cond initPieces otherwisePiece -> piecewiseToXML initPieces otherwisePiece
 
         Var  i    -> unode "ci" $ ppText i
@@ -298,7 +301,7 @@ instance Node KineticLaw where
   node n KineticLaw{kineticMath, kineticLocalParams} =
     node n $ catMaybes
       [ mbUnode "math" kineticMath
-      , listOf "LocalParameters" (unode "localParameter") kineticLocalParams
+      , listOf "Parameters" (unode "parameter") kineticLocalParams
       ]
 
 instance Node Notes where

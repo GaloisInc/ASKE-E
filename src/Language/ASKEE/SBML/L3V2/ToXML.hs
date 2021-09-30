@@ -228,7 +228,7 @@ mathToXML = exprToElement
         GTE e1 e2 -> apply2 "gte" e1 e2
         GT e1 e2  -> apply2 "gt" e1 e2
 
-        If c t f                       -> piecewiseToXML [(c, t)] (Just f)
+        If c t f                       -> piecewiseToXML [(t, c)] (Just f)
         Cond initPieces otherwisePiece -> piecewiseToXML initPieces otherwisePiece
 
         Var  i    -> unode "ci" $ ppText i
