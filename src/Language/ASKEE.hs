@@ -17,8 +17,10 @@ module Language.ASKEE
   , loadCPPFrom
   , loadCore
   , loadCoreFrom
-  , loadSBML
-  , loadSBMLFrom
+  , loadSBMLL3V2
+  , loadSBMLL3V2From
+  , loadSBMLL2V3
+  , loadSBMLL2V3From
   , loadModel
   
   , checkModel
@@ -132,7 +134,8 @@ import           Language.ASKEE.Model                  ( parseModel
                                                        , toGrometPnc
                                                        , toGrometPrt
                                                        , toGrometFnet
-                                                       , toSBML
+                                                       , toSBMLL3V2
+                                                       , toSBMLL2V3
                                                        , modelUID
                                                        , Model (..) )
 import           Language.ASKEE.Model.Basics           ( ModelType(..)
@@ -244,13 +247,23 @@ loadGrometFnetFrom format source =
 
 -------------------------------------------------------------------------------
 -- SBML
-loadSBML :: DataSource -> IO SBML.SBML
-loadSBML = loadSBMLFrom SBMLType
 
-loadSBMLFrom :: ModelType -> DataSource -> IO SBML.SBML
-loadSBMLFrom format source =
+loadSBMLL3V2 :: DataSource -> IO SBML.L3V2
+loadSBMLL3V2 = loadSBMLL3V2From SBMLL3V2Type
+
+loadSBMLL3V2From :: ModelType -> DataSource -> IO SBML.L3V2
+loadSBMLL3V2From format source =
   do  model <- loadModel format source
-      throwLeft ConversionError (toSBML model)
+      throwLeft ConversionError (toSBMLL3V2 model)
+
+loadSBMLL2V3 :: DataSource -> IO SBML.L2V3
+loadSBMLL2V3 = loadSBMLL2V3From SBMLL2V3Type
+
+loadSBMLL2V3From :: ModelType -> DataSource -> IO SBML.L2V3
+loadSBMLL2V3From format source =
+  do  model <- loadModel format source
+      throwLeft ConversionError (toSBMLL2V3 model)
+
 
 -------------------------------------------------------------------------------
 -- TODO: Reactions
@@ -511,7 +524,8 @@ simulateModel sim format source start end step parameters outputs seed dp iterat
         RNetType -> GSL
         DeqType -> GSL
         CoreType -> GSL
-        SBMLType -> GSL
+        SBMLL3V2Type -> GSL
+        SBMLL2V3Type -> GSL
     filterDS ds 
       | null outputs = ds
       | otherwise = ds { DS.values = Map.restrictKeys (DS.values ds) outputs }
@@ -611,7 +625,8 @@ convertModelString srcTy src destTy =
           GrometPncType -> model >>= toGrometPnc >>= (printModel . GrometPnc)
           GrometFnetType -> model >>= toGrometFnet >>= (printModel . GrometFnet)
           RNetType  -> Left "Don't know how to convert to RNet yet"
-          SBMLType -> model >>= toSBML >>= (printModel . SBML)
+          SBMLL3V2Type -> model >>= toSBMLL3V2 >>= (printModel . SBMLL3V2)
+          SBMLL2V3Type -> model >>= toSBMLL2V3 >>= (printModel . SBMLL2V3)
 
 
           
@@ -680,7 +695,8 @@ modelMetadata model = case model of
   GrometPrt Gromet{..} -> withName grometName grometMeta
   GrometPnc PetriNetClassic{..} -> withName pncName Map.empty
   GrometFnet m                  -> fnetMetadata m
-  SBML _               -> mempty
+  SBMLL3V2 _ -> mempty
+  SBMLL2V3 _ -> mempty
   where
     recastListOfPairs pairs = Map.fromList [(k, [v]) |(k, v) <- pairs]
     withName n meta = Map.insertWith (++) "name" [n] meta

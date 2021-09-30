@@ -108,7 +108,8 @@ data ModelType =
   | GrometPrtType
   | GrometPncType
   | GrometFnetType
-  | SBMLType
+  | SBMLL3V2Type
+  | SBMLL2V3Type
   deriving(Eq, Ord, Show, Enum, Bounded)
 
 allModelTypes :: [ModelType]
@@ -124,6 +125,8 @@ parseModelType t =
     "gromet-prt"  -> Just GrometPrtType
     "gromet-pnc"  -> Just GrometPncType
     "gromet-fnet" -> Just GrometFnetType
+    "sbml-3.2"    -> Just SBMLL3V2Type
+    "sbml-2.3"    -> Just SBMLL2V3Type
     _ -> Nothing
 
 parseModelType' :: String -> Maybe ModelType
@@ -139,7 +142,8 @@ describeModelType t =
     GrometPrtType -> "gromet-prt"
     GrometPncType -> "gromet-pnc"
     GrometFnetType -> "gromet-fnet"
-    SBMLType -> "sbml"
+    SBMLL3V2Type -> "sbml-3.2"
+    SBMLL2V3Type -> "sbml-2.3"
 
 describeModelType' :: ModelType -> String
 describeModelType' = Text.unpack . describeModelType
