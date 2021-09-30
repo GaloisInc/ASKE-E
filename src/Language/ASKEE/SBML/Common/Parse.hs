@@ -225,11 +225,7 @@ parseTop el =
   case qName (elName el) of
     "apply" -> asElements (elContent el) >>= parseApply
     "piecewise" -> parsePiecewise el
-    "ci" -> 
-      do  body <- asTexts (elContent el)
-          case body of
-            [b] -> pure (Var (pack b))
-            _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
+    "ci" -> parseCI el
     "cn" ->
       do  tyM <- optAttr parseText el "type"
           case tyM of
@@ -275,6 +271,7 @@ parseApply elems =
         "gt"     -> binop els GT
         "power"  -> binop els Pow
         "sin"    -> unop els Sin
+        "ci"     -> parseCI el
 
         n -> die $ printf "unknown mathematical operator '%s'" n
     [] -> die $ printf "empty application in math element"
@@ -300,6 +297,14 @@ parseApply elems =
       case es of
         [e1, e2] -> op <$> parseTop e1 <*> parseTop e2
         _ -> die $ printf "expected two arguments to binary operator, received '%i'" (length es)
+
+-- <ci> identifiers
+parseCI :: Element -> Parser Math
+parseCI el =
+  do  body <- asTexts (elContent el)
+      case body of
+        [b] -> pure (Var (pack b))
+        _ -> die $ printf "could not interpret perhaps multi-part variable '%s'" (show body)
 
 parsePiecewise :: Element -> Parser Expr
 parsePiecewise el =
