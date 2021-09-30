@@ -6,7 +6,8 @@ module Language.ASKEE.SBML.Common.Parse where
 
 import Control.Monad            ( unless, when )
 import Control.Monad.State.Lazy ( evalState
-                                , get
+                                , gets
+                                , modify
                                 , MonadState(..)
                                 , State )
 import Control.Monad.Except     ( throwError
@@ -14,11 +15,14 @@ import Control.Monad.Except     ( throwError
                                 , MonadError(..)
                                 , ExceptT(..) )
 
-import Data.Char   ( isSpace, toLower )
-import Data.String ( IsString(..) )
-import Data.Text   ( Text, pack )
+import           Data.Char   ( isSpace, toLower )
+import           Data.Map    ( Map )
+import qualified Data.Map    as Map
+import           Data.String ( IsString(..) )
+import           Data.Text   ( Text, pack )
 
-import Language.ASKEE.Expr
+import Language.ASKEE.Expr               ( Expr(..) )
+import Language.ASKEE.ExprTransform      ( substitute )
 import Language.ASKEE.SBML.Common.Syntax
 
 import Prelude hiding ( LT, EQ, GT )
@@ -59,14 +63,14 @@ parseFromString src parser = xml >>= asElement >>= parser
 -------------------------------------------------------------------------------
 
 newtype Parser a = Parser
-  { unParser :: ExceptT Error (State Location) a
+  { unParser :: ExceptT Error (State PState) a
   }
   deriving
     ( Applicative
     , Functor
     , Monad
     , MonadError Error
-    , MonadState Location
+    , MonadState PState
     )
 
 data Error = Error
@@ -83,21 +87,35 @@ ppError Error{..} = printf "error at line %s: %s" ppLoc eMessage
         Location Nothing -> "<no location>"
         Location (Just l) -> show l
 
+data PState = PState
+  { pLocation :: Location 
+  , pFuns :: Map ID Fn
+  }
+
 newtype Location = Location
   { locLinum :: Maybe Line
   }
   deriving (Eq, Show)
 
+type Fn = ([ID], Expr)
+
 runParser :: Parser a -> Either Error a
-runParser (Parser i) = evalState (runExceptT i) (Location Nothing)
+runParser (Parser i) = evalState (runExceptT i) (PState (Location Nothing) mempty)
 
 die :: String -> Parser a
 die eMessage =
-  do  eLoc <- get
+  do  eLoc <- gets pLocation
       throwError Error{..}
 
 setLinum :: Maybe Line -> Parser ()
-setLinum = put . Location
+setLinum linum = modify (\s -> s { pLocation = Location linum })
+
+addFn :: ID -> [ID] -> Expr -> Parser ()
+addFn name args body = modify (\s -> s { pFuns = Map.insert name (args, body) (pFuns s)})
+
+getFn :: ID -> Parser Fn
+getFn name = gets (\s -> pFuns s Map.! name)
+
 
 -------------------------------------------------------------------------------
 
@@ -271,7 +289,7 @@ parseApply elems =
         "gt"     -> binop els GT
         "power"  -> binop els Pow
         "sin"    -> unop els Sin
-        "ci"     -> parseCI el
+        "ci"     -> applyFun elems
 
         n -> die $ printf "unknown mathematical operator '%s'" n
     [] -> die $ printf "empty application in math element"
@@ -343,6 +361,7 @@ parseFunction e =
       lambda <- reqChild pure math "lambda"
       functionArgs <- parseArgs lambda
       functionBody <- parseBody lambda
+      addFn functionID functionArgs functionBody
       pure Function{..}
 
 parseArgs :: Element -> Parser [ID]
@@ -363,6 +382,15 @@ parseBody e =
       when (length body /= 1) $
         die "bad function"
       parseTop (head body)
+
+applyFun :: [Element] -> Parser Expr
+applyFun elems =
+  do  fnID <- asText (head (elContent (head elems)))
+      (params, body) <- getFn (pack fnID)
+      args <- traverse parseTop (tail elems)
+      when (length args /= length params) $
+        die $ printf "function '%s' expected %i arguments, but received %i" fnID (length params) (length args)
+      pure $ substitute (Map.fromList (zip params args)) body
 
 -------------------------------------------------------------------------------
 

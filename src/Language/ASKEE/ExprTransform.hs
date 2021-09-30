@@ -106,6 +106,17 @@ inlineLets' lets m = runIdentity (transformModelExprs go m)
             Nothing -> pure e
         _ -> pure e
 
+substitute :: Map Text Expr.Expr -> Expr.Expr -> Expr.Expr
+substitute replace expr = runIdentity (transformExpr go expr)
+  where
+    go e =
+      case e of
+        Expr.Var v ->
+          case replace Map.!? v of
+            Just e' -> go e'
+            Nothing -> pure e
+        _ -> pure e
+
 -- | Rename variables in an expression via the provided function
 renameExprVarsWith :: (Text -> Text) -> Expr.Expr -> Expr.Expr
 renameExprVarsWith r e = runIdentity $ transformExpr go e
