@@ -56,6 +56,7 @@ ppExpr expr =
     BoolLit b -> if b then "true" else "false"
     Op1 Neg e' -> "-"PP.<>pp e'
     Op1 Not e' -> "not"PP.<+>pp e'
+    Op1 Sin e' -> "sin"<>PP.parens (pp e')
     e1 :+: e2 -> PP.hsep [pp e1, "+", pp e2]
     e1 :-: e2 -> PP.hsep [pp e1, "-", pp e2]
     e1 :*: e2 -> PP.hsep [pp e1, "*", pp e2]
@@ -87,6 +88,7 @@ ppExpr expr =
         BoolLit _ -> 10
         Op1 Neg _ -> 10
         Op1 Not _ -> 10
+        Op1 Sin _ -> 10
         _ :+:   _ -> 6
         _ :-:   _ -> 6
         _ :*:   _ -> 7
