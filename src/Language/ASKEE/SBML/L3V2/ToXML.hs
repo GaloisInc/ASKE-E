@@ -125,7 +125,7 @@ instance Node Species where
                          ]) $
     node n $ catMaybes
       [ mbUnode "notes" speciesNotes
-      , mbUnode "annotatin" speciesAnnotation
+      , mbUnode "annotation" speciesAnnotation
       ]
 
 instance Node Parameter where
