@@ -19,12 +19,15 @@ import Language.ASKEE.SBML.L2V3.Syntax    as SBML
 
 import Prelude hiding ( GT )
 
-sbmlToESL :: SBML.SBML -> ESL.Model
+sbmlToESL :: SBML.SBML -> Either String ESL.Model
 sbmlToESL SBML{..} = modelToESL sbmlModel
 
-modelToESL :: SBML.Model -> ESL.Model
+modelToESL :: SBML.Model -> Either String ESL.Model
 modelToESL SBML.Model{..} = 
-  ESL.Model "foo" (map pure (parametersLets ++ speciesStates)) reactionEvents mempty
+  do  states' <- states
+      let decls = map pure (parameters ++ states' ++ lets)
+          name = fromMaybe "M" modelName
+      Right $ ESL.Model name decls events mempty
   where
 
     letOrParam v e =
@@ -32,9 +35,14 @@ modelToESL SBML.Model{..} =
         Right d -> ESL.Parameter v (Just (LitD d))
         Left _ -> Let v e
     paramMap = Map.fromList (map parameterExpr parameterList)
-    parametersLets = [ letOrParam v e | (v, e) <- map parameterExpr parameterList ]
-    speciesStates = [ State v e | (v, e) <- map speciesExpr speciesList ]
-    reactionEvents = concatMap reactionAsEvents reactionList
+    pls = [ letOrParam v e | (v, e) <- map parameterExpr parameterList ]
+    parameters = [ ESL.Parameter v e | ESL.Parameter v e <- pls ]
+    lets = [ ESL.Let v e | ESL.Let v e <- pls ]
+    
+    states = 
+      do  speciesExprs <- mapM speciesExpr speciesList
+          Right [ State v e | (v, e) <- speciesExprs ]
+    events = concatMap reactionAsEvents reactionList
 
     parameterList = fromMaybe mempty modelParameters
     speciesList = fromMaybe mempty modelSpecies
@@ -45,17 +53,21 @@ modelToESL SBML.Model{..} =
         Nothing -> LitD (fromJust parameterValue)
         Just e -> e
 
-    speciesExpr Species{..} = (speciesID,)
+    speciesExpr Species{..} = fmap (speciesID,)
       case override Map.!? speciesID of
         Nothing ->
           case (speciesInitialAmount, speciesInitialConc) of
-            (Just ia, Nothing) -> LitD ia
-            (Nothing, Just ic) -> LitD ic `Mul` (compartmentSizes Map.! speciesCompartment)
+            (Just ia, Nothing) -> Right (LitD ia)
+            (Nothing, Just ic) -> 
+              do  s <- compartmentSizes >>= lookupE speciesCompartment 
+                  Right (LitD ic `Mul` s)
             _ -> undefined
         Just e ->
           if speciesHasOnlySubstanceUnits
-            then e
-            else e `Mul` (compartmentSizes Map.! speciesCompartment)
+            then Right e
+            else
+              do  s <- compartmentSizes >>= lookupE speciesCompartment
+                  Right (e `Mul` s)
 
     override =
       let initAssigns = fromMaybe mempty modelInitialAssignments
@@ -67,10 +79,17 @@ modelToESL SBML.Model{..} =
             [ (ident, val)
             | AssignmentRule ident val <- rules ]
 
-    compartmentSizes = Map.fromList
-      [ (compartmentID, size)
-      | Compartment{..} <- fromMaybe mempty modelCompartments 
-      , let size = maybe (override Map.! compartmentID) LitD compartmentSize ]
+    compartmentSizes = 
+      sequence $
+        Map.fromList
+          [ (compartmentID, size)
+          | Compartment{..} <- fromMaybe mempty modelCompartments 
+          , let size = maybe (lookupE compartmentID override) (Right . LitD) compartmentSize ]
+
+    lookupE k m =
+      case m Map.!? k of
+        Just v -> Right v
+        Nothing -> Left $ "key "<>show k<>" wasn't present in map "<>show m
 
 reactionAsEvents :: Reaction -> [ESL.Event]
 reactionAsEvents Reaction{..}

@@ -64,7 +64,9 @@ modelTypeOf m =
 -------------------------------------------------------------------------------
 
 asEasel :: Model -> ConversionResult ESL.Model
-asEasel = tryConvs [ unEasel, notExist MT.EaselType ]
+asEasel = tryConvs [ unEasel, unSBMLL2V3 >=> l2V3ToESL, notExist MT.EaselType ]
+  where
+    l2V3ToESL e = fromEither (SBML.l2V3ToESL e)
 
 asCore :: Model -> ConversionResult Core.Model
 asCore = tryConvs [ unCore
