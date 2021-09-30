@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 module Language.ASKEE.SBML.Common.Syntax where
 
 import Control.DeepSeq ( NFData )
 
+import Data.Data ( Data )
 import Data.Text ( Text )
 
 import GHC.Generics ( Generic )
@@ -22,13 +24,13 @@ data Function = Function
   , functionArgs :: [ID]
   , functionBody :: Math
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data UnitDef = UnitDef
   { unitDefID :: ID
   , unitDefUnits :: Maybe [Unit]
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Unit = Unit
   { unitKind       :: UnitKind
@@ -36,7 +38,7 @@ data Unit = Unit
   , unitScale      :: Int
   , unitMultiplier :: Double
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data UnitKind =
     Ampere
@@ -72,7 +74,7 @@ data UnitKind =
   | Volt
   | Watt
   | Weber
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Parameter = Parameter
   { parameterID       :: ID
@@ -82,10 +84,10 @@ data Parameter = Parameter
   , parameterConstant :: Bool
   , parameterNotes    :: Maybe Notes
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 newtype Notes = Notes { getNotes :: [Element] }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 newtype Annotation = Annotation { getAnnotation :: [Element] }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)

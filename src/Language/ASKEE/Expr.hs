@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
@@ -7,6 +8,7 @@ module Language.ASKEE.Expr where
 
 import Control.DeepSeq (NFData)
 
+import Data.Data (Data)
 import Data.List (find)
 import Data.Map  (Map, (!?))
 import Data.Text (Text, unpack)
@@ -38,7 +40,7 @@ data Expr =
   | Var  Text
   | LitD Double
   | LitB Bool
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 
 eval :: Map Text Expr -> Expr -> Either String Double

@@ -1,10 +1,12 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE EmptyDataDeriving #-}
 module Language.ASKEE.SBML.L3V2.Syntax where
 
 import Control.DeepSeq ( NFData )
 
+import Data.Data ( Data )
 import Data.Text ( Text )
 
 import GHC.Generics ( Generic )
@@ -18,7 +20,7 @@ data SBML = SBML
   , sbmlAnnotation :: Maybe Annotation
   , sbmlModel      :: Maybe Model
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 -- TODO models have several more optional attributes, see p. 37
 data Model = Model
@@ -34,7 +36,7 @@ data Model = Model
   , modelReactions          :: Maybe [Reaction]
   , modelEvents             :: Maybe [Event]
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Compartment = Compartment
   { compartmentID         :: ID
@@ -44,7 +46,7 @@ data Compartment = Compartment
   , compartmentConstant   :: Bool
   , compartmentAnnotation :: Maybe Annotation
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Species = Species
   { speciesID                    :: ID
@@ -60,20 +62,20 @@ data Species = Species
   , speciesNotes                 :: Maybe Notes
   , speciesAnnotation            :: Maybe Annotation
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data InitialAssignment = InitialAssignment
   { initialID     :: Maybe ID
   , initialSymbol :: ID
   , initialMath   :: Math
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Rule = AlgebraicRule | AssignmentRule | RateRule
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Constraint
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Reaction = Reaction
   { reactionID          :: ID
@@ -85,7 +87,7 @@ data Reaction = Reaction
   , reactionKineticLaw  :: Maybe KineticLaw
   , reactionAnnotation  :: Maybe Annotation
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data SpeciesRef = SpeciesRef
   { speciesRefID            :: Maybe ID
@@ -94,26 +96,26 @@ data SpeciesRef = SpeciesRef
   , speciesRefStoichiometry :: Maybe Double
   , speciesRefConstant      :: Bool
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data ModifierSpeciesRef = ModifierSpeciesRef
   { modifierSpeciesRefID      :: Maybe ID
   , modifierSpeciesRefSpecies :: ID
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data KineticLaw = KineticLaw
   { kineticMath        :: Maybe Math
   , kineticLocalParams :: Maybe [LocalParam]
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data LocalParam = LocalParam
   { localParamID    :: ID
   , localParamValue :: Maybe Double
   , localParamUnits :: Maybe ID
   }
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
 
 data Event
-  deriving (Eq, Generic, NFData, Ord, Show)
+  deriving (Eq, Generic, NFData, Ord, Show, Data)
