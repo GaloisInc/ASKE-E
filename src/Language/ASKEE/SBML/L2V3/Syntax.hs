@@ -87,12 +87,12 @@ data Rule =
       { ruleMath :: Math
       }
   | AssignmentRule
-      { ruleMath :: Math
-      , ruleVariable :: ID
-      }
+      { ruleVariable :: ID 
+      , ruleMath :: Math
+      } 
   | RateRule
-      { ruleMath :: Math
-      , ruleVariable :: ID
+      { ruleVariable :: ID
+      , ruleMath :: Math
       }
   deriving (Eq, Generic, NFData, Ord, Show, Data)
 
