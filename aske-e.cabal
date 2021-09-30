@@ -278,6 +278,7 @@ test-suite tests
   other-modules:        ASKEE
                       , Exposure
                       , ModelCheck
+                      , SBMLL2V3
                       , SBMLL3V2
                       , Storage
                       , Paths_aske_e
@@ -291,6 +292,7 @@ test-suite tests
                       , file-embed
                       , filepath
                       , mtl
+                      , syb
                       , tasty
                       , tasty-hunit
                       , temporary

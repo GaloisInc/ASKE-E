@@ -3,6 +3,7 @@ module Main where
 import qualified ASKEE
 import qualified Exposure as Exposure
 import qualified ModelCheck
+import qualified SBMLL2V3
 import qualified SBMLL3V2
 import qualified Storage
 
@@ -16,5 +17,6 @@ main =
       , ASKEE.tests
       , Storage.tests
       , Exposure.tests
+      , SBMLL2V3.tests
       , SBMLL3V2.tests
       ]

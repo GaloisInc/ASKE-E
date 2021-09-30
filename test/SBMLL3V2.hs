@@ -2,6 +2,7 @@
 
 module SBMLL3V2 where
 
+import Data.Generics ( Data, everywhere, mkT )
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Text ( Text )
@@ -10,6 +11,7 @@ import Language.ASKEE.Expr
 import qualified Language.ASKEE.SBML as SBML
 import Language.ASKEE.SBML.L3V2.Parse
 import Language.ASKEE.SBML.L3V2.Syntax
+import Language.ASKEE.SBML.L3V2.ToXML
 import Language.ASKEE.SBML.Common.Parse
 import Language.ASKEE.SBML.Common.Syntax
 
@@ -488,21 +490,35 @@ parseWrongName =
 -------------------------------------------------------------------------------
 
 indraModelRoundtrip :: Assertion
-indraModelRoundtrip = do
-  fileContents <- T.readFile "modelRepo/sbml/indra_model.sbml"
+indraModelRoundtrip = roundtripTest "modelRepo/sbml/indra_model.sbml"
+
+roundtripTest :: FilePath -> Assertion
+roundtripTest modelPath = do
+  fileContents <- T.readFile modelPath
   case SBML.parseSBML (T.unpack fileContents) of
     Left err   -> assertFailure err
     Right sbml -> do
-      let ppSBML = SBML.sbmlToXML sbml
+      let ppSBML = sbmlToXML sbml
       case SBML.parseSBML (T.unpack ppSBML) of
         Left err    -> assertFailure err
-        Right sbml' -> sbml @=? sbml'
+        Right sbml' -> scrubLines sbml @=? scrubLines sbml'
+  where
+    -- sbmlToXML does not preserve the line numbers in notes or annotations, so
+    -- don't consider them important when checking for equality.
+    scrubLines :: Data a => a -> a
+    scrubLines = everywhere (mkT scrubElementLine . mkT scrubCDataLine)
+
+    scrubCDataLine :: CData -> CData
+    scrubCDataLine cd = cd{cdLine = (0 <$ cdLine cd)}
+
+    scrubElementLine :: Element -> Element
+    scrubElementLine el = el{elLine = (0 <$ elLine el)}
 
 -------------------------------------------------------------------------------
 
 tests :: TestTree
-tests = testGroup "SBML tests"
-  [ testGroup "SBML parsing tests"
+tests = testGroup "SBML L3V2 tests"
+  [ testGroup "SBML L3V2 parsing tests"
     [ testCase "parseSBMLWrongLevel" parseSBMLWrongLevel
     , testCase "parseSBMLWrongVersion" parseSBMLWrongVersion
 
@@ -550,7 +566,7 @@ tests = testGroup "SBML tests"
     , testCase "parseRightName" parseRightName
     , testCase "parseWrongName" parseWrongName
     ]
-  , testGroup "SBML real-world unit tests"
+  , testGroup "SBML L3V2 real-world unit tests"
     [ testCase "indra_model roundtrip" indraModelRoundtrip
     ]
   ]
