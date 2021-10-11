@@ -24,7 +24,8 @@ DEBUG_TIME = False
 #------------------------------------------------------------------------------
 # Config
 #------------------------------------------------------------------------------
-DONU_WS_ADDRESS = "ws://localhost:8000/:exposure"
+DONU_HOSTNAME = os.environ.get("ASKE_DONU_HOSTNAME", "localhost")
+DONU_WS_ADDRESS = f"ws://{DONU_HOSTNAME}:8000/:exposure"
 vega_lite_schema = "https://vega.github.io/schema/vega-lite/v4.json"
 
 
