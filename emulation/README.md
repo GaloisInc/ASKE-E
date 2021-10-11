@@ -1,13 +1,13 @@
 # Summary
 
-This folder contains code artifacts for work performed on model emulation and model skill assessment, during the summer of 2021.  Descriptions of the Jupyter notebooks can be found in specific sections of the SuperMaaS Interim ARO Report, as specified in the table below.
+This folder contains code artifacts for work performed on model emulation and model skill assessment, during the summer of 2021.  Descriptions of the Jupyter notebooks can be found in specific sections of the [SuperMaaS Interim ARO Report](https://drive.google.com/file/d/1JVX3J-7ga_1df8wYFMf45tP0Grnw9Kbm/view), as specified in the table below.
 
-| Jupyter Notebook           | Report Section                        |
-| -------------------------- | ------------------------------------- |
-| ModelEmulation.ipynb       | Application to Epidemiological Models |
-| BaselineForecasts.ipynb    | Skill Assessment Baselines            |
-| ModelSkillAssessment.ipynb | Skill Assessment Metrics              |
-| ModelFitting.ipynb         | Forecasting via the SIR Model         |
+| Jupyter Notebook           | Report Section                              |
+| -------------------------- | ------------------------------------------- |
+| ModelEmulation.ipynb       | 11.6: Application to Epidemiological Models |
+| BaselineForecasts.ipynb    | 13.1: Skill Assessment Baselines            |
+| ModelSkillAssessment.ipynb | 13.2: Skill Assessment Metrics              |
+| ModelFitting.ipynb         | 13.4: Forecasting via the SIR Model         |
 
 # Notes
 
