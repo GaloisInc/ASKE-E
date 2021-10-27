@@ -15,6 +15,7 @@ $digit   = [0-9]
 
 @string    = \" ($printable # \")* \"
 @exp       = e [\+\-]? $digit+
+@int       = $digit+
 @real      = $digit+ (\. $digit+)? @exp?
 @identHead = [$upper $lower _]
 @identBody = [$upper $lower $digit _]
@@ -65,6 +66,7 @@ tokens :-
 <defSC> \n     { defChar }
 
 <0> @string   { str   }
+<0> @int      { int   }
 <0> @real     { real  }
 <0> @ident    { ident }
 
@@ -72,6 +74,9 @@ tokens :-
 
 {
 type Action = AlexInput -> Int -> Alex Token
+
+int :: Action
+int (_,_,_,s) len = (pure . LitI . read . take len) s
 
 real :: Action
 real (_,_,_,s) len = (pure . LitD . read . take len) s

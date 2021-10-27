@@ -7,6 +7,7 @@
 {-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE RankNTypes #-}
 module Language.ASKEE.Exposure.Interpreter where
 
 import qualified Data.Aeson as JSON
@@ -269,8 +270,8 @@ interpretExpr e0 =
       do  start' <- interpretExpr start
           stop'  <- interpretExpr stop
           step'  <- interpretExpr step
-          case (start', stop', step') of
-            (VDouble startD, VDouble stopD, VDouble stepD) ->
+          case (doubleMaybe start', doubleMaybe stop', doubleMaybe step') of
+            (Just startD, Just stopD, Just stepD) ->
               pure $ VArray $ map VDouble [startD, startD + stepD .. stopD]
             _ -> typeErrorArgs [start', stop', step'] "all values in a range should be doubles"
 
@@ -291,13 +292,13 @@ interpretCall fun args =
     FAdd         -> compilable add
     FSub         -> compilable (binarith (-))
     FMul         -> compilable (binarith (*))
-    FDiv         -> compilable (binarith (/))
-    FGT          -> compilable (bincmpDouble (>))
-    FGTE         -> compilable (bincmpDouble (>=))
-    FLT          -> compilable (bincmpDouble (<))
-    FLTE         -> compilable (bincmpDouble (<=))
-    FEQ          -> compilable (bincmpDouble (==))
-    FNEQ         -> compilable (bincmpDouble (/=))
+    FDiv         -> compilable (binarithDoubleOnly (/))
+    FGT          -> compilable (bincmpGeneric (>))
+    FGTE         -> compilable (bincmpGeneric (>=))
+    FLT          -> compilable (bincmpGeneric (<))
+    FLTE         -> compilable (bincmpGeneric (<=))
+    FEQ          -> compilable (bincmpGeneric (==))
+    FNEQ         -> compilable (bincmpGeneric (/=))
     FNot         -> compilable (unaryBool not)
     FAnd         -> compilable (bincmpBool (&&))
     FOr          -> compilable (bincmpBool (||))
@@ -307,7 +308,9 @@ interpretCall fun args =
         _ -> typeError "P expects a fold and a double as its arguments"
     FSample      ->
       case args of
-        [VDFold df e, VDouble d] -> execSim (Sample 1000 (SFSample d)) df e >>= interpretExpr
+        [VDFold df e, num]
+          |  Just d <- doubleMaybe num
+          -> execSim (Sample 1000 (SFSample d)) df e >>= interpretExpr
         _ -> typeError "sample expects a fold and a double as its arguments"
     FSimulate    ->
       case args of
@@ -321,15 +324,18 @@ interpretCall fun args =
           typeError "fit expects a model, a data series, and a sequence of parameter names"
     FAt          ->
       case args of
-        [VModelExpr e, VDouble d] -> pure $ VDFold (DFAt d) e
+        [VModelExpr e, val]
+          |  Just d <- doubleMaybe val
+          -> pure $ VDFold (DFAt d) e
         [VModelExpr e, times@(VArray _)] ->
           do  times' <- array double times
               pure $ VDFold (DFAtMany times') e
         -- Sampled data is special: each v in vs is a sample of the same time domain,
         -- so they should be grouped accordingly
-        [VSampledData vs, VDouble d] -> do
-          vs' <- traverse getArrayContents vs
-          VArray <$> traverse (\v -> atPoint v d) vs'
+        [VSampledData vs, val]
+          |  Just d <- doubleMaybe val
+          -> do vs' <- traverse getArrayContents vs
+                VArray <$> traverse (\v -> atPoint v d) vs'
         [VArray vs, VDouble d] -> atPoint vs d
         [v1, times@(VArray _)] -> atPoints v1 times
         -- 'at peak' forms
@@ -579,8 +585,12 @@ interpretCall fun args =
         _      -> pure Nothing
       where
         go :: Value -> Value -> Eval (Maybe Value)
-        go (VDouble d1) (VDouble d2) =
-          pure $ Just $ VDouble (d1 + d2)
+        go (VInt i1) (VInt i2) =
+          pure $ Just $ VInt (i1 + i2)
+        go val1 val2
+          | Just d1 <- doubleMaybe val1
+          , Just d2 <- doubleMaybe val2
+          = pure $ Just $ VDouble (d1 + d2)
         go (VTimed v1 t1) (VTimed v2 t2)
           | t1 == t2
           = do  v <- go v1 v2
@@ -613,12 +623,15 @@ interpretCall fun args =
             Just v -> pure v
             _      -> throw err
 
-    bincmpDoubleMb f v1 v2 =
-      case (v1, v2) of
-        (VDouble d1, VDouble d2) -> pure . Just $ VBool (f d1 d2)
+    bincmpGenericMb :: (forall a. Ord a => a -> a -> Bool) -> Value -> Value -> Eval (Maybe Value)
+    bincmpGenericMb f (VInt i1) (VInt i2) = pure . Just $ VBool (f i1 i2)
+    bincmpGenericMb f v1 v2 =
+      case (doubleMaybe v1, doubleMaybe v2) of
+        (Just d1, Just d2) -> pure . Just $ VBool (f d1 d2)
         _ -> pure Nothing
 
-    bincmpDouble f = liftBin (bincmpDoubleMb f) "Cannot compare these (non-boolean) values"
+    bincmpGeneric :: (forall a. Ord a => a -> a -> Bool) -> Eval Value
+    bincmpGeneric f = liftBin (bincmpGenericMb f) "Cannot compare these values"
 
     bincmpBoolMb f v1 v2 =
       case (v1, v2) of
@@ -627,12 +640,25 @@ interpretCall fun args =
 
     bincmpBool f = liftBin (bincmpBoolMb f) "Cannot compare these (non-boolean) values"
 
+    binarithMb :: (forall a. Num a => a -> a -> a) -> Value -> Value -> Eval (Maybe Value)
+    binarithMb f (VInt i1) (VInt i2) = pure . Just $ VInt (f i1 i2)
     binarithMb f v1 v2 =
-      case (v1, v2) of
-        (VDouble d1, VDouble d2) -> pure . Just $ VDouble (f d1 d2)
+      case (doubleMaybe v1, doubleMaybe v2) of
+        (Just d1, Just d2) -> pure . Just $ VDouble (f d1 d2)
         _ -> pure Nothing
 
+    binarith :: (forall a. Num a => a -> a -> a) -> Eval Value
     binarith f = liftBin (binarithMb f) "Cannot do arithmetic on these values"
+
+    binarithDoubleOnlyMb :: (Double -> Double -> Double) -> Value -> Value -> Eval (Maybe Value)
+    binarithDoubleOnlyMb f v1 v2 =
+      case (doubleMaybe v1, doubleMaybe v2) of
+        (Just d1, Just d2) -> pure . Just $ VDouble (f d1 d2)
+        _ -> pure Nothing
+
+    binarithDoubleOnly :: (Double -> Double -> Double) -> Eval Value
+    binarithDoubleOnly f = liftBin (binarithDoubleOnlyMb f)
+                                   "Cannot do arithmetic on these (non-double) values"
 
     unaryBool f =
       case args of
@@ -767,7 +793,6 @@ interpretHistogram (VArray vs) n =
   do ds <- traverse asDouble vs
      nBins <- case n of
                    VInt i    -> pure i
-                   VDouble d -> pure $ floorDoubleInt d
                    _ -> typeErrorArgs [n] "second argument of histogram must be a positive integer"
      let maxVal   = maximum ds
          minVal   = minimum ds
@@ -835,12 +860,14 @@ interpretAsEqnArray v = typeErrorArgs [v] "asEqnArray expects a model"
 interpretMeanError :: (Double -> Double) -> Value -> Value -> Eval Value
 interpretMeanError f vPredicted vActual =
   case (vPredicted, vActual) of
-    (VDouble predicted, VArray actual) ->
-      do  ads <- traverse double actual
-          pure $ meanError $ map (predicted,) ads
-    (VArray predicted, VDouble actual) ->
-      do  pds <- traverse double predicted
-          pure $ meanError $ map (,actual) pds
+    (predictedV, VArray actual)
+      |  Just predicted <- doubleMaybe predictedV
+      -> do  ads <- traverse double actual
+             pure $ meanError $ map (predicted,) ads
+    (VArray predicted, actualV)
+      |  Just actual <- doubleMaybe actualV
+      -> do  pds <- traverse double predicted
+             pure $ meanError $ map (,actual) pds
     (VArray{}, VArray{}) ->
       do  pas <- parallelArrays double vPredicted vActual
           pure $ meanError pas
@@ -1180,8 +1207,7 @@ index v i =
            throw "Index out of bounds"
          pure (v' !! i')
     asInt (VInt iv) = pure iv
-    asInt (VDouble d) = pure (floor d)
-    asInt _ = throw "Array index must be numeric"
+    asInt _ = throw "Array index must be an integer"
 
 mem :: Value -> Ident -> Eval Value
 mem v0 l = chooseLift getMem nope v0
@@ -1243,9 +1269,16 @@ parallelArrays f v1 v2 =
 
 double :: Value -> Eval Double
 double v0 =
+  case doubleMaybe v0 of
+    Just d  -> pure d
+    Nothing -> throw "Expecting number"
+
+doubleMaybe :: Value -> Maybe Double
+doubleMaybe v0 =
   case v0 of
-    VDouble d -> pure d
-    _ -> throw "Expecting number"
+    VDouble d -> Just d
+    VInt i    -> Just (fromIntegral i)
+    _         -> Nothing
 
 str :: Value -> Eval Text
 str v0 =

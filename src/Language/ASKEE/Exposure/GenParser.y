@@ -31,6 +31,7 @@ import Language.ASKEE.Exposure.Syntax as Syntax
 '}}'     { Located _ _ Lexer.CloseCC    }
 '=>'     { Located _ _ Lexer.LambdaArr  }
 '..'     { Located _ _ Lexer.DotDot     }
+INT      { Located _ _ (Lexer.LitI $$)  }
 REAL     { Located _ _ (Lexer.LitD $$)  }
 STRING   { Located _ _ (Lexer.LitS $$)  }
 IDENT    { Located _ _ (Lexer.Ident $$) }
@@ -133,7 +134,8 @@ dispExpr :: { DisplayExpr }
 dispExpr : expr { DisplayScalar $1 }
 
 lit :: { Value }
-lit : REAL   { VDouble $1 }
+lit : INT    { VInt $1    }
+    | REAL   { VDouble $1 }
     | STRING { VString $1 }
 
 bool :: { Value }
